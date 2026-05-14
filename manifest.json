@@ -5,6 +5,6 @@
   "version": "0.0.1",
   "minAppVersion": "1.0.0",
   "description": "Bible preview plugin",
-  "author": "You",
+  "author": "YuBak",
   "main": "main.js"
 }
