@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# build output
+*.js
+*.js.map
+
+# TypeScript
+*.tsbuildinfo
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Obsidian (важно)
+.obsidian/
+
+# Plugin build artifacts (если работаешь из той же папки)
+main.js
+
+# dotenv (на будущее)
+.env
