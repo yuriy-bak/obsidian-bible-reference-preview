@@ -2,7 +2,7 @@ import { Plugin, MarkdownView } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import { ViewPlugin } from "@codemirror/view";
 import { ViewUpdate } from "@codemirror/view";
-
+import { Decoration, WidgetType } from "@codemirror/view";
 
 export default class BiblePlugin extends Plugin {
     async onload() {
@@ -55,27 +55,58 @@ export default class BiblePlugin extends Plugin {
 
     }
 
-
     createCursorExtension() {
         const plugin = this;
 
-        return ViewPlugin.fromClass(
-            class {
-                update(update: ViewUpdate) {
-                    if (update.selectionSet) {
-                        const paragraph = plugin.getCurrentParagraph(update);
+        return ViewPlugin.fromClass(class {
 
-                        console.log("PARAGRAPH:\n", paragraph);
+            decorations = Decoration.none;
+            lastParagraph: string = "";
 
-                        if (paragraph.includes("Привет")) {
-                            console.log("✅ Есть слово Привет");
-                        } else {
-                            console.log("❌ Нет слова Привет");
-                        }
-                    }
+            update(update: ViewUpdate) {
+                if (!update.selectionSet && !update.docChanged) return;
+
+                const paragraph = plugin.getCurrentParagraph(update);
+
+                // ✅ если абзац не изменился — ничего не делаем
+                if (paragraph === this.lastParagraph) {
+                    return;
                 }
+
+                this.lastParagraph = paragraph;
+
+                if (!paragraph) {
+                    this.decorations = Decoration.none;
+                    return;
+                }
+
+                const end = plugin.getParagraphEnd(update);
+                if (end === null) {
+                    this.decorations = Decoration.none;
+                    return;
+                }
+
+                const text = plugin.analyzeParagraph(paragraph);
+
+                const deco = Decoration.widget({
+                    widget: new BibleWidget(text),
+                    side: 1
+                }).range(end);
+
+                this.decorations = Decoration.set([deco]);
             }
-        );
+
+        },
+            {
+                decorations: v => v.decorations
+            });
+    }
+
+    analyzeParagraph(text: string): string {
+        if (text.includes("Привет")) {
+            return "✅ Есть слово Привет";
+        }
+        return "❌ Нет слова Привет";
     }
 
     getCurrentParagraph(update: ViewUpdate): string {
@@ -115,6 +146,55 @@ export default class BiblePlugin extends Plugin {
         }
 
         return lines.join("\n");
+    }
+
+
+    getParagraphEnd(update: ViewUpdate): number | null {
+        const doc = update.state.doc;
+
+        const pos = update.state.selection.main.head;
+        let line = doc.lineAt(pos);
+
+        // если пустая строка — нет абзаца
+        if (line.text.trim() === "") {
+            return null;
+        }
+
+        let current = line;
+
+        // идём вниз до конца абзаца
+        while (current.number < doc.lines) {
+            const next = doc.line(current.number + 1);
+            if (next.text.trim() === "") break;
+
+            current = next;
+        }
+
+        return current.to;
+    }
+
+}
+
+class BibleWidget extends WidgetType {
+    text: string;
+
+    constructor(text: string) {
+        super();
+        this.text = text;
+    }
+
+    toDOM(): HTMLElement {
+        const el = document.createElement("div");
+
+        el.style.border = "1px solid var(--color-accent)";
+        el.style.padding = "6px";
+        el.style.marginTop = "6px";
+        el.style.borderRadius = "6px";
+        el.style.background = "var(--background-secondary)";
+
+        el.textContent = this.text;
+
+        return el;
     }
 
 }
