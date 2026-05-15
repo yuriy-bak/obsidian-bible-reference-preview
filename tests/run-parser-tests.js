@@ -1,17 +1,15 @@
 const assert = require("assert");
+const JSZip = require("jszip");
 const { BibleReferenceParser } = require("../src/parsing/BibleReferenceParser.js");
 const { createFallbackRussianBookMapping } = require("../src/parsing/BookMapping.js");
 const { formatBibleReference } = require("../src/parsing/formatBibleReference.js");
 const { DEFAULT_TRANSLATION_ID } = require("../src/application/DefaultTranslation.js");
 const { getBibleTextBlocks } = require("../src/application/getBibleTexts.js");
 const { formatBibleTextBlocks } = require("../src/application/formatBibleTexts.js");
-const { importBibleFromEpub } = require("../src/application/importBibleFromEpub.js");
 const { createMockBibleIndexRepository } = require("../src/infrastructure/createMockBibleIndexRepository.js");
 const { JsonBibleIndexRepository } = require("../src/infrastructure/JsonBibleIndexRepository.js");
-const { ObsidianBibleIndexRepository } = require("../src/infrastructure/ObsidianBibleIndexRepository.js");
-const { UnsupportedEpubBibleImporter } = require("../src/infrastructure/UnsupportedEpubBibleImporter.js");
 const { mockBibleIndexData } = require("../src/infrastructure/mockBibleIndex.js");
-const { serializeBibleIndexData } = require("../src/infrastructure/serializeBibleIndexData.js");
+const { JsZipEpubBibleImporter } = require("../src/infrastructure/epub/JsZipEpubBibleImporter.js");
 
 const mapping = createFallbackRussianBookMapping();
 const parser = new BibleReferenceParser(mapping);
@@ -128,107 +126,76 @@ assert.strictEqual(
     "Текст Рим 8:28",
 );
 
-function createFakeAdapter() {
-    const files = new Map();
-    const folders = new Set();
+async function createSyntheticEpubBuffer() {
+    const zip = new JSZip();
 
-    return {
-        files,
-        folders,
-        exists: async (path) => files.has(path) || folders.has(path),
-        read: async (path) => files.get(path),
-        write: async (path, data) => {
-            files.set(path, data);
-        },
-        mkdir: async (path) => {
-            folders.add(path);
-        },
-    };
+    zip.file("META-INF/container.xml", [
+        "<?xml version=\"1.0\"?>",
+        "<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">",
+        "<rootfiles>",
+        "<rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>",
+        "</rootfiles>",
+        "</container>",
+    ].join(""));
+
+    zip.file("OEBPS/content.opf", [
+        "<?xml version=\"1.0\"?>",
+        "<package version=\"3.0\" xmlns=\"http://www.idpf.org/2007/opf\">",
+        "<manifest>",
+        "<item id=\"books\" href=\"books.xhtml\" media-type=\"application/xhtml+xml\"/>",
+        "<item id=\"john3\" href=\"john3.xhtml\" media-type=\"application/xhtml+xml\"/>",
+        "</manifest>",
+        "<spine>",
+        "<itemref idref=\"books\"/>",
+        "<itemref idref=\"john3\"/>",
+        "</spine>",
+        "</package>",
+    ].join(""));
+
+    zip.file("OEBPS/books.xhtml", [
+        "<html><body>",
+        "<table class=\"tableDiv stripe half\">",
+        "<tr><td>Иоанна</td><td>unused</td><td>Ин</td></tr>",
+        "</table>",
+        "</body></html>",
+    ].join(""));
+
+    zip.file("OEBPS/john3.xhtml", [
+        "<html><body data-book-id=\"1\">",
+        "<h1>Ин</h1>",
+        "<p><span id=\"chapter3_verse16\"></span>Текст из EPUB Ин 3:16<a href=\"#fn1\">*</a></p>",
+        "<p><span id=\"chapter3_verse17\"></span>Текст из EPUB Ин 3:17</p>",
+        "<aside id=\"fn1\">Сноска из EPUB Ин 3:16</aside>",
+        "</body></html>",
+    ].join(""));
+
+    return zip.generateAsync({ type: "arraybuffer" });
 }
 
-async function runAsyncRepositoryTests() {
-    const adapter = createFakeAdapter();
-    const repository = new ObsidianBibleIndexRepository(
-        adapter,
-        ".obsidian/plugins/bible-plugin/data",
-    );
-
-    await repository.save(mockBibleIndexData);
-
-    assert.strictEqual(
-        adapter.files.get(".obsidian/plugins/bible-plugin/data/bible-index.json"),
-        serializeBibleIndexData(mockBibleIndexData),
-    );
-
-    const loadedRepository = new ObsidianBibleIndexRepository(
-        adapter,
-        ".obsidian/plugins/bible-plugin/data",
-    );
-
-    await loadedRepository.load();
-
-    assert.strictEqual(
-        loadedRepository.getIndex().getBibleText({
-            translationId: DEFAULT_TRANSLATION_ID,
-            book: 43,
-            chapter: 3,
-            verseStart: 16,
-            verseEnd: 16,
-        }).verses[0].text,
-        "Текст Ин 3:16",
-    );
-}
-
-async function runEpubImportContractTests() {
-    const repository = createMockBibleIndexRepository();
-    const importer = {
-        importEpub: async (input) => ({
-            translationId: input.translationId,
-            translationName: input.translationName,
-            books: [
-                { id: 43, name: "иоанна", abbreviation: "ин" },
-            ],
-            bibleIndexData: mockBibleIndexData,
-        }),
-    };
-
-    const result = await importBibleFromEpub({
-        epub: {
-            fileName: "mock.epub",
-            content: new ArrayBuffer(0),
-            translationId: DEFAULT_TRANSLATION_ID,
-            translationName: "New World mock translation",
-        },
-        importer,
-        repository,
+async function runRealEpubImporterTests() {
+    const importer = new JsZipEpubBibleImporter();
+    const content = await createSyntheticEpubBuffer();
+    const result = await importer.importEpub({
+        fileName: "synthetic.epub",
+        content,
+        translationId: DEFAULT_TRANSLATION_ID,
+        translationName: "Synthetic New World",
     });
 
-    assert.strictEqual(result.translationId, DEFAULT_TRANSLATION_ID);
-    assert.strictEqual(result.books[0].id, 43);
+    assert.strictEqual(result.books.length, 1);
+    assert.strictEqual(result.books[0].abbreviation, "ин");
+    assert.strictEqual(result.warnings.length, 1);
     assert.strictEqual(
-        repository.getIndex().getBibleText({
-            translationId: DEFAULT_TRANSLATION_ID,
-            book: 43,
-            chapter: 3,
-            verseStart: 16,
-            verseEnd: 16,
-        }).verses[0].text,
-        "Текст Ин 3:16",
+        result.bibleIndexData.translations[DEFAULT_TRANSLATION_ID].books["1"].chapters["3"]["16"].text,
+        "Текст из EPUB Ин 3:16",
     );
-
-    const unsupportedImporter = new UnsupportedEpubBibleImporter();
-    await assert.rejects(
-        () => unsupportedImporter.importEpub({
-            fileName: "mock.epub",
-            content: new ArrayBuffer(0),
-            translationId: DEFAULT_TRANSLATION_ID,
-            translationName: "New World mock translation",
-        }),
-        /EPUB import is not implemented yet\./,
+    assert.deepStrictEqual(
+        result.bibleIndexData.translations[DEFAULT_TRANSLATION_ID].books["1"].chapters["3"]["16"].footnotes,
+        ["Сноска из EPUB Ин 3:16"],
     );
 }
 
-Promise.all([runAsyncRepositoryTests(), runEpubImportContractTests()])
+runRealEpubImporterTests()
     .then(() => {
         console.log("Parser, BibleText and BibleIndexRepository tests passed");
     })

@@ -4,7 +4,7 @@
     "module": "commonjs",
     "lib": [
       "DOM",
-      "ES2017"
+      "ES2020"
     ],
     "moduleResolution": "Node",
     "strict": true,

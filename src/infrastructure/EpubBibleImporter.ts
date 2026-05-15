@@ -13,6 +13,7 @@ export type EpubBibleImportResult = {
     translationName: string;
     books: BibleBook[];
     bibleIndexData: BibleIndexData;
+    warnings: string[];
 };
 
 export type EpubBibleImporter = {

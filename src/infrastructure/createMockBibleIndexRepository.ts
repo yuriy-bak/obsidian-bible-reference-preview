@@ -1,7 +1,7 @@
-import { WritableBibleIndexRepository } from "./BibleIndexRepository";
+import { BibleIndexRepository } from "./BibleIndexRepository";
 import { JsonBibleIndexRepository } from "./JsonBibleIndexRepository";
 import { mockBibleIndexData } from "./mockBibleIndex";
 
-export function createMockBibleIndexRepository(): WritableBibleIndexRepository {
+export function createMockBibleIndexRepository(): BibleIndexRepository {
     return new JsonBibleIndexRepository(mockBibleIndexData);
 }
