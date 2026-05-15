@@ -5,10 +5,12 @@ const { formatBibleReference } = require("../src/parsing/formatBibleReference.js
 const { DEFAULT_TRANSLATION_ID } = require("../src/application/DefaultTranslation.js");
 const { getBibleTextBlocks } = require("../src/application/getBibleTexts.js");
 const { formatBibleTextBlocks } = require("../src/application/formatBibleTexts.js");
+const { importBibleFromEpub } = require("../src/application/importBibleFromEpub.js");
 const { createMockBibleIndexRepository } = require("../src/infrastructure/createMockBibleIndexRepository.js");
 const { JsonBibleIndexRepository } = require("../src/infrastructure/JsonBibleIndexRepository.js");
-const { mockBibleIndexData } = require("../src/infrastructure/mockBibleIndex.js");
 const { ObsidianBibleIndexRepository } = require("../src/infrastructure/ObsidianBibleIndexRepository.js");
+const { UnsupportedEpubBibleImporter } = require("../src/infrastructure/UnsupportedEpubBibleImporter.js");
+const { mockBibleIndexData } = require("../src/infrastructure/mockBibleIndex.js");
 const { serializeBibleIndexData } = require("../src/infrastructure/serializeBibleIndexData.js");
 
 const mapping = createFallbackRussianBookMapping();
@@ -177,7 +179,56 @@ async function runAsyncRepositoryTests() {
     );
 }
 
-runAsyncRepositoryTests()
+async function runEpubImportContractTests() {
+    const repository = createMockBibleIndexRepository();
+    const importer = {
+        importEpub: async (input) => ({
+            translationId: input.translationId,
+            translationName: input.translationName,
+            books: [
+                { id: 43, name: "иоанна", abbreviation: "ин" },
+            ],
+            bibleIndexData: mockBibleIndexData,
+        }),
+    };
+
+    const result = await importBibleFromEpub({
+        epub: {
+            fileName: "mock.epub",
+            content: new ArrayBuffer(0),
+            translationId: DEFAULT_TRANSLATION_ID,
+            translationName: "New World mock translation",
+        },
+        importer,
+        repository,
+    });
+
+    assert.strictEqual(result.translationId, DEFAULT_TRANSLATION_ID);
+    assert.strictEqual(result.books[0].id, 43);
+    assert.strictEqual(
+        repository.getIndex().getBibleText({
+            translationId: DEFAULT_TRANSLATION_ID,
+            book: 43,
+            chapter: 3,
+            verseStart: 16,
+            verseEnd: 16,
+        }).verses[0].text,
+        "Текст Ин 3:16",
+    );
+
+    const unsupportedImporter = new UnsupportedEpubBibleImporter();
+    await assert.rejects(
+        () => unsupportedImporter.importEpub({
+            fileName: "mock.epub",
+            content: new ArrayBuffer(0),
+            translationId: DEFAULT_TRANSLATION_ID,
+            translationName: "New World mock translation",
+        }),
+        /EPUB import is not implemented yet\./,
+    );
+}
+
+Promise.all([runAsyncRepositoryTests(), runEpubImportContractTests()])
     .then(() => {
         console.log("Parser, BibleText and BibleIndexRepository tests passed");
     })

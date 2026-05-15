@@ -1,14 +1,14 @@
 import type { DataAdapter } from "obsidian";
 import { BibleIndex } from "./BibleIndex";
 import { BibleIndexData } from "./BibleIndexData";
-import { BibleIndexRepository } from "./BibleIndexRepository";
+import { WritableBibleIndexRepository } from "./BibleIndexRepository";
 import { InMemoryBibleIndex } from "./InMemoryBibleIndex";
 import { mockBibleIndexData } from "./mockBibleIndex";
 import { serializeBibleIndexData } from "./serializeBibleIndexData";
 
 const BIBLE_INDEX_FILE_NAME = "bible-index.json";
 
-export class ObsidianBibleIndexRepository implements BibleIndexRepository {
+export class ObsidianBibleIndexRepository implements WritableBibleIndexRepository {
     private currentData: BibleIndexData;
 
     constructor(
