@@ -87,6 +87,10 @@ export default class BiblePlugin extends Plugin {
                 }
 
                 const text = plugin.analyzeParagraph(paragraph);
+                if (text === "") {
+                    this.decorations = Decoration.none;
+                    return;
+                }
 
                 const deco = Decoration.widget({
                     widget: new BibleWidget(text),
@@ -106,7 +110,7 @@ export default class BiblePlugin extends Plugin {
         if (text.includes("Привет")) {
             return "✅ Есть слово Привет";
         }
-        return "❌ Нет слова Привет";
+        return "";
     }
 
     getCurrentParagraph(update: ViewUpdate): string {
