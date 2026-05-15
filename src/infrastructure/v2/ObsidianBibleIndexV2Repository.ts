@@ -89,6 +89,26 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         this.currentLegacyData = null;
     }
 
+
+    async deleteTranslation(translationId: string): Promise<void> {
+        if (this.currentV2Data === null || this.currentV2Data.translations[translationId] === undefined) {
+            return;
+        }
+
+        const nextData: BibleIndexV2Data = {
+            version: 2,
+            translations: { ...this.currentV2Data.translations },
+        };
+
+        delete nextData.translations[translationId];
+        await this.removeTranslationDirectory(translationId);
+        await this.ensureDirectoryExists(this.dataDirectoryPath);
+        await this.adapter.write(this.getMetadataPath(), JSON.stringify(nextData));
+
+        this.currentV2Data = nextData;
+        this.currentLegacyData = null;
+    }
+
     getIndex(): BibleIndex {
         return this.currentV2Data !== null
             ? new LazyBibleIndexV2(this.currentV2Data, this)

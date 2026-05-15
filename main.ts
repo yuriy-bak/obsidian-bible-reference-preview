@@ -1,3 +1,4 @@
+
 import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting } from "obsidian";
 import type { BibleIndexData } from "./src/infrastructure/BibleIndexData";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
@@ -50,6 +51,25 @@ function dispatchBibleDecorations(view: EditorView, decorations: DecorationSet):
         });
     }, 0);
 }
+
+type BiblePluginSettings = {
+    translationOrder: string[];
+};
+
+const DEFAULT_SETTINGS: BiblePluginSettings = {
+    translationOrder: [],
+};
+
+type TranslationSettingsItem = {
+    id: string;
+    name: string;
+    language: string;
+    sourceFileName: string;
+    bookCount: number;
+    isActive: boolean;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+};
 export default class BiblePlugin extends Plugin {
     private bookMapping = createFallbackRussianBookMapping();
     private bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
@@ -58,15 +78,19 @@ export default class BiblePlugin extends Plugin {
     private activeV2Data: BibleIndexV2Data | null = null;
     private activeLegacyData: BibleIndexData | null = this.fallbackBibleIndexRepository.getData();
     private activeTranslationId = DEFAULT_TRANSLATION_ID;
+    private settings: BiblePluginSettings = { ...DEFAULT_SETTINGS };
+    private settingsTab: BiblePluginSettingTab | null = null;
 
     async onload() {
         console.log("Bible plugin loaded");
+        await this.loadPluginSettings();
         await this.loadBibleIndex();
         this.addCommand({ id: "import-epub-bible", name: "Import EPUB Bible", callback: () => this.openEpubFilePicker() });
         this.addCommand({ id: "reload-bible-index", name: "Reload Bible Index", callback: () => void this.reloadBibleIndex() });
         this.addCommand({ id: "open-bible-index-folder", name: "Open Bible Index Folder", callback: () => void this.openBibleIndexFolder() });
         this.addCommand({ id: "show-bible-index-stats", name: "Show Bible Index Stats", callback: () => void this.showBibleIndexStats() });
-        this.addSettingTab(new BiblePluginSettingTab(this.app, this));
+        this.settingsTab = new BiblePluginSettingTab(this.app, this);
+        this.addSettingTab(this.settingsTab);
         this.registerEditorExtension(this.createCursorExtension());
     }
 
@@ -79,6 +103,8 @@ export default class BiblePlugin extends Plugin {
             this.bibleIndex = repository.getIndex();
             this.activeV2Data = repository.getV2Data();
             this.activeLegacyData = repository.getLegacyData();
+            const lastImportReport = await repository.readLastImportReport();
+            await this.syncTranslationOrder(this.activeV2Data, lastImportReport?.translationId);
             this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
             this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
         } catch (error) {
@@ -91,7 +117,11 @@ export default class BiblePlugin extends Plugin {
         }
     }
 
-    private async reloadBibleIndex(): Promise<void> { await this.loadBibleIndex(); new Notice("Bible index reloaded.", 5000); }
+    private async reloadBibleIndex(): Promise<void> {
+        await this.loadBibleIndex();
+        this.refreshSettingsTab();
+        new Notice("Bible index reloaded.", 5000);
+    }
 
     public openEpubFilePicker(): void {
         const input = document.createElement("input");
@@ -137,8 +167,10 @@ export default class BiblePlugin extends Plugin {
                 this.bibleIndex = repository.getIndex();
                 this.activeV2Data = repository.getV2Data();
                 this.activeLegacyData = repository.getLegacyData();
-                this.activeTranslationId = result.translationId;
+                await this.promoteTranslationToTop(result.translationId);
+                this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
                 this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+                this.refreshSettingsTab();
                 progressNotice.hide();
 
                 if (result.warnings.length > 0) console.warn("EPUB import warnings", result.warnings);
@@ -217,6 +249,14 @@ export default class BiblePlugin extends Plugin {
         return new ObsidianBibleIndexV2Repository(this.app.vault.adapter, this.getBibleIndexDataDirectoryPath());
     }
 
+    private async loadPluginSettings(): Promise<void> {
+        this.settings = normalizePluginSettings(await this.loadData());
+    }
+
+    private async savePluginSettings(): Promise<void> {
+        await this.saveData(this.settings);
+    }
+
     private updateBookMapping(v2Data: BibleIndexV2Data | null, legacyData: BibleIndexData | null): void {
         this.bookMapping = v2Data !== null
             ? createBookMappingFromBibleIndexV2Data(v2Data, this.activeTranslationId)
@@ -229,11 +269,171 @@ export default class BiblePlugin extends Plugin {
             return DEFAULT_TRANSLATION_ID;
         }
 
-        if (v2Data.translations[this.activeTranslationId] !== undefined) {
-            return this.activeTranslationId;
+        const availableTranslations = new Set(Object.keys(v2Data.translations));
+        return this.settings.translationOrder.find((translationId) => availableTranslations.has(translationId))
+            ?? Object.keys(v2Data.translations)[0]
+            ?? DEFAULT_TRANSLATION_ID;
+    }
+
+    private async syncTranslationOrder(
+        v2Data: BibleIndexV2Data | null,
+        preferredTranslationId?: string,
+    ): Promise<void> {
+        if (v2Data === null) {
+            return;
         }
 
-        return Object.keys(v2Data.translations).sort()[0] ?? DEFAULT_TRANSLATION_ID;
+        const availableTranslationIds = Object.keys(v2Data.translations);
+        const availableTranslations = new Set(availableTranslationIds);
+        const nextOrder: string[] = [];
+
+        if (this.settings.translationOrder.length === 0
+            && preferredTranslationId !== undefined
+            && availableTranslations.has(preferredTranslationId)) {
+            nextOrder.push(preferredTranslationId);
+        }
+
+        for (const translationId of this.settings.translationOrder) {
+            if (availableTranslations.has(translationId) && !nextOrder.includes(translationId)) {
+                nextOrder.push(translationId);
+            }
+        }
+
+        for (const translationId of availableTranslationIds) {
+            if (!nextOrder.includes(translationId)) {
+                nextOrder.push(translationId);
+            }
+        }
+
+        if (!areStringArraysEqual(this.settings.translationOrder, nextOrder)) {
+            this.settings = { ...this.settings, translationOrder: nextOrder };
+            await this.savePluginSettings();
+        }
+    }
+
+    private async promoteTranslationToTop(translationId: string): Promise<void> {
+        const nextOrder = [
+            translationId,
+            ...this.settings.translationOrder.filter((existingTranslationId) => existingTranslationId !== translationId),
+        ];
+
+        this.settings = { ...this.settings, translationOrder: nextOrder };
+        await this.savePluginSettings();
+        await this.syncTranslationOrder(this.activeV2Data, translationId);
+    }
+
+    public getTranslationSettingsItems(): TranslationSettingsItem[] {
+        if (this.activeV2Data === null) {
+            return [];
+        }
+
+        const translations = this.activeV2Data.translations;
+        const order = this.settings.translationOrder.filter((translationId) => translations[translationId] !== undefined);
+
+        return order.map((translationId, index) => {
+            const translation = translations[translationId];
+            return {
+                id: translationId,
+                name: translation.name,
+                language: translation.language,
+                sourceFileName: translation.sourceFileName ?? "",
+                bookCount: Object.keys(translation.books).length,
+                isActive: translationId === this.activeTranslationId,
+                canMoveUp: index > 0,
+                canMoveDown: index < order.length - 1,
+            };
+        });
+    }
+
+    public async moveTranslation(translationId: string, direction: -1 | 1): Promise<void> {
+        const currentIndex = this.settings.translationOrder.indexOf(translationId);
+        const nextIndex = currentIndex + direction;
+
+        if (currentIndex < 0 || nextIndex < 0 || nextIndex >= this.settings.translationOrder.length) {
+            return;
+        }
+
+        const nextOrder = [...this.settings.translationOrder];
+        [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
+        this.settings = { ...this.settings, translationOrder: nextOrder };
+        await this.savePluginSettings();
+        await this.syncTranslationOrder(this.activeV2Data);
+        this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
+        this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+        new Notice(`Текущий перевод: ${this.getActiveTranslationDisplayName()}`, 4000);
+    }
+
+    public async setTranslationOrder(nextOrder: string[]): Promise<void> {
+        const availableTranslations = new Set(Object.keys(this.activeV2Data?.translations ?? {}));
+        const currentOrder = this.getTranslationSettingsItems().map((translation) => translation.id);
+        const normalizedOrder: string[] = [];
+
+        for (const translationId of nextOrder) {
+            if (availableTranslations.has(translationId) && !normalizedOrder.includes(translationId)) {
+                normalizedOrder.push(translationId);
+            }
+        }
+
+        for (const translationId of currentOrder) {
+            if (!normalizedOrder.includes(translationId)) {
+                normalizedOrder.push(translationId);
+            }
+        }
+
+        if (areStringArraysEqual(this.settings.translationOrder, normalizedOrder)) {
+            return;
+        }
+
+        this.settings = { ...this.settings, translationOrder: normalizedOrder };
+        await this.savePluginSettings();
+        await this.syncTranslationOrder(this.activeV2Data);
+        this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
+        this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+        new Notice(`Текущий перевод: ${this.getActiveTranslationDisplayName()}`, 4000);
+    }
+
+    public async deleteImportedTranslation(translationId: string): Promise<void> {
+        if (this.activeV2Data?.translations[translationId] === undefined) {
+            return;
+        }
+
+        const translationName = this.activeV2Data.translations[translationId].name || translationId;
+        const confirmed = window.confirm([
+            `Удалить перевод "${translationName}"?`,
+            "",
+            "Будут удалены файлы перевода и запись в индексе.",
+            "Если перевод понадобится снова, его нужно будет импортировать заново.",
+        ].join("\n"));
+
+        if (!confirmed) {
+            return;
+        }
+
+        const repository = this.createObsidianBibleIndexRepository();
+        await repository.load();
+        await repository.deleteTranslation(translationId);
+
+        this.bibleIndex = repository.getIndex();
+        this.activeV2Data = repository.getV2Data();
+        this.activeLegacyData = repository.getLegacyData();
+        this.settings = {
+            ...this.settings,
+            translationOrder: this.settings.translationOrder.filter((existingTranslationId) => existingTranslationId !== translationId),
+        };
+        await this.savePluginSettings();
+        await this.syncTranslationOrder(this.activeV2Data);
+        this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
+        this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+        new Notice(`Перевод удалён: ${translationName}`, 5000);
+    }
+
+    public getActiveTranslationDisplayName(): string {
+        const translation = this.activeV2Data?.translations[this.activeTranslationId];
+        return translation === undefined ? this.activeTranslationId : `${translation.name} (${translation.language})`;
+    }
+
+    private refreshSettingsTab(): void {
+        this.settingsTab?.display();
     }
 
     private getBibleIndexDataDirectoryPath(): string { return `${this.getPluginDirectoryPath()}/data`; }
@@ -525,22 +725,181 @@ class BibleTranslationImportModal extends Modal {
 
 class BiblePluginSettingTab extends PluginSettingTab {
     constructor(app: App, private readonly plugin: BiblePlugin) { super(app, plugin); }
+
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
         containerEl.createEl("h2", { text: "Bible Plugin" });
+
         new Setting(containerEl)
             .setName("Импортировать EPUB")
             .setDesc("Создать или заменить перевод в bibles-index.json и compact JSON по книгам.")
             .addButton((button) => button.setButtonText("Импортировать EPUB").setCta().onClick(() => this.plugin.openEpubFilePicker()));
+
+        this.renderTranslationsSection(containerEl);
+
         new Setting(containerEl)
             .setName("Открыть папку индекса")
             .setDesc("На desktop открывает data-папку индекса в системном файловом менеджере. На Android показывает путь.")
             .addButton((button) => button.setButtonText("Открыть папку индекса").onClick(() => void this.plugin.openBibleIndexFolder()));
+
         new Setting(containerEl)
             .setName("Показать статистику индекса")
             .setDesc("Показывает информацию о последнем импорте.")
             .addButton((button) => button.setButtonText("Показать статистику").onClick(() => void this.plugin.showBibleIndexStats()));
+    }
+
+    private renderTranslationsSection(containerEl: HTMLElement): void {
+        containerEl.createEl("h3", { text: "Порядок переводов" });
+        containerEl.createEl("p", {
+            text: "Перетащи перевод, чтобы изменить порядок. Верхний перевод в списке используется сейчас. Позже этот порядок будет использоваться как приоритет автопоиска.",
+        });
+
+        const translations = this.plugin.getTranslationSettingsItems();
+
+        if (translations.length === 0) {
+            containerEl.createEl("p", { text: "Импортированных переводов пока нет." });
+            return;
+        }
+
+        const listEl = containerEl.createDiv();
+        listEl.style.display = "flex";
+        listEl.style.flexDirection = "column";
+        listEl.style.gap = "6px";
+        listEl.style.marginBottom = "12px";
+
+        let draggedTranslationId: string | null = null;
+        const rows: HTMLElement[] = [];
+
+        const clearDropStyles = (): void => {
+            for (const row of rows) {
+                row.style.borderTop = "1px solid var(--background-modifier-border)";
+                row.style.borderBottom = "1px solid var(--background-modifier-border)";
+            }
+        };
+
+        for (const translation of translations) {
+            const row = listEl.createDiv();
+            rows.push(row);
+            row.draggable = true;
+            row.style.display = "flex";
+            row.style.alignItems = "center";
+            row.style.gap = "8px";
+            row.style.padding = "8px";
+            row.style.border = "1px solid var(--background-modifier-border)";
+            row.style.borderRadius = "6px";
+            row.style.background = translation.isActive ? "var(--background-secondary)" : "var(--background-primary)";
+            row.style.cursor = "grab";
+
+            const dragHandle = row.createSpan({ text: "☰" });
+            dragHandle.style.opacity = "0.7";
+            dragHandle.style.fontSize = "18px";
+            dragHandle.style.lineHeight = "1";
+
+            const textEl = row.createDiv();
+            textEl.style.flex = "1";
+            textEl.style.minWidth = "0";
+
+            const titleEl = textEl.createDiv({ text: `${translation.isActive ? "✓ " : ""}${translation.name || translation.id}` });
+            titleEl.style.fontWeight = translation.isActive ? "600" : "500";
+
+            const description = [
+                `ID: ${translation.id}`,
+                `Язык: ${translation.language || "und"}`,
+                `Книг: ${translation.bookCount}`,
+                translation.sourceFileName.length === 0 ? "" : `Файл: ${translation.sourceFileName}`,
+            ].filter((part) => part.length > 0).join(" · ");
+
+            const descriptionEl = textEl.createDiv({ text: description });
+            descriptionEl.style.fontSize = "12px";
+            descriptionEl.style.color = "var(--text-muted)";
+            descriptionEl.style.overflow = "hidden";
+            descriptionEl.style.textOverflow = "ellipsis";
+            descriptionEl.style.whiteSpace = "nowrap";
+
+            const deleteButton = row.createEl("button", { text: "🗑" });
+            deleteButton.setAttribute("aria-label", `Удалить перевод ${translation.name || translation.id}`);
+            deleteButton.style.cursor = "pointer";
+            deleteButton.addEventListener("click", async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                await this.plugin.deleteImportedTranslation(translation.id);
+                this.display();
+            });
+
+            row.addEventListener("dragstart", (event) => {
+                draggedTranslationId = translation.id;
+                row.style.opacity = "0.5";
+
+                if (event.dataTransfer !== null) {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", translation.id);
+                }
+            });
+
+            row.addEventListener("dragend", () => {
+                draggedTranslationId = null;
+                row.style.opacity = "1";
+                clearDropStyles();
+            });
+
+            row.addEventListener("dragover", (event) => {
+                const sourceTranslationId = event.dataTransfer?.getData("text/plain") || draggedTranslationId;
+                if (sourceTranslationId === null || sourceTranslationId === translation.id) {
+                    return;
+                }
+
+                event.preventDefault();
+                clearDropStyles();
+
+                const rect = row.getBoundingClientRect();
+                const insertAfter = event.clientY > rect.top + rect.height / 2;
+                if (insertAfter) {
+                    row.style.borderBottom = "2px solid var(--color-accent)";
+                } else {
+                    row.style.borderTop = "2px solid var(--color-accent)";
+                }
+            });
+
+            row.addEventListener("dragleave", () => {
+                row.style.borderTop = "1px solid var(--background-modifier-border)";
+                row.style.borderBottom = "1px solid var(--background-modifier-border)";
+            });
+
+            row.addEventListener("drop", async (event) => {
+                event.preventDefault();
+                const sourceTranslationId = event.dataTransfer?.getData("text/plain") || draggedTranslationId;
+                clearDropStyles();
+
+                if (sourceTranslationId === null || sourceTranslationId === translation.id) {
+                    return;
+                }
+
+                const nextOrder = this.plugin.getTranslationSettingsItems().map((item) => item.id);
+                const sourceIndex = nextOrder.indexOf(sourceTranslationId);
+                let targetIndex = nextOrder.indexOf(translation.id);
+
+                if (sourceIndex < 0 || targetIndex < 0) {
+                    return;
+                }
+
+                const rect = row.getBoundingClientRect();
+                const insertAfter = event.clientY > rect.top + rect.height / 2;
+                nextOrder.splice(sourceIndex, 1);
+
+                if (sourceIndex < targetIndex) {
+                    targetIndex -= 1;
+                }
+
+                if (insertAfter) {
+                    targetIndex += 1;
+                }
+
+                nextOrder.splice(targetIndex, 0, sourceTranslationId);
+                await this.plugin.setTranslationOrder(nextOrder);
+                this.display();
+            });
+        }
     }
 }
 
@@ -587,6 +946,28 @@ function transliterateToAscii(value: string): string {
     };
 
     return value.toLowerCase().replace(/[а-яёçğıöşü]/g, (char) => map[char] ?? char);
+}
+
+function normalizePluginSettings(value: unknown): BiblePluginSettings {
+    if (!isRecord(value)) {
+        return { ...DEFAULT_SETTINGS };
+    }
+
+    const translationOrder = Array.isArray(value.translationOrder)
+        ? value.translationOrder.filter((translationId): translationId is string => typeof translationId === "string")
+        : [];
+
+    return {
+        translationOrder: [...new Set(translationOrder)],
+    };
+}
+
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function getErrorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
