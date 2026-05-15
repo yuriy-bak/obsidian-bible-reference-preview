@@ -125,7 +125,7 @@ function extractBookTableFromRows(html: string): ExtractedBookTable | null {
         const name = normalizeText(stripTags(cells[0][1]));
         const abbreviation = extractBookTableAbbreviation(cells);
 
-        if (name.length === 0 || abbreviation === null || !isBookNavigationAlias(name)) {
+        if (name.length === 0 || abbreviation === null || !isLikelyBookTableName(name)) {
             continue;
         }
 
@@ -149,6 +149,24 @@ function extractBookTableFromRows(html: string): ExtractedBookTable | null {
     };
 }
 
+function isLikelyBookTableName(value: string): boolean {
+    const normalizedValue = value.trim();
+
+    if (normalizedValue.length === 0) {
+        return false;
+    }
+
+    if (isKnownNonBookTableAbbreviation(normalizedValue)) {
+        return false;
+    }
+
+    if (isUnicodeNumber(normalizedValue)) {
+        return false;
+    }
+
+    return /[\p{L}]/u.test(normalizedValue);
+}
+
 function extractBookTableAbbreviation(cells: RegExpMatchArray[]): string | null {
     for (let index = 1; index < cells.length; index += 1) {
         if (extractFirstHref(cells[index][1]) !== null) {
@@ -166,24 +184,45 @@ function extractBookTableAbbreviation(cells: RegExpMatchArray[]): string | null 
 }
 
 function isLikelyBookTableAbbreviation(value: string): boolean {
-    if (!isBookNavigationAlias(value)) {
+    const normalizedValue = normalizeBookTableToken(value);
+
+    if (normalizedValue.length === 0) {
         return false;
     }
 
-    if (isKnownNonBookTableAbbreviation(value)) {
+    if (isKnownNonBookTableAbbreviation(normalizedValue)) {
         return false;
     }
 
-    if (/\s/.test(value)) {
+    if (isUnicodeNumber(normalizedValue)) {
         return false;
     }
 
-    if (/^\d+$/.test(value)) {
+    if (!/[\p{L}]/u.test(normalizedValue)) {
         return false;
     }
 
-    return value.length <= 12;
+    if (/\s/.test(normalizedValue) && !isNumberedBookAbbreviation(normalizedValue)) {
+        return false;
+    }
+
+    return normalizedValue.length <= 16;
 }
+
+function normalizeBookTableToken(value: string): string {
+    return value
+        .replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "")
+        .trim();
+}
+
+function isUnicodeNumber(value: string): boolean {
+    return /^[0-9٠-٩۰-۹]+$/.test(value.trim());
+}
+
+function isNumberedBookAbbreviation(value: string): boolean {
+    return /^[0-9٠-٩۰-۹]+\s+[\p{L}\p{M}]+$/u.test(normalizeBookTableToken(value));
+}
+
 
 function isKnownNonBookTableAbbreviation(value: string): boolean {
     return /^(outline|overview|summary|contents?|page)$/i.test(value);

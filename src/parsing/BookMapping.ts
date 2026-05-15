@@ -91,13 +91,27 @@ export function createFallbackRussianBookMapping(): BookMapping {
     ]);
 }
 
+
 export function normalizeBookAlias(value: string): string {
-    return value
-        .toLowerCase()
-        .replace(/ё/g, "е")
+    return normalizeSearchText(value)
         .replace(/\./g, "")
         .trim()
         .replace(/\s+/g, " ");
+}
+
+function normalizeSearchText(value: string): string {
+    return replaceArabicIndicDigits(value)
+        .normalize("NFC")
+        .toLowerCase()
+        .replace(/\u0307/g, "")
+        .replace(/ё/g, "е")
+        .replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "");
+}
+
+function replaceArabicIndicDigits(value: string): string {
+    return value
+        .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06F0));
 }
 
 function createAliasVariants(value: string): Set<string> {

@@ -43,10 +43,11 @@ export class BibleReferenceParser {
     }
 
     private normalizeLine(text: string): string {
-        let result = text
-            .toLowerCase()
-            .replace(/ё/g, "е")
+        let result = normalizeBookAlias(text)
             .replace(/[—–−]/g, "-")
+            .replace(/[：∶]/g, ":")
+            .replace(/[،﹐，]/g, ",")
+            .replace(/[؛﹔；]/g, ";")
             .replace(/\s+/g, " ")
             .trim();
 
@@ -184,7 +185,7 @@ export class BibleReferenceParser {
             return true;
         }
 
-        return !/[0-9A-Za-zА-Яа-яЁё]/.test(text[index - 1]);
+        return !/[\p{L}\p{N}]/u.test(text[index - 1]);
     }
 
     private parseBigBookBody(bookId: number, body: string): BibleReference[] {
