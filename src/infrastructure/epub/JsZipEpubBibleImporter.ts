@@ -54,7 +54,8 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
 
 
         const navigationAliasesByBookId = mergeNavigationAliases(
-            xhtmlDocuments.map((document) => extractBookNavigationAliasesFromHtml(document.html, bookTable)),
+            xhtmlDocuments.filter((document) => isBibleBookNavigationDocument(document.path))
+                .map((document) => extractBookNavigationAliasesFromHtml(document.html, bookTable)),
         );
 
         const translation = bibleIndexData.translations[input.translationId];
@@ -142,6 +143,10 @@ function extractBookIdFromDocumentPath(path: string, bookTable: ExtractedBookTab
     const canonicalFileName = fileName.replace(/-split\d+(?=\.xhtml$)/i, "");
 
     return bookTable.hrefToBookId[canonicalFileName] ?? null;
+}
+
+function isBibleBookNavigationDocument(path: string): boolean {
+    return path.split("/").pop()?.toLowerCase() === "biblebooknav.xhtml";
 }
 
 function inferBookIdFromSpineOrder(

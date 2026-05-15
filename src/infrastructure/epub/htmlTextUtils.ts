@@ -262,6 +262,7 @@ function decodeHtmlEntities(value: string): string {
         .replace(/&amp;/g, "&");
 }
 
+
 export function extractBookNavigationAliasesFromHtml(
     html: string,
     bookTable: ExtractedBookTable,
@@ -273,7 +274,7 @@ export function extractBookNavigationAliasesFromHtml(
         const href = normalizeHrefFileName(match[1]);
         const alias = normalizeText(stripTags(match[2]));
 
-        if (alias.length === 0) {
+        if (!isBookNavigationAlias(alias)) {
             continue;
         }
 
@@ -297,6 +298,28 @@ function getBookIdFromNavigationHref(href: string, bookTable: ExtractedBookTable
     }
 
     return bookTable.hrefToBookId[href] ?? null;
+}
+
+function isBookNavigationAlias(value: string): boolean {
+    const normalized = normalizeText(value);
+
+    if (normalized.length === 0) {
+        return false;
+    }
+
+    if (normalized.startsWith("^")) {
+        return false;
+    }
+
+    if (normalized.includes(":") || normalized.includes(";")) {
+        return false;
+    }
+
+    if (!/[A-Za-zА-Яа-яЁё]/.test(normalized)) {
+        return false;
+    }
+
+    return true;
 }
 
 function escapeRegExp(value: string): string {
