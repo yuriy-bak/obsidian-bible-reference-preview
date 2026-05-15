@@ -3,8 +3,14 @@ import { EditorView } from "@codemirror/view";
 import { ViewPlugin } from "@codemirror/view";
 import { ViewUpdate } from "@codemirror/view";
 import { Decoration, WidgetType } from "@codemirror/view";
+import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
+import { createFallbackRussianBookMapping } from "./src/parsing/BookMapping";
+import { formatBibleReference } from "./src/parsing/formatBibleReference";
 
 export default class BiblePlugin extends Plugin {
+    private readonly bookMapping = createFallbackRussianBookMapping();
+    private readonly bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
+
     async onload() {
         console.log("Bible plugin loaded");
 
@@ -107,10 +113,19 @@ export default class BiblePlugin extends Plugin {
     }
 
     analyzeParagraph(text: string): string {
-        if (text.includes("Привет")) {
-            return "✅ Есть слово Привет";
+        try {
+            const references = this.bibleReferenceParser.parse(text);
+
+            if (references.length === 0) {
+                return "";
+            }
+
+            return references
+                .map(reference => formatBibleReference(reference, this.bookMapping))
+                .join("\n");
+        } catch {
+            return "";
         }
-        return "";
     }
 
     getCurrentParagraph(update: ViewUpdate): string {
@@ -152,10 +167,8 @@ export default class BiblePlugin extends Plugin {
         return lines.join("\n");
     }
 
-
     getParagraphEnd(update: ViewUpdate): number | null {
         const doc = update.state.doc;
-
         const pos = update.state.selection.main.head;
         let line = doc.lineAt(pos);
 
@@ -170,13 +183,11 @@ export default class BiblePlugin extends Plugin {
         while (current.number < doc.lines) {
             const next = doc.line(current.number + 1);
             if (next.text.trim() === "") break;
-
             current = next;
         }
 
         return current.to;
     }
-
 }
 
 class BibleWidget extends WidgetType {
@@ -200,5 +211,4 @@ class BibleWidget extends WidgetType {
 
         return el;
     }
-
 }

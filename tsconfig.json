@@ -2,7 +2,10 @@
   "compilerOptions": {
     "target": "ES6",
     "module": "commonjs",
-    "lib": ["DOM", "ES2017"],
+    "lib": [
+      "DOM",
+      "ES2017"
+    ],
     "moduleResolution": "Node",
     "strict": true,
     "esModuleInterop": true,
@@ -10,6 +13,9 @@
     "outDir": ".",
     "rootDir": "."
   },
-  "include": ["main.ts"],
+  "include": [
+    "main.ts",
+    "src/**/*.ts"
+  ],
   "exclude": []
 }
