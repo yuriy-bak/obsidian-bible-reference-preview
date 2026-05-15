@@ -1,4 +1,5 @@
-import { InMemoryBibleIndex, BibleIndexData } from "./InMemoryBibleIndex";
+import { BibleIndexData } from "./BibleIndexData";
+import { InMemoryBibleIndex } from "./InMemoryBibleIndex";
 
 export const mockBibleIndexData: BibleIndexData = {
     translations: {

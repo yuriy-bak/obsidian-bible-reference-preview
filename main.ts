@@ -8,12 +8,13 @@ import { createFallbackRussianBookMapping } from "./src/parsing/BookMapping";
 import { DEFAULT_TRANSLATION_ID } from "./src/application/DefaultTranslation";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
 import { formatBibleTextBlocks } from "./src/application/formatBibleTexts";
-import { createMockBibleIndex } from "./src/infrastructure/mockBibleIndex";
+import { createMockBibleIndexRepository } from "./src/infrastructure/createMockBibleIndexRepository";
 
 export default class BiblePlugin extends Plugin {
     private readonly bookMapping = createFallbackRussianBookMapping();
     private readonly bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
-    private readonly bibleIndex = createMockBibleIndex();
+    private readonly bibleIndexRepository = createMockBibleIndexRepository();
+    private readonly bibleIndex = this.bibleIndexRepository.getIndex();
 
     async onload() {
         console.log("Bible plugin loaded");

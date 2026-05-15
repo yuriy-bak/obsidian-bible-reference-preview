@@ -1,26 +1,6 @@
 import { BibleText, Verse } from "../domain/BibleText";
 import { BibleIndex, GetBibleTextInput } from "./BibleIndex";
-
-export type BibleIndexVerseData = {
-    text: string;
-    footnotes: string[];
-};
-
-export type BibleIndexChapterData = Record<string, BibleIndexVerseData>;
-
-export type BibleIndexBookData = {
-    name: string;
-    chapters: Record<string, BibleIndexChapterData>;
-};
-
-export type BibleIndexTranslationData = {
-    name: string;
-    books: Record<string, BibleIndexBookData>;
-};
-
-export type BibleIndexData = {
-    translations: Record<string, BibleIndexTranslationData>;
-};
+import { BibleIndexData } from "./BibleIndexData";
 
 export class InMemoryBibleIndex implements BibleIndex {
     constructor(private readonly data: BibleIndexData) {}
