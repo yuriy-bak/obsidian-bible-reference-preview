@@ -1,4 +1,4 @@
-import { Plugin, MarkdownView } from "obsidian";
+import { App, Notice, Plugin, MarkdownView, PluginSettingTab, Setting } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import { ViewPlugin } from "@codemirror/view";
 import { ViewUpdate } from "@codemirror/view";
@@ -8,8 +8,10 @@ import { createFallbackRussianBookMapping } from "./src/parsing/BookMapping";
 import { DEFAULT_TRANSLATION_ID } from "./src/application/DefaultTranslation";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
 import { formatBibleTextBlocks } from "./src/application/formatBibleTexts";
+import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
 import { createMockBibleIndexRepository } from "./src/infrastructure/createMockBibleIndexRepository";
 import { ObsidianBibleIndexRepository } from "./src/infrastructure/ObsidianBibleIndexRepository";
+import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 
 export default class BiblePlugin extends Plugin {
     private readonly bookMapping = createFallbackRussianBookMapping();
@@ -22,6 +24,14 @@ export default class BiblePlugin extends Plugin {
 
         await this.loadBibleIndex();
 
+        this.addCommand({
+            id: "import-epub-bible",
+            name: "Import EPUB Bible",
+            callback: () => this.openEpubFilePicker(),
+        });
+
+        this.addSettingTab(new BiblePluginSettingTab(this.app, this));
+
         this.registerEditorExtension(
             this.createCursorExtension()
         );
@@ -33,16 +43,77 @@ export default class BiblePlugin extends Plugin {
 
     private async loadBibleIndex(): Promise<void> {
         try {
-            const repository = new ObsidianBibleIndexRepository(
-                this.app.vault.adapter,
-                this.getBibleIndexDataDirectoryPath(),
-            );
+            const repository = this.createObsidianBibleIndexRepository();
 
             await repository.load();
             this.bibleIndex = repository.getIndex();
-        } catch {
+        } catch (error) {
+            console.warn("Bible index load failed. Mock Bible index will be used.", error);
             this.bibleIndex = this.bibleIndexRepository.getIndex();
         }
+    }
+
+    public openEpubFilePicker(): void {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".epub,application/epub+zip";
+
+        input.onchange = () => {
+            const file = input.files?.[0];
+            if (file === undefined) {
+                return;
+            }
+
+            void this.importEpubFile(file);
+        };
+
+        input.click();
+    }
+
+    public async importEpubFile(file: File): Promise<void> {
+        const progressNotice = new Notice(`Импорт EPUB: ${file.name}...`, 0);
+
+        try {
+            const repository = this.createObsidianBibleIndexRepository();
+            const importer = new JsZipEpubBibleImporter();
+            const result = await importBibleFromEpub({
+                epub: {
+                    fileName: file.name,
+                    content: await file.arrayBuffer(),
+                    translationId: DEFAULT_TRANSLATION_ID,
+                    translationName: this.createTranslationName(file.name),
+                },
+                importer,
+                repository,
+            });
+
+            this.bibleIndex = repository.getIndex();
+            progressNotice.hide();
+
+            if (result.warnings.length > 0) {
+                console.warn("EPUB import warnings", result.warnings);
+            }
+
+            const warningsText = result.warnings.length === 0
+                ? ""
+                : ` Предупреждений: ${result.warnings.length}. Подробности в консоли разработчика.`;
+            new Notice(`EPUB импортирован. Книг: ${result.books.length}.${warningsText}`, 10000);
+        } catch (error) {
+            progressNotice.hide();
+            console.error("EPUB import failed", error);
+            new Notice(`Ошибка импорта EPUB: ${getErrorMessage(error)}`, 15000);
+        }
+    }
+
+    private createObsidianBibleIndexRepository(): ObsidianBibleIndexRepository {
+        return new ObsidianBibleIndexRepository(
+            this.app.vault.adapter,
+            this.getBibleIndexDataDirectoryPath(),
+        );
+    }
+
+    private createTranslationName(fileName: string): string {
+        return fileName.replace(/\.epub$/i, "").trim() || "Imported EPUB Bible";
     }
 
     private getBibleIndexDataDirectoryPath(): string {
@@ -250,4 +321,36 @@ class BibleWidget extends WidgetType {
 
         return el;
     }
+}
+
+
+class BiblePluginSettingTab extends PluginSettingTab {
+    constructor(app: App, private readonly plugin: BiblePlugin) {
+        super(app, plugin);
+    }
+
+    display(): void {
+        const { containerEl } = this;
+        containerEl.empty();
+
+        containerEl.createEl("h2", { text: "Bible Plugin" });
+
+        new Setting(containerEl)
+            .setName("Импорт EPUB")
+            .setDesc("Выбери EPUB-файл. Плагин извлечёт таблицу книг, стихи и сноски, сохранит bible-index.json и сразу перезагрузит индекс.")
+            .addButton((button) => {
+                button
+                    .setButtonText("Импортировать EPUB")
+                    .setCta()
+                    .onClick(() => this.plugin.openEpubFilePicker());
+            });
+    }
+}
+
+function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    return String(error);
 }

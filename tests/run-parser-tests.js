@@ -184,7 +184,7 @@ async function runRealEpubImporterTests() {
 
     assert.strictEqual(result.books.length, 1);
     assert.strictEqual(result.books[0].abbreviation, "ин");
-    assert.strictEqual(result.warnings.length, 1);
+    assert.strictEqual(result.warnings.length, 0);
     assert.strictEqual(
         result.bibleIndexData.translations[DEFAULT_TRANSLATION_ID].books["1"].chapters["3"]["16"].text,
         "Текст из EPUB Ин 3:16",
