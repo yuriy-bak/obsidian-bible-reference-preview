@@ -5,6 +5,9 @@ node_modules/
 *.js
 *.js.map
 
+## keep JS tests
+!tests/**/*.js
+
 # TypeScript
 *.tsbuildinfo
 

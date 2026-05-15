@@ -9,15 +9,18 @@ import { DEFAULT_TRANSLATION_ID } from "./src/application/DefaultTranslation";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
 import { formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { createMockBibleIndexRepository } from "./src/infrastructure/createMockBibleIndexRepository";
+import { ObsidianBibleIndexRepository } from "./src/infrastructure/ObsidianBibleIndexRepository";
 
 export default class BiblePlugin extends Plugin {
     private readonly bookMapping = createFallbackRussianBookMapping();
     private readonly bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
     private readonly bibleIndexRepository = createMockBibleIndexRepository();
-    private readonly bibleIndex = this.bibleIndexRepository.getIndex();
+    private bibleIndex = this.bibleIndexRepository.getIndex();
 
     async onload() {
         console.log("Bible plugin loaded");
+
+        await this.loadBibleIndex();
 
         this.registerEditorExtension(
             this.createCursorExtension()
@@ -26,6 +29,29 @@ export default class BiblePlugin extends Plugin {
 
     onunload() {
         console.log("Bible plugin unloaded");
+    }
+
+    private async loadBibleIndex(): Promise<void> {
+        try {
+            const repository = new ObsidianBibleIndexRepository(
+                this.app.vault.adapter,
+                this.getBibleIndexDataDirectoryPath(),
+            );
+
+            await repository.load();
+            this.bibleIndex = repository.getIndex();
+        } catch {
+            this.bibleIndex = this.bibleIndexRepository.getIndex();
+        }
+    }
+
+    private getBibleIndexDataDirectoryPath(): string {
+        return `${this.getPluginDirectoryPath()}/data`;
+    }
+
+    private getPluginDirectoryPath(): string {
+        const manifestWithDirectory = this.manifest as { dir?: string };
+        return manifestWithDirectory.dir ?? `.obsidian/plugins/${this.manifest.id}`;
     }
 
     onCursorActivity() {
