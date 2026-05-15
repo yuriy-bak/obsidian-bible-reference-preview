@@ -135,14 +135,7 @@ function normalizeHrefFileName(href: string): string {
 }
 
 function isCompleteBibleBookTable(books: BibleBook[]): boolean {
-    if (books.length !== 66) {
-        return false;
-    }
-
-    return normalizeBookTableName(books[0]?.name ?? "").startsWith("быт")
-        && normalizeBookTableName(books[1]?.name ?? "").startsWith("исх")
-        && normalizeBookTableName(books[2]?.name ?? "").startsWith("лев")
-        && normalizeBookTableName(books[65]?.name ?? "").startsWith("отк");
+    return books.length === 66;
 }
 
 function normalizeBookTableName(value: string): string {
@@ -315,7 +308,7 @@ function isBookNavigationAlias(value: string): boolean {
         return false;
     }
 
-    if (!/[A-Za-zА-Яа-яЁё]/.test(normalized)) {
+    if (!containsLetter(normalized)) {
         return false;
     }
 
@@ -324,4 +317,8 @@ function isBookNavigationAlias(value: string): boolean {
 
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function containsLetter(value: string): boolean {
+    return Array.from(value).some((character) => character.toLocaleLowerCase() !== character.toLocaleUpperCase());
 }

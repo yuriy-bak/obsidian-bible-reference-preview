@@ -72,7 +72,10 @@ export default class BiblePlugin extends Plugin {
             const importer = new JsZipEpubBibleImporter();
             const sourceMetadata = await importer.readMetadata(content);
             const defaults = createImportSettingsDefaults(file.name, sourceMetadata);
-            const importSettings = await this.openImportSettingsModal(defaults);
+            const existingRepository = this.createObsidianBibleIndexRepository();
+            await existingRepository.load();
+            const translationAlreadyExists = existingRepository.getV2Data()?.translations[defaults.translationId] !== undefined;
+            const importSettings = await this.openImportSettingsModal(defaults, translationAlreadyExists);
 
             if (importSettings === null) {
                 return;
@@ -109,7 +112,6 @@ export default class BiblePlugin extends Plugin {
                     "EPUB импортирован.",
                     `Перевод: ${result.translationName}`,
                     `Язык: ${result.language}`,
-                    `ID: ${result.translationId}`,
                     `Книг: ${result.report.books}`,
                     `Глав: ${result.report.chapters}`,
                     `Стихов: ${result.report.verses}`,
@@ -167,9 +169,12 @@ export default class BiblePlugin extends Plugin {
         return content;
     }
 
-    private openImportSettingsModal(defaults: BibleTranslationImportSettings): Promise<BibleTranslationImportSettings | null> {
+    private openImportSettingsModal(
+        defaults: BibleTranslationImportSettings,
+        translationAlreadyExists: boolean,
+    ): Promise<BibleTranslationImportSettings | null> {
         return new Promise((resolve) => {
-            new BibleTranslationImportModal(this.app, defaults, resolve).open();
+            new BibleTranslationImportModal(this.app, defaults, translationAlreadyExists, resolve).open();
         });
     }
 
@@ -205,7 +210,7 @@ export default class BiblePlugin extends Plugin {
             decorations = Decoration.none;
             lastParagraph = "";
             requestId = 0;
-            constructor(private readonly view: EditorView) {}
+            constructor(private readonly view: EditorView) { }
             update(update: ViewUpdate) {
                 if (!update.selectionSet && !update.docChanged) return;
                 const paragraph = plugin.getCurrentParagraph(update);
@@ -293,7 +298,6 @@ export default class BiblePlugin extends Plugin {
                 "Последний импорт:",
                 `Перевод: ${report.translationName}`,
                 `Язык: ${report.language}`,
-                `ID: ${report.translationId}`,
                 `Книг: ${report.books}`,
                 `Глав: ${report.chapters}`,
                 `Стихов: ${report.verses}`,
@@ -337,6 +341,7 @@ class BibleWidget extends WidgetType {
 
 type BibleTranslationImportSettings = {
     translationName: string;
+    translationNamePlaceholder: string;
     language: string;
     translationId: string;
 };
@@ -344,11 +349,11 @@ type BibleTranslationImportSettings = {
 class BibleTranslationImportModal extends Modal {
     private value: BibleTranslationImportSettings;
     private resolved = false;
-    private idWasEditedManually = false;
 
     constructor(
         app: App,
         defaults: BibleTranslationImportSettings,
+        private readonly translationAlreadyExists: boolean,
         private readonly resolve: (value: BibleTranslationImportSettings | null) => void,
     ) {
         super(app);
@@ -359,43 +364,41 @@ class BibleTranslationImportModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.createEl("h2", { text: "Импорт перевода Библии" });
-        contentEl.createEl("p", { text: "Проверь название, язык и ID перевода. Если такой ID уже есть, старый индекс этого перевода будет полностью заменён." });
 
-        new Setting(contentEl)
-            .setName("Название перевода")
-            .setDesc("Например: Новый мир 2021, Синодальный, Yeni Dünya Çevirisi.")
-            .addText((text) => text
+        if (this.translationAlreadyExists) {
+            contentEl.createEl("p", {
+                text: "Этот перевод уже импортирован. При продолжении старые данные этого перевода будут полностью заменены.",
+                cls: "mod-warning",
+            });
+        } else {
+            contentEl.createEl("p", {
+                text: "Проверь название перевода. Старые данные будут заменены только если этот перевод уже был импортирован раньше.",
+            });
+        }
+
+
+        const translationNameSetting = new Setting(contentEl)
+            .setName("Название перевода");
+
+        translationNameSetting.settingEl.style.flexDirection = "column";
+        translationNameSetting.settingEl.style.alignItems = "stretch";
+        translationNameSetting.controlEl.style.width = "100%";
+
+        translationNameSetting.addText((text) => {
+            text
+                .setPlaceholder(this.value.translationNamePlaceholder)
                 .setValue(this.value.translationName)
                 .onChange((value) => {
                     this.value.translationName = value.trim();
-                    if (!this.idWasEditedManually) {
-                        this.value.translationId = createTranslationId(this.value.language, this.value.translationName);
-                        this.render();
-                    }
-                }));
+                });
+
+            text.inputEl.style.width = "100%";
+        });
+
 
         new Setting(contentEl)
             .setName("Язык")
-            .setDesc("BCP 47 код: ru, tr, en, ru-RU и т. п.")
-            .addText((text) => text
-                .setValue(this.value.language)
-                .onChange((value) => {
-                    this.value.language = normalizeLanguageInput(value);
-                    if (!this.idWasEditedManually) {
-                        this.value.translationId = createTranslationId(this.value.language, this.value.translationName);
-                        this.render();
-                    }
-                }));
-
-        new Setting(contentEl)
-            .setName("ID перевода")
-            .setDesc("Используется в имени папки data/translations/{id}. Только латиница, цифры и дефисы.")
-            .addText((text) => text
-                .setValue(this.value.translationId)
-                .onChange((value) => {
-                    this.idWasEditedManually = true;
-                    this.value.translationId = sanitizeTranslationId(value);
-                }));
+            .setDesc(this.value.language || "не определён");
 
         new Setting(contentEl)
             .addButton((button) => button
@@ -414,24 +417,30 @@ class BibleTranslationImportModal extends Modal {
         }
     }
 
-    private render(): void {
-        this.onOpen();
-    }
-
     private finish(value: BibleTranslationImportSettings | null): void {
         if (this.resolved) return;
-        this.resolved = true;
 
         if (value === null) {
+            this.resolved = true;
             this.resolve(null);
             this.close();
             return;
         }
 
+        const translationName = value.translationName.trim();
+
+        if (translationName.length === 0) {
+            new Notice("Укажи название перевода.", 5000);
+            return;
+        }
+
+        this.resolved = true;
+
         const normalizedValue = {
-            translationName: value.translationName.trim() || "Imported EPUB Bible",
+            translationName,
+            translationNamePlaceholder: value.translationNamePlaceholder,
             language: normalizeLanguageInput(value.language) || "und",
-            translationId: sanitizeTranslationId(value.translationId) || DEFAULT_TRANSLATION_ID,
+            translationId: value.translationId,
         };
 
         this.resolve(normalizedValue);
@@ -461,13 +470,16 @@ class BiblePluginSettingTab extends PluginSettingTab {
 }
 
 function createImportSettingsDefaults(fileName: string, sourceMetadata: EpubBibleSourceMetadata): BibleTranslationImportSettings {
-    const translationName = (sourceMetadata.title ?? fileName.replace(/\.(epub|tsv)$/i, "").trim()) || "Imported EPUB Bible";
-    const language = normalizeLanguageInput(sourceMetadata.language ?? "") || "ru";
+    const fileNameWithoutExtension = fileName.replace(/\.(epub|tsv)$/i, "").trim();
+    const detectedTranslationName = sourceMetadata.title?.trim() ?? "";
+    const translationNameForId = detectedTranslationName || fileNameWithoutExtension || "Imported EPUB Bible";
+    const language = normalizeLanguageInput(sourceMetadata.language ?? "") || "und";
 
     return {
-        translationName,
+        translationName: detectedTranslationName,
+        translationNamePlaceholder: fileNameWithoutExtension || "Введите название перевода",
         language,
-        translationId: createTranslationId(language, translationName),
+        translationId: createTranslationId(language, translationNameForId),
     };
 }
 

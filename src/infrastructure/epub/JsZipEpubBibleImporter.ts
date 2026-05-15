@@ -252,11 +252,15 @@ function cleanAliasForMetadata(value: string): string | null {
         return null;
     }
 
-    if (!/[A-Za-zА-Яа-яЁё]/.test(cleaned)) {
+    if (!containsLetter(cleaned)) {
         return null;
     }
 
     return cleaned;
+}
+
+function containsLetter(value: string): boolean {
+    return Array.from(value).some((character) => character.toLocaleLowerCase() !== character.toLocaleUpperCase());
 }
 
 function extractSourceMetadataFromOpf(opfXml: string): EpubBibleSourceMetadata {

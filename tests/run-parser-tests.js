@@ -6,6 +6,7 @@ const { getBibleTextBlocks } = require("../src/application/getBibleTexts.js");
 const { createMockBibleIndexRepository } = require("../src/infrastructure/createMockBibleIndexRepository.js");
 const { LazyBibleIndexV2 } = require("../src/infrastructure/v2/LazyBibleIndexV2.js");
 const { createBookMappingFromBibleIndexV2Data } = require("../src/infrastructure/v2/createBookMappingFromBibleIndexV2Data.js");
+const { extractBookTableFromHtml } = require("../src/infrastructure/epub/htmlTextUtils.js");
 
 (async () => {
     const mapping = createFallbackRussianBookMapping();
@@ -50,6 +51,15 @@ const { createBookMappingFromBibleIndexV2Data } = require("../src/infrastructure
     await lazy.getBibleText({ translationId: DEFAULT_TRANSLATION_ID, book: 1, chapter: 1, verseStart: 1, verseEnd: 1 });
     assert.strictEqual(loadCount, 1);
     assert.strictEqual(text.verses.length, 2);
+
+
+    const nonRussianRows = Array.from({ length: 66 }, (_unused, index) => {
+        const bookNumber = String(index + 1).padStart(2, "0");
+        return `<tr><td><a href="10010611${bookNumber}.xhtml">Kitap ${index + 1}</a></td><td></td><td>K${index + 1}</td></tr>`;
+    }).join("");
+    const nonRussianBookTable = extractBookTableFromHtml(`<table>${nonRussianRows}</table>`);
+    assert(nonRussianBookTable !== null, "Expected non-Russian 66-book table to be accepted");
+    assert.strictEqual(nonRussianBookTable.books[0].name, "Kitap 1");
 
     const aliases = metadata.translations[DEFAULT_TRANSLATION_ID].books["1"].aliases;
     assert(!aliases.some((alias) => alias.startsWith("^") || alias.includes(":") || alias.includes(";") || alias === "1"));
