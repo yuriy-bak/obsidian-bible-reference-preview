@@ -32,3 +32,4 @@ main.js
 
 # dotenv (на будущее)
 .env
+data/bible-index.json
