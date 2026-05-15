@@ -22,6 +22,9 @@ const { createBookMappingFromBibleIndexV2Data } = require("../src/infrastructure
         translations: {
             [DEFAULT_TRANSLATION_ID]: {
                 name: "synthetic",
+                language: "ru",
+                sourceFileName: "synthetic.epub",
+                importedAt: "2026-01-01T00:00:00.000Z",
                 books: {
                     "1": { name: "Бытие", abbreviation: "Бт", aliases: ["Бытие", "Бт", "Быт"], path: "translations/newworld/books/1.json" },
                     "43": { name: "Иоанна", abbreviation: "Ин", aliases: ["Иоанна", "Ин", "Иоан"], path: "translations/newworld/books/43.json" },

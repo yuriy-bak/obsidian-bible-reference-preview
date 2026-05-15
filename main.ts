@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, MarkdownView, PluginSettingTab, Setting } from "obsidian";
+import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting } from "obsidian";
 import type { BibleIndexData } from "./src/infrastructure/BibleIndexData";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from "@codemirror/view";
@@ -10,6 +10,7 @@ import { formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
 import { createMockBibleIndexRepository } from "./src/infrastructure/createMockBibleIndexRepository";
 import { createBookMappingFromBibleIndexData } from "./src/infrastructure/createBookMappingFromBibleIndexData";
+import { EpubBibleSourceMetadata } from "./src/infrastructure/EpubBibleImporter";
 import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
@@ -21,6 +22,7 @@ export default class BiblePlugin extends Plugin {
     private bibleIndex = this.fallbackBibleIndexRepository.getIndex();
     private activeV2Data: BibleIndexV2Data | null = null;
     private activeLegacyData: BibleIndexData | null = this.fallbackBibleIndexRepository.getData();
+    private activeTranslationId = DEFAULT_TRANSLATION_ID;
 
     async onload() {
         console.log("Bible plugin loaded");
@@ -28,7 +30,7 @@ export default class BiblePlugin extends Plugin {
         this.addCommand({ id: "import-epub-bible", name: "Import EPUB Bible", callback: () => this.openEpubFilePicker() });
         this.addCommand({ id: "reload-bible-index", name: "Reload Bible Index", callback: () => void this.reloadBibleIndex() });
         this.addCommand({ id: "open-bible-index-folder", name: "Open Bible Index Folder", callback: () => void this.openBibleIndexFolder() });
-        this.addCommand({ id: "show-bible-index-stats", name: "Show Bible Index Stats", callback: () => this.showBibleIndexStats() });
+        this.addCommand({ id: "show-bible-index-stats", name: "Show Bible Index Stats", callback: () => void this.showBibleIndexStats() });
         this.addSettingTab(new BiblePluginSettingTab(this.app, this));
         this.registerEditorExtension(this.createCursorExtension());
     }
@@ -42,12 +44,14 @@ export default class BiblePlugin extends Plugin {
             this.bibleIndex = repository.getIndex();
             this.activeV2Data = repository.getV2Data();
             this.activeLegacyData = repository.getLegacyData();
+            this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
             this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
         } catch (error) {
             console.warn("Bible index load failed. Mock Bible index will be used.", error);
             this.bibleIndex = this.fallbackBibleIndexRepository.getIndex();
             this.activeV2Data = null;
             this.activeLegacyData = this.fallbackBibleIndexRepository.getData();
+            this.activeTranslationId = DEFAULT_TRANSLATION_ID;
             this.updateBookMapping(null, this.activeLegacyData);
         }
     }
@@ -57,55 +61,139 @@ export default class BiblePlugin extends Plugin {
     public openEpubFilePicker(): void {
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = ".epub,.tsv,application/epub+zip";
+        input.accept = ".epub,.tsv,application/epub+zip,application/zip";
         input.onchange = () => { const file = input.files?.[0]; if (file !== undefined) void this.importEpubFile(file); };
         input.click();
     }
 
     public async importEpubFile(file: File): Promise<void> {
-        const progressNotice = new Notice(`Импорт EPUB: ${file.name}...`, 0);
         try {
-            const repository = this.createObsidianBibleIndexRepository();
-            const result = await importBibleFromEpub({
-                epub: { fileName: file.name, content: await file.arrayBuffer(), translationId: DEFAULT_TRANSLATION_ID, translationName: this.createTranslationName(file.name) },
-                importer: new JsZipEpubBibleImporter(),
-                repository,
-            });
-            this.bibleIndex = repository.getIndex();
-            this.activeV2Data = repository.getV2Data();
-            this.activeLegacyData = repository.getLegacyData();
-            this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
-            progressNotice.hide();
-            if (result.warnings.length > 0) console.warn("EPUB import warnings", result.warnings);
-            const warningsText = result.warnings.length === 0 ? "" : `
-Предупреждений: ${result.warnings.length}. Подробности в консоли разработчика.`;
-            new Notice([
-                "EPUB импортирован.",
-                `Книг: ${result.report.books}`,
-                `Глав: ${result.report.chapters}`,
-                `Стихов: ${result.report.verses}`,
-                `Сносок: ${result.report.footnotes}`,
-                `Размер metadata: ${formatKilobytes(result.report.metadataBytes)}`,
-                `Размер books: ${formatMegabytes(result.report.booksBytes)}`,
-            ].join("\n") + warningsText, 15000);
+            const content = await this.readAndValidateEpubFile(file);
+            const importer = new JsZipEpubBibleImporter();
+            const sourceMetadata = await importer.readMetadata(content);
+            const defaults = createImportSettingsDefaults(file.name, sourceMetadata);
+            const importSettings = await this.openImportSettingsModal(defaults);
+
+            if (importSettings === null) {
+                return;
+            }
+
+            const progressNotice = new Notice(`Импорт EPUB: ${file.name}...`, 0);
+
+            try {
+                const repository = this.createObsidianBibleIndexRepository();
+                await repository.load();
+
+                const result = await importBibleFromEpub({
+                    epub: {
+                        fileName: file.name,
+                        content,
+                        translationId: importSettings.translationId,
+                        translationName: importSettings.translationName,
+                        language: importSettings.language,
+                    },
+                    importer,
+                    repository,
+                });
+
+                this.bibleIndex = repository.getIndex();
+                this.activeV2Data = repository.getV2Data();
+                this.activeLegacyData = repository.getLegacyData();
+                this.activeTranslationId = result.translationId;
+                this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+                progressNotice.hide();
+
+                if (result.warnings.length > 0) console.warn("EPUB import warnings", result.warnings);
+                const warningsText = result.warnings.length === 0 ? "" : `\nПредупреждений: ${result.warnings.length}. Подробности в консоли разработчика.`;
+                new Notice([
+                    "EPUB импортирован.",
+                    `Перевод: ${result.translationName}`,
+                    `Язык: ${result.language}`,
+                    `ID: ${result.translationId}`,
+                    `Книг: ${result.report.books}`,
+                    `Глав: ${result.report.chapters}`,
+                    `Стихов: ${result.report.verses}`,
+                    `Сносок: ${result.report.footnotes}`,
+                    `Размер metadata: ${formatKilobytes(result.report.metadataBytes)}`,
+                    `Размер books: ${formatMegabytes(result.report.booksBytes)}`,
+                ].join("\n") + warningsText, 15000);
+            } catch (error) {
+                progressNotice.hide();
+                throw error;
+            }
         } catch (error) {
-            progressNotice.hide();
             console.error("EPUB import failed", error);
             new Notice(`Ошибка импорта EPUB: ${getErrorMessage(error)}`, 15000);
         }
+    }
+
+    private async readAndValidateEpubFile(file: File): Promise<ArrayBuffer> {
+        const content = await file.arrayBuffer();
+
+        console.log("EPUB file selected", {
+            name: file.name,
+            size: file.size,
+            arrayBufferBytes: content.byteLength,
+            firstBytes: Array.from(new Uint8Array(content.slice(0, Math.min(8, content.byteLength)))),
+            platform: {
+                isMobileApp: Platform.isMobileApp,
+                isAndroidApp: Platform.isAndroidApp,
+                isIosApp: Platform.isIosApp,
+            },
+        });
+
+        if (content.byteLength === 0) {
+            throw new Error([
+                "выбранный файл прочитан как пустой (0 байт).",
+                `Имя файла: ${file.name}. Размер по данным Android/браузера: ${file.size} байт.`,
+                "Это похоже на проблему Android file picker: Obsidian получил ссылку на файл, но не получил его бинарное содержимое.",
+                "Попробуй выбрать файл из другого файлового менеджера или сначала скопировать EPUB в локальное хранилище устройства.",
+            ].join(" "));
+        }
+
+        if (content.byteLength < 4) {
+            throw new Error(`файл слишком маленький для EPUB/ZIP: ${content.byteLength} байт.`);
+        }
+
+        const bytes = new Uint8Array(content.slice(0, 4));
+        if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+            throw new Error([
+                "файл не похож на EPUB/ZIP-контейнер: первые байты не PK.",
+                `Первые байты: ${Array.from(bytes).join(", ")}.`,
+                "Проверь, что выбран именно EPUB-файл, а не ярлык/страница/облачная ссылка.",
+            ].join(" "));
+        }
+
+        return content;
+    }
+
+    private openImportSettingsModal(defaults: BibleTranslationImportSettings): Promise<BibleTranslationImportSettings | null> {
+        return new Promise((resolve) => {
+            new BibleTranslationImportModal(this.app, defaults, resolve).open();
+        });
     }
 
     private createObsidianBibleIndexRepository(): ObsidianBibleIndexV2Repository {
         return new ObsidianBibleIndexV2Repository(this.app.vault.adapter, this.getBibleIndexDataDirectoryPath());
     }
 
-    private createTranslationName(fileName: string): string { return fileName.replace(/\.(epub|tsv)$/i, "").trim() || "Imported EPUB Bible"; }
-
     private updateBookMapping(v2Data: BibleIndexV2Data | null, legacyData: BibleIndexData | null): void {
         this.bookMapping = v2Data !== null
-            ? createBookMappingFromBibleIndexV2Data(v2Data, DEFAULT_TRANSLATION_ID)
+            ? createBookMappingFromBibleIndexV2Data(v2Data, this.activeTranslationId)
             : createBookMappingFromBibleIndexData(legacyData ?? this.fallbackBibleIndexRepository.getData(), DEFAULT_TRANSLATION_ID);
         this.bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
+    }
+
+    private selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string {
+        if (v2Data === null) {
+            return DEFAULT_TRANSLATION_ID;
+        }
+
+        if (v2Data.translations[this.activeTranslationId] !== undefined) {
+            return this.activeTranslationId;
+        }
+
+        return Object.keys(v2Data.translations).sort()[0] ?? DEFAULT_TRANSLATION_ID;
     }
 
     private getBibleIndexDataDirectoryPath(): string { return `${this.getPluginDirectoryPath()}/data`; }
@@ -117,7 +205,7 @@ export default class BiblePlugin extends Plugin {
             decorations = Decoration.none;
             lastParagraph = "";
             requestId = 0;
-            constructor(private readonly view: EditorView) { }
+            constructor(private readonly view: EditorView) {}
             update(update: ViewUpdate) {
                 if (!update.selectionSet && !update.docChanged) return;
                 const paragraph = plugin.getCurrentParagraph(update);
@@ -139,7 +227,7 @@ export default class BiblePlugin extends Plugin {
         try {
             const references = this.bibleReferenceParser.parse(text);
             if (references.length === 0) return "";
-            const bibleTextBlocks = await getBibleTextBlocks(references, this.bibleIndex, DEFAULT_TRANSLATION_ID);
+            const bibleTextBlocks = await getBibleTextBlocks(references, this.bibleIndex, this.activeTranslationId);
             return bibleTextBlocks.length === 0 ? "" : formatBibleTextBlocks(bibleTextBlocks, this.bookMapping);
         } catch { return ""; }
     }
@@ -154,7 +242,7 @@ export default class BiblePlugin extends Plugin {
         lines.push(line.text);
         current = line;
         while (current.number < doc.lines) { const next = doc.line(current.number + 1); if (next.text.trim() === "") break; lines.push(next.text); current = next; }
-        return lines.join(",n");
+        return lines.join("\n");
     }
 
     getParagraphEnd(update: ViewUpdate): number | null {
@@ -170,10 +258,15 @@ export default class BiblePlugin extends Plugin {
         const directoryPath = this.getBibleIndexDataDirectoryPath();
         await this.ensureVaultDirectoryExists(directoryPath);
 
-        const appWithShowInFolder = this.app as App & {
-            showInFolder?: (path: string) => void;
-        };
+        if (Platform.isMobileApp) {
+            new Notice([
+                "На мобильном Obsidian системное открытие папки недоступно.",
+                `Папка индекса: ${directoryPath}`,
+            ].join("\n"), 12000);
+            return;
+        }
 
+        const appWithShowInFolder = this.app as App & { showInFolder?: (path: string) => void };
         if (typeof appWithShowInFolder.showInFolder === "function") {
             appWithShowInFolder.showInFolder(directoryPath);
             return;
@@ -184,30 +277,45 @@ export default class BiblePlugin extends Plugin {
 
     private async ensureVaultDirectoryExists(path: string): Promise<void> {
         const normalizedPath = normalizePath(path);
+        if (normalizedPath.length === 0 || await this.app.vault.adapter.exists(normalizedPath)) return;
+        const parentPath = getDirectoryPath(normalizedPath);
+        if (parentPath.length > 0 && parentPath !== normalizedPath) await this.ensureVaultDirectoryExists(parentPath);
+        if (!(await this.app.vault.adapter.exists(normalizedPath))) await this.app.vault.adapter.mkdir(normalizedPath);
+    }
 
-        if (normalizedPath.length === 0 || await this.app.vault.adapter.exists(normalizedPath)) {
+    async showBibleIndexStats(): Promise<void> {
+        const repository = this.createObsidianBibleIndexRepository();
+        await repository.load();
+        const report = await repository.readLastImportReport();
+
+        if (report !== null) {
+            new Notice([
+                "Последний импорт:",
+                `Перевод: ${report.translationName}`,
+                `Язык: ${report.language}`,
+                `ID: ${report.translationId}`,
+                `Книг: ${report.books}`,
+                `Глав: ${report.chapters}`,
+                `Стихов: ${report.verses}`,
+                `Сносок: ${report.footnotes}`,
+                `Metadata: ${formatKilobytes(report.metadataBytes)}`,
+                `Books: ${formatMegabytes(report.booksBytes)}`,
+            ].join("\n"), 15000);
             return;
         }
 
-        const parentPath = getDirectoryPath(normalizedPath);
-        if (parentPath.length > 0 && parentPath !== normalizedPath) {
-            await this.ensureVaultDirectoryExists(parentPath);
-        }
-
-        if (!(await this.app.vault.adapter.exists(normalizedPath))) {
-            await this.app.vault.adapter.mkdir(normalizedPath);
-        }
-    }
-
-    showBibleIndexStats(): void {
         if (this.activeV2Data !== null) {
-            const translation = this.activeV2Data.translations[DEFAULT_TRANSLATION_ID]; new Notice(`Bible Index v2
-Книг в metadata: ${translation === undefined ? 0 : Object.keys(translation.books).length}`, 10000); return;
+            const translationCount = Object.keys(this.activeV2Data.translations).length;
+            new Notice(`Bible Index v2\nПереводов: ${translationCount}\nАктивный перевод: ${this.activeTranslationId}`, 10000);
+            return;
         }
+
         if (this.activeLegacyData !== null) {
-            const translation = this.activeLegacyData.translations[DEFAULT_TRANSLATION_ID]; new Notice(`Legacy Bible Index
-Книг: ${translation === undefined ? 0 : Object.keys(translation.books).length}`, 10000); return;
+            const translation = this.activeLegacyData.translations[DEFAULT_TRANSLATION_ID];
+            new Notice(`Legacy Bible Index\nКниг: ${translation === undefined ? 0 : Object.keys(translation.books).length}`, 10000);
+            return;
         }
+
         new Notice("Bible index is not loaded.", 5000);
     }
 }
@@ -227,17 +335,171 @@ class BibleWidget extends WidgetType {
     }
 }
 
+type BibleTranslationImportSettings = {
+    translationName: string;
+    language: string;
+    translationId: string;
+};
+
+class BibleTranslationImportModal extends Modal {
+    private value: BibleTranslationImportSettings;
+    private resolved = false;
+    private idWasEditedManually = false;
+
+    constructor(
+        app: App,
+        defaults: BibleTranslationImportSettings,
+        private readonly resolve: (value: BibleTranslationImportSettings | null) => void,
+    ) {
+        super(app);
+        this.value = { ...defaults };
+    }
+
+    onOpen(): void {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h2", { text: "Импорт перевода Библии" });
+        contentEl.createEl("p", { text: "Проверь название, язык и ID перевода. Если такой ID уже есть, старый индекс этого перевода будет полностью заменён." });
+
+        new Setting(contentEl)
+            .setName("Название перевода")
+            .setDesc("Например: Новый мир 2021, Синодальный, Yeni Dünya Çevirisi.")
+            .addText((text) => text
+                .setValue(this.value.translationName)
+                .onChange((value) => {
+                    this.value.translationName = value.trim();
+                    if (!this.idWasEditedManually) {
+                        this.value.translationId = createTranslationId(this.value.language, this.value.translationName);
+                        this.render();
+                    }
+                }));
+
+        new Setting(contentEl)
+            .setName("Язык")
+            .setDesc("BCP 47 код: ru, tr, en, ru-RU и т. п.")
+            .addText((text) => text
+                .setValue(this.value.language)
+                .onChange((value) => {
+                    this.value.language = normalizeLanguageInput(value);
+                    if (!this.idWasEditedManually) {
+                        this.value.translationId = createTranslationId(this.value.language, this.value.translationName);
+                        this.render();
+                    }
+                }));
+
+        new Setting(contentEl)
+            .setName("ID перевода")
+            .setDesc("Используется в имени папки data/translations/{id}. Только латиница, цифры и дефисы.")
+            .addText((text) => text
+                .setValue(this.value.translationId)
+                .onChange((value) => {
+                    this.idWasEditedManually = true;
+                    this.value.translationId = sanitizeTranslationId(value);
+                }));
+
+        new Setting(contentEl)
+            .addButton((button) => button
+                .setButtonText("Отмена")
+                .onClick(() => this.finish(null)))
+            .addButton((button) => button
+                .setButtonText("Импортировать")
+                .setCta()
+                .onClick(() => this.finish(this.value)));
+    }
+
+    onClose(): void {
+        this.contentEl.empty();
+        if (!this.resolved) {
+            this.finish(null);
+        }
+    }
+
+    private render(): void {
+        this.onOpen();
+    }
+
+    private finish(value: BibleTranslationImportSettings | null): void {
+        if (this.resolved) return;
+        this.resolved = true;
+
+        if (value === null) {
+            this.resolve(null);
+            this.close();
+            return;
+        }
+
+        const normalizedValue = {
+            translationName: value.translationName.trim() || "Imported EPUB Bible",
+            language: normalizeLanguageInput(value.language) || "und",
+            translationId: sanitizeTranslationId(value.translationId) || DEFAULT_TRANSLATION_ID,
+        };
+
+        this.resolve(normalizedValue);
+        this.close();
+    }
+}
+
 class BiblePluginSettingTab extends PluginSettingTab {
     constructor(app: App, private readonly plugin: BiblePlugin) { super(app, plugin); }
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
         containerEl.createEl("h2", { text: "Bible Plugin" });
-        new Setting(containerEl).setName("Импортировать EPUB").setDesc("Создать bible-index-v2.json и compact JSON по книгам.").addButton((button) => button.setButtonText("Импортировать EPUB").setCta().onClick(() => this.plugin.openEpubFilePicker()));
-        new Setting(containerEl).setName("Переимпортировать EPUB").setDesc("Выбери EPUB/TSV-ZIP файл заново.").addButton((button) => button.setButtonText("Переимпортировать EPUB").onClick(() => this.plugin.openEpubFilePicker()));
-        new Setting(containerEl).setName("Открыть папку индекса").setDesc("Открывает data-папку индекса в системном файловом менеджере.").addButton((button) => button.setButtonText("Открыть папку индекса").onClick(() => void this.plugin.openBibleIndexFolder()));
-        new Setting(containerEl).setName("Показать статистику индекса").setDesc("Показывает информацию о загруженном индексе.").addButton((button) => button.setButtonText("Показать статистику").onClick(() => this.plugin.showBibleIndexStats()));
+        new Setting(containerEl)
+            .setName("Импортировать EPUB")
+            .setDesc("Создать или заменить перевод в bibles-index.json и compact JSON по книгам.")
+            .addButton((button) => button.setButtonText("Импортировать EPUB").setCta().onClick(() => this.plugin.openEpubFilePicker()));
+        new Setting(containerEl)
+            .setName("Открыть папку индекса")
+            .setDesc("На desktop открывает data-папку индекса в системном файловом менеджере. На Android показывает путь.")
+            .addButton((button) => button.setButtonText("Открыть папку индекса").onClick(() => void this.plugin.openBibleIndexFolder()));
+        new Setting(containerEl)
+            .setName("Показать статистику индекса")
+            .setDesc("Показывает информацию о последнем импорте.")
+            .addButton((button) => button.setButtonText("Показать статистику").onClick(() => void this.plugin.showBibleIndexStats()));
     }
+}
+
+function createImportSettingsDefaults(fileName: string, sourceMetadata: EpubBibleSourceMetadata): BibleTranslationImportSettings {
+    const translationName = (sourceMetadata.title ?? fileName.replace(/\.(epub|tsv)$/i, "").trim()) || "Imported EPUB Bible";
+    const language = normalizeLanguageInput(sourceMetadata.language ?? "") || "ru";
+
+    return {
+        translationName,
+        language,
+        translationId: createTranslationId(language, translationName),
+    };
+}
+
+function createTranslationId(language: string, translationName: string): string {
+    const normalizedLanguage = normalizeLanguageInput(language) || "und";
+    const namePart = sanitizeTranslationId(transliterateToAscii(translationName)) || "translation";
+    return sanitizeTranslationId(`${normalizedLanguage}-${namePart}`);
+}
+
+function sanitizeTranslationId(value: string): string {
+    return value
+        .toLowerCase()
+        .trim()
+        .replace(/_/g, "-")
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+}
+
+function normalizeLanguageInput(value: string): string {
+    return value.trim().toLowerCase().replace(/_/g, "-");
+}
+
+function transliterateToAscii(value: string): string {
+    const map: Record<string, string> = {
+        а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y",
+        к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f",
+        х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+        ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u",
+    };
+
+    return value.toLowerCase().replace(/[а-яёçğıöşü]/g, (char) => map[char] ?? char);
 }
 
 function getErrorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }

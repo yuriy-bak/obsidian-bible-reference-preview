@@ -7,6 +7,9 @@ export type BibleIndexV2BookMetadata = {
 
 export type BibleIndexV2TranslationMetadata = {
     name: string;
+    language: string;
+    sourceFileName?: string;
+    importedAt: string;
     books: Record<string, BibleIndexV2BookMetadata>;
 };
 
