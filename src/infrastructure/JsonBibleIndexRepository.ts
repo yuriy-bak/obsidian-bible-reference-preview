@@ -13,4 +13,8 @@ export class JsonBibleIndexRepository implements WritableBibleIndexRepository {
     getIndex(): BibleIndex {
         return new InMemoryBibleIndex(this.data);
     }
+
+    getData(): BibleIndexData {
+        return this.data;
+    }
 }

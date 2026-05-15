@@ -10,6 +10,7 @@ const { createMockBibleIndexRepository } = require("../src/infrastructure/create
 const { JsonBibleIndexRepository } = require("../src/infrastructure/JsonBibleIndexRepository.js");
 const { mockBibleIndexData } = require("../src/infrastructure/mockBibleIndex.js");
 const { JsZipEpubBibleImporter } = require("../src/infrastructure/epub/JsZipEpubBibleImporter.js");
+const { createBookMappingFromBibleIndexData } = require("../src/infrastructure/createBookMappingFromBibleIndexData.js");
 
 const mapping = createFallbackRussianBookMapping();
 const parser = new BibleReferenceParser(mapping);
@@ -128,6 +129,17 @@ assert.strictEqual(
 
 async function createSyntheticEpubBuffer() {
     const zip = new JSZip();
+    const bookRows = [
+        ["Бытие", "Быт", "1001061105.xhtml"],
+        ["Исход", "Исх", "1001061106.xhtml"],
+        ["Левит", "Лев", "1001061107.xhtml"],
+    ];
+
+    for (let index = 4; index <= 65; index += 1) {
+        bookRows.push([`Книга ${index}`, `Кн${index}`, `10010611${String(4 + index).padStart(2, "0")}.xhtml`]);
+    }
+
+    bookRows.push(["Откровение", "Отк", "1001061170.xhtml"]);
 
     zip.file("META-INF/container.xml", [
         "<?xml version=\"1.0\"?>",
@@ -143,29 +155,29 @@ async function createSyntheticEpubBuffer() {
         "<package version=\"3.0\" xmlns=\"http://www.idpf.org/2007/opf\">",
         "<manifest>",
         "<item id=\"books\" href=\"books.xhtml\" media-type=\"application/xhtml+xml\"/>",
-        "<item id=\"john3\" href=\"john3.xhtml\" media-type=\"application/xhtml+xml\"/>",
+        "<item id=\"genesis1\" href=\"1001061105.xhtml\" media-type=\"application/xhtml+xml\"/>",
         "</manifest>",
         "<spine>",
         "<itemref idref=\"books\"/>",
-        "<itemref idref=\"john3\"/>",
+        "<itemref idref=\"genesis1\"/>",
         "</spine>",
         "</package>",
     ].join(""));
 
     zip.file("OEBPS/books.xhtml", [
-        "<html><body>",
-        "<table class=\"tableDiv stripe half\">",
-        "<tr><td>Иоанна</td><td>unused</td><td>Ин</td></tr>",
-        "</table>",
-        "</body></html>",
+        "<html><body><table>",
+        ...bookRows.map(([name, abbreviation, href]) => (
+            `<tr><td><a href=\"${href}\">${name}</a></td><td>unused</td><td>${abbreviation}</td></tr>`
+        )),
+        "</table></body></html>",
     ].join(""));
 
-    zip.file("OEBPS/john3.xhtml", [
-        "<html><body data-book-id=\"1\">",
-        "<h1>Ин</h1>",
-        "<p><span id=\"chapter3_verse16\"></span>Текст из EPUB Ин 3:16<a href=\"#fn1\">*</a></p>",
-        "<p><span id=\"chapter3_verse17\"></span>Текст из EPUB Ин 3:17</p>",
-        "<aside id=\"fn1\">Сноска из EPUB Ин 3:16</aside>",
+    zip.file("OEBPS/1001061105.xhtml", [
+        "<html><body>",
+        "<h1>Бытие</h1>",
+        "<p><span id=\"chapter1\"></span><span id=\"chapter1_verse1\"></span><span class=\"w_ch\"><strong>1</strong> </span>Текст из EPUB Быт 1:1<a href=\"#fn1\">*</a></p>",
+        "<p><span id=\"chapter1_verse2\"></span><strong><sup>2</sup></strong> Текст из EPUB Быт 1:2</p>",
+        "<div class=\"groupFootnote\"><aside epub:type=\"footnote\"><div id=\"fn1\">Сноска из EPUB Быт 1:1</div></aside></div>",
         "</body></html>",
     ].join(""));
 
@@ -182,17 +194,33 @@ async function runRealEpubImporterTests() {
         translationName: "Synthetic New World",
     });
 
-    assert.strictEqual(result.books.length, 1);
-    assert.strictEqual(result.books[0].abbreviation, "ин");
+    assert.strictEqual(result.books.length, 66);
+    assert.strictEqual(result.books[0].name, "Бытие");
     assert.strictEqual(result.warnings.length, 0);
     assert.strictEqual(
-        result.bibleIndexData.translations[DEFAULT_TRANSLATION_ID].books["1"].chapters["3"]["16"].text,
-        "Текст из EPUB Ин 3:16",
+        result.bibleIndexData.translations[DEFAULT_TRANSLATION_ID].books["1"].chapters["1"]["1"].text,
+        "Текст из EPUB Быт 1:1",
     );
     assert.deepStrictEqual(
-        result.bibleIndexData.translations[DEFAULT_TRANSLATION_ID].books["1"].chapters["3"]["16"].footnotes,
-        ["Сноска из EPUB Ин 3:16"],
+        result.bibleIndexData.translations[DEFAULT_TRANSLATION_ID].books["1"].chapters["1"]["1"].footnotes,
+        ["Сноска из EPUB Быт 1:1"],
     );
+    const importedMapping = createBookMappingFromBibleIndexData(result.bibleIndexData, DEFAULT_TRANSLATION_ID);
+    const importedParser = new BibleReferenceParser(importedMapping);
+
+    assert.deepStrictEqual(importedParser.parse("Бытие 1:1"), [
+        { book: 1, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1 },
+    ]);
+
+    assert.deepStrictEqual(importedParser.parse("Быт 1:1"), [
+        { book: 1, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1 },
+    ]);
+
+    assert.deepStrictEqual(importedParser.parse("Быт 1:1 Исх 1:1 Отк 1:1"), [
+        { book: 1, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1 },
+        { book: 2, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1 },
+        { book: 66, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1 },
+    ]);
 }
 
 runRealEpubImporterTests()

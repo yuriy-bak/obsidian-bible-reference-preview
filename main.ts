@@ -1,4 +1,5 @@
 import { App, Notice, Plugin, MarkdownView, PluginSettingTab, Setting } from "obsidian";
+import type { BibleIndexData } from "./src/infrastructure/BibleIndexData";
 import { EditorView } from "@codemirror/view";
 import { ViewPlugin } from "@codemirror/view";
 import { ViewUpdate } from "@codemirror/view";
@@ -11,11 +12,14 @@ import { formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
 import { createMockBibleIndexRepository } from "./src/infrastructure/createMockBibleIndexRepository";
 import { ObsidianBibleIndexRepository } from "./src/infrastructure/ObsidianBibleIndexRepository";
+import { createBookMappingFromBibleIndexData } from "./src/infrastructure/createBookMappingFromBibleIndexData";
 import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 
 export default class BiblePlugin extends Plugin {
-    private readonly bookMapping = createFallbackRussianBookMapping();
-    private readonly bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
+    
+    private bookMapping = createFallbackRussianBookMapping();
+    private bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
+
     private readonly bibleIndexRepository = createMockBibleIndexRepository();
     private bibleIndex = this.bibleIndexRepository.getIndex();
 
@@ -47,9 +51,11 @@ export default class BiblePlugin extends Plugin {
 
             await repository.load();
             this.bibleIndex = repository.getIndex();
+            this.updateBookMapping(repository.getData());
         } catch (error) {
             console.warn("Bible index load failed. Mock Bible index will be used.", error);
             this.bibleIndex = this.bibleIndexRepository.getIndex();
+            this.updateBookMapping(this.bibleIndexRepository.getData());
         }
     }
 
@@ -88,6 +94,7 @@ export default class BiblePlugin extends Plugin {
             });
 
             this.bibleIndex = repository.getIndex();
+            this.updateBookMapping(repository.getData());
             progressNotice.hide();
 
             if (result.warnings.length > 0) {
@@ -116,6 +123,11 @@ export default class BiblePlugin extends Plugin {
         return fileName.replace(/\.epub$/i, "").trim() || "Imported EPUB Bible";
     }
 
+    private updateBookMapping(data: BibleIndexData): void {
+        this.bookMapping = createBookMappingFromBibleIndexData(data, DEFAULT_TRANSLATION_ID);
+        this.bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
+    }
+    
     private getBibleIndexDataDirectoryPath(): string {
         return `${this.getPluginDirectoryPath()}/data`;
     }

@@ -52,6 +52,10 @@ export class ObsidianBibleIndexRepository implements WritableBibleIndexRepositor
         return new InMemoryBibleIndex(this.currentData);
     }
 
+    getData(): BibleIndexData {
+        return this.currentData;
+    }
+
     getIndexPath(): string {
         return normalizePath(`${this.dataDirectoryPath}/${BIBLE_INDEX_FILE_NAME}`);
     }

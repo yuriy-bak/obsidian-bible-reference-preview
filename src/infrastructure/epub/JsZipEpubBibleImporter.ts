@@ -8,6 +8,7 @@ import {
     extractBookIdFromHtmlOrPath,
     extractBookTableFromHtml,
     extractVersesFromHtml,
+    ExtractedBookTable,
     ExtractedVerse,
     toBibleIndexVerseData,
 } from "./htmlTextUtils";
@@ -38,7 +39,7 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
             .find((table) => table !== null);
 
         if (bookTable === undefined || bookTable === null) {
-            throw new EpubImportError("EPUB book table was not found. Import cannot continue without book names and abbreviations.");
+            throw new EpubImportError("EPUB complete 66-book table was not found. Import cannot continue without a validated book table.");
         }
 
         const bibleIndexData: BibleIndexData = {
@@ -54,13 +55,12 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
 
         for (const book of bookTable.books) {
             translation.books[String(book.id)] = {
-                name: book.abbreviation,
+                name: book.name,
                 chapters: {},
             };
         }
 
         let lastInferredBookId: number | null = null;
-        let inferredBookIdCount = 0;
         let importedVerseCount = 0;
 
         for (const document of xhtmlDocuments) {
@@ -70,7 +70,11 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
                 continue;
             }
 
-            let bookId = extractBookIdFromHtmlOrPath(document.html, document.path, bookTable.books);
+            let bookId = extractBookIdFromDocumentPath(document.path, bookTable);
+
+            if (bookId === null) {
+                bookId = extractBookIdFromHtmlOrPath(document.html, document.path, bookTable.books);
+            }
 
             if (bookId === null) {
                 bookId = inferBookIdFromSpineOrder(
@@ -84,8 +88,6 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
                     warnings.push(`Book id was not detected for XHTML document with verses: ${document.path}`);
                     continue;
                 }
-
-                inferredBookIdCount += 1;
             }
 
             const book = translation.books[String(bookId)];
@@ -110,10 +112,6 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
             throw new EpubImportError("EPUB import did not find any verses in XHTML documents.");
         }
 
-        if (inferredBookIdCount > 0) {
-            warnings.push(`Book id was inferred from spine order for ${inferredBookIdCount} XHTML documents.`);
-        }
-
         return {
             translationId: input.translationId,
             translationName: input.translationName,
@@ -122,6 +120,13 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
             warnings,
         };
     }
+}
+
+function extractBookIdFromDocumentPath(path: string, bookTable: ExtractedBookTable): number | null {
+    const fileName = path.split("/").pop() ?? path;
+    const canonicalFileName = fileName.replace(/-split\d+(?=\.xhtml$)/i, "");
+
+    return bookTable.hrefToBookId[canonicalFileName] ?? null;
 }
 
 function inferBookIdFromSpineOrder(
