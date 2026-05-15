@@ -4,6 +4,7 @@ import { BibleIndexData } from "./BibleIndexData";
 import { BibleIndexRepository } from "./BibleIndexRepository";
 import { InMemoryBibleIndex } from "./InMemoryBibleIndex";
 import { mockBibleIndexData } from "./mockBibleIndex";
+import { serializeBibleIndexData } from "./serializeBibleIndexData";
 
 const BIBLE_INDEX_FILE_NAME = "bible-index.json";
 
@@ -36,12 +37,34 @@ export class ObsidianBibleIndexRepository implements BibleIndexRepository {
         this.currentData = parsedIndex;
     }
 
+    async save(data: BibleIndexData): Promise<void> {
+        await this.ensureDataDirectoryExists();
+
+        await this.adapter.write(
+            this.getIndexPath(),
+            serializeBibleIndexData(data),
+        );
+
+        this.currentData = data;
+    }
+
     getIndex(): BibleIndex {
         return new InMemoryBibleIndex(this.currentData);
     }
 
     getIndexPath(): string {
         return normalizePath(`${this.dataDirectoryPath}/${BIBLE_INDEX_FILE_NAME}`);
+    }
+
+    private async ensureDataDirectoryExists(): Promise<void> {
+        const normalizedDirectoryPath = normalizePath(this.dataDirectoryPath);
+        const directoryExists = await this.adapter.exists(normalizedDirectoryPath);
+
+        if (directoryExists) {
+            return;
+        }
+
+        await this.adapter.mkdir(normalizedDirectoryPath);
     }
 }
 

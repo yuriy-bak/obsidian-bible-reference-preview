@@ -8,6 +8,8 @@ const { formatBibleTextBlocks } = require("../src/application/formatBibleTexts.j
 const { createMockBibleIndexRepository } = require("../src/infrastructure/createMockBibleIndexRepository.js");
 const { JsonBibleIndexRepository } = require("../src/infrastructure/JsonBibleIndexRepository.js");
 const { mockBibleIndexData } = require("../src/infrastructure/mockBibleIndex.js");
+const { ObsidianBibleIndexRepository } = require("../src/infrastructure/ObsidianBibleIndexRepository.js");
+const { serializeBibleIndexData } = require("../src/infrastructure/serializeBibleIndexData.js");
 
 const mapping = createFallbackRussianBookMapping();
 const parser = new BibleReferenceParser(mapping);
@@ -124,4 +126,62 @@ assert.strictEqual(
     "Текст Рим 8:28",
 );
 
-console.log("Parser, BibleText and BibleIndexRepository tests passed");
+function createFakeAdapter() {
+    const files = new Map();
+    const folders = new Set();
+
+    return {
+        files,
+        folders,
+        exists: async (path) => files.has(path) || folders.has(path),
+        read: async (path) => files.get(path),
+        write: async (path, data) => {
+            files.set(path, data);
+        },
+        mkdir: async (path) => {
+            folders.add(path);
+        },
+    };
+}
+
+async function runAsyncRepositoryTests() {
+    const adapter = createFakeAdapter();
+    const repository = new ObsidianBibleIndexRepository(
+        adapter,
+        ".obsidian/plugins/bible-plugin/data",
+    );
+
+    await repository.save(mockBibleIndexData);
+
+    assert.strictEqual(
+        adapter.files.get(".obsidian/plugins/bible-plugin/data/bible-index.json"),
+        serializeBibleIndexData(mockBibleIndexData),
+    );
+
+    const loadedRepository = new ObsidianBibleIndexRepository(
+        adapter,
+        ".obsidian/plugins/bible-plugin/data",
+    );
+
+    await loadedRepository.load();
+
+    assert.strictEqual(
+        loadedRepository.getIndex().getBibleText({
+            translationId: DEFAULT_TRANSLATION_ID,
+            book: 43,
+            chapter: 3,
+            verseStart: 16,
+            verseEnd: 16,
+        }).verses[0].text,
+        "Текст Ин 3:16",
+    );
+}
+
+runAsyncRepositoryTests()
+    .then(() => {
+        console.log("Parser, BibleText and BibleIndexRepository tests passed");
+    })
+    .catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });
