@@ -1,7 +1,8 @@
 import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting } from "obsidian";
 import type { BibleIndexData } from "./src/infrastructure/BibleIndexData";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
-import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from "@codemirror/view";
+import { StateEffect, StateField } from "@codemirror/state";
+import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType, type DecorationSet } from "@codemirror/view";
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createFallbackRussianBookMapping } from "./src/parsing/BookMapping";
 import { DEFAULT_TRANSLATION_ID } from "./src/application/DefaultTranslation";
@@ -15,6 +16,40 @@ import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBible
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 
+
+const setBibleDecorationsEffect = StateEffect.define<DecorationSet>();
+
+const bibleDecorationsField = StateField.define<DecorationSet>({
+    create() {
+        return Decoration.none;
+    },
+
+    update(decorations, transaction) {
+        let nextDecorations = decorations.map(transaction.changes);
+
+        for (const effect of transaction.effects) {
+            if (effect.is(setBibleDecorationsEffect)) {
+                nextDecorations = effect.value;
+            }
+        }
+
+        return nextDecorations;
+    },
+
+    provide: (field) => EditorView.decorations.from(field),
+});
+
+function dispatchBibleDecorations(view: EditorView, decorations: DecorationSet): void {
+    window.setTimeout(() => {
+        if (view.state.field(bibleDecorationsField, false) === undefined) {
+            return;
+        }
+
+        view.dispatch({
+            effects: setBibleDecorationsEffect.of(decorations),
+        });
+    }, 0);
+}
 export default class BiblePlugin extends Plugin {
     private bookMapping = createFallbackRussianBookMapping();
     private bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
@@ -206,26 +241,57 @@ export default class BiblePlugin extends Plugin {
 
     createCursorExtension() {
         const plugin = this;
-        return ViewPlugin.fromClass(class {
-            decorations = Decoration.none;
+
+        const cursorPlugin = ViewPlugin.fromClass(class {
             lastParagraph = "";
             requestId = 0;
+
             constructor(private readonly view: EditorView) { }
+
             update(update: ViewUpdate) {
-                if (!update.selectionSet && !update.docChanged) return;
+                if (!update.selectionSet && !update.docChanged) {
+                    return;
+                }
+
                 const paragraph = plugin.getCurrentParagraph(update);
-                if (paragraph === this.lastParagraph) return;
+
+                if (paragraph === this.lastParagraph) {
+                    return;
+                }
+
                 this.lastParagraph = paragraph;
                 const currentRequestId = ++this.requestId;
                 const end = plugin.getParagraphEnd(update);
-                if (!paragraph || end === null) { this.decorations = Decoration.none; return; }
+
+                if (!paragraph || end === null) {
+                    dispatchBibleDecorations(this.view, Decoration.none);
+                    return;
+                }
+
                 void plugin.analyzeParagraphAsync(paragraph).then((text) => {
-                    if (currentRequestId !== this.requestId || paragraph !== this.lastParagraph) return;
-                    this.decorations = text === "" ? Decoration.none : Decoration.set([Decoration.widget({ widget: new BibleWidget(text), side: 1 }).range(end)]);
-                    this.view.dispatch({ effects: [] });
+                    if (currentRequestId !== this.requestId || paragraph !== this.lastParagraph) {
+                        return;
+                    }
+
+                    const decorations = text === ""
+                        ? Decoration.none
+                        : Decoration.set([
+                            Decoration.widget({
+                                widget: new BibleWidget(text),
+                                side: 1,
+                                block: true,
+                            }).range(end),
+                        ]);
+
+                    dispatchBibleDecorations(this.view, decorations);
                 });
             }
-        }, { decorations: (value) => value.decorations });
+        });
+
+        return [
+            bibleDecorationsField,
+            cursorPlugin,
+        ];
     }
 
     async analyzeParagraphAsync(text: string): Promise<string> {
@@ -324,8 +390,14 @@ export default class BiblePlugin extends Plugin {
     }
 }
 
+
 class BibleWidget extends WidgetType {
     constructor(private readonly text: string) { super(); }
+
+    eq(other: BibleWidget): boolean {
+        return other.text === this.text;
+    }
+
     toDOM(): HTMLElement {
         const el = document.createElement("div");
         el.style.border = "1px solid var(--color-accent)";
@@ -334,10 +406,13 @@ class BibleWidget extends WidgetType {
         el.style.borderRadius = "6px";
         el.style.background = "var(--background-secondary)";
         el.style.whiteSpace = "pre-wrap";
+        el.style.maxHeight = "40vh";
+        el.style.overflow = "auto";
         el.textContent = this.text;
         return el;
     }
 }
+
 
 type BibleTranslationImportSettings = {
     translationName: string;
