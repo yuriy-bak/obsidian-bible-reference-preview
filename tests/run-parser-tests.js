@@ -6,7 +6,11 @@ const { getBibleTextBlocks } = require("../src/application/getBibleTexts.js");
 const { createMockBibleIndexRepository } = require("../src/infrastructure/createMockBibleIndexRepository.js");
 const { LazyBibleIndexV2 } = require("../src/infrastructure/v2/LazyBibleIndexV2.js");
 const { createBookMappingFromBibleIndexV2Data } = require("../src/infrastructure/v2/createBookMappingFromBibleIndexV2Data.js");
-const { extractBookTableFromHtml } = require("../src/infrastructure/epub/htmlTextUtils.js");
+const { 
+enrichBookTableFromNavigationHtml,
+    extractBookNavigationAliasesFromHtml,
+    extractBookTableFromHtml,
+ } = require("../src/infrastructure/epub/htmlTextUtils.js");
 
 (async () => {
     const mapping = createFallbackRussianBookMapping();
@@ -60,6 +64,29 @@ const { extractBookTableFromHtml } = require("../src/infrastructure/epub/htmlTex
     const nonRussianBookTable = extractBookTableFromHtml(`<table>${nonRussianRows}</table>`);
     assert(nonRussianBookTable !== null, "Expected non-Russian 66-book table to be accepted");
     assert.strictEqual(nonRussianBookTable.books[0].name, "Kitap 1");
+
+
+    const oldBibleNavigationHtml = `<p>${Array.from({ length: 66 }, (_unused, index) => {
+        const bookId = String(index + 1).padStart(2, "0");
+        return `<a href="BIBLE_${bookId}.xhtml">B${bookId}</a>`;
+    }).join(" ")}</p>`;
+    const oldBibleNavigationTable = extractBookTableFromHtml(oldBibleNavigationHtml);
+    assert(oldBibleNavigationTable !== null, "Expected old BIBLE_00 navigation without hardcoded book names to be accepted");
+    assert.strictEqual(oldBibleNavigationTable.books.length, 66);
+    assert.strictEqual(oldBibleNavigationTable.hrefToBookId["BIBLE_01.xhtml"], 1);
+    enrichBookTableFromNavigationHtml(
+        oldBibleNavigationTable,
+        "OEBPS/BIBLE_01.xhtml",
+        "<html><head><title>First Book From EPUB (Navigation)</title></head><body><a href='05_BOOK.xhtml#chapter1_verse1'>1</a></body></html>",
+    );
+    assert.strictEqual(oldBibleNavigationTable.books[0].name, "First Book From EPUB");
+    assert.strictEqual(oldBibleNavigationTable.hrefToBookId["05_BOOK.xhtml"], 1);
+
+    const scriptureReferenceAliases = extractBookNavigationAliasesFromHtml(
+        "<p><a href='05_BOOK.xhtml#chapter3_verse34'>Иоанн 3:34-4:1</a></p>",
+        oldBibleNavigationTable,
+    );
+    assert.deepStrictEqual(scriptureReferenceAliases, {});
 
     const aliases = metadata.translations[DEFAULT_TRANSLATION_ID].books["1"].aliases;
     assert(!aliases.some((alias) => alias.startsWith("^") || alias.includes(":") || alias.includes(";") || alias === "1"));

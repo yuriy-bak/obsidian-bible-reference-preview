@@ -14,46 +14,31 @@ export type ExtractedBookTable = {
 };
 
 export function extractBookTableFromHtml(html: string): ExtractedBookTable | null {
-    const rows = Array.from(html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi));
-    const books: BibleBook[] = [];
-    const hrefToBookId: Record<string, number> = {};
-
-    for (const row of rows) {
-        const cells = Array.from(row[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi));
-        if (cells.length < 3) {
-            continue;
-        }
-
-        const href = extractFirstHref(cells[0][1]);
-        if (href === null || !isCanonicalBibleBookHref(href)) {
-            continue;
-        }
-
-        const name = normalizeText(stripTags(cells[0][1]));
-        const abbreviation = normalizeText(stripTags(cells[2][1]));
-
-        if (name.length === 0 || abbreviation.length === 0) {
-            continue;
-        }
-
-        const id = books.length + 1;
-        books.push({
-            id,
-            name,
-            abbreviation,
-            aliases: [name, abbreviation],
-        });
-        hrefToBookId[normalizeHrefFileName(href)] = id;
+    const tableBookList = extractBookTableFromRows(html);
+    if (tableBookList !== null) {
+        return tableBookList;
     }
 
-    if (!isCompleteBibleBookTable(books)) {
-        return null;
+    return extractBookTableFromNavigationLinks(html);
+}
+
+export function enrichBookTableFromNavigationHtml(bookTable: ExtractedBookTable, path: string, html: string): void {
+    const navigationFileName = normalizeHrefFileName(path);
+    const bookId = getBookIdFromNavigationHref(navigationFileName, bookTable);
+    if (bookId === null) {
+        return;
     }
 
-    return {
-        books,
-        hrefToBookId,
-    };
+    const bookName = extractBookNameFromNavigationHtml(html);
+    if (bookName !== null) {
+        const book = bookTable.books.find((candidate) => candidate.id === bookId);
+        if (book !== undefined && book.name === book.abbreviation) {
+            book.name = bookName;
+            book.aliases = [book.name, book.abbreviation];
+        }
+    }
+
+    addBookContentHrefsFromNavigationHtml(bookTable, bookId, html);
 }
 
 export function extractBookIdFromHtmlOrPath(html: string, path: string, books: BibleBook[]): number | null {
@@ -83,7 +68,7 @@ export function extractBookIdFromHtmlOrPath(html: string, path: string, books: B
 }
 
 export function extractVersesFromHtml(html: string): ExtractedVerse[] {
-    const verseMarkers = Array.from(html.matchAll(/<span\b([^>]*\bid=["']chapter(\d+)_verse(\d+)["'][^>]*)>/gi));
+    const verseMarkers = Array.from(html.matchAll(/<(?:span|a)\b([^>]*\bid=["']chapter(\d+)_verse(\d+)["'][^>]*)>/gi));
     const result: ExtractedVerse[] = [];
     const footnoteGroupIndex = findFootnoteGroupIndex(html);
 
@@ -121,6 +106,161 @@ export function toBibleIndexVerseData(verse: ExtractedVerse): BibleIndexVerseDat
     };
 }
 
+function extractBookTableFromRows(html: string): ExtractedBookTable | null {
+    const rows = Array.from(html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi));
+    const books: BibleBook[] = [];
+    const hrefToBookId: Record<string, number> = {};
+
+    for (const row of rows) {
+        const cells = Array.from(row[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi));
+        if (cells.length < 3) {
+            continue;
+        }
+
+        const href = extractFirstHref(cells[0][1]);
+        if (href === null || !isCanonicalBibleBookHref(href)) {
+            continue;
+        }
+
+        const name = normalizeText(stripTags(cells[0][1]));
+        const abbreviation = extractBookTableAbbreviation(cells);
+
+        if (name.length === 0 || abbreviation === null || !isBookNavigationAlias(name)) {
+            continue;
+        }
+
+        const id = books.length + 1;
+        books.push({
+            id,
+            name,
+            abbreviation,
+            aliases: [name, abbreviation],
+        });
+        hrefToBookId[normalizeHrefFileName(href)] = id;
+    }
+
+    if (!isCompleteBibleBookTable(books)) {
+        return null;
+    }
+
+    return {
+        books,
+        hrefToBookId,
+    };
+}
+
+function extractBookTableAbbreviation(cells: RegExpMatchArray[]): string | null {
+    for (let index = 1; index < cells.length; index += 1) {
+        if (extractFirstHref(cells[index][1]) !== null) {
+            continue;
+        }
+
+        const candidate = normalizeText(stripTags(cells[index][1]));
+
+        if (isLikelyBookTableAbbreviation(candidate)) {
+            return candidate;
+        }
+    }
+
+    return null;
+}
+
+function isLikelyBookTableAbbreviation(value: string): boolean {
+    if (!isBookNavigationAlias(value)) {
+        return false;
+    }
+
+    if (isKnownNonBookTableAbbreviation(value)) {
+        return false;
+    }
+
+    if (/\s/.test(value)) {
+        return false;
+    }
+
+    if (/^\d+$/.test(value)) {
+        return false;
+    }
+
+    return value.length <= 12;
+}
+
+function isKnownNonBookTableAbbreviation(value: string): boolean {
+    return /^(outline|overview|summary|contents?|page)$/i.test(value);
+}
+
+function extractBookTableFromNavigationLinks(html: string): ExtractedBookTable | null {
+    const links = Array.from(html.matchAll(/<a\b[^>]*href=["']([^"']*BIBLE_(\d{2})\.xhtml)["'][^>]*>([\s\S]*?)<\/a>/gi));
+    const booksById = new Map<number, BibleBook>();
+    const hrefToBookId: Record<string, number> = {};
+
+    for (const link of links) {
+        const id = Number(link[2]);
+        if (id < 1 || id > 66 || booksById.has(id)) {
+            continue;
+        }
+
+        const abbreviation = normalizeText(stripTags(link[3]));
+        if (!isBookNavigationAlias(abbreviation)) {
+            continue;
+        }
+
+        booksById.set(id, {
+            id,
+            name: abbreviation,
+            abbreviation,
+            aliases: [abbreviation],
+        });
+        hrefToBookId[normalizeHrefFileName(link[1])] = id;
+    }
+
+    if (booksById.size !== 66) {
+        return null;
+    }
+
+    return {
+        books: Array.from(booksById.values()).sort((left, right) => left.id - right.id),
+        hrefToBookId,
+    };
+}
+
+function addBookContentHrefsFromNavigationHtml(bookTable: ExtractedBookTable, bookId: number, html: string): void {
+    const hrefs = Array.from(html.matchAll(/href=["']([^"']+\.xhtml(?:#[^"']*)?)["']/gi));
+    for (const hrefMatch of hrefs) {
+        const href = hrefMatch[1];
+        const fileName = normalizeHrefFileName(href);
+        if (fileName.length === 0 || fileName.startsWith("biblechapter") || fileName.startsWith("bibleverse")) {
+            continue;
+        }
+
+        const hrefFragment = href.split("#")[1] ?? "";
+        if (hrefFragment.length > 0 && !/^chapter\d+_verse\d+$/i.test(hrefFragment)) {
+            continue;
+        }
+
+        bookTable.hrefToBookId[fileName] = bookId;
+        bookTable.hrefToBookId[canonicalVerseDocumentFileName(fileName)] = bookId;
+    }
+}
+
+function extractBookNameFromNavigationHtml(html: string): string | null {
+    const title = removeNavigationSuffix(normalizeText(stripTags(extractTitle(html) ?? "")));
+    if (isBookNavigationAlias(title)) {
+        return title;
+    }
+
+    const heading = removeNavigationSuffix(normalizeText(stripTags(extractFirstHeading(html) ?? "")));
+    if (isBookNavigationAlias(heading)) {
+        return heading;
+    }
+
+    return null;
+}
+
+function removeNavigationSuffix(value: string): string {
+    return value.replace(/\s*\([^)]*Navigation[^)]*\)\s*$/i, "").trim();
+}
+
 function extractFirstHref(html: string): string | null {
     const match = /href=["']([^"']+)["']/i.exec(html);
     return match?.[1] ?? null;
@@ -142,6 +282,10 @@ function isCanonicalBibleBookHref(href: string): boolean {
 
 function normalizeHrefFileName(href: string): string {
     return href.split("#")[0].split("?")[0].split("/").pop() ?? href;
+}
+
+function canonicalVerseDocumentFileName(fileName: string): string {
+    return fileName.replace(/-split\d+(?=\.xhtml$)/i, "");
 }
 
 function isCompleteBibleBookTable(books: BibleBook[]): boolean {
@@ -179,6 +323,11 @@ function extractBookIdFromPath(path: string): number | null {
     }
 
     return Number(match[1]);
+}
+
+function extractTitle(html: string): string | null {
+    const match = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+    return match?.[1] ?? null;
 }
 
 function extractFirstHeading(html: string): string | null {
@@ -314,7 +463,7 @@ function isBookNavigationAlias(value: string): boolean {
         return false;
     }
 
-    if (normalized.includes(":") || normalized.includes(";")) {
+    if (normalized.includes(":") || normalized.includes(";") || looksLikeScriptureReference(normalized)) {
         return false;
     }
 
@@ -323,6 +472,10 @@ function isBookNavigationAlias(value: string): boolean {
     }
 
     return true;
+}
+
+function looksLikeScriptureReference(value: string): boolean {
+    return /\d+\s*[:：]\s*\d+/.test(value);
 }
 
 function escapeRegExp(value: string): string {

@@ -7,6 +7,7 @@ import { readContainerOpfPath, readZipText } from "./EpubContainerReader";
 import { EpubImportError } from "./EpubImportError";
 import { parseOpfDocument } from "./EpubOpfReader";
 import {
+    enrichBookTableFromNavigationHtml,
     extractBookNavigationAliasesFromHtml,
     extractBookTableFromHtml,
     extractVersesFromHtml,
@@ -47,6 +48,10 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
 
         if (bookTable === undefined || bookTable === null) {
             throw new EpubImportError("EPUB complete 66-book table was not found. Import cannot continue without a validated book table.");
+        }
+
+        for (const document of xhtmlDocuments) {
+            enrichBookTableFromNavigationHtml(bookTable, document.path, document.html);
         }
 
         const navigationAliasesByBookId = mergeNavigationAliases(
