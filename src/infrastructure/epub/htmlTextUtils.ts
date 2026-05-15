@@ -127,7 +127,17 @@ function extractFirstHref(html: string): string | null {
 }
 
 function isCanonicalBibleBookHref(href: string): boolean {
-    return /^10010611\d\d\.xhtml$/i.test(normalizeHrefFileName(href));
+    const fileName = normalizeHrefFileName(href);
+
+    if (!/^\d+\.xhtml$/i.test(fileName)) {
+        return false;
+    }
+
+    if (/-split\d+\.xhtml$/i.test(fileName)) {
+        return false;
+    }
+
+    return true;
 }
 
 function normalizeHrefFileName(href: string): string {
