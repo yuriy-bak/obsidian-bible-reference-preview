@@ -1,3 +1,4 @@
+
 import { BibleBook } from "../domain/BibleBook";
 import { BookMapping, createBookMapping } from "../parsing/BookMapping";
 import { BibleIndexData } from "./BibleIndexData";
@@ -17,6 +18,7 @@ export function createBookMappingFromBibleIndexData(
             id: Number(bookId),
             name: book.name,
             abbreviation: book.abbreviation ?? book.name,
+            aliases: book.aliases ?? [],
         }))
         .filter((book) => Number.isInteger(book.id) && book.id > 0)
         .sort((left, right) => left.id - right.id);

@@ -6,6 +6,7 @@ import { EpubImportError } from "./EpubImportError";
 import { getSpineXhtmlItems, parseOpfDocument } from "./EpubOpfReader";
 import {
     extractBookIdFromHtmlOrPath,
+    extractBookNavigationAliasesFromHtml,
     extractBookTableFromHtml,
     extractVersesFromHtml,
     ExtractedBookTable,
@@ -51,11 +52,25 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
             },
         };
 
+
+        const navigationAliasesByBookId = mergeNavigationAliases(
+            xhtmlDocuments.map((document) => extractBookNavigationAliasesFromHtml(document.html, bookTable)),
+        );
+
         const translation = bibleIndexData.translations[input.translationId];
 
         for (const book of bookTable.books) {
+
+            const aliases = uniqueStrings([
+                book.name,
+                book.abbreviation,
+                ...(book.aliases ?? []),
+                ...(navigationAliasesByBookId[book.id] ?? []),
+            ]);
+
             translation.books[String(book.id)] = {
                 name: book.name,
+                aliases,
                 chapters: {},
             };
         }
@@ -175,4 +190,39 @@ function startsAtFirstVerse(verses: ExtractedVerse[]): boolean {
 function hasAnyImportedVerses(book: BibleIndexData["translations"][string]["books"][string]): boolean {
     return Object.values(book.chapters)
         .some((chapter) => Object.keys(chapter).length > 0);
+}
+
+function mergeNavigationAliases(
+    aliasMaps: Array<Record<number, string[]>>,
+): Record<number, string[]> {
+    const result: Record<number, string[]> = {};
+
+    for (const aliasMap of aliasMaps) {
+        for (const [bookId, aliases] of Object.entries(aliasMap)) {
+            const numericBookId = Number(bookId);
+            result[numericBookId] ??= [];
+            result[numericBookId].push(...aliases);
+        }
+    }
+
+    return result;
+}
+
+function uniqueStrings(values: string[]): string[] {
+    const result: string[] = [];
+    const seen = new Set<string>();
+
+    for (const value of values) {
+        const normalized = value.trim();
+        const key = normalized.toLowerCase();
+
+        if (normalized.length === 0 || seen.has(key)) {
+            continue;
+        }
+
+        seen.add(key);
+        result.push(normalized);
+    }
+
+    return result;
 }

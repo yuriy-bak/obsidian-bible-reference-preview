@@ -8,6 +8,7 @@ export type BibleIndexChapterData = Record<string, BibleIndexVerseData>;
 export type BibleIndexBookData = {
     name: string;
     abbreviation?: string;
+    aliases?: string[];
     chapters: Record<string, BibleIndexChapterData>;
 };
 

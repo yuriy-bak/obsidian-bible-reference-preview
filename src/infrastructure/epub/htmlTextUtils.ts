@@ -41,6 +41,7 @@ export function extractBookTableFromHtml(html: string): ExtractedBookTable | nul
             id,
             name,
             abbreviation,
+            aliases: [name, abbreviation],
         });
         hrefToBookId[normalizeHrefFileName(href)] = id;
     }
@@ -259,6 +260,43 @@ function decodeHtmlEntities(value: string): string {
         .replace(/&gt;/g, ">")
         .replace(/&nbsp;/g, " ")
         .replace(/&amp;/g, "&");
+}
+
+export function extractBookNavigationAliasesFromHtml(
+    html: string,
+    bookTable: ExtractedBookTable,
+): Record<number, string[]> {
+    const aliasesByBookId: Record<number, string[]> = {};
+    const linkPattern = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+
+    for (let match = linkPattern.exec(html); match !== null; match = linkPattern.exec(html)) {
+        const href = normalizeHrefFileName(match[1]);
+        const alias = normalizeText(stripTags(match[2]));
+
+        if (alias.length === 0) {
+            continue;
+        }
+
+        const bookId = getBookIdFromNavigationHref(href, bookTable);
+        if (bookId === null) {
+            continue;
+        }
+
+        aliasesByBookId[bookId] ??= [];
+        aliasesByBookId[bookId].push(alias);
+    }
+
+    return aliasesByBookId;
+}
+
+function getBookIdFromNavigationHref(href: string, bookTable: ExtractedBookTable): number | null {
+    const chapterNavigationMatch = /^biblechapternav(\d+)\.xhtml$/i.exec(href);
+    if (chapterNavigationMatch !== null) {
+        const bookId = Number(chapterNavigationMatch[1]);
+        return bookTable.books.some((book) => book.id === bookId) ? bookId : null;
+    }
+
+    return bookTable.hrefToBookId[href] ?? null;
 }
 
 function escapeRegExp(value: string): string {

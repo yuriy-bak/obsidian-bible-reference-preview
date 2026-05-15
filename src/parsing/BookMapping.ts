@@ -17,32 +17,23 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
     const generatedAliases = new Map<string, Set<number>>();
 
     const addAuthoritativeAlias = (alias: string, bookId: number): void => {
-        const normalized = normalizeBookAlias(alias);
-        if (normalized.length === 0) {
-            return;
-        }
+        for (const normalized of createAliasVariants(alias)) {
+            if (normalized.length === 0) {
+                continue;
+            }
 
-        nameToId.set(normalized, bookId);
-        getBookAliasSet(bookId, bigBooks, shortBooks).add(normalized);
-
-        const spacedDigitAlias = addSpaceAfterLeadingDigit(normalized);
-        if (spacedDigitAlias !== normalized) {
-            nameToId.set(spacedDigitAlias, bookId);
-            getBookAliasSet(bookId, bigBooks, shortBooks).add(spacedDigitAlias);
+            nameToId.set(normalized, bookId);
+            getBookAliasSet(bookId, bigBooks, shortBooks).add(normalized);
         }
     };
 
     const collectGeneratedAlias = (alias: string, bookId: number): void => {
-        const normalized = normalizeBookAlias(alias);
-        if (normalized.length === 0) {
-            return;
-        }
+        for (const normalized of createAliasVariants(alias)) {
+            if (normalized.length === 0) {
+                continue;
+            }
 
-        addGeneratedAlias(generatedAliases, normalized, bookId);
-
-        const spacedDigitAlias = addSpaceAfterLeadingDigit(normalized);
-        if (spacedDigitAlias !== normalized) {
-            addGeneratedAlias(generatedAliases, spacedDigitAlias, bookId);
+            addGeneratedAlias(generatedAliases, normalized, bookId);
         }
     };
 
@@ -55,8 +46,8 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
         addAuthoritativeAlias(bookName, book.id);
         addAuthoritativeAlias(bookAbbreviation, book.id);
 
-        if (bookName === "псалмы") {
-            addAuthoritativeAlias("псалом", book.id);
+        for (const alias of book.aliases ?? []) {
+            addAuthoritativeAlias(alias, book.id);
         }
 
         for (let j = 3; j <= 8; j += 1) {
@@ -92,10 +83,10 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
 
 export function createFallbackRussianBookMapping(): BookMapping {
     return createBookMapping([
-        { id: 19, name: "псалмы", abbreviation: "пс" },
+        { id: 19, name: "псалмы", abbreviation: "пс", aliases: ["псалом"] },
         { id: 43, name: "иоанна", abbreviation: "ин" },
         { id: 45, name: "римлянам", abbreviation: "рим" },
-        { id: 46, name: "1коринфянам", abbreviation: "1кор" },
+        { id: 46, name: "1коринфянам", abbreviation: "1кор", aliases: ["1 коринфянам", "1 кор"] },
         { id: 65, name: "иуды", abbreviation: "иуд" },
     ]);
 }
@@ -109,6 +100,25 @@ export function normalizeBookAlias(value: string): string {
         .replace(/\s+/g, " ");
 }
 
+function createAliasVariants(value: string): Set<string> {
+    const normalized = normalizeBookAlias(value);
+    const variants = new Set<string>();
+
+    if (normalized.length === 0) {
+        return variants;
+    }
+
+    variants.add(normalized);
+
+    const compactLeadingDigit = normalized.replace(/^(\d)\s+/, "$1");
+    variants.add(compactLeadingDigit);
+
+    const spacedLeadingDigit = normalized.replace(/^(\d)(?=\S)/, "$1 ");
+    variants.add(spacedLeadingDigit);
+
+    return variants;
+}
+
 function addGeneratedAlias(aliases: Map<string, Set<number>>, alias: string, bookId: number): void {
     const bookIds = aliases.get(alias) ?? new Set<number>();
     bookIds.add(bookId);
@@ -119,18 +129,15 @@ function getBookAliasSet(bookId: number, bigBooks: Set<string>, shortBooks: Set<
     return ONE_CHAPTER_BOOK_IDS.has(bookId) ? shortBooks : bigBooks;
 }
 
-function addSpaceAfterLeadingDigit(value: string): string {
-    if (!/^\d\S/.test(value)) {
-        return value;
-    }
-
-    return `${value[0]} ${value.slice(1)}`;
-}
-
 function createDisplayName(value: string): string {
     const normalized = normalizeBookAlias(value);
+
     if (normalized.length === 0) {
         return "";
+    }
+
+    if (/^\d\s/.test(normalized)) {
+        return `${normalized[0]}${capitalizeFirstLetter(normalized.slice(1).trim())}`;
     }
 
     if (/^\d/.test(normalized)) {
