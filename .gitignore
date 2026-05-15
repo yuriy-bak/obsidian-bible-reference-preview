@@ -32,4 +32,6 @@ main.js
 
 # dotenv (на будущее)
 .env
-data/bible-index.json
+
+#папка с индексами не должна лежать в git
+data/

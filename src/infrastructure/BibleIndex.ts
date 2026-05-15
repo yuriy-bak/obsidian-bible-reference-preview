@@ -9,5 +9,5 @@ export type GetBibleTextInput = {
 };
 
 export type BibleIndex = {
-    getBibleText(input: GetBibleTextInput): BibleText | null;
+    getBibleText(input: GetBibleTextInput): Promise<BibleText | null>;
 };
