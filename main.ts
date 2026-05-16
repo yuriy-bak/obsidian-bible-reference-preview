@@ -1441,7 +1441,7 @@ export default class BiblePlugin extends Plugin {
             }
 
             private isMobilePreviewLayout(viewportWidth: number): boolean {
-                return Platform.isMobileApp || viewportWidth < 700;
+                return viewportWidth < 700;
             }
 
             private scheduleReferenceLinkUpdate(): void {
@@ -1916,7 +1916,7 @@ class BibleReadingModePreviewController {
     private clampBiblePreviewPosition(left: number, top: number, width: number, height: number): { left: number; top: number } { const viewport = this.getBiblePreviewViewport(); const safe = this.getBiblePreviewSafeMargins(viewport.width); const minLeft = viewport.left + safe.left; const maxLeft = Math.max(minLeft, viewport.left + viewport.width - width - safe.right); const minTop = viewport.top + safe.top; const maxTop = Math.max(minTop, viewport.top + viewport.height - height - safe.bottom); return { left: Math.min(Math.max(left, minLeft), maxLeft), top: Math.min(Math.max(top, minTop), maxTop) }; }
     private getBiblePreviewViewport(): { left: number; top: number; width: number; height: number } { const viewport = window.visualViewport; return { left: viewport?.offsetLeft ?? 0, top: viewport?.offsetTop ?? 0, width: viewport?.width ?? window.innerWidth, height: viewport?.height ?? window.innerHeight }; }
     private getBiblePreviewSafeMargins(viewportWidth: number): { top: number; right: number; bottom: number; left: number } { return this.isMobilePreviewLayout(viewportWidth) ? { top: Platform.isAndroidApp ? 72 : 56, right: 8, bottom: 12, left: 8 } : { top: 12, right: 12, bottom: 46, left: 12 }; }
-    private isMobilePreviewLayout(viewportWidth: number): boolean { return Platform.isMobileApp || viewportWidth < 700; }
+    private isMobilePreviewLayout(viewportWidth: number): boolean { return viewportWidth < 700; }
     private updateBiblePreviewTitle(): void { if (this.previewTitleEl !== null) this.previewTitleEl.textContent = `📖 ${this.plugin.getActiveTranslationPreviewTitle()}`; }
     private async copyBiblePreviewText(): Promise<void> { if (this.previewText.length === 0) return; try { if (navigator.clipboard !== undefined) await navigator.clipboard.writeText(this.previewText); else this.copyBiblePreviewTextFallback(); new Notice(this.plugin.t("notice.bibleTextCopied"), 2500); } catch { this.copyBiblePreviewTextFallback(); new Notice(this.plugin.t("notice.bibleTextCopied"), 2500); } }
     private copyBiblePreviewTextFallback(): void { const el = document.createElement("textarea"); el.value = this.previewText; el.style.position = "fixed"; el.style.left = "-9999px"; el.style.top = "0"; document.body.appendChild(el); el.focus(); el.select(); document.execCommand("copy"); el.remove(); }
