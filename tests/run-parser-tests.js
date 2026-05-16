@@ -16,10 +16,17 @@ enrichBookTableFromNavigationHtml,
         { id: 43, name: "иоанна", abbreviation: "ин" },
         { id: 45, name: "римлянам", abbreviation: "рим" },
         { id: 46, name: "1коринфянам", abbreviation: "1кор", aliases: ["1 коринфянам", "1 кор"] },
+        { id: 65, name: "иуды", abbreviation: "иуд", chapterCount: 1 },
     ]);
     const parser = new BibleReferenceParser(mapping);
     assert.strictEqual(parser.parse("Ин3:16").length, 1);
     assert.strictEqual(parser.parse("1 Кор 13:4").length, 1);
+    assert.deepStrictEqual(parser.parse("Иуд6"), [{ book: 65, chapterStart: 1, verseStart: 6, chapterEnd: 1, verseEnd: 6 }]);
+
+    const twoChapterJudeParser = new BibleReferenceParser(createBookMapping([
+        { id: 65, name: "иуды", abbreviation: "иуд", chapterCount: 2 },
+    ]));
+    assert.strictEqual(twoChapterJudeParser.parse("Иуд6").length, 0);
 
     const conflictingAliasParser = new BibleReferenceParser(createBookMapping([
         { id: 43, name: "иоанна", abbreviation: "ин", aliases: ["общ"] },
@@ -58,15 +65,16 @@ enrichBookTableFromNavigationHtml,
                 importedAt: "2026-01-01T00:00:00.000Z",
                 books: {
                     "1": { name: "Бытие", abbreviation: "Бт", aliases: ["Бытие", "Бт", "Быт"], path: "translations/newworld/books/1.json" },
-                    "43": { name: "Иоанна", abbreviation: "Ин", aliases: ["Иоанна", "Ин", "Иоан"], path: "translations/newworld/books/43.json" },
-                    "46": { name: "1 Коринфянам", abbreviation: "1Кор", aliases: ["1 Коринфянам", "1Кор", "1 Кр"], path: "translations/newworld/books/46.json" },
-                    "66": { name: "Откровение", abbreviation: "Отк", aliases: ["Откровение", "Отк"], path: "translations/newworld/books/66.json" },
+                    "43": { name: "Иоанна", abbreviation: "Ин", aliases: ["Иоанна", "Ин", "Иоан"], path: "translations/newworld/books/43.json", chapterCount: 21 },
+                    "46": { name: "1 Коринфянам", abbreviation: "1Кор", aliases: ["1 Коринфянам", "1Кор", "1 Кр"], path: "translations/newworld/books/46.json", chapterCount: 16 },
+                    "65": { name: "Иуды", abbreviation: "Иуд", aliases: ["Иуды", "Иуд"], path: "translations/newworld/books/65.json", chapterCount: 1 },
+                    "66": { name: "Откровение", abbreviation: "Отк", aliases: ["Откровение", "Отк"], path: "translations/newworld/books/66.json", chapterCount: 22 },
                 },
             },
         },
     };
     const importedParser = new BibleReferenceParser(createBookMappingFromBibleIndexV2Data(metadata, DEFAULT_TRANSLATION_ID));
-    for (const sample of ["Ин1:2", "Ин 1:2", "Иоан1:2", "Иоан.1:2", "1Кор1:1", "1 Кор1:1", "1Кр1:1", "1 Кр1:1", "Быт1:1", "Бт1:1", "Отк21:4"]) {
+    for (const sample of ["Ин1:2", "Ин 1:2", "Иоан1:2", "Иоан.1:2", "1Кор1:1", "1 Кор1:1", "1Кр1:1", "1 Кр1:1", "Быт1:1", "Бт1:1", "Отк21:4", "Иуд6"]) {
         assert(importedParser.parse(sample).length > 0, `Expected parser to recognize ${sample}`);
     }
 

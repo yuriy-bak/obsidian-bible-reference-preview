@@ -1,7 +1,7 @@
 import { BibleReference } from "../domain/BibleReference";
 import { Verse } from "../domain/BibleText";
 import { ChapterVerseRange } from "../domain/ChapterVerseRange";
-import { BookMapping, ONE_CHAPTER_BOOK_IDS } from "../parsing/BookMapping";
+import { BookMapping } from "../parsing/BookMapping";
 import { formatBibleReference } from "../parsing/formatBibleReference";
 import { BibleTextBlock, BibleTextPart } from "./BibleTextBlock";
 
@@ -99,7 +99,7 @@ function formatVerseFootnotes(range: ChapterVerseRange, verse: Verse, mapping: B
 function formatVerseReference(range: ChapterVerseRange, verseNumber: number, mapping: BookMapping): string {
     const bookName = mapping.idToDisplayName.get(range.book) ?? String(range.book);
 
-    if (ONE_CHAPTER_BOOK_IDS.has(range.book)) {
+    if (mapping.oneChapterBooks.has(range.book)) {
         return `${bookName} ${verseNumber}`;
     }
 

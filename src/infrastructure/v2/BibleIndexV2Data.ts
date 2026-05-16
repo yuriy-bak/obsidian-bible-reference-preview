@@ -3,6 +3,7 @@ export type BibleIndexV2BookMetadata = {
     abbreviation: string;
     aliases: string[];
     path: string;
+    chapterCount?: number;
 };
 
 export type BibleIndexV2TranslationMetadata = {

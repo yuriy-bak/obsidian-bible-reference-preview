@@ -119,6 +119,13 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
             throw new EpubImportError("EPUB import completed without extracted verses.");
         }
 
+        for (const bookMetadata of Object.values(translation.books)) {
+            const compactBook = compactBooks[bookMetadata.path];
+            if (compactBook !== undefined) {
+                bookMetadata.chapterCount = countImportedChapters(compactBook);
+            }
+        }
+
         const stats = calculateStats(compactBooks);
         const metadataBytes = byteLength(JSON.stringify(bibleIndexV2Data));
         const booksBytes = Object.values(compactBooks).reduce((sum, book) => sum + byteLength(JSON.stringify(book)), 0);
@@ -301,6 +308,22 @@ function decodeXmlEntities(value: string): string {
         .replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">")
         .replace(/&amp;/g, "&");
+}
+
+function countImportedChapters(book: CompactBibleBookData): number {
+    let chapters = 0;
+
+    for (const chapter of book.chapters) {
+        if (chapter === null || chapter === undefined) {
+            continue;
+        }
+
+        if (chapter.some((verse) => verse !== null && verse !== undefined)) {
+            chapters += 1;
+        }
+    }
+
+    return chapters;
 }
 
 function calculateStats(books: Record<string, CompactBibleBookData>): { chapters: number; verses: number; footnotes: number } {

@@ -5,15 +5,15 @@ export type BookMapping = {
     idToDisplayName: Map<number, string>;
     bigBooks: Set<string>;
     shortBooks: Set<string>;
+    oneChapterBooks: Set<number>;
 };
-
-export const ONE_CHAPTER_BOOK_IDS = new Set<number>([31, 57, 63, 64, 65]);
 
 export function createBookMapping(books: BibleBook[]): BookMapping {
     const nameToId = new Map<string, number>();
     const idToDisplayName = new Map<number, string>();
     const bigBooks = new Set<string>();
     const shortBooks = new Set<string>();
+    const oneChapterBooks = new Set<number>();
     const generatedAliases = new Map<string, Set<number>>();
     const ambiguousAliases = new Set<string>();
 
@@ -33,7 +33,7 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
             }
 
             nameToId.set(normalized, bookId);
-            getBookAliasSet(bookId, bigBooks, shortBooks).add(normalized);
+            getBookAliasSet(bookId, oneChapterBooks, bigBooks, shortBooks).add(normalized);
         }
     };
 
@@ -48,6 +48,10 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
     };
 
     for (const book of books) {
+        if (book.chapterCount === 1) {
+            oneChapterBooks.add(book.id);
+        }
+
         const bookName = normalizeBookAlias(book.name);
         const bookAbbreviation = normalizeBookAlias(book.abbreviation);
 
@@ -80,7 +84,7 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
         }
 
         nameToId.set(alias, bookId);
-        getBookAliasSet(bookId, bigBooks, shortBooks).add(alias);
+        getBookAliasSet(bookId, oneChapterBooks, bigBooks, shortBooks).add(alias);
     }
 
     return {
@@ -88,6 +92,7 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
         idToDisplayName,
         bigBooks,
         shortBooks,
+        oneChapterBooks,
     };
 }
 
@@ -138,8 +143,13 @@ function addGeneratedAlias(aliases: Map<string, Set<number>>, alias: string, boo
     aliases.set(alias, bookIds);
 }
 
-function getBookAliasSet(bookId: number, bigBooks: Set<string>, shortBooks: Set<string>): Set<string> {
-    return ONE_CHAPTER_BOOK_IDS.has(bookId) ? shortBooks : bigBooks;
+function getBookAliasSet(
+    bookId: number,
+    oneChapterBooks: Set<number>,
+    bigBooks: Set<string>,
+    shortBooks: Set<string>,
+): Set<string> {
+    return oneChapterBooks.has(bookId) ? shortBooks : bigBooks;
 }
 
 function createDisplayName(value: string): string {

@@ -3,4 +3,5 @@ export type BibleBook = {
     name: string;
     abbreviation: string;
     aliases?: string[];
+    chapterCount?: number;
 };

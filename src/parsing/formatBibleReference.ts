@@ -1,9 +1,9 @@
 import { BibleReference } from "../domain/BibleReference";
-import { BookMapping, ONE_CHAPTER_BOOK_IDS } from "./BookMapping";
+import { BookMapping } from "./BookMapping";
 
 export function formatBibleReference(reference: BibleReference, mapping: BookMapping): string {
     const bookName = mapping.idToDisplayName.get(reference.book) ?? String(reference.book);
-    const referenceText = ONE_CHAPTER_BOOK_IDS.has(reference.book)
+    const referenceText = mapping.oneChapterBooks.has(reference.book)
         ? formatOneChapterReference(reference)
         : formatRegularReference(reference);
 

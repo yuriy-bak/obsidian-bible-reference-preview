@@ -6,7 +6,13 @@ export function createBookMappingFromBibleIndexV2Data(data: BibleIndexV2Data, tr
     const translation = data.translations[translationId];
     if (translation === undefined) return createBookMapping([]);
     const books: BibleBook[] = Object.entries(translation.books)
-        .map(([id, book]) => ({ id: Number(id), name: book.name, abbreviation: book.abbreviation, aliases: book.aliases }))
+        .map(([id, book]) => ({
+            id: Number(id),
+            name: book.name,
+            abbreviation: book.abbreviation,
+            aliases: book.aliases,
+            chapterCount: book.chapterCount,
+        }))
         .filter((book) => Number.isInteger(book.id) && book.id > 0)
         .sort((left, right) => left.id - right.id);
     return createBookMapping(books);
