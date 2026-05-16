@@ -3,7 +3,7 @@ import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting } from 
 import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
-import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType, type DecorationSet } from "@codemirror/view";
+import { EditorView, ViewPlugin, ViewUpdate, Decoration, type DecorationSet } from "@codemirror/view";
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
@@ -14,28 +14,6 @@ import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBible
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 
-
-const setBibleDecorationsEffect = StateEffect.define<DecorationSet>();
-
-const bibleDecorationsField = StateField.define<DecorationSet>({
-    create() {
-        return Decoration.none;
-    },
-
-    update(decorations, transaction) {
-        let nextDecorations = decorations.map(transaction.changes);
-
-        for (const effect of transaction.effects) {
-            if (effect.is(setBibleDecorationsEffect)) {
-                nextDecorations = effect.value;
-            }
-        }
-
-        return nextDecorations;
-    },
-
-    provide: (field) => EditorView.decorations.from(field),
-});
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
 
@@ -66,18 +44,6 @@ const bibleReferenceLinkTheme = EditorView.baseTheme({
         cursor: "pointer",
     },
 });
-
-function dispatchBibleDecorations(view: EditorView, decorations: DecorationSet): void {
-    window.setTimeout(() => {
-        if (view.state.field(bibleDecorationsField, false) === undefined) {
-            return;
-        }
-
-        view.dispatch({
-            effects: setBibleDecorationsEffect.of(decorations),
-        });
-    }, 0);
-}
 
 function dispatchBibleReferenceLinkDecorations(view: EditorView, decorations: DecorationSet): void {
     window.setTimeout(() => {
@@ -517,6 +483,14 @@ export default class BiblePlugin extends Plugin {
         return translation === undefined ? this.activeTranslationId : `${translation.name} (${translation.language})`;
     }
 
+    public getActiveTranslationPreviewTitle(): string {
+        if (this.activeTranslationId === null) {
+            return "Библия";
+        }
+
+        return this.activeV2Data?.translations[this.activeTranslationId]?.name ?? this.activeTranslationId;
+    }
+
     private refreshSettingsTab(): void {
         this.settingsTab?.display();
     }
@@ -531,20 +505,52 @@ export default class BiblePlugin extends Plugin {
             requestId = 0;
             referenceLinkUpdateTimeout: number | null = null;
             lastActiveTranslationId = plugin.activeTranslationId;
+            private readonly previewPanelEl: HTMLDivElement;
+            private readonly previewContentEl: HTMLDivElement;
+            private readonly collapsedButtonEl: HTMLButtonElement;
+            private previewTitleEl: HTMLDivElement | null = null;
+            private readonly viewportChangeHandler = () => this.updateBiblePreviewPosition();
+            private readonly previewPointerMoveHandler = (event: PointerEvent) => this.dragBiblePreview(event);
+            private readonly previewPointerUpHandler = (event: PointerEvent) => this.finishBiblePreviewDrag(event);
+            private readonly outsideInteractionHandler = (event: Event) => this.hideBiblePreviewIfEventIsOutsideEditor(event);
+            private previewText = "";
+            private isPreviewCollapsed = false;
+            private customPreviewPosition: { left: number; top: number } | null = null;
+            private collapsedButtonPosition: { left: number; top: number } | null = null;
+            private previewDragState: {
+                pointerId: number;
+                startClientX: number;
+                startClientY: number;
+                startLeft: number;
+                startTop: number;
+            } | null = null;
 
             constructor(private readonly view: EditorView) {
                 plugin.editorViews.add(view);
+                this.previewPanelEl = this.createPreviewPanelElement();
+                this.previewContentEl = this.previewPanelEl.createDiv();
+                this.collapsedButtonEl = this.createCollapsedButtonElement();
+                document.body.appendChild(this.previewPanelEl);
+                document.body.appendChild(this.collapsedButtonEl);
+                this.configurePreviewContentElement();
+                this.registerViewportListeners();
+                this.registerPreviewDragListeners();
+                this.registerOutsideInteractionListeners();
                 this.scheduleReferenceLinkUpdate();
             }
 
             update(update: ViewUpdate) {
                 if (this.lastActiveTranslationId !== plugin.activeTranslationId) {
                     this.lastActiveTranslationId = plugin.activeTranslationId;
+                    this.lastParagraph = "";
+                    this.requestId += 1;
+                    this.updateBiblePreviewTitle();
                     this.scheduleReferenceLinkUpdate();
                 }
 
                 if (update.docChanged || update.viewportChanged) {
                     this.scheduleReferenceLinkUpdate();
+                    this.updateBiblePreviewPosition();
                 }
 
                 if (!update.selectionSet && !update.docChanged) {
@@ -554,7 +560,7 @@ export default class BiblePlugin extends Plugin {
                 if (!plugin.hasImportedTranslations()) {
                     this.lastParagraph = "";
                     this.requestId += 1;
-                    dispatchBibleDecorations(this.view, Decoration.none);
+                    this.hideBiblePreview();
                     return;
                 }
 
@@ -565,10 +571,9 @@ export default class BiblePlugin extends Plugin {
 
                 this.lastParagraph = paragraph;
                 const currentRequestId = ++this.requestId;
-                const end = plugin.getParagraphEnd(update);
 
-                if (!paragraph || end === null) {
-                    dispatchBibleDecorations(this.view, Decoration.none);
+                if (!paragraph) {
+                    this.hideBiblePreview();
                     return;
                 }
 
@@ -577,17 +582,12 @@ export default class BiblePlugin extends Plugin {
                         return;
                     }
 
-                    const decorations = text === ""
-                        ? Decoration.none
-                        : Decoration.set([
-                            Decoration.widget({
-                                widget: new BibleWidget(text),
-                                side: 1,
-                                block: true,
-                            }).range(end),
-                        ]);
+                    if (text === "") {
+                        this.hideBiblePreview();
+                        return;
+                    }
 
-                    dispatchBibleDecorations(this.view, decorations);
+                    this.showBiblePreview(text);
                 });
             }
 
@@ -597,7 +597,491 @@ export default class BiblePlugin extends Plugin {
                     this.referenceLinkUpdateTimeout = null;
                 }
 
+                this.unregisterViewportListeners();
+                this.unregisterPreviewDragListeners();
+                this.unregisterOutsideInteractionListeners();
+                this.previewPanelEl.remove();
+                this.collapsedButtonEl.remove();
                 plugin.editorViews.delete(this.view);
+            }
+
+            private createPreviewPanelElement(): HTMLDivElement {
+                const panelEl = document.createElement("div");
+                panelEl.style.position = "fixed";
+                panelEl.style.display = "none";
+                panelEl.style.flexDirection = "column";
+                panelEl.style.boxSizing = "border-box";
+                panelEl.style.zIndex = "1000";
+                panelEl.style.border = "1px solid var(--color-accent)";
+                panelEl.style.borderRadius = "10px";
+                panelEl.style.background = "var(--background-secondary)";
+                panelEl.style.color = "var(--text-normal)";
+                panelEl.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.28)";
+                panelEl.style.overflow = "hidden";
+                panelEl.style.maxWidth = "720px";
+                panelEl.style.minWidth = "240px";
+                panelEl.style.pointerEvents = "auto";
+
+                const headerEl = panelEl.createDiv();
+                headerEl.style.display = "flex";
+                headerEl.style.alignItems = "center";
+                headerEl.style.gap = "6px";
+                headerEl.style.padding = "6px 8px";
+                headerEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+                headerEl.style.background = "var(--background-secondary-alt)";
+                headerEl.style.cursor = "move";
+                headerEl.style.touchAction = "none";
+                headerEl.addEventListener("pointerdown", (event) => this.startBiblePreviewDrag(event));
+
+                const titleEl = headerEl.createDiv({ text: `📖 ${plugin.getActiveTranslationPreviewTitle()}` });
+                this.previewTitleEl = titleEl;
+                titleEl.style.flex = "1";
+                titleEl.style.minWidth = "0";
+                titleEl.style.fontWeight = "600";
+                titleEl.style.whiteSpace = "nowrap";
+                titleEl.style.overflow = "hidden";
+                titleEl.style.textOverflow = "ellipsis";
+
+                const copyButton = this.createPreviewIconButton("📋", "Копировать текст Библии");
+                copyButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+                copyButton.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void this.copyBiblePreviewText();
+                });
+                headerEl.appendChild(copyButton);
+
+                const collapseButton = this.createPreviewIconButton("🔽", "Свернуть");
+                collapseButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+                collapseButton.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.rememberCollapsedButtonPosition(collapseButton);
+                    this.isPreviewCollapsed = true;
+                    this.renderBiblePreview();
+                });
+                headerEl.appendChild(collapseButton);
+
+                return panelEl;
+            }
+
+            private configurePreviewContentElement(): void {
+                this.previewContentEl.style.padding = "8px";
+                this.previewContentEl.style.whiteSpace = "pre-wrap";
+                this.previewContentEl.style.overflow = "auto";
+                this.previewContentEl.style.userSelect = "text";
+                this.previewContentEl.style.lineHeight = "1.45";
+                this.previewContentEl.style.fontSize = "var(--font-text-size)";
+                this.previewContentEl.style.maxHeight = "calc(40vh - 42px)";
+            }
+
+            private createCollapsedButtonElement(): HTMLButtonElement {
+                const buttonEl = document.createElement("button");
+                buttonEl.type = "button";
+                buttonEl.textContent = "📖";
+                buttonEl.setAttribute("aria-label", "Развернуть текст Библии");
+                buttonEl.title = "Развернуть текст Библии";
+                buttonEl.style.position = "fixed";
+                buttonEl.style.display = "none";
+                buttonEl.style.zIndex = "1000";
+                buttonEl.style.width = "42px";
+                buttonEl.style.height = "42px";
+                buttonEl.style.borderRadius = "999px";
+                buttonEl.style.border = "1px solid var(--color-accent)";
+                buttonEl.style.background = "var(--background-secondary)";
+                buttonEl.style.color = "var(--text-normal)";
+                buttonEl.style.boxShadow = "0 6px 18px rgba(0, 0, 0, 0.28)";
+                buttonEl.style.cursor = "pointer";
+                buttonEl.style.fontSize = "20px";
+                buttonEl.style.lineHeight = "1";
+                buttonEl.style.padding = "0";
+                buttonEl.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.isPreviewCollapsed = false;
+                    this.collapsedButtonPosition = null;
+                    this.renderBiblePreview();
+                });
+                return buttonEl;
+            }
+
+            private createPreviewIconButton(text: string, label: string): HTMLButtonElement {
+                const buttonEl = document.createElement("button");
+                buttonEl.type = "button";
+                buttonEl.textContent = text;
+                buttonEl.setAttribute("aria-label", label);
+                buttonEl.title = label;
+                buttonEl.style.width = "30px";
+                buttonEl.style.height = "30px";
+                buttonEl.style.display = "inline-flex";
+                buttonEl.style.alignItems = "center";
+                buttonEl.style.justifyContent = "center";
+                buttonEl.style.borderRadius = "6px";
+                buttonEl.style.border = "1px solid var(--background-modifier-border)";
+                buttonEl.style.background = "var(--background-primary)";
+                buttonEl.style.color = "var(--text-normal)";
+                buttonEl.style.cursor = "pointer";
+                buttonEl.style.fontSize = "16px";
+                buttonEl.style.padding = "0";
+                return buttonEl;
+            }
+
+            private updateBiblePreviewTitle(): void {
+                if (this.previewTitleEl === null) {
+                    return;
+                }
+
+                this.previewTitleEl.textContent = `📖 ${plugin.getActiveTranslationPreviewTitle()}`;
+            }
+
+            private showBiblePreview(text: string): void {
+                this.previewText = text;
+                this.previewContentEl.textContent = text;
+                this.updateBiblePreviewTitle();
+                this.renderBiblePreview();
+            }
+
+            private hideBiblePreview(resetParagraphCache = false): void {
+                this.previewText = "";
+                this.previewPanelEl.style.display = "none";
+                this.collapsedButtonEl.style.display = "none";
+
+                if (this.customPreviewPosition === null) {
+                    this.collapsedButtonPosition = null;
+                }
+
+                if (resetParagraphCache) {
+                    this.lastParagraph = "";
+                    this.requestId += 1;
+                }
+            }
+
+            private renderBiblePreview(): void {
+                if (this.previewText.length === 0) {
+                    this.hideBiblePreview();
+                    return;
+                }
+
+                if (this.isPreviewCollapsed) {
+                    this.previewPanelEl.style.display = "none";
+                    this.collapsedButtonEl.style.display = "block";
+                } else {
+                    this.collapsedButtonEl.style.display = "none";
+                    this.previewPanelEl.style.display = "flex";
+                }
+
+                window.requestAnimationFrame(() => this.updateBiblePreviewPosition());
+            }
+
+            private async copyBiblePreviewText(): Promise<void> {
+                if (this.previewText.length === 0) {
+                    return;
+                }
+
+                try {
+                    if (navigator.clipboard !== undefined) {
+                        await navigator.clipboard.writeText(this.previewText);
+                    } else {
+                        this.copyBiblePreviewTextFallback();
+                    }
+                    new Notice("Текст Библии скопирован.", 2500);
+                } catch {
+                    this.copyBiblePreviewTextFallback();
+                    new Notice("Текст Библии скопирован.", 2500);
+                }
+            }
+
+            private copyBiblePreviewTextFallback(): void {
+                const textareaEl = document.createElement("textarea");
+                textareaEl.value = this.previewText;
+                textareaEl.style.position = "fixed";
+                textareaEl.style.left = "-9999px";
+                textareaEl.style.top = "0";
+                document.body.appendChild(textareaEl);
+                textareaEl.focus();
+                textareaEl.select();
+                document.execCommand("copy");
+                textareaEl.remove();
+            }
+            private registerOutsideInteractionListeners(): void {
+                document.addEventListener("pointerdown", this.outsideInteractionHandler, true);
+                document.addEventListener("focusin", this.outsideInteractionHandler, true);
+            }
+
+            private unregisterOutsideInteractionListeners(): void {
+                document.removeEventListener("pointerdown", this.outsideInteractionHandler, true);
+                document.removeEventListener("focusin", this.outsideInteractionHandler, true);
+            }
+
+            private hideBiblePreviewIfEventIsOutsideEditor(event: Event): void {
+                const target = event.target;
+
+                if (!(target instanceof Node)) {
+                    return;
+                }
+
+                if (
+                    this.view.dom.contains(target)
+                    || this.previewPanelEl.contains(target)
+                    || this.collapsedButtonEl.contains(target)
+                ) {
+                    return;
+                }
+
+                this.hideBiblePreview(true);
+            }
+
+            private registerViewportListeners(): void {
+                window.addEventListener("resize", this.viewportChangeHandler);
+                window.visualViewport?.addEventListener("resize", this.viewportChangeHandler);
+                window.visualViewport?.addEventListener("scroll", this.viewportChangeHandler);
+            }
+
+            private unregisterViewportListeners(): void {
+                window.removeEventListener("resize", this.viewportChangeHandler);
+                window.visualViewport?.removeEventListener("resize", this.viewportChangeHandler);
+                window.visualViewport?.removeEventListener("scroll", this.viewportChangeHandler);
+            }
+
+            private registerPreviewDragListeners(): void {
+                window.addEventListener("pointermove", this.previewPointerMoveHandler);
+                window.addEventListener("pointerup", this.previewPointerUpHandler);
+                window.addEventListener("pointercancel", this.previewPointerUpHandler);
+            }
+
+            private unregisterPreviewDragListeners(): void {
+                window.removeEventListener("pointermove", this.previewPointerMoveHandler);
+                window.removeEventListener("pointerup", this.previewPointerUpHandler);
+                window.removeEventListener("pointercancel", this.previewPointerUpHandler);
+                document.body.style.userSelect = "";
+            }
+
+            private startBiblePreviewDrag(event: PointerEvent): void {
+                if (event.button !== 0 || this.previewText.length === 0 || this.isPreviewCollapsed) {
+                    return;
+                }
+
+                const rect = this.previewPanelEl.getBoundingClientRect();
+                this.previewDragState = {
+                    pointerId: event.pointerId,
+                    startClientX: event.clientX,
+                    startClientY: event.clientY,
+                    startLeft: rect.left,
+                    startTop: rect.top,
+                };
+                document.body.style.userSelect = "none";
+                event.preventDefault();
+            }
+
+            private dragBiblePreview(event: PointerEvent): void {
+                if (this.previewDragState === null || event.pointerId !== this.previewDragState.pointerId) {
+                    return;
+                }
+
+                const nextLeft = this.previewDragState.startLeft + event.clientX - this.previewDragState.startClientX;
+                const nextTop = this.previewDragState.startTop + event.clientY - this.previewDragState.startClientY;
+                const clamped = this.clampBiblePreviewPosition(
+                    nextLeft,
+                    nextTop,
+                    this.previewPanelEl.offsetWidth,
+                    this.previewPanelEl.offsetHeight,
+                );
+                this.customPreviewPosition = clamped;
+                this.previewPanelEl.style.left = `${clamped.left}px`;
+                this.previewPanelEl.style.top = `${clamped.top}px`;
+                event.preventDefault();
+            }
+
+            private finishBiblePreviewDrag(event: PointerEvent): void {
+                if (this.previewDragState === null || event.pointerId !== this.previewDragState.pointerId) {
+                    return;
+                }
+
+                this.previewDragState = null;
+                document.body.style.userSelect = "";
+                event.preventDefault();
+            }
+
+            private updateBiblePreviewPosition(): void {
+                const visibleEl = this.isPreviewCollapsed ? this.collapsedButtonEl : this.previewPanelEl;
+
+                if (this.previewText.length === 0 || visibleEl.style.display === "none") {
+                    return;
+                }
+
+                const viewport = this.getBiblePreviewViewport();
+                const safeMargins = this.getBiblePreviewSafeMargins(viewport.width);
+
+                if (this.isPreviewCollapsed) {
+                    this.updateCollapsedButtonPosition(viewport, safeMargins);
+                    return;
+                }
+
+                this.updateExpandedPreviewSize(viewport.width, viewport.height);
+
+                if (this.customPreviewPosition !== null) {
+                    const clamped = this.clampBiblePreviewPosition(
+                        this.customPreviewPosition.left,
+                        this.customPreviewPosition.top,
+                        this.previewPanelEl.offsetWidth,
+                        this.previewPanelEl.offsetHeight,
+                    );
+                    this.customPreviewPosition = clamped;
+                    this.previewPanelEl.style.left = `${clamped.left}px`;
+                    this.previewPanelEl.style.top = `${clamped.top}px`;
+                    return;
+                }
+
+                if (this.isMobilePreviewLayout(viewport.width)) {
+                    const preferredLeft = viewport.left + safeMargins.left;
+                    const preferredTop = viewport.top + safeMargins.top;
+                    const clamped = this.clampBiblePreviewPosition(
+                        preferredLeft,
+                        preferredTop,
+                        this.previewPanelEl.offsetWidth,
+                        this.previewPanelEl.offsetHeight,
+                    );
+
+                    this.previewPanelEl.style.left = `${clamped.left}px`;
+                    this.previewPanelEl.style.top = `${clamped.top}px`;
+                    return;
+                }
+
+                const panelWidth = this.previewPanelEl.offsetWidth;
+                const panelHeight = this.previewPanelEl.offsetHeight;
+                const preferredLeft = viewport.left + viewport.width - panelWidth - safeMargins.right;
+                const preferredTop = viewport.top + viewport.height - panelHeight - safeMargins.bottom;
+                const clamped = this.clampBiblePreviewPosition(preferredLeft, preferredTop, panelWidth, panelHeight);
+
+                this.previewPanelEl.style.left = `${clamped.left}px`;
+                this.previewPanelEl.style.top = `${clamped.top}px`;
+            }
+
+            private rememberCollapsedButtonPosition(anchorEl: HTMLElement): void {
+                const anchorRect = anchorEl.getBoundingClientRect();
+                const buttonSize = 42;
+                const preferredLeft = anchorRect.left + anchorRect.width / 2 - buttonSize / 2;
+                const preferredTop = anchorRect.top + anchorRect.height / 2 - buttonSize / 2;
+
+                this.collapsedButtonPosition = this.clampBiblePreviewPosition(
+                    preferredLeft,
+                    preferredTop,
+                    buttonSize,
+                    buttonSize,
+                );
+            }
+
+            private updateCollapsedButtonPosition(
+                viewport: { left: number; top: number; width: number; height: number },
+                safeMargins: { top: number; right: number; bottom: number; left: number },
+            ): void {
+                const buttonSize = 42;
+
+                if (this.collapsedButtonPosition !== null) {
+                    const clamped = this.clampBiblePreviewPosition(
+                        this.collapsedButtonPosition.left,
+                        this.collapsedButtonPosition.top,
+                        buttonSize,
+                        buttonSize,
+                    );
+                    this.collapsedButtonPosition = clamped;
+                    this.collapsedButtonEl.style.left = `${clamped.left}px`;
+                    this.collapsedButtonEl.style.top = `${clamped.top}px`;
+                    return;
+                }
+
+                if (this.customPreviewPosition !== null) {
+                    const panelWidth = this.getCurrentPreviewPanelWidth();
+                    const collapsedLeft = this.customPreviewPosition.left + Math.max(0, panelWidth - buttonSize);
+                    const clamped = this.clampBiblePreviewPosition(
+                        collapsedLeft,
+                        this.customPreviewPosition.top,
+                        buttonSize,
+                        buttonSize,
+                    );
+                    this.collapsedButtonEl.style.left = `${clamped.left}px`;
+                    this.collapsedButtonEl.style.top = `${clamped.top}px`;
+                    return;
+                }
+
+                const preferredLeft = viewport.left + viewport.width - buttonSize - safeMargins.right;
+                const preferredTop = this.isMobilePreviewLayout(viewport.width)
+                    ? viewport.top + safeMargins.top
+                    : viewport.top + viewport.height - buttonSize - safeMargins.bottom;
+                const clamped = this.clampBiblePreviewPosition(preferredLeft, preferredTop, buttonSize, buttonSize);
+
+                this.collapsedButtonEl.style.left = `${clamped.left}px`;
+                this.collapsedButtonEl.style.top = `${clamped.top}px`;
+            }
+
+            private getCurrentPreviewPanelWidth(): number {
+                const parsedWidth = Number.parseFloat(this.previewPanelEl.style.width);
+                return Number.isFinite(parsedWidth) && parsedWidth > 0
+                    ? parsedWidth
+                    : Math.max(240, this.previewPanelEl.offsetWidth);
+            }
+
+            private updateExpandedPreviewSize(viewportWidth: number, viewportHeight: number): void {
+                if (this.isMobilePreviewLayout(viewportWidth)) {
+                    const width = Math.max(240, viewportWidth - 16);
+                    const maxPanelHeight = Math.max(120, Math.floor(viewportHeight * 0.27));
+                    this.previewPanelEl.style.width = `${width}px`;
+                    this.previewPanelEl.style.maxHeight = `${maxPanelHeight}px`;
+                    this.previewContentEl.style.maxHeight = `${Math.max(78, maxPanelHeight - 42)}px`;
+                    return;
+                }
+
+                const width = Math.min(720, Math.max(320, viewportWidth * 0.42));
+                const maxPanelHeight = Math.max(220, Math.floor(viewportHeight * 0.4));
+                this.previewPanelEl.style.width = `${width}px`;
+                this.previewPanelEl.style.maxHeight = `${maxPanelHeight}px`;
+                this.previewContentEl.style.maxHeight = `${Math.max(160, maxPanelHeight - 42)}px`;
+            }
+
+            private clampBiblePreviewPosition(left: number, top: number, width: number, height: number): { left: number; top: number } {
+                const viewport = this.getBiblePreviewViewport();
+                const safeMargins = this.getBiblePreviewSafeMargins(viewport.width);
+                const minLeft = viewport.left + safeMargins.left;
+                const maxLeft = Math.max(minLeft, viewport.left + viewport.width - width - safeMargins.right);
+                const minTop = viewport.top + safeMargins.top;
+                const maxTop = Math.max(minTop, viewport.top + viewport.height - height - safeMargins.bottom);
+
+                return {
+                    left: Math.min(Math.max(left, minLeft), maxLeft),
+                    top: Math.min(Math.max(top, minTop), maxTop),
+                };
+            }
+
+            private getBiblePreviewViewport(): { left: number; top: number; width: number; height: number } {
+                const viewport = window.visualViewport;
+                return {
+                    left: viewport?.offsetLeft ?? 0,
+                    top: viewport?.offsetTop ?? 0,
+                    width: viewport?.width ?? window.innerWidth,
+                    height: viewport?.height ?? window.innerHeight,
+                };
+            }
+
+            private getBiblePreviewSafeMargins(viewportWidth: number): { top: number; right: number; bottom: number; left: number } {
+                if (this.isMobilePreviewLayout(viewportWidth)) {
+                    return {
+                        top: Platform.isAndroidApp ? 72 : 56,
+                        right: 8,
+                        bottom: 12,
+                        left: 8,
+                    };
+                }
+
+                return {
+                    top: 12,
+                    right: 12,
+                    bottom: 46,
+                    left: 12,
+                };
+            }
+
+            private isMobilePreviewLayout(viewportWidth: number): boolean {
+                return Platform.isMobileApp || viewportWidth < 700;
             }
 
             private scheduleReferenceLinkUpdate(): void {
@@ -613,7 +1097,6 @@ export default class BiblePlugin extends Plugin {
         });
 
         return [
-            bibleDecorationsField,
             bibleReferenceLinkDecorationsField,
             bibleReferenceLinkTheme,
             cursorPlugin,
@@ -763,10 +1246,6 @@ export default class BiblePlugin extends Plugin {
         return this.getCurrentAnalysisFragment(update)?.text ?? "";
     }
 
-    getParagraphEnd(update: ViewUpdate): number | null {
-        return this.getCurrentAnalysisFragment(update)?.end ?? null;
-    }
-
     async openBibleIndexFolder(): Promise<void> {
         const directoryPath = this.getBibleIndexDataDirectoryPath();
         await this.ensureVaultDirectoryExists(directoryPath);
@@ -825,29 +1304,6 @@ export default class BiblePlugin extends Plugin {
         }
 
         new Notice("Нет импортированных переводов Библии.", 5000);
-    }
-}
-
-
-class BibleWidget extends WidgetType {
-    constructor(private readonly text: string) { super(); }
-
-    eq(other: BibleWidget): boolean {
-        return other.text === this.text;
-    }
-
-    toDOM(): HTMLElement {
-        const el = document.createElement("div");
-        el.style.border = "1px solid var(--color-accent)";
-        el.style.padding = "6px";
-        el.style.marginTop = "6px";
-        el.style.borderRadius = "6px";
-        el.style.background = "var(--background-secondary)";
-        el.style.whiteSpace = "pre-wrap";
-        el.style.maxHeight = "40vh";
-        el.style.overflow = "auto";
-        el.textContent = this.text;
-        return el;
     }
 }
 
