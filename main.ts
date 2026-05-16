@@ -13,6 +13,7 @@ import { EpubBibleSourceMetadata } from "./src/infrastructure/EpubBibleImporter"
 import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
+import { BiblePluginLocale, I18nKey, normalizeBiblePluginLocale, t } from "./src/i18n/I18n";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -68,9 +69,11 @@ type BibleLinkOpenShortcut = "alt-enter" | "ctrl-enter" | "ctrl-alt-enter";
 
 type BiblePreviewController = {
     openBibleReferenceUnderCursor(showNotice?: boolean): boolean;
+    refreshLocalizedLabels(): void;
 };
 
 type BiblePluginSettings = {
+    interfaceLanguage: BiblePluginLocale;
     translationOrder: string[];
     bibleReferenceLinkColor: string;
     previewTriggerMode: BiblePreviewTriggerMode;
@@ -86,6 +89,7 @@ const MAX_ANALYZED_PARAGRAPH_CHARACTERS = 2000;
 
 
 const DEFAULT_SETTINGS: BiblePluginSettings = {
+    interfaceLanguage: "ru",
     translationOrder: [],
     bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
     previewTriggerMode: "current-paragraph",
@@ -116,16 +120,16 @@ export default class BiblePlugin extends Plugin {
     private readonly linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.handleLinkOpenShortcutKeydown(event);
 
     async onload() {
-        console.log("Bible plugin loaded");
+        console.log("Bible Reference Preview loaded");
         await this.loadPluginSettings();
         await this.loadBibleIndex();
-        this.addCommand({ id: "import-epub-bible", name: "Import EPUB Bible", callback: () => this.openEpubFilePicker() });
-        this.addCommand({ id: "reload-bible-index", name: "Reload Bible Index", callback: () => void this.reloadBibleIndex() });
-        this.addCommand({ id: "open-bible-index-folder", name: "Open Bible Index Folder", callback: () => void this.openBibleIndexFolder() });
-        this.addCommand({ id: "show-bible-index-stats", name: "Show Bible Index Stats", callback: () => void this.showBibleIndexStats() });
+        this.addCommand({ id: "import-epub-bible", name: this.t("command.importEpubBible"), callback: () => this.openEpubFilePicker() });
+        this.addCommand({ id: "reload-bible-index", name: this.t("command.reloadBibleIndex"), callback: () => void this.reloadBibleIndex() });
+        this.addCommand({ id: "open-bible-index-folder", name: this.t("command.openBibleIndexFolder"), callback: () => void this.openBibleIndexFolder() });
+        this.addCommand({ id: "show-bible-index-stats", name: this.t("command.showBibleIndexStats"), callback: () => void this.showBibleIndexStats() });
         this.addCommand({
             id: "open-bible-reference-under-cursor",
-            name: "Open Bible reference under cursor",
+            name: this.t("command.openBibleReferenceUnderCursor"),
             callback: () => this.openBibleReferenceUnderCursorFromActiveEditor(true),
         });
         this.settingsTab = new BiblePluginSettingTab(this.app, this);
@@ -134,7 +138,7 @@ export default class BiblePlugin extends Plugin {
         this.registerEditorExtension(this.createCursorExtension());
     }
 
-    onunload() { console.log("Bible plugin unloaded"); }
+    onunload() { console.log("Bible Reference Preview unloaded"); }
 
     private async loadBibleIndex(): Promise<void> {
         try {
@@ -158,7 +162,7 @@ export default class BiblePlugin extends Plugin {
     private async reloadBibleIndex(): Promise<void> {
         await this.loadBibleIndex();
         this.refreshSettingsTab();
-        new Notice("Bible index reloaded.", 5000);
+        new Notice(this.t("notice.bibleIndexReloaded"), 5000);
     }
 
     public openEpubFilePicker(): void {
@@ -184,7 +188,7 @@ export default class BiblePlugin extends Plugin {
                 return;
             }
 
-            const progressNotice = new Notice(`Импорт EPUB: ${file.name}...`, 0);
+            const progressNotice = new Notice(this.t("notice.importStarted", { fileName: file.name }), 0);
 
             try {
                 const repository = this.createObsidianBibleIndexRepository();
@@ -211,17 +215,17 @@ export default class BiblePlugin extends Plugin {
                 progressNotice.hide();
 
                 if (result.warnings.length > 0) console.warn("EPUB import warnings", result.warnings);
-                const warningsText = result.warnings.length === 0 ? "" : `\nПредупреждений: ${result.warnings.length}. Подробности в консоли разработчика.`;
+                const warningsText = result.warnings.length === 0 ? "" : `\n${this.t("notice.importWarnings", { count: result.warnings.length })}`;
                 new Notice([
-                    "EPUB импортирован.",
-                    `Перевод: ${result.translationName}`,
-                    `Язык: ${result.language}`,
-                    `Книг: ${result.report.books}`,
-                    `Глав: ${result.report.chapters}`,
-                    `Стихов: ${result.report.verses}`,
-                    `Сносок: ${result.report.footnotes}`,
-                    `Размер metadata: ${formatKilobytes(result.report.metadataBytes)}`,
-                    `Размер books: ${formatMegabytes(result.report.booksBytes)}`,
+                    this.t("notice.epubImported"),
+                    this.t("import.summary.translation", { translationName: result.translationName }),
+                    this.t("import.summary.language", { language: result.language }),
+                    this.t("import.summary.books", { count: result.report.books }),
+                    this.t("import.summary.chapters", { count: result.report.chapters }),
+                    this.t("import.summary.verses", { count: result.report.verses }),
+                    this.t("import.summary.footnotes", { count: result.report.footnotes }),
+                    this.t("import.summary.metadataSize", { size: formatKilobytes(result.report.metadataBytes) }),
+                    this.t("import.summary.booksSize", { size: formatMegabytes(result.report.booksBytes) }),
                 ].join("\n") + warningsText, 15000);
             } catch (error) {
                 progressNotice.hide();
@@ -229,7 +233,7 @@ export default class BiblePlugin extends Plugin {
             }
         } catch (error) {
             console.error("EPUB import failed", error);
-            new Notice(`Ошибка импорта EPUB: ${getErrorMessage(error)}`, 15000);
+            new Notice(this.t("notice.importFailed", { message: this.localizeImportErrorMessage(error) }), 15000);
         }
     }
 
@@ -250,23 +254,23 @@ export default class BiblePlugin extends Plugin {
 
         if (content.byteLength === 0) {
             throw new Error([
-                "выбранный файл прочитан как пустой (0 байт).",
-                `Имя файла: ${file.name}. Размер по данным Android/браузера: ${file.size} байт.`,
-                "Это похоже на проблему Android file picker: Obsidian получил ссылку на файл, но не получил его бинарное содержимое.",
-                "Попробуй выбрать файл из другого файлового менеджера или сначала скопировать EPUB в локальное хранилище устройства.",
+                this.t("import.error.emptyFile"),
+                this.t("import.error.emptyFileDetails", { fileName: file.name, size: file.size }),
+                this.t("import.error.androidPickerHint"),
+                this.t("import.error.androidPickerSuggestion"),
             ].join(" "));
         }
 
         if (content.byteLength < 4) {
-            throw new Error(`файл слишком маленький для EPUB/ZIP: ${content.byteLength} байт.`);
+            throw new Error(this.t("import.error.fileTooSmall", { size: content.byteLength }));
         }
 
         const bytes = new Uint8Array(content.slice(0, 4));
         if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
             throw new Error([
-                "файл не похож на EPUB/ZIP-контейнер: первые байты не PK.",
-                `Первые байты: ${Array.from(bytes).join(", ")}.`,
-                "Проверь, что выбран именно EPUB-файл, а не ярлык/страница/облачная ссылка.",
+                this.t("import.error.notZip"),
+                this.t("import.error.firstBytes", { bytes: Array.from(bytes).join(", ") }),
+                this.t("import.error.selectRealEpub"),
             ].join(" "));
         }
 
@@ -278,7 +282,7 @@ export default class BiblePlugin extends Plugin {
         translationAlreadyExists: boolean,
     ): Promise<BibleTranslationImportSettings | null> {
         return new Promise((resolve) => {
-            new BibleTranslationImportModal(this.app, defaults, translationAlreadyExists, resolve).open();
+            new BibleTranslationImportModal(this.app, defaults, translationAlreadyExists, this.settings.interfaceLanguage, resolve).open();
         });
     }
 
@@ -398,7 +402,7 @@ export default class BiblePlugin extends Plugin {
         await this.syncTranslationOrder(this.activeV2Data);
         this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
         this.updateBookMapping(this.activeV2Data);
-        new Notice(`Текущий перевод: ${this.getActiveTranslationDisplayName()}`, 4000);
+        new Notice(this.t("notice.currentTranslation", { translationName: this.getActiveTranslationDisplayName() }), 4000);
     }
 
     public async setTranslationOrder(nextOrder: string[]): Promise<void> {
@@ -427,7 +431,7 @@ export default class BiblePlugin extends Plugin {
         await this.syncTranslationOrder(this.activeV2Data);
         this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
         this.updateBookMapping(this.activeV2Data);
-        new Notice(`Текущий перевод: ${this.getActiveTranslationDisplayName()}`, 4000);
+        new Notice(this.t("notice.currentTranslation", { translationName: this.getActiveTranslationDisplayName() }), 4000);
     }
 
     public async setBibleReferenceLinkColor(color: string): Promise<void> {
@@ -548,7 +552,7 @@ export default class BiblePlugin extends Plugin {
         }
 
         if (showNotice) {
-            new Notice("Активный редактор не найден.", 2500);
+            new Notice(this.t("notice.activeEditorNotFound"), 2500);
         }
 
         return false;
@@ -561,10 +565,10 @@ export default class BiblePlugin extends Plugin {
 
         const translationName = this.activeV2Data.translations[translationId].name || translationId;
         const confirmed = window.confirm([
-            `Удалить перевод "${translationName}"?`,
+            this.t("confirm.deleteTranslation.title", { translationName }),
             "",
-            "Будут удалены файлы перевода и запись в индексе.",
-            "Если перевод понадобится снова, его нужно будет импортировать заново.",
+            this.t("confirm.deleteTranslation.filesWillBeDeleted"),
+            this.t("confirm.deleteTranslation.reimportHint"),
         ].join("\n"));
 
         if (!confirmed) {
@@ -585,12 +589,12 @@ export default class BiblePlugin extends Plugin {
         await this.syncTranslationOrder(this.activeV2Data);
         this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
         this.updateBookMapping(this.activeV2Data);
-        new Notice(`Перевод удалён: ${translationName}`, 5000);
+        new Notice(this.t("notice.translationDeleted", { translationName }), 5000);
     }
 
     public getActiveTranslationDisplayName(): string {
         if (this.activeTranslationId === null) {
-            return "нет импортированного перевода";
+            return this.t("translation.noImported");
         }
 
         const translation = this.activeV2Data?.translations[this.activeTranslationId];
@@ -599,7 +603,7 @@ export default class BiblePlugin extends Plugin {
 
     public getActiveTranslationPreviewTitle(): string {
         if (this.activeTranslationId === null) {
-            return "Библия";
+            return this.t("preview.titleFallback");
         }
 
         return this.activeV2Data?.translations[this.activeTranslationId]?.name ?? this.activeTranslationId;
@@ -623,6 +627,8 @@ export default class BiblePlugin extends Plugin {
             private readonly previewContentEl: HTMLDivElement;
             private readonly collapsedButtonEl: HTMLButtonElement;
             private previewTitleEl: HTMLDivElement | null = null;
+            private copyPreviewButtonEl: HTMLButtonElement | null = null;
+            private collapsePreviewButtonEl: HTMLButtonElement | null = null;
             private readonly viewportChangeHandler = () => this.updateBiblePreviewPosition();
             private readonly previewPointerMoveHandler = (event: PointerEvent) => this.dragBiblePreview(event);
             private readonly previewPointerUpHandler = (event: PointerEvent) => this.finishBiblePreviewDrag(event);
@@ -779,7 +785,8 @@ export default class BiblePlugin extends Plugin {
                 titleEl.style.overflow = "hidden";
                 titleEl.style.textOverflow = "ellipsis";
 
-                const copyButton = this.createPreviewIconButton("📋", "Копировать текст Библии");
+                const copyButton = this.createPreviewIconButton("📋", plugin.t("preview.copyAria"));
+                this.copyPreviewButtonEl = copyButton;
                 copyButton.addEventListener("pointerdown", (event) => event.stopPropagation());
                 copyButton.addEventListener("click", (event) => {
                     event.preventDefault();
@@ -788,7 +795,8 @@ export default class BiblePlugin extends Plugin {
                 });
                 headerEl.appendChild(copyButton);
 
-                const collapseButton = this.createPreviewIconButton("🔽", "Свернуть");
+                const collapseButton = this.createPreviewIconButton("🔽", plugin.t("preview.collapseAria"));
+                this.collapsePreviewButtonEl = collapseButton;
                 collapseButton.addEventListener("pointerdown", (event) => event.stopPropagation());
                 collapseButton.addEventListener("click", (event) => {
                     event.preventDefault();
@@ -816,8 +824,8 @@ export default class BiblePlugin extends Plugin {
                 const buttonEl = document.createElement("button");
                 buttonEl.type = "button";
                 buttonEl.textContent = "📖";
-                buttonEl.setAttribute("aria-label", "Развернуть текст Библии");
-                buttonEl.title = "Развернуть текст Библии";
+                buttonEl.setAttribute("aria-label", plugin.t("preview.expandAria"));
+                buttonEl.title = plugin.t("preview.expandAria");
                 buttonEl.style.position = "fixed";
                 buttonEl.style.display = "none";
                 buttonEl.style.zIndex = "1000";
@@ -922,10 +930,10 @@ export default class BiblePlugin extends Plugin {
                     } else {
                         this.copyBiblePreviewTextFallback();
                     }
-                    new Notice("Текст Библии скопирован.", 2500);
+                    new Notice(plugin.t("notice.bibleTextCopied"), 2500);
                 } catch {
                     this.copyBiblePreviewTextFallback();
-                    new Notice("Текст Библии скопирован.", 2500);
+                    new Notice(plugin.t("notice.bibleTextCopied"), 2500);
                 }
             }
 
@@ -941,10 +949,26 @@ export default class BiblePlugin extends Plugin {
                 document.execCommand("copy");
                 textareaEl.remove();
             }
+            public refreshLocalizedLabels(): void {
+                this.updateBiblePreviewTitle();
+                this.setPreviewButtonLabel(this.copyPreviewButtonEl, plugin.t("preview.copyAria"));
+                this.setPreviewButtonLabel(this.collapsePreviewButtonEl, plugin.t("preview.collapseAria"));
+                this.collapsedButtonEl.setAttribute("aria-label", plugin.t("preview.expandAria"));
+                this.collapsedButtonEl.title = plugin.t("preview.expandAria");
+            }
+
+            private setPreviewButtonLabel(buttonEl: HTMLButtonElement | null, label: string): void {
+                if (buttonEl === null) {
+                    return;
+                }
+                buttonEl.setAttribute("aria-label", label);
+                buttonEl.title = label;
+            }
+
             public openBibleReferenceUnderCursor(showNotice = false): boolean {
                 if (!plugin.hasImportedTranslations()) {
                     if (showNotice) {
-                        new Notice("Нет импортированных переводов Библии.", 2500);
+                        new Notice(plugin.t("notice.noImportedTranslations"), 2500);
                     }
                     return false;
                 }
@@ -953,7 +977,7 @@ export default class BiblePlugin extends Plugin {
                 const match = plugin.findBibleReferenceMatchAtPosition(this.view, position);
                 if (match === null) {
                     if (showNotice) {
-                        new Notice("Библейская ссылка под курсором не найдена.", 2500);
+                        new Notice(plugin.t("notice.referenceUnderCursorNotFound"), 2500);
                     }
                     return false;
                 }
@@ -1416,7 +1440,7 @@ export default class BiblePlugin extends Plugin {
             const references = this.bibleReferenceParser.parse(text);
             if (references.length === 0) return "";
             const bibleTextBlocks = await getBibleTextBlocks(references, this.bibleIndex, this.activeTranslationId);
-            return bibleTextBlocks.length === 0 ? "" : formatBibleTextBlocks(bibleTextBlocks, this.bookMapping);
+            return bibleTextBlocks.length === 0 ? "" : formatBibleTextBlocks(bibleTextBlocks, this.bookMapping, this.t("preview.missingVerse"));
         } catch { return ""; }
     }
 
@@ -1540,8 +1564,8 @@ export default class BiblePlugin extends Plugin {
 
         if (Platform.isMobileApp) {
             new Notice([
-                "На мобильном Obsidian системное открытие папки недоступно.",
-                `Папка индекса: ${directoryPath}`,
+                this.t("notice.mobileFolderUnavailable"),
+                this.t("notice.indexFolder", { directoryPath }),
             ].join("\n"), 12000);
             return;
         }
@@ -1552,7 +1576,7 @@ export default class BiblePlugin extends Plugin {
             return;
         }
 
-        new Notice(`Папка индекса: ${directoryPath}`, 10000);
+        new Notice(this.t("notice.indexFolder", { directoryPath }), 10000);
     }
 
     private async ensureVaultDirectoryExists(path: string): Promise<void> {
@@ -1570,29 +1594,74 @@ export default class BiblePlugin extends Plugin {
 
         if (report !== null) {
             new Notice([
-                "Последний импорт:",
-                `Перевод: ${report.translationName}`,
-                `Язык: ${report.language}`,
-                `Книг: ${report.books}`,
-                `Глав: ${report.chapters}`,
-                `Стихов: ${report.verses}`,
-                `Сносок: ${report.footnotes}`,
-                `Metadata: ${formatKilobytes(report.metadataBytes)}`,
-                `Books: ${formatMegabytes(report.booksBytes)}`,
+                this.t("notice.lastImport"),
+                this.t("import.summary.translation", { translationName: report.translationName }),
+                this.t("import.summary.language", { language: report.language }),
+                this.t("import.summary.books", { count: report.books }),
+                this.t("import.summary.chapters", { count: report.chapters }),
+                this.t("import.summary.verses", { count: report.verses }),
+                this.t("import.summary.footnotes", { count: report.footnotes }),
+                this.t("import.summary.metadataSize", { size: formatKilobytes(report.metadataBytes) }),
+                this.t("import.summary.booksSize", { size: formatMegabytes(report.booksBytes) }),
             ].join("\n"), 15000);
             return;
         }
 
         if (this.activeV2Data !== null) {
             const translationCount = Object.keys(this.activeV2Data.translations).length;
-            new Notice(`Bible Index v2
-Переводов: ${translationCount}
-Активный перевод: ${this.activeTranslationId ?? "нет"}`, 10000);
+            new Notice([
+                this.t("notice.bibleIndexV2"),
+                this.t("notice.translationCount", { count: translationCount }),
+                this.t("notice.activeTranslationId", { translationId: this.activeTranslationId ?? this.t("notice.none") }),
+            ].join("\n"), 10000);
             return;
         }
 
-        new Notice("Нет импортированных переводов Библии.", 5000);
+        new Notice(this.t("notice.noImportedTranslations"), 5000);
     }
+
+    public t(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string {
+        return t(this.settings.interfaceLanguage, key, params);
+    }
+
+    public getInterfaceLanguage(): BiblePluginLocale {
+        return this.settings.interfaceLanguage;
+    }
+
+    public async setInterfaceLanguage(interfaceLanguage: BiblePluginLocale): Promise<void> {
+        if (this.settings.interfaceLanguage === interfaceLanguage) {
+            return;
+        }
+        this.settings = { ...this.settings, interfaceLanguage };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+        for (const controller of this.previewControllers.values()) {
+            controller.refreshLocalizedLabels();
+        }
+        new Notice(this.t("notice.restartPluginForCommandNames"), 6000);
+    }
+
+    private localizeImportErrorMessage(error: unknown): string {
+        const message = getErrorMessage(error);
+        if (message === "EPUB does not contain XHTML documents.") {
+            return this.t("import.error.noXhtml");
+        }
+        if (message === "EPUB complete 66-book table was not found. Import cannot continue without a validated book table.") {
+            return this.t("import.error.noBookTable");
+        }
+        if (message === "EPUB import completed without extracted verses.") {
+            return this.t("import.error.noVerses");
+        }
+        if (message === "EPUB container.xml does not contain OPF rootfile path.") {
+            return this.t("import.error.containerNoRootfile");
+        }
+        const fileNotFoundMatch = /^EPUB file not found: (.+)$/.exec(message);
+        if (fileNotFoundMatch !== null) {
+            return this.t("import.error.fileNotFound", { path: fileNotFoundMatch[1] });
+        }
+        return message;
+    }
+
 }
 
 
@@ -1611,6 +1680,7 @@ class BibleTranslationImportModal extends Modal {
         app: App,
         defaults: BibleTranslationImportSettings,
         private readonly translationAlreadyExists: boolean,
+        private readonly locale: BiblePluginLocale,
         private readonly resolve: (value: BibleTranslationImportSettings | null) => void,
     ) {
         super(app);
@@ -1620,22 +1690,22 @@ class BibleTranslationImportModal extends Modal {
     onOpen(): void {
         const { contentEl } = this;
         contentEl.empty();
-        contentEl.createEl("h2", { text: "Импорт перевода Библии" });
+        contentEl.createEl("h2", { text: t(this.locale, "modal.import.title") });
 
         if (this.translationAlreadyExists) {
             contentEl.createEl("p", {
-                text: "Этот перевод уже импортирован. При продолжении старые данные этого перевода будут полностью заменены.",
+                text: t(this.locale, "modal.import.replaceWarning"),
                 cls: "mod-warning",
             });
         } else {
             contentEl.createEl("p", {
-                text: "Проверь название перевода. Старые данные будут заменены только если этот перевод уже был импортирован раньше.",
+                text: t(this.locale, "modal.import.description"),
             });
         }
 
 
         const translationNameSetting = new Setting(contentEl)
-            .setName("Название перевода");
+            .setName(t(this.locale, "modal.import.translationName"));
 
         translationNameSetting.settingEl.style.flexDirection = "column";
         translationNameSetting.settingEl.style.alignItems = "stretch";
@@ -1643,7 +1713,7 @@ class BibleTranslationImportModal extends Modal {
 
         translationNameSetting.addText((text) => {
             text
-                .setPlaceholder(this.value.translationNamePlaceholder)
+                .setPlaceholder(this.value.translationNamePlaceholder || t(this.locale, "defaults.translationNamePlaceholder"))
                 .setValue(this.value.translationName)
                 .onChange((value) => {
                     this.value.translationName = value.trim();
@@ -1654,15 +1724,15 @@ class BibleTranslationImportModal extends Modal {
 
 
         new Setting(contentEl)
-            .setName("Язык")
-            .setDesc(this.value.language || "не определён");
+            .setName(t(this.locale, "modal.import.language"))
+            .setDesc(this.value.language || t(this.locale, "modal.import.undefined"));
 
         new Setting(contentEl)
             .addButton((button) => button
-                .setButtonText("Отмена")
+                .setButtonText(t(this.locale, "modal.import.cancel"))
                 .onClick(() => this.finish(null)))
             .addButton((button) => button
-                .setButtonText("Импортировать")
+                .setButtonText(t(this.locale, "modal.import.import"))
                 .setCta()
                 .onClick(() => this.finish(this.value)));
     }
@@ -1687,7 +1757,7 @@ class BibleTranslationImportModal extends Modal {
         const translationName = value.translationName.trim();
 
         if (translationName.length === 0) {
-            new Notice("Укажи название перевода.", 5000);
+            new Notice(t(this.locale, "modal.import.translationNameRequired"), 5000);
             return;
         }
 
@@ -1711,33 +1781,40 @@ class BiblePluginSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        containerEl.createEl("h2", { text: "Bible Plugin" });
+        containerEl.createEl("h2", { text: this.plugin.t("settings.title") });
 
         new Setting(containerEl)
-            .setName("Импортировать EPUB")
-            .setDesc("Создать или заменить перевод в bibles-index.json и compact JSON по книгам.")
-            .addButton((button) => button.setButtonText("Импортировать EPUB").setCta().onClick(() => this.plugin.openEpubFilePicker()));
+            .setName(this.plugin.t("settings.interfaceLanguage.name"))
+            .setDesc(this.plugin.t("settings.interfaceLanguage.desc"))
+            .addDropdown((dropdown) => {
+                dropdown
+                    .addOption("ru", this.plugin.t("settings.interfaceLanguage.ru"))
+                    .addOption("en", this.plugin.t("settings.interfaceLanguage.en"))
+                    .setValue(this.plugin.getInterfaceLanguage())
+                    .onChange((value) => void this.plugin.setInterfaceLanguage(value as BiblePluginLocale));
+            });
+
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.import.name"))
+            .setDesc(this.plugin.t("settings.import.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.import.button")).setCta().onClick(() => this.plugin.openEpubFilePicker()));
 
         this.renderTranslationsSection(containerEl);
 
         new Setting(containerEl)
-            .setName("Открытие текста Библии")
-            .setDesc("Выбери, как показывать текст: автоматически по текущему абзацу или только по клику на конкретную ссылку.")
+            .setName(this.plugin.t("settings.previewMode.name"))
+            .setDesc(this.plugin.t("settings.previewMode.desc"))
             .addDropdown((dropdown) => {
                 dropdown
-                    .addOption("current-paragraph", "Автоматически по текущему абзацу")
-                    .addOption("clicked-reference", "По клику на ссылку")
+                    .addOption("current-paragraph", this.plugin.t("settings.previewMode.currentParagraph"))
+                    .addOption("clicked-reference", this.plugin.t("settings.previewMode.clickedReference"))
                     .setValue(this.plugin.getBiblePreviewTriggerMode())
                     .onChange((value) => void this.plugin.setBiblePreviewTriggerMode(value as BiblePreviewTriggerMode));
             });
 
         new Setting(containerEl)
-            .setName("Клавиша открытия библейской ссылки")
-            .setDesc([
-                "Если курсор находится на библейской ссылке, выбранное сочетание откроет текст Библии.",
-                "Если библейской ссылки под курсором нет, сочетание будет обработано Obsidian как обычно.",
-                "Для любого другого сочетания назначь команду “Open Bible reference under cursor” в Settings → Hotkeys.",
-            ].join(" "))
+            .setName(this.plugin.t("settings.hotkey.name"))
+            .setDesc(this.plugin.t("settings.hotkey.desc"))
             .addToggle((toggle) => {
                 toggle
                     .setValue(this.plugin.shouldInterceptLinkOpenShortcut())
@@ -1753,16 +1830,16 @@ class BiblePluginSettingTab extends PluginSettingTab {
             });
 
         const bibleReferenceLinkColorSetting = new Setting(containerEl)
-            .setName("Цвет ссылки на Библию")
-            .setDesc("Выбери цвет распознанных библейских ссылок в редакторе. Сброс возвращает стандартный цвет ссылок темы Obsidian.");
+            .setName(this.plugin.t("settings.linkColor.name"))
+            .setDesc(this.plugin.t("settings.linkColor.desc"));
 
         const colorInput = bibleReferenceLinkColorSetting.controlEl.createEl("input");
         colorInput.type = "color";
         colorInput.value = this.plugin.getBibleReferenceLinkColorPickerValue();
-        colorInput.setAttribute("aria-label", "Выбрать цвет ссылки на Библию");
+        colorInput.setAttribute("aria-label", this.plugin.t("settings.linkColor.aria"));
         colorInput.addEventListener("input", () => void this.plugin.setBibleReferenceLinkColor(colorInput.value));
 
-        const previewEl = bibleReferenceLinkColorSetting.controlEl.createSpan({ text: "Ин 3:16" });
+        const previewEl = bibleReferenceLinkColorSetting.controlEl.createSpan({ text: this.plugin.t("settings.linkColor.preview") });
         previewEl.style.color = this.plugin.isBibleReferenceLinkColorDefault()
             ? "var(--link-color)"
             : this.plugin.getBibleReferenceLinkColorPickerValue();
@@ -1771,7 +1848,7 @@ class BiblePluginSettingTab extends PluginSettingTab {
         previewEl.style.marginLeft = "8px";
         previewEl.style.whiteSpace = "nowrap";
 
-        const resetButton = bibleReferenceLinkColorSetting.controlEl.createEl("button", { text: "Сбросить" });
+        const resetButton = bibleReferenceLinkColorSetting.controlEl.createEl("button", { text: this.plugin.t("settings.reset") });
         resetButton.disabled = this.plugin.isBibleReferenceLinkColorDefault();
         resetButton.style.marginLeft = "8px";
         resetButton.addEventListener("click", async (event) => {
@@ -1781,26 +1858,26 @@ class BiblePluginSettingTab extends PluginSettingTab {
         });
 
         new Setting(containerEl)
-            .setName("Открыть папку индекса")
-            .setDesc("На desktop открывает data-папку индекса в системном файловом менеджере. На Android показывает путь.")
-            .addButton((button) => button.setButtonText("Открыть папку индекса").onClick(() => void this.plugin.openBibleIndexFolder()));
+            .setName(this.plugin.t("settings.openIndexFolder.name"))
+            .setDesc(this.plugin.t("settings.openIndexFolder.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.openIndexFolder.button")).onClick(() => void this.plugin.openBibleIndexFolder()));
 
         new Setting(containerEl)
-            .setName("Показать статистику индекса")
-            .setDesc("Показывает информацию о последнем импорте.")
-            .addButton((button) => button.setButtonText("Показать статистику").onClick(() => void this.plugin.showBibleIndexStats()));
+            .setName(this.plugin.t("settings.showStats.name"))
+            .setDesc(this.plugin.t("settings.showStats.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.showStats.button")).onClick(() => void this.plugin.showBibleIndexStats()));
     }
 
     private renderTranslationsSection(containerEl: HTMLElement): void {
-        containerEl.createEl("h3", { text: "Порядок переводов" });
+        containerEl.createEl("h3", { text: this.plugin.t("settings.translations.title") });
         containerEl.createEl("p", {
-            text: "Перетащи перевод, чтобы изменить порядок. Верхний перевод в списке используется сейчас. Позже этот порядок будет использоваться как приоритет автопоиска.",
+            text: this.plugin.t("settings.translations.desc"),
         });
 
         const translations = this.plugin.getTranslationSettingsItems();
 
         if (translations.length === 0) {
-            containerEl.createEl("p", { text: "Импортированных переводов пока нет." });
+            containerEl.createEl("p", { text: this.plugin.t("settings.translations.empty") });
             return;
         }
 
@@ -1847,9 +1924,9 @@ class BiblePluginSettingTab extends PluginSettingTab {
 
             const description = [
                 `ID: ${translation.id}`,
-                `Язык: ${translation.language || "und"}`,
-                `Книг: ${translation.bookCount}`,
-                translation.sourceFileName.length === 0 ? "" : `Файл: ${translation.sourceFileName}`,
+                this.plugin.t("settings.translations.language", { language: translation.language || "und" }),
+                this.plugin.t("settings.translations.books", { count: translation.bookCount }),
+                translation.sourceFileName.length === 0 ? "" : this.plugin.t("settings.translations.file", { fileName: translation.sourceFileName }),
             ].filter((part) => part.length > 0).join(" · ");
 
             const descriptionEl = textEl.createDiv({ text: description });
@@ -1860,7 +1937,7 @@ class BiblePluginSettingTab extends PluginSettingTab {
             descriptionEl.style.whiteSpace = "nowrap";
 
             const deleteButton = row.createEl("button", { text: "🗑" });
-            deleteButton.setAttribute("aria-label", `Удалить перевод ${translation.name || translation.id}`);
+            deleteButton.setAttribute("aria-label", this.plugin.t("settings.translations.deleteAria", { translationName: translation.name || translation.id }));
             deleteButton.style.cursor = "pointer";
             deleteButton.addEventListener("click", async (event) => {
                 event.preventDefault();
@@ -1953,7 +2030,7 @@ function createImportSettingsDefaults(fileName: string, sourceMetadata: EpubBibl
 
     return {
         translationName: detectedTranslationName,
-        translationNamePlaceholder: fileNameWithoutExtension || "Введите название перевода",
+        translationNamePlaceholder: fileNameWithoutExtension || "",
         language,
         translationId: createTranslationId(language, translationNameForId),
     };
@@ -2000,6 +2077,7 @@ function normalizePluginSettings(value: unknown): BiblePluginSettings {
         : [];
 
     return {
+        interfaceLanguage: normalizeBiblePluginLocale(value.interfaceLanguage),
         translationOrder: [...new Set(translationOrder)],
         bibleReferenceLinkColor: typeof value.bibleReferenceLinkColor === "string"
             ? normalizeBibleReferenceLinkColor(value.bibleReferenceLinkColor)

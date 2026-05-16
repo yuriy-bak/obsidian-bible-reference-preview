@@ -1,10 +1,9 @@
-
 {
-  "id": "bible-plugin",
-  "name": "Bible Plugin",
-  "version": "0.0.1",
+  "id": "bible-reference-preview",
+  "name": "Bible Reference Preview",
+  "version": "0.1.0",
   "minAppVersion": "1.0.0",
-  "description": "Bible preview plugin",
+  "description": "Recognize Bible references in Obsidian notes and show verse previews from imported EPUB Bible translations.",
   "author": "YuBak",
   "main": "main.js"
 }

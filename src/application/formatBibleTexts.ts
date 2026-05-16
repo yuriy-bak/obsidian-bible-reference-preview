@@ -5,15 +5,15 @@ import { BookMapping } from "../parsing/BookMapping";
 import { formatBibleReference } from "../parsing/formatBibleReference";
 import { BibleTextBlock, BibleTextPart } from "./BibleTextBlock";
 
-const MISSING_VERSE_TEXT = "[стих не найден]";
+const DEFAULT_MISSING_VERSE_TEXT = "[стих не найден]";
 const DIFFERENT_BOOK_SEPARATOR = "__________";
 
-export function formatBibleTextBlocks(blocks: BibleTextBlock[], mapping: BookMapping): string {
+export function formatBibleTextBlocks(blocks: BibleTextBlock[], mapping: BookMapping, missingVerseText = DEFAULT_MISSING_VERSE_TEXT): string {
     const lines: string[] = [];
     let previousReference: BibleReference | null = null;
 
     for (const block of blocks) {
-        const formattedBlock = formatBibleTextBlock(block, mapping);
+        const formattedBlock = formatBibleTextBlock(block, mapping, missingVerseText);
         if (formattedBlock.length === 0) {
             continue;
         }
@@ -33,7 +33,7 @@ export function formatBibleTextBlocks(blocks: BibleTextBlock[], mapping: BookMap
     return lines.join("\n");
 }
 
-function formatBibleTextBlock(block: BibleTextBlock, mapping: BookMapping): string {
+function formatBibleTextBlock(block: BibleTextBlock, mapping: BookMapping, missingVerseText: string): string {
     const verseLines: string[] = [];
     const footnoteLines: string[] = [];
 
@@ -46,7 +46,7 @@ function formatBibleTextBlock(block: BibleTextBlock, mapping: BookMapping): stri
         for (const verseNumber of getVerseNumbersToRender(part)) {
             const verse = versesByNumber.get(verseNumber);
             if (verse === undefined) {
-                verseLines.push(`${verseNumber}. ${MISSING_VERSE_TEXT}`);
+                verseLines.push(`${verseNumber}. ${missingVerseText}`);
                 continue;
             }
 

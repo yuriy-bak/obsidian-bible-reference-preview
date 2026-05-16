@@ -1,13 +1,13 @@
 {
-  "name": "obsidian-bible-plugin",
-  "version": "0.0.1",
+  "name": "obsidian-bible-reference-preview",
+  "version": "0.1.0",
   "main": "main.js",
   "scripts": {
     "build": "tsc && node esbuild.config.mjs",
     "build:prod": "tsc && node esbuild.config.mjs --production",
     "watch": "tsc -w",
     "test": "npm run build && node tests/run-parser-tests.js",
-    "deploy": "npm test && npm run build:prod && copy main.js \"C:\\Notes\\Obsidian\\.obsidian\\plugins\\bible-plugin\\\" && copy manifest.json \"C:\\Notes\\Obsidian\\.obsidian\\plugins\\bible-plugin\\\""
+    "deploy": "npm test && npm run build:prod && copy main.js \"C:\\Notes\\Obsidian\\.obsidian\\plugins\\bible-reference-preview\\\" && copy manifest.json \"C:\\Notes\\Obsidian\\.obsidian\\plugins\\bible-reference-preview\\\""
   },
   "devDependencies": {
     "esbuild": "^0.28.0",
