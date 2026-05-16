@@ -1,9 +1,8 @@
 const assert = require("assert");
 const { BibleReferenceParser } = require("../src/parsing/BibleReferenceParser.js");
-const { createFallbackRussianBookMapping } = require("../src/parsing/BookMapping.js");
-const { DEFAULT_TRANSLATION_ID } = require("../src/application/DefaultTranslation.js");
+const { createBookMapping } = require("../src/parsing/BookMapping.js");
+const DEFAULT_TRANSLATION_ID = "newworld";
 const { getBibleTextBlocks } = require("../src/application/getBibleTexts.js");
-const { createMockBibleIndexRepository } = require("../src/infrastructure/createMockBibleIndexRepository.js");
 const { LazyBibleIndexV2 } = require("../src/infrastructure/v2/LazyBibleIndexV2.js");
 const { createBookMappingFromBibleIndexV2Data } = require("../src/infrastructure/v2/createBookMappingFromBibleIndexV2Data.js");
 const { 
@@ -13,20 +12,33 @@ enrichBookTableFromNavigationHtml,
  } = require("../src/infrastructure/epub/htmlTextUtils.js");
 
 (async () => {
-    const mapping = createFallbackRussianBookMapping();
+    const mapping = createBookMapping([
+        { id: 43, name: "иоанна", abbreviation: "ин" },
+        { id: 45, name: "римлянам", abbreviation: "рим" },
+        { id: 46, name: "1коринфянам", abbreviation: "1кор", aliases: ["1 коринфянам", "1 кор"] },
+    ]);
     const parser = new BibleReferenceParser(mapping);
     assert.strictEqual(parser.parse("Ин3:16").length, 1);
     assert.strictEqual(parser.parse("1 Кор 13:4").length, 1);
 
- const matchSample = "Смотри Ин. 3:16-18 и Рим 8:28.";
- const matches = parser.parseMatches(matchSample);
- assert.strictEqual(matches.length, 2);
- assert.strictEqual(matches[0].text, "Ин. 3:16-18");
- assert.strictEqual(matchSample.slice(matches[0].from, matches[0].to), "Ин. 3:16-18");
- assert.strictEqual(matches[1].text, "Рим 8:28");
- assert.strictEqual(matchSample.slice(matches[1].from, matches[1].to), "Рим 8:28");
-
-    const index = createMockBibleIndexRepository().getIndex();
+    const matchSample = "Смотри Ин. 3:16-18 и Рим 8:28.";
+    const matches = parser.parseMatches(matchSample);
+    assert.strictEqual(matches.length, 2);
+    assert.strictEqual(matches[0].text, "Ин. 3:16-18");
+    assert.strictEqual(matchSample.slice(matches[0].from, matches[0].to), "Ин. 3:16-18");
+    assert.strictEqual(matches[1].text, "Рим 8:28");
+    assert.strictEqual(matchSample.slice(matches[1].from, matches[1].to), "Рим 8:28");
+    const index = {
+        async getBibleText() {
+            return {
+                translationId: DEFAULT_TRANSLATION_ID,
+                book: 43,
+                bookName: "Ин",
+                chapter: 3,
+                verses: [{ number: 16, text: "Текст Ин 3:16", footnotes: [] }],
+            };
+        },
+    };
     const blocks = await getBibleTextBlocks(parser.parse("Ин 3:16"), index, DEFAULT_TRANSLATION_ID);
     assert.strictEqual(blocks.length, 1);
 

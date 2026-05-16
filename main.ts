@@ -1,17 +1,14 @@
 
 import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting } from "obsidian";
-import type { BibleIndexData } from "./src/infrastructure/BibleIndexData";
+import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType, type DecorationSet } from "@codemirror/view";
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
-import { createFallbackRussianBookMapping } from "./src/parsing/BookMapping";
-import { DEFAULT_TRANSLATION_ID } from "./src/application/DefaultTranslation";
+import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
 import { formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
-import { createMockBibleIndexRepository } from "./src/infrastructure/createMockBibleIndexRepository";
-import { createBookMappingFromBibleIndexData } from "./src/infrastructure/createBookMappingFromBibleIndexData";
 import { EpubBibleSourceMetadata } from "./src/infrastructure/EpubBibleImporter";
 import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
@@ -94,6 +91,12 @@ function dispatchBibleReferenceLinkDecorations(view: EditorView, decorations: De
     }, 0);
 }
 
+const EMPTY_BIBLE_INDEX: BibleIndex = {
+    async getBibleText() {
+        return null;
+    },
+};
+
 type BiblePluginSettings = {
     translationOrder: string[];
     bibleReferenceLinkColor: string;
@@ -118,13 +121,11 @@ type TranslationSettingsItem = {
     canMoveDown: boolean;
 };
 export default class BiblePlugin extends Plugin {
-    private bookMapping = createFallbackRussianBookMapping();
+    private bookMapping = createBookMapping([]);
     private bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
-    private readonly fallbackBibleIndexRepository = createMockBibleIndexRepository();
-    private bibleIndex = this.fallbackBibleIndexRepository.getIndex();
+    private bibleIndex = EMPTY_BIBLE_INDEX;
     private activeV2Data: BibleIndexV2Data | null = null;
-    private activeLegacyData: BibleIndexData | null = this.fallbackBibleIndexRepository.getData();
-    private activeTranslationId = DEFAULT_TRANSLATION_ID;
+    private activeTranslationId: string | null = null;
     private settings: BiblePluginSettings = { ...DEFAULT_SETTINGS };
     private settingsTab: BiblePluginSettingTab | null = null;
     private readonly editorViews = new Set<EditorView>();
@@ -150,18 +151,16 @@ export default class BiblePlugin extends Plugin {
             await repository.load();
             this.bibleIndex = repository.getIndex();
             this.activeV2Data = repository.getV2Data();
-            this.activeLegacyData = repository.getLegacyData();
             const lastImportReport = await repository.readLastImportReport();
             await this.syncTranslationOrder(this.activeV2Data, lastImportReport?.translationId);
             this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
-            this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+            this.updateBookMapping(this.activeV2Data);
         } catch (error) {
-            console.warn("Bible index load failed. Mock Bible index will be used.", error);
-            this.bibleIndex = this.fallbackBibleIndexRepository.getIndex();
+            console.warn("Bible index load failed. Bible analysis will be disabled until a translation is imported.", error);
+            this.bibleIndex = EMPTY_BIBLE_INDEX;
             this.activeV2Data = null;
-            this.activeLegacyData = this.fallbackBibleIndexRepository.getData();
-            this.activeTranslationId = DEFAULT_TRANSLATION_ID;
-            this.updateBookMapping(null, this.activeLegacyData);
+            this.activeTranslationId = null;
+            this.updateBookMapping(null);
         }
     }
 
@@ -214,10 +213,9 @@ export default class BiblePlugin extends Plugin {
 
                 this.bibleIndex = repository.getIndex();
                 this.activeV2Data = repository.getV2Data();
-                this.activeLegacyData = repository.getLegacyData();
                 await this.promoteTranslationToTop(result.translationId);
                 this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
-                this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+                this.updateBookMapping(this.activeV2Data);
                 this.refreshSettingsTab();
                 progressNotice.hide();
 
@@ -305,23 +303,23 @@ export default class BiblePlugin extends Plugin {
         await this.saveData(this.settings);
     }
 
-    private updateBookMapping(v2Data: BibleIndexV2Data | null, legacyData: BibleIndexData | null): void {
-        this.bookMapping = v2Data !== null
+    private updateBookMapping(v2Data: BibleIndexV2Data | null): void {
+        this.bookMapping = v2Data !== null && this.activeTranslationId !== null
             ? createBookMappingFromBibleIndexV2Data(v2Data, this.activeTranslationId)
-            : createBookMappingFromBibleIndexData(legacyData ?? this.fallbackBibleIndexRepository.getData(), DEFAULT_TRANSLATION_ID);
+            : createBookMapping([]);
         this.bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
         this.refreshBibleReferenceLinks();
     }
 
-    private selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string {
+    private selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string | null {
         if (v2Data === null) {
-            return DEFAULT_TRANSLATION_ID;
+            return null;
         }
 
         const availableTranslations = new Set(Object.keys(v2Data.translations));
         return this.settings.translationOrder.find((translationId) => availableTranslations.has(translationId))
             ?? Object.keys(v2Data.translations)[0]
-            ?? DEFAULT_TRANSLATION_ID;
+            ?? null;
     }
 
     private async syncTranslationOrder(
@@ -408,7 +406,7 @@ export default class BiblePlugin extends Plugin {
         await this.savePluginSettings();
         await this.syncTranslationOrder(this.activeV2Data);
         this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
-        this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+        this.updateBookMapping(this.activeV2Data);
         new Notice(`Текущий перевод: ${this.getActiveTranslationDisplayName()}`, 4000);
     }
 
@@ -437,7 +435,7 @@ export default class BiblePlugin extends Plugin {
         await this.savePluginSettings();
         await this.syncTranslationOrder(this.activeV2Data);
         this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
-        this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+        this.updateBookMapping(this.activeV2Data);
         new Notice(`Текущий перевод: ${this.getActiveTranslationDisplayName()}`, 4000);
     }
 
@@ -495,7 +493,6 @@ export default class BiblePlugin extends Plugin {
 
         this.bibleIndex = repository.getIndex();
         this.activeV2Data = repository.getV2Data();
-        this.activeLegacyData = repository.getLegacyData();
         this.settings = {
             ...this.settings,
             translationOrder: this.settings.translationOrder.filter((existingTranslationId) => existingTranslationId !== translationId),
@@ -503,11 +500,15 @@ export default class BiblePlugin extends Plugin {
         await this.savePluginSettings();
         await this.syncTranslationOrder(this.activeV2Data);
         this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
-        this.updateBookMapping(this.activeV2Data, this.activeLegacyData);
+        this.updateBookMapping(this.activeV2Data);
         new Notice(`Перевод удалён: ${translationName}`, 5000);
     }
 
     public getActiveTranslationDisplayName(): string {
+        if (this.activeTranslationId === null) {
+            return "нет импортированного перевода";
+        }
+
         const translation = this.activeV2Data?.translations[this.activeTranslationId];
         return translation === undefined ? this.activeTranslationId : `${translation.name} (${translation.language})`;
     }
@@ -543,6 +544,13 @@ export default class BiblePlugin extends Plugin {
                 }
 
                 if (!update.selectionSet && !update.docChanged) {
+                    return;
+                }
+
+                if (!plugin.hasImportedTranslations()) {
+                    this.lastParagraph = "";
+                    this.requestId += 1;
+                    dispatchBibleDecorations(this.view, Decoration.none);
                     return;
                 }
 
@@ -608,7 +616,17 @@ export default class BiblePlugin extends Plugin {
         ];
     }
 
+    private hasImportedTranslations(): boolean {
+        return this.activeV2Data !== null
+            && this.activeTranslationId !== null
+            && this.activeV2Data.translations[this.activeTranslationId] !== undefined;
+    }
+
     private createBibleReferenceLinkDecorations(view: EditorView): DecorationSet {
+        if (!this.hasImportedTranslations()) {
+            return Decoration.none;
+        }
+
         const builder = new RangeSetBuilder<Decoration>();
 
         for (const range of view.visibleRanges) {
@@ -638,6 +656,10 @@ export default class BiblePlugin extends Plugin {
 
     async analyzeParagraphAsync(text: string): Promise<string> {
         try {
+            if (!this.hasImportedTranslations() || this.activeTranslationId === null) {
+                return "";
+            }
+
             const references = this.bibleReferenceParser.parse(text);
             if (references.length === 0) return "";
             const bibleTextBlocks = await getBibleTextBlocks(references, this.bibleIndex, this.activeTranslationId);
@@ -718,17 +740,13 @@ export default class BiblePlugin extends Plugin {
 
         if (this.activeV2Data !== null) {
             const translationCount = Object.keys(this.activeV2Data.translations).length;
-            new Notice(`Bible Index v2\nПереводов: ${translationCount}\nАктивный перевод: ${this.activeTranslationId}`, 10000);
+            new Notice(`Bible Index v2
+Переводов: ${translationCount}
+Активный перевод: ${this.activeTranslationId ?? "нет"}`, 10000);
             return;
         }
 
-        if (this.activeLegacyData !== null) {
-            const translation = this.activeLegacyData.translations[DEFAULT_TRANSLATION_ID];
-            new Notice(`Legacy Bible Index\nКниг: ${translation === undefined ? 0 : Object.keys(translation.books).length}`, 10000);
-            return;
-        }
-
-        new Notice("Bible index is not loaded.", 5000);
+        new Notice("Нет импортированных переводов Библии.", 5000);
     }
 }
 

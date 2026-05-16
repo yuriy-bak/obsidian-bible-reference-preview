@@ -1,5 +1,4 @@
 import { BibleBook } from "../../domain/BibleBook";
-import { BibleIndexVerseData } from "../BibleIndexData";
 
 export type ExtractedVerse = {
     chapter: number;
@@ -99,12 +98,6 @@ export function extractVersesFromHtml(html: string): ExtractedVerse[] {
     return result;
 }
 
-export function toBibleIndexVerseData(verse: ExtractedVerse): BibleIndexVerseData {
-    return {
-        text: verse.text,
-        footnotes: verse.footnotes,
-    };
-}
 
 function extractBookTableFromRows(html: string): ExtractedBookTable | null {
     const rows = Array.from(html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi));

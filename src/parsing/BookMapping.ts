@@ -81,17 +81,6 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
     };
 }
 
-export function createFallbackRussianBookMapping(): BookMapping {
-    return createBookMapping([
-        { id: 19, name: "псалмы", abbreviation: "пс", aliases: ["псалом"] },
-        { id: 43, name: "иоанна", abbreviation: "ин" },
-        { id: 45, name: "римлянам", abbreviation: "рим" },
-        { id: 46, name: "1коринфянам", abbreviation: "1кор", aliases: ["1 коринфянам", "1 кор"] },
-        { id: 65, name: "иуды", abbreviation: "иуд" },
-    ]);
-}
-
-
 export function normalizeBookAlias(value: string): string {
     return normalizeSearchText(value)
         .replace(/\./g, "")
