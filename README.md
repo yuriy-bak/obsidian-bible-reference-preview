@@ -7,8 +7,8 @@ Bible Reference Preview recognizes Bible references in Obsidian notes and shows 
 - Import Bible translations from EPUB/TSV ZIP containers.
 - Store multiple imported translations.
 - Reorder translations and use the top translation as the active one.
-- Recognize Bible references in editor text.
-- Highlight recognized references in the editor.
+- Recognize Bible references in editor text and Reading view.
+- Highlight recognized references in the editor and turn Reading view references into clickable preview links.
 - Show a floating Bible preview.
 - Open previews automatically for the current paragraph or only by clicking a reference.
 - Open the Bible reference under the cursor with a command or configured shortcut.
