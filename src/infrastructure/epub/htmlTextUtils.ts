@@ -270,8 +270,15 @@ function addBookContentHrefsFromNavigationHtml(bookTable: ExtractedBookTable, bo
             continue;
         }
 
+        addBookHrefIfSafe(bookTable, fileName, bookId);
+        addBookHrefIfSafe(bookTable, canonicalVerseDocumentFileName(fileName), bookId);
+    }
+}
+
+function addBookHrefIfSafe(bookTable: ExtractedBookTable, fileName: string, bookId: number): void {
+    const existingBookId = bookTable.hrefToBookId[fileName];
+    if (existingBookId === undefined || existingBookId === bookId) {
         bookTable.hrefToBookId[fileName] = bookId;
-        bookTable.hrefToBookId[canonicalVerseDocumentFileName(fileName)] = bookId;
     }
 }
 

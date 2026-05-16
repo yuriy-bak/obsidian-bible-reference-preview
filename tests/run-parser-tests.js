@@ -21,6 +21,12 @@ enrichBookTableFromNavigationHtml,
     assert.strictEqual(parser.parse("Ин3:16").length, 1);
     assert.strictEqual(parser.parse("1 Кор 13:4").length, 1);
 
+    const conflictingAliasParser = new BibleReferenceParser(createBookMapping([
+        { id: 43, name: "иоанна", abbreviation: "ин", aliases: ["общ"] },
+        { id: 45, name: "римлянам", abbreviation: "рим", aliases: ["общ"] },
+    ]));
+    assert.strictEqual(conflictingAliasParser.parse("общ 1:1").length, 0);
+
     const matchSample = "Смотри Ин. 3:16-18 и Рим 8:28.";
     const matches = parser.parseMatches(matchSample);
     assert.strictEqual(matches.length, 2);
@@ -100,6 +106,13 @@ enrichBookTableFromNavigationHtml,
         "<html><head><title>First Book From EPUB (Navigation)</title></head><body><a href='05_BOOK.xhtml#chapter1_verse1'>1</a></body></html>",
     );
     assert.strictEqual(oldBibleNavigationTable.books[0].name, "First Book From EPUB");
+    assert.strictEqual(oldBibleNavigationTable.hrefToBookId["05_BOOK.xhtml"], 1);
+
+    enrichBookTableFromNavigationHtml(
+        oldBibleNavigationTable,
+        "OEBPS/BIBLE_66.xhtml",
+        "<html><head><title>Last Book From EPUB (Navigation)</title></head><body><a href='05_BOOK.xhtml#chapter1_verse1'>1</a></body></html>",
+    );
     assert.strictEqual(oldBibleNavigationTable.hrefToBookId["05_BOOK.xhtml"], 1);
 
     const scriptureReferenceAliases = extractBookNavigationAliasesFromHtml(

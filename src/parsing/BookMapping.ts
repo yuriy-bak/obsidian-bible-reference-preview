@@ -15,10 +15,20 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
     const bigBooks = new Set<string>();
     const shortBooks = new Set<string>();
     const generatedAliases = new Map<string, Set<number>>();
+    const ambiguousAliases = new Set<string>();
 
     const addAuthoritativeAlias = (alias: string, bookId: number): void => {
         for (const normalized of createAliasVariants(alias)) {
-            if (normalized.length === 0) {
+            if (normalized.length === 0 || ambiguousAliases.has(normalized)) {
+                continue;
+            }
+
+            const existingBookId = nameToId.get(normalized);
+            if (existingBookId !== undefined && existingBookId !== bookId) {
+                nameToId.delete(normalized);
+                bigBooks.delete(normalized);
+                shortBooks.delete(normalized);
+                ambiguousAliases.add(normalized);
                 continue;
             }
 
@@ -58,7 +68,7 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
     }
 
     for (const [alias, bookIds] of generatedAliases.entries()) {
-        if (bookIds.size !== 1) {
+        if (bookIds.size !== 1 || ambiguousAliases.has(alias)) {
             continue;
         }
 
