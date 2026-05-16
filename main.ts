@@ -640,6 +640,15 @@ export default class BiblePlugin extends Plugin {
             private clickedReference: { from: number; to: number; text: string } | null = null;
             private lastPreviewTriggerMode = plugin.getBiblePreviewTriggerMode();
             private collapsedButtonPosition: { left: number; top: number } | null = null;
+            private collapsedButtonDragState: {
+                pointerId: number;
+                startClientX: number;
+                startClientY: number;
+                startLeft: number;
+                startTop: number;
+                moved: boolean;
+            } | null = null;
+            private suppressCollapsedButtonClick = false;
             private previewDragState: {
                 pointerId: number;
                 startClientX: number;
@@ -836,16 +845,23 @@ export default class BiblePlugin extends Plugin {
                 buttonEl.style.background = "var(--background-secondary)";
                 buttonEl.style.color = "var(--text-normal)";
                 buttonEl.style.boxShadow = "0 6px 18px rgba(0, 0, 0, 0.28)";
-                buttonEl.style.cursor = "pointer";
+                buttonEl.style.cursor = "grab";
+                buttonEl.style.touchAction = "none";
+                buttonEl.style.userSelect = "none";
                 buttonEl.style.fontSize = "20px";
                 buttonEl.style.lineHeight = "1";
                 buttonEl.style.padding = "0";
+                buttonEl.addEventListener("pointerdown", (event) => this.startCollapsedButtonDrag(event));
                 buttonEl.addEventListener("click", (event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    this.isPreviewCollapsed = false;
-                    this.collapsedButtonPosition = null;
-                    this.renderBiblePreview();
+
+                    if (this.suppressCollapsedButtonClick) {
+                        this.suppressCollapsedButtonClick = false;
+                        return;
+                    }
+
+                    this.expandBiblePreviewFromCollapsedButton();
                 });
                 return buttonEl;
             }
@@ -1143,6 +1159,9 @@ export default class BiblePlugin extends Plugin {
                 window.removeEventListener("pointermove", this.previewPointerMoveHandler);
                 window.removeEventListener("pointerup", this.previewPointerUpHandler);
                 window.removeEventListener("pointercancel", this.previewPointerUpHandler);
+                this.collapsedButtonDragState = null;
+                this.previewDragState = null;
+                this.collapsedButtonEl.style.cursor = "grab";
                 document.body.style.userSelect = "";
             }
 
@@ -1163,7 +1182,107 @@ export default class BiblePlugin extends Plugin {
                 event.preventDefault();
             }
 
+            private startCollapsedButtonDrag(event: PointerEvent): void {
+                if (event.button !== 0 || this.previewText.length === 0 || !this.isPreviewCollapsed) {
+                    return;
+                }
+
+                const rect = this.collapsedButtonEl.getBoundingClientRect();
+                this.collapsedButtonDragState = {
+                    pointerId: event.pointerId,
+                    startClientX: event.clientX,
+                    startClientY: event.clientY,
+                    startLeft: rect.left,
+                    startTop: rect.top,
+                    moved: false,
+                };
+
+                this.suppressCollapsedButtonClick = false;
+                this.collapsedButtonEl.style.cursor = "grabbing";
+                document.body.style.userSelect = "none";
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            private dragCollapsedButton(event: PointerEvent): void {
+                if (
+                    this.collapsedButtonDragState === null
+                    || event.pointerId !== this.collapsedButtonDragState.pointerId
+                ) {
+                    return;
+                }
+
+                const deltaX = event.clientX - this.collapsedButtonDragState.startClientX;
+                const deltaY = event.clientY - this.collapsedButtonDragState.startClientY;
+
+                if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+                    this.collapsedButtonDragState.moved = true;
+                }
+
+                const buttonSize = 42;
+                const clamped = this.clampBiblePreviewPosition(
+                    this.collapsedButtonDragState.startLeft + deltaX,
+                    this.collapsedButtonDragState.startTop + deltaY,
+                    buttonSize,
+                    buttonSize,
+                );
+
+                this.collapsedButtonPosition = clamped;
+                this.collapsedButtonEl.style.left = `${clamped.left}px`;
+                this.collapsedButtonEl.style.top = `${clamped.top}px`;
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            private finishCollapsedButtonDrag(event: PointerEvent): boolean {
+                if (
+                    this.collapsedButtonDragState === null
+                    || event.pointerId !== this.collapsedButtonDragState.pointerId
+                ) {
+                    return false;
+                }
+
+                this.suppressCollapsedButtonClick = this.collapsedButtonDragState.moved;
+                this.collapsedButtonDragState = null;
+                this.collapsedButtonEl.style.cursor = "grab";
+                document.body.style.userSelect = "";
+                event.preventDefault();
+                event.stopPropagation();
+                return true;
+            }
+
+            private expandBiblePreviewFromCollapsedButton(): void {
+                const buttonRect = this.collapsedButtonEl.getBoundingClientRect();
+                const viewport = this.getBiblePreviewViewport();
+                const panelWidth = this.isMobilePreviewLayout(viewport.width)
+                    ? Math.max(240, viewport.width - 16)
+                    : Math.min(720, Math.max(320, viewport.width * 0.42));
+                const panelHeight = Math.max(120, this.previewPanelEl.offsetHeight || 220);
+
+                const collapsedButtonCenterX = buttonRect.left + buttonRect.width / 2;
+                const collapsedButtonCenterY = buttonRect.top + buttonRect.height / 2;
+                const expandedCollapseButtonCenterX = panelWidth - 23;
+                const expandedCollapseButtonCenterY = 21;
+                const preferredLeft = collapsedButtonCenterX - expandedCollapseButtonCenterX;
+                const preferredTop = collapsedButtonCenterY - expandedCollapseButtonCenterY;
+
+                this.isPreviewCollapsed = false;
+                this.customPreviewPosition = this.clampBiblePreviewPosition(
+                    preferredLeft,
+                    preferredTop,
+                    panelWidth,
+                    panelHeight,
+                );
+                this.collapsedButtonPosition = null;
+                this.renderBiblePreview();
+            }
+
             private dragBiblePreview(event: PointerEvent): void {
+                if (this.collapsedButtonDragState !== null) {
+                    this.dragCollapsedButton(event);
+                    return;
+                }
+
                 if (this.previewDragState === null || event.pointerId !== this.previewDragState.pointerId) {
                     return;
                 }
@@ -1183,6 +1302,10 @@ export default class BiblePlugin extends Plugin {
             }
 
             private finishBiblePreviewDrag(event: PointerEvent): void {
+                if (this.finishCollapsedButtonDrag(event)) {
+                    return;
+                }
+
                 if (this.previewDragState === null || event.pointerId !== this.previewDragState.pointerId) {
                     return;
                 }
