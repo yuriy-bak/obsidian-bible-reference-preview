@@ -912,6 +912,18 @@ export default class BiblePlugin extends Plugin {
                     return;
                 }
 
+                const nextMatch = plugin.findBibleReferenceMatchAtPosition(this.view, nextFrom);
+                if (
+                    nextMatch === null
+                    || nextMatch.from !== nextFrom
+                    || nextMatch.to !== nextTo
+                    || nextMatch.text !== currentReference.text
+                ) {
+                    this.clickedReference = null;
+                    this.hideBiblePreview(true);
+                    return;
+                }
+
                 this.clickedReference = {
                     ...currentReference,
                     from: nextFrom,
