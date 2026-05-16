@@ -105,6 +105,10 @@ type BiblePluginSettings = {
 const DEFAULT_BIBLE_REFERENCE_LINK_COLOR = "var(--link-color)";
 const DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR = "#7c3aed";
 
+const MAX_ANALYZED_PARAGRAPH_LINES = 40;
+const MAX_ANALYZED_PARAGRAPH_CHARACTERS = 2000;
+
+
 const DEFAULT_SETTINGS: BiblePluginSettings = {
     translationOrder: [],
     bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
@@ -667,26 +671,100 @@ export default class BiblePlugin extends Plugin {
         } catch { return ""; }
     }
 
-    getCurrentParagraph(update: ViewUpdate): string {
+    private getCurrentAnalysisFragment(update: ViewUpdate): { text: string; end: number } | null {
         const doc = update.state.doc;
-        const line = doc.lineAt(update.state.selection.main.head);
-        if (line.text.trim() === "") return "";
-        const lines: string[] = [];
-        let current = line;
-        while (current.number > 1) { const previous = doc.line(current.number - 1); if (previous.text.trim() === "") break; lines.unshift(previous.text); current = previous; }
-        lines.push(line.text);
-        current = line;
-        while (current.number < doc.lines) { const next = doc.line(current.number + 1); if (next.text.trim() === "") break; lines.push(next.text); current = next; }
-        return lines.join("\n");
+        const cursorPosition = update.state.selection.main.head;
+        const line = doc.lineAt(cursorPosition);
+
+        if (line.text.trim() === "") {
+            return null;
+        }
+
+        if (line.text.length > MAX_ANALYZED_PARAGRAPH_CHARACTERS) {
+            return this.getCurrentLineAnalysisFragment(line.text, line.from, cursorPosition);
+        }
+
+        const lines: string[] = [line.text];
+        let characterCount = line.text.length;
+        let topLine = line;
+        let bottomLine = line;
+        let canExpandUp = true;
+        let canExpandDown = true;
+
+        while (lines.length < MAX_ANALYZED_PARAGRAPH_LINES && (canExpandUp || canExpandDown)) {
+            let expanded = false;
+
+            if (canExpandUp && lines.length < MAX_ANALYZED_PARAGRAPH_LINES) {
+                if (topLine.number <= 1) {
+                    canExpandUp = false;
+                } else {
+                    const previousLine = doc.line(topLine.number - 1);
+
+                    if (previousLine.text.trim() === "") {
+                        canExpandUp = false;
+                    } else if (characterCount + previousLine.text.length + 1 > MAX_ANALYZED_PARAGRAPH_CHARACTERS) {
+                        canExpandUp = false;
+                    } else {
+                        lines.unshift(previousLine.text);
+                        characterCount += previousLine.text.length + 1;
+                        topLine = previousLine;
+                        expanded = true;
+                    }
+                }
+            }
+
+            if (canExpandDown && lines.length < MAX_ANALYZED_PARAGRAPH_LINES) {
+                if (bottomLine.number >= doc.lines) {
+                    canExpandDown = false;
+                } else {
+                    const nextLine = doc.line(bottomLine.number + 1);
+
+                    if (nextLine.text.trim() === "") {
+                        canExpandDown = false;
+                    } else if (characterCount + nextLine.text.length + 1 > MAX_ANALYZED_PARAGRAPH_CHARACTERS) {
+                        canExpandDown = false;
+                    } else {
+                        lines.push(nextLine.text);
+                        characterCount += nextLine.text.length + 1;
+                        bottomLine = nextLine;
+                        expanded = true;
+                    }
+                }
+            }
+
+            if (!expanded && !canExpandUp && !canExpandDown) {
+                break;
+            }
+        }
+
+        return {
+            text: lines.join("\n"),
+            end: bottomLine.to,
+        };
+    }
+
+    private getCurrentLineAnalysisFragment(lineText: string, lineFrom: number, cursorPosition: number): { text: string; end: number } {
+        const cursorOffset = cursorPosition - lineFrom;
+        const halfLimit = Math.floor(MAX_ANALYZED_PARAGRAPH_CHARACTERS / 2);
+        let fromOffset = Math.max(0, cursorOffset - halfLimit);
+        let toOffset = Math.min(lineText.length, fromOffset + MAX_ANALYZED_PARAGRAPH_CHARACTERS);
+
+        if (toOffset === lineText.length) {
+            fromOffset = Math.max(0, toOffset - MAX_ANALYZED_PARAGRAPH_CHARACTERS);
+        }
+
+        return {
+            text: lineText.slice(fromOffset, toOffset),
+            end: lineFrom + toOffset,
+        };
+    }
+
+    getCurrentParagraph(update: ViewUpdate): string {
+        return this.getCurrentAnalysisFragment(update)?.text ?? "";
     }
 
     getParagraphEnd(update: ViewUpdate): number | null {
-        const doc = update.state.doc;
-        const line = doc.lineAt(update.state.selection.main.head);
-        if (line.text.trim() === "") return null;
-        let current = line;
-        while (current.number < doc.lines) { const next = doc.line(current.number + 1); if (next.text.trim() === "") break; current = next; }
-        return current.to;
+        return this.getCurrentAnalysisFragment(update)?.end ?? null;
     }
 
     async openBibleIndexFolder(): Promise<void> {
