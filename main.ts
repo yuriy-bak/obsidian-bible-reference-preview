@@ -1024,8 +1024,14 @@ export default class BiblePlugin extends Plugin {
             private openBibleReferenceMatch(match: { from: number; to: number; text: string }): void {
                 this.clickedReference = match;
                 this.lastParagraph = "";
-                this.isPreviewCollapsed = false;
-                this.collapsedButtonPosition = null;
+
+                if (this.isPreviewCollapsed) {
+                    this.isPreviewCollapsed = false;
+                    this.setExpandedPreviewPositionFromCollapsedButton();
+                } else {
+                    this.collapsedButtonPosition = null;
+                }
+
                 const currentRequestId = ++this.requestId;
 
                 void plugin.analyzeReferenceTextAsync(match.text).then((text) => {
@@ -1252,6 +1258,12 @@ export default class BiblePlugin extends Plugin {
             }
 
             private expandBiblePreviewFromCollapsedButton(): void {
+                this.isPreviewCollapsed = false;
+                this.setExpandedPreviewPositionFromCollapsedButton();
+                this.renderBiblePreview();
+            }
+
+            private setExpandedPreviewPositionFromCollapsedButton(): void {
                 const buttonRect = this.collapsedButtonEl.getBoundingClientRect();
                 const viewport = this.getBiblePreviewViewport();
                 const panelWidth = this.isMobilePreviewLayout(viewport.width)
@@ -1266,7 +1278,6 @@ export default class BiblePlugin extends Plugin {
                 const preferredLeft = collapsedButtonCenterX - expandedCollapseButtonCenterX;
                 const preferredTop = collapsedButtonCenterY - expandedCollapseButtonCenterY;
 
-                this.isPreviewCollapsed = false;
                 this.customPreviewPosition = this.clampBiblePreviewPosition(
                     preferredLeft,
                     preferredTop,
@@ -1274,7 +1285,6 @@ export default class BiblePlugin extends Plugin {
                     panelHeight,
                 );
                 this.collapsedButtonPosition = null;
-                this.renderBiblePreview();
             }
 
             private dragBiblePreview(event: PointerEvent): void {
