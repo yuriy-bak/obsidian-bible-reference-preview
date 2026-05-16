@@ -64,11 +64,18 @@ const EMPTY_BIBLE_INDEX: BibleIndex = {
 };
 
 type BiblePreviewTriggerMode = "current-paragraph" | "clicked-reference";
+type BibleLinkOpenShortcut = "alt-enter" | "ctrl-enter" | "ctrl-alt-enter";
+
+type BiblePreviewController = {
+    openBibleReferenceUnderCursor(showNotice?: boolean): boolean;
+};
 
 type BiblePluginSettings = {
     translationOrder: string[];
     bibleReferenceLinkColor: string;
     previewTriggerMode: BiblePreviewTriggerMode;
+    interceptLinkOpenShortcut: boolean;
+    linkOpenShortcut: BibleLinkOpenShortcut;
 };
 
 const DEFAULT_BIBLE_REFERENCE_LINK_COLOR = "var(--link-color)";
@@ -82,6 +89,8 @@ const DEFAULT_SETTINGS: BiblePluginSettings = {
     translationOrder: [],
     bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
     previewTriggerMode: "current-paragraph",
+    interceptLinkOpenShortcut: true,
+    linkOpenShortcut: "alt-enter",
 };
 
 type TranslationSettingsItem = {
@@ -103,6 +112,8 @@ export default class BiblePlugin extends Plugin {
     private settings: BiblePluginSettings = { ...DEFAULT_SETTINGS };
     private settingsTab: BiblePluginSettingTab | null = null;
     private readonly editorViews = new Set<EditorView>();
+    private readonly previewControllers = new Map<EditorView, BiblePreviewController>();
+    private readonly linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.handleLinkOpenShortcutKeydown(event);
 
     async onload() {
         console.log("Bible plugin loaded");
@@ -112,8 +123,14 @@ export default class BiblePlugin extends Plugin {
         this.addCommand({ id: "reload-bible-index", name: "Reload Bible Index", callback: () => void this.reloadBibleIndex() });
         this.addCommand({ id: "open-bible-index-folder", name: "Open Bible Index Folder", callback: () => void this.openBibleIndexFolder() });
         this.addCommand({ id: "show-bible-index-stats", name: "Show Bible Index Stats", callback: () => void this.showBibleIndexStats() });
+        this.addCommand({
+            id: "open-bible-reference-under-cursor",
+            name: "Open Bible reference under cursor",
+            callback: () => this.openBibleReferenceUnderCursorFromActiveEditor(true),
+        });
         this.settingsTab = new BiblePluginSettingTab(this.app, this);
         this.addSettingTab(this.settingsTab);
+        this.registerGlobalLinkOpenShortcutHandler();
         this.registerEditorExtension(this.createCursorExtension());
     }
 
@@ -444,6 +461,34 @@ export default class BiblePlugin extends Plugin {
         return this.settings.previewTriggerMode;
     }
 
+    public shouldInterceptLinkOpenShortcut(): boolean {
+        return this.settings.interceptLinkOpenShortcut;
+    }
+
+    public getBibleLinkOpenShortcut(): BibleLinkOpenShortcut {
+        return this.settings.linkOpenShortcut;
+    }
+
+    public async setInterceptLinkOpenShortcut(interceptLinkOpenShortcut: boolean): Promise<void> {
+        if (this.settings.interceptLinkOpenShortcut === interceptLinkOpenShortcut) {
+            return;
+        }
+
+        this.settings = { ...this.settings, interceptLinkOpenShortcut };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
+    public async setBibleLinkOpenShortcut(linkOpenShortcut: BibleLinkOpenShortcut): Promise<void> {
+        if (this.settings.linkOpenShortcut === linkOpenShortcut) {
+            return;
+        }
+
+        this.settings = { ...this.settings, linkOpenShortcut };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
     public async setBiblePreviewTriggerMode(previewTriggerMode: BiblePreviewTriggerMode): Promise<void> {
         if (this.settings.previewTriggerMode === previewTriggerMode) {
             return;
@@ -460,6 +505,53 @@ export default class BiblePlugin extends Plugin {
 
     private getBibleReferenceLinkColor(): string {
         return normalizeBibleReferenceLinkColor(this.settings.bibleReferenceLinkColor);
+    }
+
+    private registerGlobalLinkOpenShortcutHandler(): void {
+        window.addEventListener("keydown", this.linkOpenShortcutKeydownHandler, true);
+        this.register(() => window.removeEventListener("keydown", this.linkOpenShortcutKeydownHandler, true));
+    }
+
+    private handleLinkOpenShortcutKeydown(event: KeyboardEvent): void {
+        if (!this.shouldInterceptLinkOpenShortcut() || !this.isConfiguredBibleLinkOpenShortcut(event)) {
+            return;
+        }
+
+        if (!this.openBibleReferenceUnderCursorFromActiveEditor(false)) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    }
+
+    private isConfiguredBibleLinkOpenShortcut(event: KeyboardEvent): boolean {
+        if (event.key !== "Enter" || event.shiftKey || event.metaKey) {
+            return false;
+        }
+
+        switch (this.settings.linkOpenShortcut) {
+            case "alt-enter":
+                return event.altKey && !event.ctrlKey;
+            case "ctrl-enter":
+                return event.ctrlKey && !event.altKey;
+            case "ctrl-alt-enter":
+                return event.ctrlKey && event.altKey;
+        }
+    }
+
+    private openBibleReferenceUnderCursorFromActiveEditor(showNotice: boolean): boolean {
+        for (const [view, controller] of this.previewControllers.entries()) {
+            if (view.hasFocus || view.dom.contains(document.activeElement)) {
+                return controller.openBibleReferenceUnderCursor(showNotice);
+            }
+        }
+
+        if (showNotice) {
+            new Notice("Активный редактор не найден.", 2500);
+        }
+
+        return false;
     }
 
     public async deleteImportedTranslation(translationId: string): Promise<void> {
@@ -552,6 +644,7 @@ export default class BiblePlugin extends Plugin {
 
             constructor(private readonly view: EditorView) {
                 plugin.editorViews.add(view);
+                plugin.previewControllers.set(view, this);
                 this.previewPanelEl = this.createPreviewPanelElement();
                 this.previewContentEl = this.previewPanelEl.createDiv();
                 this.collapsedButtonEl = this.createCollapsedButtonElement();
@@ -645,6 +738,7 @@ export default class BiblePlugin extends Plugin {
                 this.view.dom.removeEventListener("click", this.editorClickHandler);
                 this.previewPanelEl.remove();
                 this.collapsedButtonEl.remove();
+                plugin.previewControllers.delete(this.view);
                 plugin.editorViews.delete(this.view);
             }
 
@@ -847,6 +941,27 @@ export default class BiblePlugin extends Plugin {
                 document.execCommand("copy");
                 textareaEl.remove();
             }
+            public openBibleReferenceUnderCursor(showNotice = false): boolean {
+                if (!plugin.hasImportedTranslations()) {
+                    if (showNotice) {
+                        new Notice("Нет импортированных переводов Библии.", 2500);
+                    }
+                    return false;
+                }
+
+                const position = this.view.state.selection.main.head;
+                const match = plugin.findBibleReferenceMatchAtPosition(this.view, position);
+                if (match === null) {
+                    if (showNotice) {
+                        new Notice("Библейская ссылка под курсором не найдена.", 2500);
+                    }
+                    return false;
+                }
+
+                this.openBibleReferenceMatch(match);
+                return true;
+            }
+
             private handleEditorClick(event: MouseEvent): void {
                 if (plugin.getBiblePreviewTriggerMode() !== "clicked-reference" || !plugin.hasImportedTranslations()) {
                     return;
@@ -863,6 +978,10 @@ export default class BiblePlugin extends Plugin {
                 }
 
                 event.preventDefault();
+                this.openBibleReferenceMatch(match);
+            }
+
+            private openBibleReferenceMatch(match: { from: number; to: number; text: string }): void {
                 this.clickedReference = match;
                 this.lastParagraph = "";
                 this.isPreviewCollapsed = false;
@@ -1612,6 +1731,27 @@ class BiblePluginSettingTab extends PluginSettingTab {
                     .onChange((value) => void this.plugin.setBiblePreviewTriggerMode(value as BiblePreviewTriggerMode));
             });
 
+        new Setting(containerEl)
+            .setName("Клавиша открытия библейской ссылки")
+            .setDesc([
+                "Если курсор находится на библейской ссылке, выбранное сочетание откроет текст Библии.",
+                "Если библейской ссылки под курсором нет, сочетание будет обработано Obsidian как обычно.",
+                "Для любого другого сочетания назначь команду “Open Bible reference under cursor” в Settings → Hotkeys.",
+            ].join(" "))
+            .addToggle((toggle) => {
+                toggle
+                    .setValue(this.plugin.shouldInterceptLinkOpenShortcut())
+                    .onChange((value) => void this.plugin.setInterceptLinkOpenShortcut(value));
+            })
+            .addDropdown((dropdown) => {
+                dropdown
+                    .addOption("alt-enter", "Alt+Enter")
+                    .addOption("ctrl-enter", "Ctrl+Enter")
+                    .addOption("ctrl-alt-enter", "Ctrl+Alt+Enter")
+                    .setValue(this.plugin.getBibleLinkOpenShortcut())
+                    .onChange((value) => void this.plugin.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut));
+            });
+
         const bibleReferenceLinkColorSetting = new Setting(containerEl)
             .setName("Цвет ссылки на Библию")
             .setDesc("Выбери цвет распознанных библейских ссылок в редакторе. Сброс возвращает стандартный цвет ссылок темы Obsidian.");
@@ -1867,6 +2007,12 @@ function normalizePluginSettings(value: unknown): BiblePluginSettings {
         previewTriggerMode: typeof value.previewTriggerMode === "string" && isBiblePreviewTriggerMode(value.previewTriggerMode)
             ? value.previewTriggerMode
             : DEFAULT_SETTINGS.previewTriggerMode,
+        interceptLinkOpenShortcut: typeof value.interceptLinkOpenShortcut === "boolean"
+            ? value.interceptLinkOpenShortcut
+            : DEFAULT_SETTINGS.interceptLinkOpenShortcut,
+        linkOpenShortcut: typeof value.linkOpenShortcut === "string" && isBibleLinkOpenShortcut(value.linkOpenShortcut)
+            ? value.linkOpenShortcut
+            : DEFAULT_SETTINGS.linkOpenShortcut,
     };
 }
 
@@ -1886,6 +2032,10 @@ function normalizeBibleReferenceLinkColor(value: string): string {
 
 function isBiblePreviewTriggerMode(value: string): value is BiblePreviewTriggerMode {
     return value === "current-paragraph" || value === "clicked-reference";
+}
+
+function isBibleLinkOpenShortcut(value: string): value is BibleLinkOpenShortcut {
+    return value === "alt-enter" || value === "ctrl-enter" || value === "ctrl-alt-enter";
 }
 
 function isHexColor(value: string): boolean {
