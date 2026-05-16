@@ -1,0 +1,176 @@
+--- a/src/parsing/BibleReferenceParser.ts+++ b/src/parsing/BibleReferenceParser.ts@@ -15,6 +15,18 @@     isShortBook: boolean;
+ };
+ 
++type NormalizedLine = {
++    text: string;
++    offsets: number[];
++};
++
++export type BibleReferenceMatch = {
++    from: number;
++    to: number;
++    text: string;
++    references: BibleReference[];
++};
++
+ export class BibleReferenceParser {
+     private readonly aliases: BookAliasCandidate[];
+ 
+@@ -23,41 +35,138 @@     }
+ 
+     parse(text: string): BibleReference[] {
++        return this.parseMatches(text).flatMap((match) => match.references);
++    }
++
++    parseMatches(text: string): BibleReferenceMatch[] {
+         try {
+-            const normalizedText = this.normalizeLine(text);
+-            const candidates = this.findReferenceCandidates(normalizedText);
+-            const references: BibleReference[] = [];
++            const normalizedLine = this.normalizeLineWithOffsets(text);
++            const candidates = this.findReferenceCandidates(normalizedLine.text);
++            const matches: BibleReferenceMatch[] = [];
+ 
+             for (const candidate of candidates) {
+                 const candidateReferences = candidate.isShortBook
+                     ? this.parseShortBookBody(candidate.bookId, candidate.body)
+                     : this.parseBigBookBody(candidate.bookId, candidate.body);
+-
+-                references.push(...this.mergeAdjacentReferences(candidateReferences));
+-            }
+-
+-            return references;
++                const references = this.mergeAdjacentReferences(candidateReferences);
++
++                if (references.length === 0) {
++                    continue;
++                }
++
++                const from = normalizedLine.offsets[candidate.index];
++                const lastOffset = normalizedLine.offsets[candidate.endIndex - 1];
++
++                if (from === undefined || lastOffset === undefined) {
++                    continue;
++                }
++
++                matches.push({
++                    from,
++                    to: lastOffset + 1,
++                    text: text.slice(from, lastOffset + 1),
++                    references,
++                });
++            }
++
++            return matches;
+         } catch {
+             return [];
+         }
+     }
+ 
+     private normalizeLine(text: string): string {
+-        let result = normalizeBookAlias(text)
++        return this.normalizeLineWithOffsets(text).text;
++    }
++
++    private normalizeLineWithOffsets(text: string): NormalizedLine {
++        const characters: string[] = [];
++        const offsets: number[] = [];
++
++        for (let index = 0; index < text.length; index += 1) {
++            const normalizedCharacter = this.normalizeSearchCharacter(text[index]);
++
++            if (normalizedCharacter === null || normalizedCharacter === ".") {
++                continue;
++            }
++
++            const character = this.normalizeReferencePunctuation(normalizedCharacter);
++
++            if (/\s/u.test(character)) {
++                if (characters.length === 0 || characters[characters.length - 1] === " ") {
++                    continue;
++                }
++
++                characters.push(" ");
++                offsets.push(index);
++                continue;
++            }
++
++            characters.push(character);
++            offsets.push(index);
++        }
++
++        while (characters.length > 0 && characters[characters.length - 1] === " ") {
++            characters.pop();
++            offsets.pop();
++        }
++
++        for (let index = characters.length - 1; index >= 0; index -= 1) {
++            if (characters[index] !== " ") {
++                continue;
++            }
++
++            const previousCharacter = characters[index - 1];
++            const nextCharacter = characters[index + 1];
++
++            if (this.isReferenceDelimiter(previousCharacter) || this.isReferenceDelimiter(nextCharacter)) {
++                characters.splice(index, 1);
++                offsets.splice(index, 1);
++            }
++        }
++
++        return {
++            text: characters.join(""),
++            offsets,
++        };
++    }
++
++    private normalizeSearchCharacter(character: string): string | null {
++        if (/^[؜‎‏‪-‮⁦-⁩]$/u.test(character)) {
++            return null;
++        }
++
++        const normalizedCharacter = character
++            .normalize("NFC")
++            .toLowerCase()
++            .replace(/̇/g, "")
++            .replace(/ё/g, "е");
++
++        return this.replaceArabicIndicDigit(normalizedCharacter);
++    }
++
++    private replaceArabicIndicDigit(character: string): string {
++        if (/^[٠-٩]$/u.test(character)) {
++            return String(character.charCodeAt(0) - 0x0660);
++        }
++
++        if (/^[۰-۹]$/u.test(character)) {
++            return String(character.charCodeAt(0) - 0x06F0);
++        }
++
++        return character;
++    }
++
++    private normalizeReferencePunctuation(character: string): string {
++        return character
+             .replace(/[—–−]/g, "-")
+             .replace(/[：∶]/g, ":")
+             .replace(/[،﹐，]/g, ",")
+-            .replace(/[؛﹔；]/g, ";")
+-            .replace(/\s+/g, " ")
+-            .trim();
+-
+-        for (const delimiter of ["-", ",", ":", ";"]) {
+-            result = result
+-                .replace(new RegExp(`\\s+\\${delimiter}`, "g"), delimiter)
+-                .replace(new RegExp(`\\${delimiter}\\s+`, "g"), delimiter);
+-        }
+-
+-        return result;
++            .replace(/[؛﹔；]/g, ";");
++    }
++
++    private isReferenceDelimiter(character: string | undefined): boolean {
++        return character !== undefined && ["-", ",", ":", ";"].includes(character);
+     }
+ 
+     private createBookAliases(mapping: BookMapping): BookAliasCandidate[] {

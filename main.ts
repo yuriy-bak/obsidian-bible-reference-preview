@@ -2,7 +2,7 @@
 import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting } from "obsidian";
 import type { BibleIndexData } from "./src/infrastructure/BibleIndexData";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
-import { StateEffect, StateField } from "@codemirror/state";
+import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType, type DecorationSet } from "@codemirror/view";
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createFallbackRussianBookMapping } from "./src/parsing/BookMapping";
@@ -40,6 +40,36 @@ const bibleDecorationsField = StateField.define<DecorationSet>({
     provide: (field) => EditorView.decorations.from(field),
 });
 
+const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
+
+const bibleReferenceLinkDecorationsField = StateField.define<DecorationSet>({
+    create() {
+        return Decoration.none;
+    },
+
+    update(decorations, transaction) {
+        let nextDecorations = decorations.map(transaction.changes);
+
+        for (const effect of transaction.effects) {
+            if (effect.is(setBibleReferenceLinkDecorationsEffect)) {
+                nextDecorations = effect.value;
+            }
+        }
+
+        return nextDecorations;
+    },
+
+    provide: (field) => EditorView.decorations.from(field),
+});
+
+const bibleReferenceLinkTheme = EditorView.baseTheme({
+    ".bible-reference-link": {
+        textDecoration: "underline",
+        textDecorationStyle: "dotted",
+        cursor: "pointer",
+    },
+});
+
 function dispatchBibleDecorations(view: EditorView, decorations: DecorationSet): void {
     window.setTimeout(() => {
         if (view.state.field(bibleDecorationsField, false) === undefined) {
@@ -52,12 +82,29 @@ function dispatchBibleDecorations(view: EditorView, decorations: DecorationSet):
     }, 0);
 }
 
+function dispatchBibleReferenceLinkDecorations(view: EditorView, decorations: DecorationSet): void {
+    window.setTimeout(() => {
+        if (view.state.field(bibleReferenceLinkDecorationsField, false) === undefined) {
+            return;
+        }
+
+        view.dispatch({
+            effects: setBibleReferenceLinkDecorationsEffect.of(decorations),
+        });
+    }, 0);
+}
+
 type BiblePluginSettings = {
     translationOrder: string[];
+    bibleReferenceLinkColor: string;
 };
+
+const DEFAULT_BIBLE_REFERENCE_LINK_COLOR = "var(--link-color)";
+const DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR = "#7c3aed";
 
 const DEFAULT_SETTINGS: BiblePluginSettings = {
     translationOrder: [],
+    bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
 };
 
 type TranslationSettingsItem = {
@@ -80,6 +127,7 @@ export default class BiblePlugin extends Plugin {
     private activeTranslationId = DEFAULT_TRANSLATION_ID;
     private settings: BiblePluginSettings = { ...DEFAULT_SETTINGS };
     private settingsTab: BiblePluginSettingTab | null = null;
+    private readonly editorViews = new Set<EditorView>();
 
     async onload() {
         console.log("Bible plugin loaded");
@@ -262,6 +310,7 @@ export default class BiblePlugin extends Plugin {
             ? createBookMappingFromBibleIndexV2Data(v2Data, this.activeTranslationId)
             : createBookMappingFromBibleIndexData(legacyData ?? this.fallbackBibleIndexRepository.getData(), DEFAULT_TRANSLATION_ID);
         this.bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
+        this.refreshBibleReferenceLinks();
     }
 
     private selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string {
@@ -392,6 +441,37 @@ export default class BiblePlugin extends Plugin {
         new Notice(`Текущий перевод: ${this.getActiveTranslationDisplayName()}`, 4000);
     }
 
+    public async setBibleReferenceLinkColor(color: string): Promise<void> {
+        const nextColor = normalizeBibleReferenceLinkColor(color);
+
+        if (this.settings.bibleReferenceLinkColor === nextColor) {
+            return;
+        }
+
+        this.settings = { ...this.settings, bibleReferenceLinkColor: nextColor };
+        await this.savePluginSettings();
+        this.refreshBibleReferenceLinks();
+        this.refreshSettingsTab();
+    }
+
+    public async resetBibleReferenceLinkColor(): Promise<void> {
+        await this.setBibleReferenceLinkColor(DEFAULT_BIBLE_REFERENCE_LINK_COLOR);
+    }
+
+    public getBibleReferenceLinkColorPickerValue(): string {
+        return isHexColor(this.settings.bibleReferenceLinkColor)
+            ? this.settings.bibleReferenceLinkColor
+            : DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR;
+    }
+
+    public isBibleReferenceLinkColorDefault(): boolean {
+        return this.settings.bibleReferenceLinkColor === DEFAULT_BIBLE_REFERENCE_LINK_COLOR;
+    }
+
+    private getBibleReferenceLinkColor(): string {
+        return normalizeBibleReferenceLinkColor(this.settings.bibleReferenceLinkColor);
+    }
+
     public async deleteImportedTranslation(translationId: string): Promise<void> {
         if (this.activeV2Data?.translations[translationId] === undefined) {
             return;
@@ -441,20 +521,32 @@ export default class BiblePlugin extends Plugin {
 
     createCursorExtension() {
         const plugin = this;
-
         const cursorPlugin = ViewPlugin.fromClass(class {
             lastParagraph = "";
             requestId = 0;
+            referenceLinkUpdateTimeout: number | null = null;
+            lastActiveTranslationId = plugin.activeTranslationId;
 
-            constructor(private readonly view: EditorView) { }
+            constructor(private readonly view: EditorView) {
+                plugin.editorViews.add(view);
+                this.scheduleReferenceLinkUpdate();
+            }
 
             update(update: ViewUpdate) {
+                if (this.lastActiveTranslationId !== plugin.activeTranslationId) {
+                    this.lastActiveTranslationId = plugin.activeTranslationId;
+                    this.scheduleReferenceLinkUpdate();
+                }
+
+                if (update.docChanged || update.viewportChanged) {
+                    this.scheduleReferenceLinkUpdate();
+                }
+
                 if (!update.selectionSet && !update.docChanged) {
                     return;
                 }
 
                 const paragraph = plugin.getCurrentParagraph(update);
-
                 if (paragraph === this.lastParagraph) {
                     return;
                 }
@@ -486,12 +578,62 @@ export default class BiblePlugin extends Plugin {
                     dispatchBibleDecorations(this.view, decorations);
                 });
             }
+
+            destroy() {
+                if (this.referenceLinkUpdateTimeout !== null) {
+                    window.clearTimeout(this.referenceLinkUpdateTimeout);
+                    this.referenceLinkUpdateTimeout = null;
+                }
+
+                plugin.editorViews.delete(this.view);
+            }
+
+            private scheduleReferenceLinkUpdate(): void {
+                if (this.referenceLinkUpdateTimeout !== null) {
+                    window.clearTimeout(this.referenceLinkUpdateTimeout);
+                }
+
+                this.referenceLinkUpdateTimeout = window.setTimeout(() => {
+                    this.referenceLinkUpdateTimeout = null;
+                    dispatchBibleReferenceLinkDecorations(this.view, plugin.createBibleReferenceLinkDecorations(this.view));
+                }, 75);
+            }
         });
 
         return [
             bibleDecorationsField,
+            bibleReferenceLinkDecorationsField,
+            bibleReferenceLinkTheme,
             cursorPlugin,
         ];
+    }
+
+    private createBibleReferenceLinkDecorations(view: EditorView): DecorationSet {
+        const builder = new RangeSetBuilder<Decoration>();
+
+        for (const range of view.visibleRanges) {
+            const text = view.state.doc.sliceString(range.from, range.to);
+            const matches = this.bibleReferenceParser.parseMatches(text);
+
+            for (const match of matches) {
+                builder.add(
+                    range.from + match.from,
+                    range.from + match.to,
+                    Decoration.mark({
+                        class: "bible-reference-link",
+                        attributes: { style: `color: ${this.getBibleReferenceLinkColor()};` },
+                    }),
+                );
+            }
+        }
+
+        return builder.finish();
+    }
+
+    private refreshBibleReferenceLinks(): void {
+        for (const view of this.editorViews) {
+            dispatchBibleReferenceLinkDecorations(view, this.createBibleReferenceLinkDecorations(view));
+        }
     }
 
     async analyzeParagraphAsync(text: string): Promise<string> {
@@ -738,6 +880,34 @@ class BiblePluginSettingTab extends PluginSettingTab {
 
         this.renderTranslationsSection(containerEl);
 
+        const bibleReferenceLinkColorSetting = new Setting(containerEl)
+            .setName("Цвет ссылки на Библию")
+            .setDesc("Выбери цвет распознанных библейских ссылок в редакторе. Сброс возвращает стандартный цвет ссылок темы Obsidian.");
+
+        const colorInput = bibleReferenceLinkColorSetting.controlEl.createEl("input");
+        colorInput.type = "color";
+        colorInput.value = this.plugin.getBibleReferenceLinkColorPickerValue();
+        colorInput.setAttribute("aria-label", "Выбрать цвет ссылки на Библию");
+        colorInput.addEventListener("input", () => void this.plugin.setBibleReferenceLinkColor(colorInput.value));
+
+        const previewEl = bibleReferenceLinkColorSetting.controlEl.createSpan({ text: "Ин 3:16" });
+        previewEl.style.color = this.plugin.isBibleReferenceLinkColorDefault()
+            ? "var(--link-color)"
+            : this.plugin.getBibleReferenceLinkColorPickerValue();
+        previewEl.style.textDecoration = "underline";
+        previewEl.style.textDecorationStyle = "dotted";
+        previewEl.style.marginLeft = "8px";
+        previewEl.style.whiteSpace = "nowrap";
+
+        const resetButton = bibleReferenceLinkColorSetting.controlEl.createEl("button", { text: "Сбросить" });
+        resetButton.disabled = this.plugin.isBibleReferenceLinkColorDefault();
+        resetButton.style.marginLeft = "8px";
+        resetButton.addEventListener("click", async (event) => {
+            event.preventDefault();
+            await this.plugin.resetBibleReferenceLinkColor();
+            this.display();
+        });
+
         new Setting(containerEl)
             .setName("Открыть папку индекса")
             .setDesc("На desktop открывает data-папку индекса в системном файловом менеджере. На Android показывает путь.")
@@ -959,7 +1129,28 @@ function normalizePluginSettings(value: unknown): BiblePluginSettings {
 
     return {
         translationOrder: [...new Set(translationOrder)],
+        bibleReferenceLinkColor: typeof value.bibleReferenceLinkColor === "string"
+            ? normalizeBibleReferenceLinkColor(value.bibleReferenceLinkColor)
+            : DEFAULT_SETTINGS.bibleReferenceLinkColor,
     };
+}
+
+function normalizeBibleReferenceLinkColor(value: string): string {
+    const color = value.trim();
+
+    if (color.length === 0) {
+        return DEFAULT_BIBLE_REFERENCE_LINK_COLOR;
+    }
+
+    if (typeof CSS !== "undefined" && typeof CSS.supports === "function" && !CSS.supports("color", color)) {
+        return DEFAULT_BIBLE_REFERENCE_LINK_COLOR;
+    }
+
+    return color;
+}
+
+function isHexColor(value: string): boolean {
+    return /^#[0-9a-f]{6}$/i.test(value.trim());
 }
 
 function areStringArraysEqual(left: string[], right: string[]): boolean {

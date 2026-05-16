@@ -1,0 +1,173 @@
+--- a/main.ts+++ b/main.ts@@ -2,7 +2,7 @@ import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting } from "obsidian";
+ import type { BibleIndexData } from "./src/infrastructure/BibleIndexData";
+ import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
+-import { StateEffect, StateField } from "@codemirror/state";
++import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
+ import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType, type DecorationSet } from "@codemirror/view";
+ import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
+ import { createFallbackRussianBookMapping } from "./src/parsing/BookMapping";
+@@ -40,6 +40,38 @@     provide: (field) => EditorView.decorations.from(field),
+ });
+ 
++const setBibleHighlightDecorationsEffect = StateEffect.define<DecorationSet>();
++
++const bibleHighlightDecorationsField = StateField.define<DecorationSet>({
++    create() {
++        return Decoration.none;
++    },
++
++    update(decorations, transaction) {
++        let nextDecorations = decorations.map(transaction.changes);
++
++        for (const effect of transaction.effects) {
++            if (effect.is(setBibleHighlightDecorationsEffect)) {
++                nextDecorations = effect.value;
++            }
++        }
++
++        return nextDecorations;
++    },
++
++    provide: (field) => EditorView.decorations.from(field),
++});
++
++const bibleHighlightTheme = EditorView.baseTheme({
++    ".bible-reference-highlight": {
++        backgroundColor: "var(--text-highlight-bg)",
++        borderRadius: "3px",
++        textDecoration: "underline",
++        textDecorationStyle: "dotted",
++        cursor: "pointer",
++    },
++});
++
+ function dispatchBibleDecorations(view: EditorView, decorations: DecorationSet): void {
+     window.setTimeout(() => {
+         if (view.state.field(bibleDecorationsField, false) === undefined) {
+@@ -48,6 +80,18 @@ 
+         view.dispatch({
+             effects: setBibleDecorationsEffect.of(decorations),
++        });
++    }, 0);
++}
++
++function dispatchBibleHighlightDecorations(view: EditorView, decorations: DecorationSet): void {
++    window.setTimeout(() => {
++        if (view.state.field(bibleHighlightDecorationsField, false) === undefined) {
++            return;
++        }
++
++        view.dispatch({
++            effects: setBibleHighlightDecorationsEffect.of(decorations),
+         });
+     }, 0);
+ }
+@@ -80,6 +124,7 @@     private activeTranslationId = DEFAULT_TRANSLATION_ID;
+     private settings: BiblePluginSettings = { ...DEFAULT_SETTINGS };
+     private settingsTab: BiblePluginSettingTab | null = null;
++    private readonly editorViews = new Set<EditorView>();
+ 
+     async onload() {
+         console.log("Bible plugin loaded");
+@@ -262,6 +307,7 @@             ? createBookMappingFromBibleIndexV2Data(v2Data, this.activeTranslationId)
+             : createBookMappingFromBibleIndexData(legacyData ?? this.fallbackBibleIndexRepository.getData(), DEFAULT_TRANSLATION_ID);
+         this.bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
++        this.refreshBibleHighlights();
+     }
+ 
+     private selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string {
+@@ -441,20 +487,32 @@ 
+     createCursorExtension() {
+         const plugin = this;
+-
+         const cursorPlugin = ViewPlugin.fromClass(class {
+             lastParagraph = "";
+             requestId = 0;
+-
+-            constructor(private readonly view: EditorView) { }
++            highlightUpdateTimeout: number | null = null;
++            lastActiveTranslationId = plugin.activeTranslationId;
++
++            constructor(private readonly view: EditorView) {
++                plugin.editorViews.add(view);
++                this.scheduleHighlightUpdate();
++            }
+ 
+             update(update: ViewUpdate) {
++                if (this.lastActiveTranslationId !== plugin.activeTranslationId) {
++                    this.lastActiveTranslationId = plugin.activeTranslationId;
++                    this.scheduleHighlightUpdate();
++                }
++
++                if (update.docChanged || update.viewportChanged) {
++                    this.scheduleHighlightUpdate();
++                }
++
+                 if (!update.selectionSet && !update.docChanged) {
+                     return;
+                 }
+ 
+                 const paragraph = plugin.getCurrentParagraph(update);
+-
+                 if (paragraph === this.lastParagraph) {
+                     return;
+                 }
+@@ -486,12 +544,59 @@                     dispatchBibleDecorations(this.view, decorations);
+                 });
+             }
++
++            destroy() {
++                if (this.highlightUpdateTimeout !== null) {
++                    window.clearTimeout(this.highlightUpdateTimeout);
++                    this.highlightUpdateTimeout = null;
++                }
++
++                plugin.editorViews.delete(this.view);
++            }
++
++            private scheduleHighlightUpdate(): void {
++                if (this.highlightUpdateTimeout !== null) {
++                    window.clearTimeout(this.highlightUpdateTimeout);
++                }
++
++                this.highlightUpdateTimeout = window.setTimeout(() => {
++                    this.highlightUpdateTimeout = null;
++                    dispatchBibleHighlightDecorations(this.view, plugin.createBibleHighlightDecorations(this.view));
++                }, 75);
++            }
+         });
+ 
+         return [
+             bibleDecorationsField,
++            bibleHighlightDecorationsField,
++            bibleHighlightTheme,
+             cursorPlugin,
+         ];
++    }
++
++    private createBibleHighlightDecorations(view: EditorView): DecorationSet {
++        const builder = new RangeSetBuilder<Decoration>();
++
++        for (const range of view.visibleRanges) {
++            const text = view.state.doc.sliceString(range.from, range.to);
++            const matches = this.bibleReferenceParser.parseMatches(text);
++
++            for (const match of matches) {
++                builder.add(
++                    range.from + match.from,
++                    range.from + match.to,
++                    Decoration.mark({ class: "bible-reference-highlight" }),
++                );
++            }
++        }
++
++        return builder.finish();
++    }
++
++    private refreshBibleHighlights(): void {
++        for (const view of this.editorViews) {
++            dispatchBibleHighlightDecorations(view, this.createBibleHighlightDecorations(view));
++        }
+     }
+ 
+     async analyzeParagraphAsync(text: string): Promise<string> {
