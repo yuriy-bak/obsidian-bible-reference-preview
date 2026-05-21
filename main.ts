@@ -141,6 +141,7 @@ export default class BiblePlugin extends Plugin {
         this.register(() => this.readingModePreviewController?.destroy());
         this.settingsTab = new BiblePluginSettingTab(this.app, this);
         this.addSettingTab(this.settingsTab);
+        this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.hideFloatingBiblePreview()));
         this.registerGlobalLinkOpenShortcutHandler();
         this.registerReadingModeBibleReferenceLinks();
         this.registerEditorExtension(this.createCursorExtension());
