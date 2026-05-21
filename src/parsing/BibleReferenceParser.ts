@@ -166,7 +166,7 @@ export class BibleReferenceParser {
     }
 
     private isReferenceDelimiter(character: string | undefined): boolean {
-        return character !== undefined && ["-", ",", ":", ";"].includes(character);
+        return character !== undefined && [",", ":", ";"].includes(character);
     }
 
     private createBookAliases(mapping: BookMapping): BookAliasCandidate[] {
