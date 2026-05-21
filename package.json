@@ -6,8 +6,7 @@
     "build": "tsc && node esbuild.config.mjs",
     "build:prod": "tsc && node esbuild.config.mjs --production",
     "watch": "tsc -w",
-    "test": "npm run build && node tests/run-parser-tests.js",
-    "deploy": "npm test && npm run build:prod && copy main.js \"C:\\Notes\\Obsidian\\.obsidian\\plugins\\bible-reference-preview\\\" && copy manifest.json \"C:\\Notes\\Obsidian\\.obsidian\\plugins\\bible-reference-preview\\\""
+    "test": "npm run build && node tests/run-parser-tests.js"
   },
   "devDependencies": {
     "esbuild": "^0.28.0",

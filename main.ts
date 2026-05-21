@@ -122,7 +122,6 @@ export default class BiblePlugin extends Plugin {
     private readonly linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.handleLinkOpenShortcutKeydown(event);
 
     async onload() {
-        console.log("Bible Reference Preview loaded");
         await this.loadPluginSettings();
         await this.loadBibleIndex();
         this.addCommand({ id: "import-epub-bible", name: this.t("command.importEpubBible"), callback: () => this.openEpubFilePicker() });
@@ -143,7 +142,7 @@ export default class BiblePlugin extends Plugin {
         this.registerEditorExtension(this.createCursorExtension());
     }
 
-    onunload() { console.log("Bible Reference Preview unloaded"); }
+    onunload() {}
 
     private async loadBibleIndex(): Promise<void> {
         try {
@@ -244,18 +243,6 @@ export default class BiblePlugin extends Plugin {
 
     private async readAndValidateEpubFile(file: File): Promise<ArrayBuffer> {
         const content = await file.arrayBuffer();
-
-        console.log("EPUB file selected", {
-            name: file.name,
-            size: file.size,
-            arrayBufferBytes: content.byteLength,
-            firstBytes: Array.from(new Uint8Array(content.slice(0, Math.min(8, content.byteLength)))),
-            platform: {
-                isMobileApp: Platform.isMobileApp,
-                isAndroidApp: Platform.isAndroidApp,
-                isIosApp: Platform.isIosApp,
-            },
-        });
 
         if (content.byteLength === 0) {
             throw new Error([
