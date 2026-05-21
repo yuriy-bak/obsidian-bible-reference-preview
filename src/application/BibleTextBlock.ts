@@ -10,4 +10,5 @@ export type BibleTextPart = {
 export type BibleTextBlock = {
     reference: BibleReference;
     parts: BibleTextPart[];
+    sourceText?: string;
 };

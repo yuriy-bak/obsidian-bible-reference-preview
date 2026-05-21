@@ -7,6 +7,7 @@ export async function getBibleTextBlocks(
     references: BibleReference[],
     bibleIndex: BibleIndex,
     translationId: string,
+    sourceText?: string,
 ): Promise<BibleTextBlock[]> {
     const blocks: BibleTextBlock[] = [];
 
@@ -29,7 +30,7 @@ export async function getBibleTextBlocks(
             continue;
         }
 
-        blocks.push({ reference, parts });
+        blocks.push({ reference, parts, sourceText });
     }
 
     return blocks;

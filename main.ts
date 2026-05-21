@@ -7,7 +7,7 @@ import { EditorView, ViewPlugin, ViewUpdate, Decoration, type DecorationSet } fr
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
-import { formatBibleTextBlocks } from "./src/application/formatBibleTexts";
+import { BiblePreviewContent, formatBibleTextBlocks, renderBiblePreviewContent } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
 import { EpubBibleSourceMetadata } from "./src/infrastructure/EpubBibleImporter";
 import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
@@ -563,9 +563,9 @@ export default class BiblePlugin extends Plugin {
             return;
         }
         const requestId = ++this.readingModePreviewRequestId;
-        const text = await this.analyzeReferenceTextAsync(referenceText);
-        if (requestId !== this.readingModePreviewRequestId || text.length === 0) return;
-        this.readingModePreviewController?.show(text, anchorEl);
+        const content = await this.analyzeReferenceTextAsync(referenceText);
+        if (requestId !== this.readingModePreviewRequestId || content === null || content.plainText.length === 0) return;
+        this.readingModePreviewController?.show(content, anchorEl);
     }
 
     private registerGlobalLinkOpenShortcutHandler(): void {
@@ -692,6 +692,7 @@ export default class BiblePlugin extends Plugin {
             private readonly outsideInteractionHandler = (event: Event) => this.hideBiblePreviewIfEventIsOutsideEditor(event);
             private readonly editorClickHandler = (event: MouseEvent) => this.handleEditorClick(event);
             private previewText = "";
+            private previewContent: BiblePreviewContent | null = null;
             private isPreviewCollapsed = false;
             private customPreviewPosition: { left: number; top: number } | null = null;
             private clickedReference: { from: number; to: number; text: string } | null = null;
@@ -784,17 +785,17 @@ export default class BiblePlugin extends Plugin {
                     return;
                 }
 
-                void plugin.analyzeParagraphAsync(paragraph).then((text) => {
+                void plugin.analyzeParagraphAsync(paragraph).then((content) => {
                     if (currentRequestId !== this.requestId || paragraph !== this.lastParagraph) {
                         return;
                     }
 
-                    if (text === "") {
+                    if (content === null || content.plainText.length === 0) {
                         this.hideBiblePreview();
                         return;
                     }
 
-                    this.showBiblePreview(text);
+                    this.showBiblePreview(content);
                 });
             }
 
@@ -952,14 +953,16 @@ export default class BiblePlugin extends Plugin {
                 this.previewTitleEl.textContent = `📖 ${plugin.getActiveTranslationPreviewTitle()}`;
             }
 
-            private showBiblePreview(text: string): void {
-                this.previewText = text;
-                this.previewContentEl.textContent = text;
+            private showBiblePreview(content: BiblePreviewContent): void {
+                this.previewContent = content;
+                this.previewText = content.plainText;
+                renderBiblePreviewContent(this.previewContentEl, content);
                 this.updateBiblePreviewTitle();
                 this.renderBiblePreview();
             }
 
             private hideBiblePreview(resetParagraphCache = false): void {
+                this.previewContent = null;
                 this.previewText = "";
                 this.previewPanelEl.style.display = "none";
                 this.collapsedButtonEl.style.display = "none";
@@ -1091,18 +1094,18 @@ export default class BiblePlugin extends Plugin {
 
                 const currentRequestId = ++this.requestId;
 
-                void plugin.analyzeReferenceTextAsync(match.text).then((text) => {
+                void plugin.analyzeReferenceTextAsync(match.text).then((content) => {
                     if (currentRequestId !== this.requestId || this.clickedReference?.text !== match.text) {
                         return;
                     }
 
-                    if (text === "") {
+                    if (content === null || content.plainText.length === 0) {
                         this.clickedReference = null;
                         this.hideBiblePreview(true);
                         return;
                     }
 
-                    this.showBiblePreview(text);
+                    this.showBiblePreview(content);
                 });
             }
 
@@ -1621,20 +1624,24 @@ export default class BiblePlugin extends Plugin {
         }
     }
 
-    async analyzeParagraphAsync(text: string): Promise<string> {
+    async analyzeParagraphAsync(text: string): Promise<BiblePreviewContent | null> {
         try {
             if (!this.hasImportedTranslations() || this.activeTranslationId === null) {
-                return "";
+                return null;
             }
 
-            const references = this.bibleReferenceParser.parse(text);
-            if (references.length === 0) return "";
-            const bibleTextBlocks = await getBibleTextBlocks(references, this.bibleIndex, this.activeTranslationId);
-            return bibleTextBlocks.length === 0 ? "" : formatBibleTextBlocks(bibleTextBlocks, this.bookMapping, this.t("preview.missingVerse"));
-        } catch { return ""; }
+            const matches = this.bibleReferenceParser.parseMatches(text);
+            if (matches.length === 0) return null;
+            const bibleTextBlocks = (await Promise.all(matches.map((match) =>
+                getBibleTextBlocks(match.references, this.bibleIndex, this.activeTranslationId!, match.text),
+            ))).flat();
+            if (bibleTextBlocks.length === 0) return null;
+            const content = formatBibleTextBlocks(bibleTextBlocks, this.bookMapping, this.t("preview.missingVerse"));
+            return content.plainText.length === 0 ? null : content;
+        } catch { return null; }
     }
 
-    async analyzeReferenceTextAsync(text: string): Promise<string> {
+    async analyzeReferenceTextAsync(text: string): Promise<BiblePreviewContent | null> {
         return this.analyzeParagraphAsync(text);
     }
 
@@ -1862,6 +1869,7 @@ class BibleReadingModePreviewController {
     private readonly collapsedButtonEl: HTMLButtonElement;
     private previewTitleEl: HTMLDivElement | null = null;
     private previewText = "";
+    private previewContent: BiblePreviewContent | null = null;
     private isPreviewCollapsed = false;
     private customPreviewPosition: { left: number; top: number } | null = null;
     private collapsedButtonPosition: { left: number; top: number } | null = null;
@@ -1883,9 +1891,10 @@ class BibleReadingModePreviewController {
         this.registerListeners();
     }
 
-    public show(text: string, anchorEl: HTMLElement): void {
-        this.previewText = text;
-        this.previewContentEl.textContent = text;
+    public show(content: BiblePreviewContent, anchorEl: HTMLElement): void {
+        this.previewContent = content;
+        this.previewText = content.plainText;
+        renderBiblePreviewContent(this.previewContentEl, content);
         this.updateBiblePreviewTitle();
         if (this.isPreviewCollapsed) {
             this.isPreviewCollapsed = false;
@@ -2015,7 +2024,7 @@ class BibleReadingModePreviewController {
         window.requestAnimationFrame(() => this.updateBiblePreviewPosition());
     }
 
-    private hideBiblePreview(): void { this.previewText = ""; this.previewPanelEl.style.display = "none"; this.collapsedButtonEl.style.display = "none"; }
+    private hideBiblePreview(): void { this.previewContent = null; this.previewText = ""; this.previewPanelEl.style.display = "none"; this.collapsedButtonEl.style.display = "none"; }
     private hideBiblePreviewIfEventIsOutside(event: Event): void { const target = event.target; if (!(target instanceof Node)) return; if (this.previewPanelEl.contains(target) || this.collapsedButtonEl.contains(target) || (target instanceof HTMLElement && target.closest(".bible-reference-reading-link") !== null)) return; this.hideBiblePreview(); }
     private registerListeners(): void { window.addEventListener("resize", this.viewportChangeHandler); window.visualViewport?.addEventListener("resize", this.viewportChangeHandler); window.visualViewport?.addEventListener("scroll", this.viewportChangeHandler); window.addEventListener("pointermove", this.pointerMoveHandler); window.addEventListener("pointerup", this.pointerUpHandler); window.addEventListener("pointercancel", this.pointerUpHandler); document.addEventListener("pointerdown", this.outsideInteractionHandler, true); document.addEventListener("focusin", this.outsideInteractionHandler, true); }
     private unregisterListeners(): void { window.removeEventListener("resize", this.viewportChangeHandler); window.visualViewport?.removeEventListener("resize", this.viewportChangeHandler); window.visualViewport?.removeEventListener("scroll", this.viewportChangeHandler); window.removeEventListener("pointermove", this.pointerMoveHandler); window.removeEventListener("pointerup", this.pointerUpHandler); window.removeEventListener("pointercancel", this.pointerUpHandler); document.removeEventListener("pointerdown", this.outsideInteractionHandler, true); document.removeEventListener("focusin", this.outsideInteractionHandler, true); document.body.style.userSelect = ""; }

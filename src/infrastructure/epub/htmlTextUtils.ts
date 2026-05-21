@@ -5,6 +5,7 @@ export type ExtractedVerse = {
     verse: number;
     text: string;
     footnotes: string[];
+    paragraphStart?: boolean;
 };
 
 export type ExtractedBookTable = {
@@ -74,14 +75,18 @@ export function extractVersesFromHtml(html: string): ExtractedVerse[] {
     for (let index = 0; index < verseMarkers.length; index += 1) {
         const marker = verseMarkers[index];
         const nextMarker = verseMarkers[index + 1];
-        const contentStart = (marker.index ?? 0) + marker[0].length;
+        const markerIndex = marker.index ?? 0;
+        const previousMarkerIndex = verseMarkers[index - 1]?.index;
+
+        const contentStart = markerIndex + marker[0].length;
         const contentEnd = Math.min(
             nextMarker?.index ?? html.length,
             footnoteGroupIndex !== null && footnoteGroupIndex > contentStart ? footnoteGroupIndex : html.length,
         );
+
         const rawVerseHtml = html.slice(contentStart, contentEnd);
         const footnotes = extractFootnotes(rawVerseHtml, html);
-        const text = normalizeText(stripTags(removeVerseNumberMarkup(removeFootnoteLinks(rawVerseHtml))));
+        const text = normalizeVerseText(stripTagsForVerse(removeVerseNumberMarkup(preserveFootnoteLinkMarkers(rawVerseHtml))));
 
         if (text.length === 0) {
             continue;
@@ -92,12 +97,43 @@ export function extractVersesFromHtml(html: string): ExtractedVerse[] {
             verse: Number(marker[3]),
             text,
             footnotes,
+            paragraphStart: isParagraphStart(html, markerIndex, previousMarkerIndex),
         });
     }
 
     return result;
 }
 
+function isParagraphStart(html: string, markerIndex: number, previousMarkerIndex: number | undefined): boolean {
+    const paragraphStartIndex = findLastParagraphStartIndex(html, markerIndex);
+
+    if (paragraphStartIndex === null) {
+        return true;
+    }
+
+    const paragraphEndBeforeMarker = html.lastIndexOf("</p>", markerIndex);
+
+    if (paragraphEndBeforeMarker > paragraphStartIndex) {
+        return true;
+    }
+
+    return previousMarkerIndex === undefined || previousMarkerIndex < paragraphStartIndex;
+}
+
+function findLastParagraphStartIndex(html: string, beforeIndex: number): number | null {
+    const paragraphStartPattern = /<p\b[^>]*>/gi;
+    let lastParagraphStartIndex: number | null = null;
+
+    for (let match = paragraphStartPattern.exec(html); match !== null; match = paragraphStartPattern.exec(html)) {
+        if (match.index >= beforeIndex) {
+            break;
+        }
+
+        lastParagraphStartIndex = match.index;
+    }
+
+    return lastParagraphStartIndex;
+}
 
 function extractBookTableFromRows(html: string): ExtractedBookTable | null {
     const rows = Array.from(html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi));
@@ -420,8 +456,36 @@ function extractElementTextById(html: string, id: string): string {
     return cleanupFootnoteText(normalizeText(stripTags(match[2])));
 }
 
-function removeFootnoteLinks(html: string): string {
-    return html.replace(/<a\b[^>]*href=["']#[^"']+["'][^>]*>[\s\S]*?<\/a>/gi, "");
+function preserveFootnoteLinkMarkers(html: string): string {
+    return html.replace(
+        /<a\b[^>]*href=["']#[^"']+["'][^>]*>([\s\S]*?)<\/a>/gi,
+        (_match, label) => stripTags(label),
+    );
+}
+
+function stripTagsForVerse(html: string): string {
+    const withLineBreaks = html
+        .replace(/<br\b[^>]*\/?>/gi, "\n")
+        .replace(/<\/p>\s*<p\b[^>]*>/gi, "\n");
+
+    const withoutBlockTags = withLineBreaks
+        .replace(/<p\b[^>]*>/gi, "")
+        .replace(/<\/p>/gi, "");
+
+    return decodeHtmlEntities(withoutBlockTags.replace(/<[^>]+>/g, " "));
+}
+
+function normalizeVerseText(text: string): string {
+    return text
+        .replace(/\r\n?/g, "\n")
+        .split("\n")
+        .map((line) => line
+            .replace(/[ \t\f\v\u00a0\u202f]+/g, " ")
+            .replace(/\s+([*.,;:!?])/g, "$1")
+            .trim())
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
 }
 
 function removeVerseNumberMarkup(html: string): string {

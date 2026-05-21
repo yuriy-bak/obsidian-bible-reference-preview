@@ -186,11 +186,11 @@ function appendVerses(bookData: CompactBibleBookData, verses: ExtractedVerse[]):
 }
 
 function toCompactVerseData(verse: ExtractedVerse): CompactVerseData {
-    if (verse.footnotes.length === 0) {
-        return verse.text;
-    }
-
-    return [verse.text, [...verse.footnotes]];
+    return {
+        text: verse.text,
+        footnotes: [...verse.footnotes],
+        paragraphStart: verse.paragraphStart ?? true,
+    };
 }
 
 function extractBookIdFromDocumentPath(path: string, bookTable: ExtractedBookTable): number | null {
@@ -346,6 +346,8 @@ function calculateStats(books: Record<string, CompactBibleBookData>): { chapters
                 verses += 1;
                 if (Array.isArray(verse)) {
                     footnotes += verse[1].length;
+                } else if (typeof verse === "object") {
+                    footnotes += verse.footnotes?.length ?? 0;
                 }
             }
         }

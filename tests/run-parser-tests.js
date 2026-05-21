@@ -9,7 +9,10 @@ const {
 enrichBookTableFromNavigationHtml,
     extractBookNavigationAliasesFromHtml,
     extractBookTableFromHtml,
+    extractVersesFromHtml,
  } = require("../src/infrastructure/epub/htmlTextUtils.js");
+const { extractBibleTextFromCompactBook } = require("../src/infrastructure/v2/extractBibleTextFromCompactBook.js");
+const { formatBibleTextBlocks } = require("../src/application/formatBibleTexts.js");
 
 (async () => {
     const mapping = createBookMapping([
@@ -131,5 +134,90 @@ enrichBookTableFromNavigationHtml,
 
     const aliases = metadata.translations[DEFAULT_TRANSLATION_ID].books["1"].aliases;
     assert(!aliases.some((alias) => alias.startsWith("^") || alias.includes(":") || alias.includes(";") || alias === "1"));
+
+    const paragraphHtml = `
+        <p><span id="chapter2_verse7"></span><strong><sup>7</sup></strong>Первый<span id="footnotesource1"></span><a epub:type="noteref" href="#footnote1">*</a>. <span id="chapter2_verse8"></span><strong><sup>8</sup></strong>Второй.</p>
+        <p><span id="chapter2_verse9"></span><strong><sup>9</sup></strong>Третий.</p>
+        <p><span id="chapter2_verse10"></span><strong><sup>10</sup></strong>Строка 1<br/>Строка 2</p>
+        <div class="groupFootnote"><div id="footnote1"><p><a href="#footnotesource1">^ Быт. 2:7</a> Сноска.</p></div></div>
+    `;
+    const extractedVerses = extractVersesFromHtml(paragraphHtml);
+    assert.strictEqual(extractedVerses[0].paragraphStart, true);
+    assert.strictEqual(extractedVerses[1].paragraphStart, false);
+    assert.strictEqual(extractedVerses[2].paragraphStart, true);
+    assert.strictEqual(extractedVerses[0].text, "Первый*.");
+    assert.deepStrictEqual(extractedVerses[0].footnotes, ["Сноска."]);
+    assert.strictEqual(extractedVerses[3].text, "Строка 1\nСтрока 2");
+
+    const compactStringText = extractBibleTextFromCompactBook({
+        translationId: DEFAULT_TRANSLATION_ID,
+        book: 1,
+        bookName: "Бытие",
+        chapter: 1,
+        verseStart: 1,
+        verseEnd: 1,
+        data: { chapters: [null, [null, "Старый текст"]] },
+    });
+    assert.strictEqual(compactStringText.verses[0].paragraphStart, true);
+
+    const compactTupleText = extractBibleTextFromCompactBook({
+        translationId: DEFAULT_TRANSLATION_ID,
+        book: 1,
+        bookName: "Бытие",
+        chapter: 1,
+        verseStart: 1,
+        verseEnd: 1,
+        data: { chapters: [null, [null, ["Старый текст", ["Сноска"]]]] },
+    });
+    assert.strictEqual(compactTupleText.verses[0].paragraphStart, true);
+    assert.deepStrictEqual(compactTupleText.verses[0].footnotes, ["Сноска"]);
+
+    const compactObjectText = extractBibleTextFromCompactBook({
+        translationId: DEFAULT_TRANSLATION_ID,
+        book: 1,
+        bookName: "Бытие",
+        chapter: 1,
+        verseStart: 1,
+        verseEnd: 2,
+        data: { chapters: [null, [null, { text: "Первый", paragraphStart: true }, { text: "Второй", paragraphStart: false }]] },
+    });
+    assert.strictEqual(compactObjectText.verses[1].paragraphStart, false);
+
+    const formatterMapping = createBookMapping([{ id: 1, name: "Бытие", abbreviation: "Бт" }, { id: 43, name: "Иоанна", abbreviation: "Ин" }]);
+    const formattedInline = formatBibleTextBlocks([{
+        reference: { book: 1, chapterStart: 2, verseStart: 7, chapterEnd: 2, verseEnd: 9 },
+        parts: [{
+            range: { book: 1, chapter: 2, verseStart: 7, verseEnd: 9 },
+            bibleText: { translationId: DEFAULT_TRANSLATION_ID, book: 1, bookName: "Бытие", chapter: 2, verses: [
+                { number: 7, text: "Первый", footnotes: ["Сноска 7"], paragraphStart: true },
+                { number: 8, text: "Второй", footnotes: [], paragraphStart: false },
+                { number: 9, text: "Третий", footnotes: [], paragraphStart: true },
+            ] },
+        }],
+        sourceText: "Бт 2:7-9",
+    }], formatterMapping);
+    assert(formattedInline.plainText.includes("📖 Бт 2:7-9.\n7 Первый 8 Второй\n\n9 Третий"));
+    assert(formattedInline.plainText.includes("^Бт 2:7 Сноска 7"));
+
+    const formattedSameChapter = formatBibleTextBlocks([
+        {
+            reference: { book: 1, chapterStart: 2, verseStart: 1, chapterEnd: 2, verseEnd: 5 },
+            parts: [{ range: { book: 1, chapter: 2, verseStart: 1, verseEnd: 5 }, bibleText: { translationId: DEFAULT_TRANSLATION_ID, book: 1, bookName: "Бытие", chapter: 2, verses: [1, 2, 3, 4, 5].map((number) => ({ number, text: `t${number}`, footnotes: [], paragraphStart: true })) } }],
+            sourceText: "Бт 2:1-5, 7, 8, 12-15",
+        },
+        {
+            reference: { book: 1, chapterStart: 2, verseStart: 7, chapterEnd: 2, verseEnd: 8 },
+            parts: [{ range: { book: 1, chapter: 2, verseStart: 7, verseEnd: 8 }, bibleText: { translationId: DEFAULT_TRANSLATION_ID, book: 1, bookName: "Бытие", chapter: 2, verses: [7, 8].map((number) => ({ number, text: `t${number}`, footnotes: [], paragraphStart: true })) } }],
+            sourceText: "Бт 2:1-5, 7, 8, 12-15",
+        },
+    ], formatterMapping);
+    assert(formattedSameChapter.plainText.startsWith("📖 Бт 2:1-5, 7, 8, 12-15.\n"));
+
+    const formattedDifferentBooks = formatBibleTextBlocks([
+        { reference: { book: 1, chapterStart: 2, verseStart: 7, chapterEnd: 2, verseEnd: 7 }, parts: [{ range: { book: 1, chapter: 2, verseStart: 7, verseEnd: 7 }, bibleText: { translationId: DEFAULT_TRANSLATION_ID, book: 1, bookName: "Бытие", chapter: 2, verses: [{ number: 7, text: "Бытие", footnotes: [], paragraphStart: true }] } }] },
+        { reference: { book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 16 }, parts: [{ range: { book: 43, chapter: 3, verseStart: 16, verseEnd: 16 }, bibleText: { translationId: DEFAULT_TRANSLATION_ID, book: 43, bookName: "Иоанна", chapter: 3, verses: [{ number: 16, text: "Иоанна", footnotes: [], paragraphStart: true }] } }] },
+    ], formatterMapping);
+    assert(formattedDifferentBooks.plainText.includes("__________"));
+
     console.log("All parser/importer tests passed.");
 })().catch((error) => { console.error(error); process.exit(1); });
