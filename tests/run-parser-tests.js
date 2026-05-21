@@ -112,6 +112,20 @@ const {
             path: "translations/newworld/books/43.json",
             chapterCount: 21,
           },
+          19: {
+            name: "Псалмы",
+            abbreviation: "Пс",
+            aliases: ["Псалмы", "Пс"],
+            path: "translations/newworld/books/19.json",
+            chapterCount: 150,
+          },
+          23: {
+            name: "Исайя",
+            abbreviation: "Иса",
+            aliases: ["Исайя", "Иса"],
+            path: "translations/newworld/books/23.json",
+            chapterCount: 66,
+          },
           46: {
             name: "1 Коринфянам",
             abbreviation: "1Кор",
@@ -140,6 +154,7 @@ const {
   const importedParser = new BibleReferenceParser(
     createBookMappingFromBibleIndexV2Data(metadata, DEFAULT_TRANSLATION_ID)
   );
+
   for (const sample of [
     "Ин1:2",
     "Ин 1:2",
@@ -159,6 +174,14 @@ const {
       `Expected parser to recognize ${sample}`
     );
   }
+  
+  assert.deepStrictEqual(importedParser.parse("Псалом 23:1"), [
+    { book: 19, chapterStart: 23, verseStart: 1, chapterEnd: 23, verseEnd: 1 },
+  ]);
+
+  assert.deepStrictEqual(importedParser.parse("Исаия 53:5"), [
+    { book: 23, chapterStart: 53, verseStart: 5, chapterEnd: 53, verseEnd: 5 },
+  ]);
 
   let loadCount = 0;
   const lazy = new LazyBibleIndexV2(metadata, {
