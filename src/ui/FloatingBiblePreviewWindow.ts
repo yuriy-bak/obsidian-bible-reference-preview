@@ -11,6 +11,7 @@ export type FloatingBiblePreviewWindowInput = {
     getCopyAria(): string;
     getCollapseAria(): string;
     getExpandAria(): string;
+    getBackgroundColor(): string;
     getCloseAria?(): string;
     getOpenInPanelAria?(): string;
     getOpenInPanelIcon?(): string;
@@ -31,7 +32,6 @@ const COLLAPSED_BUTTON_SIZE = 42;
 const HEADER_HEIGHT = 34;
 const MIN_WIDTH = 260;
 const MIN_HEIGHT = 140;
-const MAX_WIDTH = 900;
 const DEFAULT_DESKTOP_WIDTH = 430;
 const DEFAULT_DESKTOP_HEIGHT = 320;
 const DEFAULT_MOBILE_HEIGHT = 220;
@@ -145,6 +145,7 @@ export class FloatingBiblePreviewWindow {
     public refreshLabels(labels: FloatingBiblePreviewWindowInput): void {
         this.labels = labels;
         this.updateBiblePreviewTitle();
+        this.updateBiblePreviewBackground();
         this.setPreviewButtonLabel(this.copyPreviewButtonEl, this.labels.getCopyAria());
         this.setPreviewButtonLabel(this.collapsePreviewButtonEl, this.labels.getCollapseAria());
         this.setPreviewButtonLabel(this.closePreviewButtonEl, this.getCloseAriaLabel());
@@ -171,13 +172,12 @@ export class FloatingBiblePreviewWindow {
             flexDirection: "column",
             boxSizing: "border-box",
             zIndex: "1000",
-            border: "1px solid color-mix(in srgb, var(--color-accent) 78%, var(--background-modifier-border))",
+            border: "1px solid var(--background-modifier-border)",
             borderRadius: "10px",
-            background: "color-mix(in srgb, var(--background-primary) 88%, var(--color-accent) 12%)",
+            background: this.labels.getBackgroundColor(),
             color: "var(--text-normal)",
             boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.04) inset",
             overflow: "hidden",
-            maxWidth: `${MAX_WIDTH}px`,
             minWidth: `${MIN_WIDTH}px`,
             minHeight: `${MIN_HEIGHT}px`,
             pointerEvents: "auto",
@@ -192,7 +192,7 @@ export class FloatingBiblePreviewWindow {
             flex: "0 0 auto",
             padding: "4px 6px",
             borderBottom: "1px solid var(--background-modifier-border)",
-            background: "color-mix(in srgb, var(--background-secondary-alt) 76%, var(--color-accent) 24%)",
+            background: "color-mix(in srgb, var(--background-secondary-alt) 92%, black 8%)",
             cursor: "move",
             touchAction: "none",
         });
@@ -286,8 +286,8 @@ export class FloatingBiblePreviewWindow {
             width: `${COLLAPSED_BUTTON_SIZE}px`,
             height: `${COLLAPSED_BUTTON_SIZE}px`,
             borderRadius: "999px",
-            border: "1px solid var(--color-accent)",
-            background: "color-mix(in srgb, var(--background-primary) 82%, var(--color-accent) 18%)",
+            border: "1px solid var(--background-modifier-border)",
+            background: this.labels.getBackgroundColor(),
             color: "var(--text-normal)",
             boxShadow: "0 8px 22px rgba(0, 0, 0, 0.36)",
             cursor: "grab",
@@ -324,7 +324,7 @@ export class FloatingBiblePreviewWindow {
             justifyContent: "center",
             borderRadius: "5px",
             border: "1px solid var(--background-modifier-border)",
-            background: "color-mix(in srgb, var(--background-primary) 82%, var(--color-accent) 18%)",
+            background: "color-mix(in srgb, var(--background-secondary) 94%, black 6%)",
             color: "var(--text-normal)",
             cursor: "pointer",
             fontSize: "13px",
@@ -470,6 +470,11 @@ export class FloatingBiblePreviewWindow {
         if (this.previewTitleEl !== null) {
             this.previewTitleEl.textContent = this.labels.getTitle();
         }
+    }
+
+    private updateBiblePreviewBackground(): void {
+        this.previewPanelEl.style.background = this.labels.getBackgroundColor();
+        this.collapsedButtonEl.style.background = this.labels.getBackgroundColor();
     }
 
     private setPreviewButtonLabel(buttonEl: HTMLButtonElement | null, label: string): void {
@@ -689,7 +694,7 @@ export class FloatingBiblePreviewWindow {
             nextTop = state.startTop;
         }
 
-        const width = Math.min(Math.max(nextRight - nextLeft, MIN_WIDTH), MAX_WIDTH);
+        const width = Math.max(nextRight - nextLeft, MIN_WIDTH);
         const height = Math.max(nextBottom - nextTop, MIN_HEIGHT);
         this.customPreviewPosition = { left: nextLeft, top: nextTop };
         this.customPreviewSize = { width, height };
@@ -1005,7 +1010,7 @@ export class FloatingBiblePreviewWindow {
 
     private clampPreviewSize(width: number, height: number, viewportWidth: number, viewportHeight: number): { width: number; height: number } {
         const safeMargins = this.getBiblePreviewSafeMargins(viewportWidth);
-        const maxWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, viewportWidth - safeMargins.left - safeMargins.right));
+        const maxWidth = Math.max(MIN_WIDTH, viewportWidth - safeMargins.left - safeMargins.right);
         const maxHeight = Math.max(MIN_HEIGHT, viewportHeight - safeMargins.top - safeMargins.bottom);
         return {
             width: Math.min(Math.max(width, MIN_WIDTH), maxWidth),
@@ -1031,6 +1036,19 @@ export class FloatingBiblePreviewWindow {
     }
 
     private getBiblePreviewViewport(): { left: number; top: number; width: number; height: number } {
+        const rootWorkspaceEl = document.querySelector(".workspace-split.mod-root");
+        if (rootWorkspaceEl instanceof HTMLElement) {
+            const rect = rootWorkspaceEl.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                return {
+                    left: rect.left,
+                    top: rect.top,
+                    width: rect.width,
+                    height: rect.height,
+                };
+            }
+        }
+
         const viewport = window.visualViewport;
         return {
             left: viewport?.offsetLeft ?? 0,
@@ -1050,10 +1068,10 @@ export class FloatingBiblePreviewWindow {
             };
         }
         return {
-            top: 12,
-            right: 12,
-            bottom: 46,
-            left: 12,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
         };
     }
 

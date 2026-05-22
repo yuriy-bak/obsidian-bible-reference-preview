@@ -11,6 +11,9 @@ await esbuild.build({
     sourcemap: isProduction ? false : "inline",
     treeShaking: true,
     logLevel: "info",
+    loader: {
+        ".css": "text",
+    },
     external: [
         "obsidian",
         "electron",
