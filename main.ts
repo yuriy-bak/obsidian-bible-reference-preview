@@ -1,5 +1,5 @@
 
-import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, type MarkdownPostProcessorContext } from "obsidian";
+import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
 import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
@@ -15,6 +15,7 @@ import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/Obsidian
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BiblePluginLocale, I18nKey, normalizeBiblePluginLocale, t } from "./src/i18n/I18n";
 import { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./src/ui/FloatingBiblePreviewWindow";
+import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput } from "./src/ui/BiblePreviewPaneView";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -66,6 +67,18 @@ const EMPTY_BIBLE_INDEX: BibleIndex = {
 };
 
 type BiblePreviewTriggerMode = "current-paragraph" | "clicked-reference";
+type BiblePreviewDisplayMode = "floating" | "side-panel";
+type BiblePreviewPanelSide = "right" | "left";
+type BiblePreviewSideDock = {
+    collapsed?: boolean;
+    collapse?(): void;
+    expand?(): void;
+    activeLeaf?: WorkspaceLeaf;
+    activeTab?: { leaf?: WorkspaceLeaf };
+};
+type BiblePreviewWorkspaceFocus = {
+    setActiveLeaf?(leaf: WorkspaceLeaf, params?: { focus?: boolean }): void;
+};
 type BibleLinkOpenShortcut = "alt-enter" | "ctrl-enter" | "ctrl-alt-enter";
 
 type BiblePreviewController = {
@@ -78,6 +91,9 @@ type BiblePluginSettings = {
     translationOrder: string[];
     bibleReferenceLinkColor: string;
     previewTriggerMode: BiblePreviewTriggerMode;
+    previewDisplayMode: BiblePreviewDisplayMode;
+    previewPanelSide: BiblePreviewPanelSide;
+    closePreviewOnActiveLeafChange: boolean;
     interceptLinkOpenShortcut: boolean;
     linkOpenShortcut: BibleLinkOpenShortcut;
 };
@@ -94,6 +110,9 @@ const DEFAULT_SETTINGS: BiblePluginSettings = {
     translationOrder: [],
     bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
     previewTriggerMode: "current-paragraph",
+    previewDisplayMode: "floating",
+    previewPanelSide: "right",
+    closePreviewOnActiveLeafChange: true,
     interceptLinkOpenShortcut: true,
     linkOpenShortcut: "alt-enter",
 };
@@ -119,15 +138,26 @@ export default class BiblePlugin extends Plugin {
     private readingModePreviewController: BibleReadingModePreviewController | null = null;
     private readingModePreviewRequestId = 0;
     private floatingPreviewWindow: FloatingBiblePreviewWindow | null = null;
+    private lastPanePreviewContent: BiblePreviewContent | null = null;
+    private lastPanelEscapeTime = 0;
+    private suppressPreviewActiveLeafChange = false;
     private readonly editorViews = new Set<EditorView>();
     private readonly previewControllers = new Map<EditorView, BiblePreviewController>();
     private readonly linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.handleLinkOpenShortcutKeydown(event);
+    private readonly panelEscapeKeydownHandler = (event: KeyboardEvent) => this.handlePanelEscapeKeydown(event);
 
     async onload() {
         await this.loadPluginSettings();
         await this.loadBibleIndex();
         this.floatingPreviewWindow = new FloatingBiblePreviewWindow(this.createFloatingPreviewWindowInput());
         this.register(() => this.floatingPreviewWindow?.destroy());
+        this.registerView(BIBLE_PREVIEW_VIEW_TYPE, (leaf) => {
+            const view = new BiblePreviewPaneView(leaf, this.createBiblePreviewPaneViewInput());
+            if (this.lastPanePreviewContent !== null) {
+                window.setTimeout(() => view.setContent(this.lastPanePreviewContent!), 0);
+            }
+            return view;
+        });
         this.addCommand({ id: "import-epub-bible", name: this.t("command.importEpubBible"), callback: () => this.openEpubFilePicker() });
         this.addCommand({ id: "reload-bible-index", name: this.t("command.reloadBibleIndex"), callback: () => void this.reloadBibleIndex() });
         this.addCommand({ id: "open-bible-index-folder", name: this.t("command.openBibleIndexFolder"), callback: () => void this.openBibleIndexFolder() });
@@ -141,7 +171,9 @@ export default class BiblePlugin extends Plugin {
         this.register(() => this.readingModePreviewController?.destroy());
         this.settingsTab = new BiblePluginSettingTab(this.app, this);
         this.addSettingTab(this.settingsTab);
-        this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.hideFloatingBiblePreview()));
+        this.registerEvent(this.app.workspace.on("active-leaf-change", (activeLeaf) => this.handlePreviewActiveLeafChange(activeLeaf)));
+        document.addEventListener("keydown", this.panelEscapeKeydownHandler, true);
+        this.register(() => document.removeEventListener("keydown", this.panelEscapeKeydownHandler, true));
         this.registerGlobalLinkOpenShortcutHandler();
         this.registerReadingModeBibleReferenceLinks();
         this.registerEditorExtension(this.createCursorExtension());
@@ -462,6 +494,25 @@ export default class BiblePlugin extends Plugin {
         return this.settings.previewTriggerMode;
     }
 
+    public getBiblePreviewDisplayMode(): BiblePreviewDisplayMode {
+        return this.settings.previewDisplayMode;
+    }
+
+    public getBiblePreviewPanelSide(): BiblePreviewPanelSide {
+        return this.settings.previewPanelSide;
+    }
+    public shouldClosePreviewOnActiveLeafChange(): boolean {
+        return this.settings.closePreviewOnActiveLeafChange;
+    }
+    public async setClosePreviewOnActiveLeafChange(closePreviewOnActiveLeafChange: boolean): Promise<void> {
+        if (this.settings.closePreviewOnActiveLeafChange === closePreviewOnActiveLeafChange) {
+            return;
+        }
+        this.settings = { ...this.settings, closePreviewOnActiveLeafChange };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
     public shouldInterceptLinkOpenShortcut(): boolean {
         return this.settings.interceptLinkOpenShortcut;
     }
@@ -487,6 +538,27 @@ export default class BiblePlugin extends Plugin {
 
         this.settings = { ...this.settings, linkOpenShortcut };
         await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
+    public async setBiblePreviewDisplayMode(previewDisplayMode: BiblePreviewDisplayMode): Promise<void> {
+        if (this.settings.previewDisplayMode === previewDisplayMode) {
+            return;
+        }
+
+        this.settings = { ...this.settings, previewDisplayMode };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
+    public async setBiblePreviewPanelSide(previewPanelSide: BiblePreviewPanelSide): Promise<void> {
+        if (this.settings.previewPanelSide === previewPanelSide) {
+            return;
+        }
+
+        this.settings = { ...this.settings, previewPanelSide };
+        await this.savePluginSettings();
+        await this.closeBiblePreviewPane({ collapseSideDock: true });
         this.refreshSettingsTab();
     }
 
@@ -685,10 +757,201 @@ export default class BiblePlugin extends Plugin {
             getCopyAria: () => this.t("preview.copyAria"),
             getCollapseAria: () => this.t("preview.collapseAria"),
             getExpandAria: () => this.t("preview.expandAria"),
+            getCloseAria: () => this.t("preview.closeAria"),
+            getOpenInPanelAria: () => this.t("preview.openInPanelAria"),
+            getOpenInPanelIcon: () => this.t("preview.openInPanelIcon"),
+            onOpenInPanel: (content) => void this.switchBiblePreviewToPanel(content),
         };
+    }
+    private createBiblePreviewPaneViewInput(): BiblePreviewPaneViewInput {
+        return {
+            getTitle: () => `📖 ${this.getActiveTranslationPreviewTitle()}`,
+            getOpenFloatingAria: () => this.t("preview.openFloatingAria"),
+            getOpenFloatingIcon: () => this.t("preview.openFloatingIcon"),
+            getCopyAria: () => this.t("preview.copyAria"),
+            getCopyIcon: () => this.t("preview.copyIcon"),
+            getCopyNoticeText: () => this.t("notice.bibleTextCopied"),
+            onOpenFloating: (content) => void this.switchBiblePreviewToFloating(content),
+        };
+    }
+    public showBiblePreviewContent(content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor = { type: "default" }): void {
+        if (this.settings.previewDisplayMode === "side-panel") {
+            void this.showBiblePreviewInPanel(content);
+            this.hideFloatingBiblePreview();
+            return;
+        }
+
+        this.showFloatingBiblePreview(content, anchor);
     }
     public showFloatingBiblePreview(content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor = { type: "default" }): void {
         this.floatingPreviewWindow?.show(content, anchor);
+    }
+    private async switchBiblePreviewToPanel(content: BiblePreviewContent): Promise<void> {
+        if (this.settings.previewDisplayMode !== "side-panel") {
+            this.settings = { ...this.settings, previewDisplayMode: "side-panel" };
+            await this.savePluginSettings();
+            this.refreshSettingsTab();
+        }
+        await this.showBiblePreviewInPanel(content);
+        this.hideFloatingBiblePreview();
+    }
+    private async switchBiblePreviewToFloating(content: BiblePreviewContent): Promise<void> {
+        if (this.settings.previewDisplayMode !== "floating") {
+            this.settings = { ...this.settings, previewDisplayMode: "floating" };
+            await this.savePluginSettings();
+            this.refreshSettingsTab();
+        }
+        await this.closeBiblePreviewPane({ collapseSideDock: true });
+        this.showFloatingBiblePreview(content, { type: "default" });
+    }
+    private async showBiblePreviewInPanel(content: BiblePreviewContent): Promise<void> {
+        this.lastPanePreviewContent = content;
+        const view = await this.getOrCreateBiblePreviewPaneView();
+        if (view === null) {
+            return;
+        }
+        this.applyContentToPaneView(view, content);
+    }
+    private applyContentToPaneView(view: BiblePreviewPaneView, content: BiblePreviewContent): void {
+        view.setContent(content);
+        window.requestAnimationFrame(() => view.setContent(content));
+        window.setTimeout(() => view.setContent(content), 50);
+        window.setTimeout(() => view.setContent(content), 250);
+    }
+    private async getOrCreateBiblePreviewPaneView(): Promise<BiblePreviewPaneView | null> {
+        const existingLeaf = this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)[0];
+        if (existingLeaf !== undefined) {
+            const existingView = existingLeaf.view;
+            if (existingView instanceof BiblePreviewPaneView) {
+                this.expandBiblePreviewSideDock();
+                existingView.refreshInput(this.createBiblePreviewPaneViewInput());
+                return existingView;
+            }
+        }
+
+        const activeLeafBeforeOpen = this.app.workspace.activeLeaf;
+        const leaf = this.settings.previewPanelSide === "left"
+            ? this.app.workspace.getLeftLeaf(false)
+            : this.app.workspace.getRightLeaf(false);
+        if (leaf === null) {
+            return null;
+        }
+
+        this.suppressPreviewActiveLeafChange = true;
+        try {
+            this.expandBiblePreviewSideDock();
+            await leaf.setViewState({ type: BIBLE_PREVIEW_VIEW_TYPE, active: true });
+            this.expandBiblePreviewSideDock();
+            await this.waitForNextFrame();
+            await this.waitForNextFrame();
+            const createdLeaf = this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)[0] ?? leaf;
+            const view = createdLeaf.view;
+            if (view instanceof BiblePreviewPaneView) {
+                view.refreshInput(this.createBiblePreviewPaneViewInput());
+                this.restoreActiveLeafAfterPreviewOpen(activeLeafBeforeOpen);
+                return view;
+            }
+            return null;
+        } finally {
+            window.setTimeout(() => {
+                this.suppressPreviewActiveLeafChange = false;
+            }, 0);
+        }
+    }
+    private restoreActiveLeafAfterPreviewOpen(activeLeaf: WorkspaceLeaf | null): void {
+        if (activeLeaf === null || activeLeaf.view.getViewType() === BIBLE_PREVIEW_VIEW_TYPE) {
+            return;
+        }
+        const workspaceWithFocus = this.app.workspace as typeof this.app.workspace & BiblePreviewWorkspaceFocus;
+        if (typeof workspaceWithFocus.setActiveLeaf !== "function") {
+            return;
+        }
+        workspaceWithFocus.setActiveLeaf(activeLeaf, { focus: true });
+    }
+    private async closeBiblePreviewPane(options: { collapseSideDock?: boolean } = {}): Promise<void> {
+        const shouldCollapseSideDock = options.collapseSideDock === true && this.isBiblePreviewPaneActiveInSideDock();
+        const previewLeaves = this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE);
+        await Promise.all(previewLeaves.map((leaf) => leaf.detach()));
+        this.lastPanelEscapeTime = 0;
+        if (shouldCollapseSideDock) {
+            this.collapseBiblePreviewSideDock();
+            window.setTimeout(() => this.collapseBiblePreviewSideDock(), 0);
+        }
+    }
+    private getBiblePreviewSideDock(): BiblePreviewSideDock | undefined {
+        const workspaceWithSideDocks = this.app.workspace as typeof this.app.workspace & {
+            leftSplit?: BiblePreviewSideDock;
+            rightSplit?: BiblePreviewSideDock;
+        };
+        return this.settings.previewPanelSide === "left"
+            ? workspaceWithSideDocks.leftSplit
+            : workspaceWithSideDocks.rightSplit;
+    }
+    private getSideDockActiveLeaf(sideDock: BiblePreviewSideDock | undefined): WorkspaceLeaf | undefined {
+        return sideDock?.activeLeaf ?? sideDock?.activeTab?.leaf;
+    }
+    private isBiblePreviewPaneActiveInSideDock(): boolean {
+        const activeSideDockLeaf = this.getSideDockActiveLeaf(this.getBiblePreviewSideDock());
+        if (activeSideDockLeaf !== undefined) {
+            return activeSideDockLeaf.view.getViewType() === BIBLE_PREVIEW_VIEW_TYPE;
+        }
+        return this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE).some((leaf) => {
+            const viewWithContainer = leaf.view as typeof leaf.view & { containerEl?: HTMLElement };
+            return viewWithContainer.containerEl?.closest(".workspace-leaf.mod-active") !== null;
+        });
+    }
+    private expandBiblePreviewSideDock(): void {
+        const sideDock = this.getBiblePreviewSideDock();
+        if (sideDock === undefined || sideDock.collapsed !== true || typeof sideDock.expand !== "function") {
+            return;
+        }
+        sideDock.expand();
+    }
+    private collapseBiblePreviewSideDock(): void {
+        const sideDock = this.getBiblePreviewSideDock();
+        if (sideDock === undefined || sideDock.collapsed === true || typeof sideDock.collapse !== "function") {
+            return;
+        }
+        sideDock.collapse();
+    }
+    private handlePanelEscapeKeydown(event: KeyboardEvent): void {
+        if (event.key !== "Escape") {
+            return;
+        }
+        if (this.floatingPreviewWindow?.isVisible() === true) {
+            this.lastPanelEscapeTime = 0;
+            return;
+        }
+        const panelLeaf = this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)[0];
+        if (panelLeaf === undefined) {
+            this.lastPanelEscapeTime = 0;
+            return;
+        }
+        const now = Date.now();
+        const isSecondEscape = now - this.lastPanelEscapeTime <= 1200;
+        this.lastPanelEscapeTime = now;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isSecondEscape) {
+            return;
+        }
+        void this.closeBiblePreviewPane({ collapseSideDock: true });
+    }
+    private handlePreviewActiveLeafChange(activeLeaf: WorkspaceLeaf | null): void {
+        if (this.suppressPreviewActiveLeafChange) {
+            return;
+        }
+        if (!this.settings.closePreviewOnActiveLeafChange) {
+            return;
+        }
+        if (activeLeaf?.view.getViewType() === BIBLE_PREVIEW_VIEW_TYPE) {
+            return;
+        }
+        this.hideFloatingBiblePreview();
+        void this.closeBiblePreviewPane({ collapseSideDock: true });
+    }
+    private waitForNextFrame(): Promise<void> {
+        return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
     }
     public hideFloatingBiblePreview(resetPosition = false): void {
         this.floatingPreviewWindow?.hide(resetPosition);
@@ -780,7 +1043,7 @@ export default class BiblePlugin extends Plugin {
                         this.hideBiblePreview();
                         return;
                     }
-                    plugin.showFloatingBiblePreview(content, { type: "default" });
+                    plugin.showBiblePreviewContent(content, { type: "default" });
                 });
             }
 
@@ -846,7 +1109,7 @@ export default class BiblePlugin extends Plugin {
                         this.hideBiblePreview(true);
                         return;
                     }
-                    plugin.showFloatingBiblePreview(content, { type: "default" });
+                    plugin.showBiblePreviewContent(content, { type: "default" });
                 });
             }
 
@@ -1207,6 +1470,11 @@ export default class BiblePlugin extends Plugin {
             controller.refreshLocalizedLabels();
         }
         this.readingModePreviewController?.refreshLocalizedLabels();
+        for (const leaf of this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)) {
+            if (leaf.view instanceof BiblePreviewPaneView) {
+                leaf.view.refreshInput(this.createBiblePreviewPaneViewInput());
+            }
+        }
         new Notice(this.t("notice.restartPluginForCommandNames"), 6000);
     }
 
@@ -1241,7 +1509,7 @@ class BibleReadingModePreviewController {
     constructor(private readonly plugin: BiblePlugin) {}
 
     public show(content: BiblePreviewContent, anchorEl: HTMLElement): void {
-        this.plugin.showFloatingBiblePreview(content, { type: "element", element: anchorEl });
+        this.plugin.showBiblePreviewContent(content, { type: "element", element: anchorEl });
     }
 
     public destroy(): void {}
@@ -1421,6 +1689,34 @@ class BiblePluginSettingTab extends PluginSettingTab {
                     .addOption("clicked-reference", this.plugin.t("settings.previewMode.clickedReference"))
                     .setValue(this.plugin.getBiblePreviewTriggerMode())
                     .onChange((value) => void this.plugin.setBiblePreviewTriggerMode(value as BiblePreviewTriggerMode));
+            });
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.previewDisplayMode.name"))
+            .setDesc(this.plugin.t("settings.previewDisplayMode.desc"))
+            .addDropdown((dropdown) => {
+                dropdown
+                    .addOption("floating", this.plugin.t("settings.previewDisplayMode.floating"))
+                    .addOption("side-panel", this.plugin.t("settings.previewDisplayMode.sidePanel"))
+                    .setValue(this.plugin.getBiblePreviewDisplayMode())
+                    .onChange((value) => void this.plugin.setBiblePreviewDisplayMode(value as BiblePreviewDisplayMode));
+            });
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.previewPanelSide.name"))
+            .setDesc(this.plugin.t("settings.previewPanelSide.desc"))
+            .addDropdown((dropdown) => {
+                dropdown
+                    .addOption("right", this.plugin.t("settings.previewPanelSide.right"))
+                    .addOption("left", this.plugin.t("settings.previewPanelSide.left"))
+                    .setValue(this.plugin.getBiblePreviewPanelSide())
+                    .onChange((value) => void this.plugin.setBiblePreviewPanelSide(value as BiblePreviewPanelSide));
+            });
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.closePreviewOnTabChange.name"))
+            .setDesc(this.plugin.t("settings.closePreviewOnTabChange.desc"))
+            .addToggle((toggle) => {
+                toggle
+                    .setValue(this.plugin.shouldClosePreviewOnActiveLeafChange())
+                    .onChange((value) => void this.plugin.setClosePreviewOnActiveLeafChange(value));
             });
 
         new Setting(containerEl)
@@ -1696,6 +1992,15 @@ function normalizePluginSettings(value: unknown): BiblePluginSettings {
         previewTriggerMode: typeof value.previewTriggerMode === "string" && isBiblePreviewTriggerMode(value.previewTriggerMode)
             ? value.previewTriggerMode
             : DEFAULT_SETTINGS.previewTriggerMode,
+        previewDisplayMode: typeof value.previewDisplayMode === "string" && isBiblePreviewDisplayMode(value.previewDisplayMode)
+            ? value.previewDisplayMode
+            : DEFAULT_SETTINGS.previewDisplayMode,
+        previewPanelSide: typeof value.previewPanelSide === "string" && isBiblePreviewPanelSide(value.previewPanelSide)
+            ? value.previewPanelSide
+            : DEFAULT_SETTINGS.previewPanelSide,
+        closePreviewOnActiveLeafChange: typeof value.closePreviewOnActiveLeafChange === "boolean"
+            ? value.closePreviewOnActiveLeafChange
+            : DEFAULT_SETTINGS.closePreviewOnActiveLeafChange,
         interceptLinkOpenShortcut: typeof value.interceptLinkOpenShortcut === "boolean"
             ? value.interceptLinkOpenShortcut
             : DEFAULT_SETTINGS.interceptLinkOpenShortcut,
@@ -1721,6 +2026,14 @@ function normalizeBibleReferenceLinkColor(value: string): string {
 
 function isBiblePreviewTriggerMode(value: string): value is BiblePreviewTriggerMode {
     return value === "current-paragraph" || value === "clicked-reference";
+}
+
+function isBiblePreviewDisplayMode(value: string): value is BiblePreviewDisplayMode {
+    return value === "floating" || value === "side-panel";
+}
+
+function isBiblePreviewPanelSide(value: string): value is BiblePreviewPanelSide {
+    return value === "right" || value === "left";
 }
 
 function isBibleLinkOpenShortcut(value: string): value is BibleLinkOpenShortcut {

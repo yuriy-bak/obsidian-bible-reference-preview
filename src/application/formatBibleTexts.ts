@@ -353,7 +353,17 @@ function collectPartFootnotes(part: BibleTextPart, mapping: BookMapping): string
 }
 
 function formatVerseFootnotes(range: ChapterVerseRange, verse: Verse, mapping: BookMapping): string[] {
-    return verse.footnotes.map((footnote) => `^${formatVerseReference(range, verse.number, mapping)} ${footnote}`);
+    return verse.footnotes.map((footnote) => `^${formatVerseReference(range, verse.number, mapping)} ${cleanupFootnoteTextForPreview(footnote)}`);
+}
+
+function cleanupFootnoteTextForPreview(footnote: string): string {
+    const withoutMarker = footnote
+        .replace(/^\s*\^\s*/, "")
+        .trim();
+    const withoutRepeatedReference = withoutMarker
+        .replace(/^(?:[1-3]\s*)?[\p{L}.]+(?:\s+[\p{L}.]+)*\s+\d+(?::\d+)?\s*/u, "")
+        .trim();
+    return withoutRepeatedReference.length === 0 ? withoutMarker : withoutRepeatedReference;
 }
 
 function formatVerseReference(range: ChapterVerseRange, verseNumber: number, mapping: BookMapping): string {

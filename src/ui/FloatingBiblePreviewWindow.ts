@@ -12,6 +12,9 @@ export type FloatingBiblePreviewWindowInput = {
     getCollapseAria(): string;
     getExpandAria(): string;
     getCloseAria?(): string;
+    getOpenInPanelAria?(): string;
+    getOpenInPanelIcon?(): string;
+    onOpenInPanel?(content: BiblePreviewContent): void;
 };
 
 type PreviewResizeEdge =
@@ -45,6 +48,8 @@ export class FloatingBiblePreviewWindow {
     private copyPreviewButtonEl: HTMLButtonElement | null = null;
     private collapsePreviewButtonEl: HTMLButtonElement | null = null;
     private closePreviewButtonEl: HTMLButtonElement | null = null;
+    private openInPanelButtonEl: HTMLButtonElement | null = null;
+    private previewContent: BiblePreviewContent | null = null;
     private previewText = "";
     private isPreviewCollapsed = false;
     private customPreviewSize: { width: number; height: number } | null = null;
@@ -99,6 +104,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     public show(content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor = { type: "default" }): void {
+        this.previewContent = content;
         this.previewText = content.plainText;
         renderBiblePreviewContent(this.previewContentEl, content);
         this.updateBiblePreviewTitle();
@@ -114,6 +120,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     public hide(resetPosition = false): void {
+        this.previewContent = null;
         this.previewText = "";
         this.previewPanelEl.style.display = "none";
         this.collapsedButtonEl.style.display = "none";
@@ -141,6 +148,8 @@ export class FloatingBiblePreviewWindow {
         this.setPreviewButtonLabel(this.copyPreviewButtonEl, this.labels.getCopyAria());
         this.setPreviewButtonLabel(this.collapsePreviewButtonEl, this.labels.getCollapseAria());
         this.setPreviewButtonLabel(this.closePreviewButtonEl, this.getCloseAriaLabel());
+        this.setPreviewButtonLabel(this.openInPanelButtonEl, this.getOpenInPanelAriaLabel());
+        this.updateOpenInPanelButtonText();
         this.collapsedButtonEl.setAttribute("aria-label", this.labels.getExpandAria());
         this.collapsedButtonEl.title = this.labels.getExpandAria();
     }
@@ -211,6 +220,20 @@ export class FloatingBiblePreviewWindow {
             void this.copyBiblePreviewText();
         });
         headerEl.appendChild(copyButton);
+
+        const openInPanelButton = this.createPreviewIconButton("◨", this.getOpenInPanelAriaLabel());
+        this.openInPanelButtonEl = openInPanelButton;
+        this.updateOpenInPanelButtonText();
+        openInPanelButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+        openInPanelButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (this.previewContent !== null && this.labels.onOpenInPanel !== undefined) {
+                this.labels.onOpenInPanel(this.previewContent);
+                this.hide();
+            }
+        });
+        headerEl.appendChild(openInPanelButton);
 
         const collapseButton = this.createPreviewIconButton("▾", this.labels.getCollapseAria());
         this.collapsePreviewButtonEl = collapseButton;
@@ -459,6 +482,22 @@ export class FloatingBiblePreviewWindow {
 
     private getCloseAriaLabel(): string {
         return this.labels.getCloseAria?.() ?? "Закрыть окно";
+    }
+
+    private getOpenInPanelAriaLabel(): string {
+        return this.labels.getOpenInPanelAria?.() ?? "Открыть в панели";
+    }
+
+    private getOpenInPanelButtonIcon(): string {
+        return this.labels.getOpenInPanelIcon?.() ?? "◨";
+    }
+
+    private updateOpenInPanelButtonText(): void {
+        if (this.openInPanelButtonEl === null) {
+            return;
+        }
+        this.openInPanelButtonEl.textContent = this.getOpenInPanelButtonIcon();
+        this.openInPanelButtonEl.style.display = this.labels.onOpenInPanel === undefined ? "none" : "inline-flex";
     }
 
     private renderBiblePreview(): void {
