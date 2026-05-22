@@ -141,6 +141,7 @@ export default class BiblePlugin extends Plugin {
     private lastPanePreviewContent: BiblePreviewContent | null = null;
     private lastPanelEscapeTime = 0;
     private suppressPreviewActiveLeafChange = false;
+    private biblePreviewPaneIsActiveInSideDock = false;
     private readonly editorViews = new Set<EditorView>();
     private readonly previewControllers = new Map<EditorView, BiblePreviewController>();
     private readonly linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.handleLinkOpenShortcutKeydown(event);
@@ -558,7 +559,7 @@ export default class BiblePlugin extends Plugin {
 
         this.settings = { ...this.settings, previewPanelSide };
         await this.savePluginSettings();
-        await this.closeBiblePreviewPane({ collapseSideDock: true });
+        await this.closeBiblePreviewPane({ collapseSideDock: true, requireActivePreview: false });
         this.refreshSettingsTab();
     }
 
@@ -801,7 +802,7 @@ export default class BiblePlugin extends Plugin {
             await this.savePluginSettings();
             this.refreshSettingsTab();
         }
-        await this.closeBiblePreviewPane({ collapseSideDock: true });
+        await this.closeBiblePreviewPane({ collapseSideDock: true, requireActivePreview: true });
         this.showFloatingBiblePreview(content, { type: "default" });
     }
     private async showBiblePreviewInPanel(content: BiblePreviewContent): Promise<void> {
@@ -823,6 +824,7 @@ export default class BiblePlugin extends Plugin {
         if (existingLeaf !== undefined) {
             const existingView = existingLeaf.view;
             if (existingView instanceof BiblePreviewPaneView) {
+                this.biblePreviewPaneIsActiveInSideDock = true;
                 this.expandBiblePreviewSideDock();
                 existingView.refreshInput(this.createBiblePreviewPaneViewInput());
                 return existingView;
@@ -841,6 +843,7 @@ export default class BiblePlugin extends Plugin {
         try {
             this.expandBiblePreviewSideDock();
             await leaf.setViewState({ type: BIBLE_PREVIEW_VIEW_TYPE, active: true });
+            this.biblePreviewPaneIsActiveInSideDock = true;
             this.expandBiblePreviewSideDock();
             await this.waitForNextFrame();
             await this.waitForNextFrame();
@@ -868,11 +871,20 @@ export default class BiblePlugin extends Plugin {
         }
         workspaceWithFocus.setActiveLeaf(activeLeaf, { focus: true });
     }
-    private async closeBiblePreviewPane(options: { collapseSideDock?: boolean } = {}): Promise<void> {
-        const shouldCollapseSideDock = options.collapseSideDock === true && this.isBiblePreviewPaneActiveInSideDock();
+    private async closeBiblePreviewPane(options: { collapseSideDock?: boolean; requireActivePreview?: boolean } = {}): Promise<void> {
+        const shouldCloseActivePreview = this.isBiblePreviewPaneActiveInSideDock();
+        if (options.requireActivePreview === true && !shouldCloseActivePreview) {
+            return;
+        }
+        const shouldCollapseSideDock = options.collapseSideDock === true && shouldCloseActivePreview;
         const previewLeaves = this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE);
+        if (previewLeaves.length === 0) {
+            this.lastPanelEscapeTime = 0;
+            return;
+        }
         await Promise.all(previewLeaves.map((leaf) => leaf.detach()));
         this.lastPanelEscapeTime = 0;
+        this.biblePreviewPaneIsActiveInSideDock = false;
         if (shouldCollapseSideDock) {
             this.collapseBiblePreviewSideDock();
             window.setTimeout(() => this.collapseBiblePreviewSideDock(), 0);
@@ -895,10 +907,20 @@ export default class BiblePlugin extends Plugin {
         if (activeSideDockLeaf !== undefined) {
             return activeSideDockLeaf.view.getViewType() === BIBLE_PREVIEW_VIEW_TYPE;
         }
+        if (this.biblePreviewPaneIsActiveInSideDock) {
+            return this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE).length > 0;
+        }
         return this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE).some((leaf) => {
             const viewWithContainer = leaf.view as typeof leaf.view & { containerEl?: HTMLElement };
             return viewWithContainer.containerEl?.closest(".workspace-leaf.mod-active") !== null;
         });
+    }
+    private isSideDockUtilityLeaf(activeLeaf: WorkspaceLeaf | null): boolean {
+        if (activeLeaf === null) {
+            return false;
+        }
+        const viewType = activeLeaf.view.getViewType();
+        return viewType !== "markdown" && viewType !== BIBLE_PREVIEW_VIEW_TYPE;
     }
     private expandBiblePreviewSideDock(): void {
         const sideDock = this.getBiblePreviewSideDock();
@@ -923,7 +945,7 @@ export default class BiblePlugin extends Plugin {
             return;
         }
         const panelLeaf = this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)[0];
-        if (panelLeaf === undefined) {
+        if (panelLeaf === undefined || !this.isBiblePreviewPaneActiveInSideDock()) {
             this.lastPanelEscapeTime = 0;
             return;
         }
@@ -935,20 +957,25 @@ export default class BiblePlugin extends Plugin {
         if (!isSecondEscape) {
             return;
         }
-        void this.closeBiblePreviewPane({ collapseSideDock: true });
+        void this.closeBiblePreviewPane({ collapseSideDock: true, requireActivePreview: true });
     }
     private handlePreviewActiveLeafChange(activeLeaf: WorkspaceLeaf | null): void {
         if (this.suppressPreviewActiveLeafChange) {
             return;
         }
+        if (activeLeaf?.view.getViewType() === BIBLE_PREVIEW_VIEW_TYPE) {
+            this.biblePreviewPaneIsActiveInSideDock = true;
+            return;
+        }
+        if (this.isSideDockUtilityLeaf(activeLeaf)) {
+            this.biblePreviewPaneIsActiveInSideDock = false;
+            return;
+        }
         if (!this.settings.closePreviewOnActiveLeafChange) {
             return;
         }
-        if (activeLeaf?.view.getViewType() === BIBLE_PREVIEW_VIEW_TYPE) {
-            return;
-        }
         this.hideFloatingBiblePreview();
-        void this.closeBiblePreviewPane({ collapseSideDock: true });
+        void this.closeBiblePreviewPane({ collapseSideDock: true, requireActivePreview: true });
     }
     private waitForNextFrame(): Promise<void> {
         return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
