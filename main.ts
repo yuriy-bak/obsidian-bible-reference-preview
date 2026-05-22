@@ -106,6 +106,8 @@ const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
 const MAX_ANALYZED_PARAGRAPH_LINES = 40;
 const MAX_ANALYZED_PARAGRAPH_CHARACTERS = 2000;
+const MAX_REFERENCE_DECORATION_CHUNK_CHARACTERS = 10000;
+const REFERENCE_DECORATION_CHUNK_OVERLAP = 200;
 
 
 const DEFAULT_SETTINGS: BiblePluginSettings = {
@@ -1309,21 +1311,48 @@ export default class BiblePlugin extends Plugin {
         }
 
         const builder = new RangeSetBuilder<Decoration>();
+        const decorationRanges: Array<{ from: number; to: number }> = [];
+        const seenRanges = new Set<string>();
 
         for (const range of view.visibleRanges) {
-            const text = view.state.doc.sliceString(range.from, range.to);
-            const matches = this.bibleReferenceParser.parseMatches(text);
+            for (let chunkStart = range.from; chunkStart < range.to; chunkStart += MAX_REFERENCE_DECORATION_CHUNK_CHARACTERS) {
+                const chunkFrom = Math.max(range.from, chunkStart - REFERENCE_DECORATION_CHUNK_OVERLAP);
+                const chunkTo = Math.min(range.to, chunkStart + MAX_REFERENCE_DECORATION_CHUNK_CHARACTERS);
+                const text = view.state.doc.sliceString(chunkFrom, chunkTo);
+                const matches = this.bibleReferenceParser.parseMatches(text);
 
-            for (const match of matches) {
-                builder.add(
-                    range.from + match.from,
-                    range.from + match.to,
-                    Decoration.mark({
-                        class: "bible-reference-link",
-                        attributes: { style: `color: ${this.getBibleReferenceLinkColor()};` },
-                    }),
-                );
+                for (const match of matches) {
+                    const from = chunkFrom + match.from;
+                    const to = chunkFrom + match.to;
+                    const rangeKey = `${from}:${to}`;
+
+                    if (seenRanges.has(rangeKey)) {
+                        continue;
+                    }
+
+                    seenRanges.add(rangeKey);
+                    decorationRanges.push({ from, to });
+                }
             }
+        }
+
+        decorationRanges.sort((left, right) => left.from - right.from || left.to - right.to);
+
+        let lastAddedTo = -1;
+        for (const range of decorationRanges) {
+            if (range.from < lastAddedTo) {
+                continue;
+            }
+
+            builder.add(
+                range.from,
+                range.to,
+                Decoration.mark({
+                    class: "bible-reference-link",
+                    attributes: { style: `color: ${this.getBibleReferenceLinkColor()};` },
+                }),
+            );
+            lastAddedTo = range.to;
         }
 
         return builder.finish();
@@ -1359,19 +1388,40 @@ export default class BiblePlugin extends Plugin {
     private findBibleReferenceMatchAtPosition(view: EditorView, position: number): { from: number; to: number; text: string } | null {
         const line = view.state.doc.lineAt(position);
         const offset = position - line.from;
-        const matches = this.bibleReferenceParser.parseMatches(line.text);
+        const analysisWindow = this.getLineAnalysisWindowAroundOffset(line.text, offset);
+        const matches = this.bibleReferenceParser.parseMatches(analysisWindow.text);
+        const localOffset = offset - analysisWindow.fromOffset;
 
         for (const match of matches) {
-            if (offset >= match.from && offset <= match.to) {
+            if (localOffset >= match.from && localOffset <= match.to) {
                 return {
-                    from: line.from + match.from,
-                    to: line.from + match.to,
+                    from: line.from + analysisWindow.fromOffset + match.from,
+                    to: line.from + analysisWindow.fromOffset + match.to,
                     text: match.text,
                 };
             }
         }
 
         return null;
+    }
+
+    private getLineAnalysisWindowAroundOffset(lineText: string, offset: number): { text: string; fromOffset: number } {
+        if (lineText.length <= MAX_ANALYZED_PARAGRAPH_CHARACTERS) {
+            return { text: lineText, fromOffset: 0 };
+        }
+
+        const halfLimit = Math.floor(MAX_ANALYZED_PARAGRAPH_CHARACTERS / 2);
+        let fromOffset = Math.max(0, offset - halfLimit);
+        let toOffset = Math.min(lineText.length, fromOffset + MAX_ANALYZED_PARAGRAPH_CHARACTERS);
+
+        if (toOffset === lineText.length) {
+            fromOffset = Math.max(0, toOffset - MAX_ANALYZED_PARAGRAPH_CHARACTERS);
+        }
+
+        return {
+            text: lineText.slice(fromOffset, toOffset),
+            fromOffset,
+        };
     }
 
     private getCurrentAnalysisFragment(update: ViewUpdate): { text: string; end: number } | null {
