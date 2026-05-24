@@ -1,5 +1,5 @@
 import { Notice, Platform } from "obsidian";
-import { BiblePreviewContent, renderBiblePreviewContent } from "../application/formatBibleTexts";
+import { BiblePreviewContent, BiblePreviewReferenceBlock, renderBiblePreviewContent } from "../application/formatBibleTexts";
 
 export type FloatingBiblePreviewAnchor =
     | { type: "default" }
@@ -12,6 +12,9 @@ export type FloatingBiblePreviewWindowInput = {
     getCollapseAria(): string;
     getExpandAria(): string;
     getBackgroundColor(): string;
+    getFindUsagesButtonText?(): string;
+    getFindUsagesButtonAria?(block: BiblePreviewReferenceBlock): string;
+    onFindUsages?(block: BiblePreviewReferenceBlock): void;
     getCloseAria?(): string;
     getOpenInPanelAria?(): string;
     getOpenInPanelIcon?(): string;
@@ -106,7 +109,11 @@ export class FloatingBiblePreviewWindow {
     public show(content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor = { type: "default" }): void {
         this.previewContent = content;
         this.previewText = content.plainText;
-        renderBiblePreviewContent(this.previewContentEl, content);
+        renderBiblePreviewContent(this.previewContentEl, content, {
+            getFindUsagesButtonText: this.labels.getFindUsagesButtonText,
+            getFindUsagesButtonAria: this.labels.getFindUsagesButtonAria,
+            onFindUsages: this.labels.onFindUsages,
+        });
         this.updateBiblePreviewTitle();
 
         if (this.isPreviewCollapsed) {

@@ -8,7 +8,7 @@ import { EditorView, ViewPlugin, ViewUpdate, Decoration, type DecorationSet } fr
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
-import { BiblePreviewContent, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
+import { BiblePreviewContent, BiblePreviewReferenceBlock, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
 import { EpubBibleSourceMetadata } from "./src/infrastructure/EpubBibleImporter";
 import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
@@ -17,6 +17,7 @@ import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/c
 import { BiblePluginLocale, I18nKey, normalizeBiblePluginLocale, t } from "./src/i18n/I18n";
 import { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./src/ui/FloatingBiblePreviewWindow";
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput } from "./src/ui/BiblePreviewPaneView";
+import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, ReferenceUsagePaneViewInput } from "./src/ui/ReferenceUsagePaneView";
 import { ReferenceUsageIndexService, type ReferenceUsageIndexStats, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 
 
@@ -180,6 +181,7 @@ export default class BiblePlugin extends Plugin {
             }
             return view;
         });
+        this.registerView(REFERENCE_USAGE_VIEW_TYPE, (leaf) => new ReferenceUsagePaneView(leaf, this.createReferenceUsagePaneViewInput()));
         this.addCommand({ id: "import-epub-bible", name: this.t("command.importEpubBible"), callback: () => this.openEpubFilePicker() });
         this.addCommand({ id: "reload-bible-index", name: this.t("command.reloadBibleIndex"), callback: () => void this.reloadBibleIndex() });
         this.addCommand({ id: "open-bible-index-folder", name: this.t("command.openBibleIndexFolder"), callback: () => void this.openBibleIndexFolder() });
@@ -189,6 +191,7 @@ export default class BiblePlugin extends Plugin {
         this.addCommand({ id: "clear-reference-usage-index", name: this.t("command.clearReferenceUsageIndex"), callback: () => void this.clearReferenceUsageIndex() });
         this.addCommand({ id: "show-reference-usage-index-stats", name: this.t("command.showReferenceUsageIndexStats"), callback: () => void this.showReferenceUsageIndexStats() });
         this.addCommand({ id: "find-reference-usages-under-cursor", name: this.t("command.findReferenceUsagesUnderCursor"), callback: () => void this.findReferenceUsagesUnderCursor() });
+        this.addCommand({ id: "open-reference-usages-panel-under-cursor", name: this.t("command.openReferenceUsagesPanelUnderCursor"), callback: () => void this.openReferenceUsagesPanelUnderCursor() });
         this.addCommand({
             id: "toggle-bible-preview-active",
             name: this.t("command.togglePluginActive"),
@@ -819,6 +822,54 @@ export default class BiblePlugin extends Plugin {
         ).open();
     }
 
+    public async openReferenceUsagesPanelUnderCursor(): Promise<void> {
+        if (!this.settings.referenceUsageIndexingEnabled) {
+            new Notice(this.t("notice.referenceUsageIndexDisabled"), 4000);
+            return;
+        }
+        const match = this.getBibleReferenceMatchUnderCursorFromActiveEditor(true);
+        if (match === null) return;
+        const results = this.getReferenceUsageIndexService().findUsages(match.references);
+        await this.showReferenceUsageResultsInPanel(this.t("modal.referenceUsages.title", { reference: match.text }), results);
+    }
+
+    private async showReferenceUsagesForPreviewBlock(block: BiblePreviewReferenceBlock): Promise<void> {
+        if (!this.settings.referenceUsageIndexingEnabled) {
+            new Notice(this.t("notice.referenceUsageIndexDisabled"), 4000);
+            return;
+        }
+
+        const results = this.getReferenceUsageIndexService().findUsages(block.references);
+        await this.showReferenceUsageResultsInPanel(this.t("modal.referenceUsages.title", { reference: block.title }), results);
+    }
+
+    private async showReferenceUsageResultsInPanel(titleText: string, results: ReferenceUsageSearchResult[]): Promise<void> {
+        const view = await this.getOrCreateReferenceUsagePaneView();
+        if (view === null) {
+            return;
+        }
+        view.refreshInput(this.createReferenceUsagePaneViewInput());
+        view.setResults(titleText, results);
+    }
+
+    private async getOrCreateReferenceUsagePaneView(): Promise<ReferenceUsagePaneView | null> {
+        const existingLeaf = this.app.workspace.getLeavesOfType(REFERENCE_USAGE_VIEW_TYPE)[0];
+        if (existingLeaf !== undefined) {
+            const existingView = existingLeaf.view;
+            if (existingView instanceof ReferenceUsagePaneView) {
+                return existingView;
+            }
+        }
+
+        const leaf = this.app.workspace.getRightLeaf(false);
+        if (leaf === null) {
+            return null;
+        }
+        await leaf.setViewState({ type: REFERENCE_USAGE_VIEW_TYPE, active: true });
+        const view = leaf.view;
+        return view instanceof ReferenceUsagePaneView ? view : null;
+    }
+
     private async openReferenceUsageResult(result: ReferenceUsageSearchResult): Promise<void> {
         const file = this.app.vault.getAbstractFileByPath(result.filePath);
 
@@ -1162,6 +1213,9 @@ export default class BiblePlugin extends Plugin {
             getCollapseAria: () => this.t("preview.collapseAria"),
             getExpandAria: () => this.t("preview.expandAria"),
             getBackgroundColor: () => this.getFloatingPreviewBackgroundColor(),
+            getFindUsagesButtonText: () => this.t("preview.findUsagesIcon"),
+            getFindUsagesButtonAria: (block) => this.t("preview.findUsagesAria", { reference: block.title }),
+            onFindUsages: (block) => void this.showReferenceUsagesForPreviewBlock(block),
             getCloseAria: () => this.t("preview.closeAria"),
             getOpenInPanelAria: () => this.t("preview.openInPanelAria"),
             getOpenInPanelIcon: () => this.t("preview.openInPanelIcon"),
@@ -1176,7 +1230,20 @@ export default class BiblePlugin extends Plugin {
             getCopyAria: () => this.t("preview.copyAria"),
             getCopyIcon: () => this.t("preview.copyIcon"),
             getCopyNoticeText: () => this.t("notice.bibleTextCopied"),
+            getFindUsagesButtonText: () => this.t("preview.findUsagesIcon"),
+            getFindUsagesButtonAria: (block) => this.t("preview.findUsagesAria", { reference: block.title }),
+            onFindUsages: (block) => void this.showReferenceUsagesForPreviewBlock(block),
             onOpenFloating: (content) => void this.switchBiblePreviewToFloating(content),
+        };
+    }
+
+    private createReferenceUsagePaneViewInput(): ReferenceUsagePaneViewInput {
+        return {
+            getTitle: () => this.t("referenceUsages.panel.titleFallback"),
+            getEmptyText: () => this.t("modal.referenceUsages.empty"),
+            getCountText: (count) => this.t("modal.referenceUsages.count", { count }),
+            getOpenResultAria: (result) => this.t("referenceUsages.openResultAria", { filePath: result.filePath, line: result.line }),
+            onOpenResult: (result) => void this.openReferenceUsageResult(result),
         };
     }
     public showBiblePreviewContent(content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor = { type: "default" }): void {

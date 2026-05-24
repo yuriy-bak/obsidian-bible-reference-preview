@@ -1,5 +1,5 @@
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
-import { BiblePreviewContent, renderBiblePreviewContent } from "../application/formatBibleTexts";
+import { BiblePreviewContent, BiblePreviewReferenceBlock, renderBiblePreviewContent } from "../application/formatBibleTexts";
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
@@ -10,6 +10,9 @@ export type BiblePreviewPaneViewInput = {
     getCopyAria(): string;
     getCopyIcon(): string;
     getCopyNoticeText(): string;
+    getFindUsagesButtonText?(): string;
+    getFindUsagesButtonAria?(block: BiblePreviewReferenceBlock): string;
+    onFindUsages?(block: BiblePreviewReferenceBlock): void;
     onOpenFloating(content: BiblePreviewContent): void;
 };
 
@@ -159,7 +162,11 @@ export class BiblePreviewPaneView extends ItemView {
     private renderCurrentContent(): void {
         if (this.contentContainerEl === null) return;
         this.contentContainerEl.replaceChildren();
-        if (this.currentContent !== null) renderBiblePreviewContent(this.contentContainerEl, this.currentContent);
+        if (this.currentContent !== null) renderBiblePreviewContent(this.contentContainerEl, this.currentContent, {
+            getFindUsagesButtonText: this.input.getFindUsagesButtonText,
+            getFindUsagesButtonAria: this.input.getFindUsagesButtonAria,
+            onFindUsages: this.input.onFindUsages,
+        });
     }
 
     private async copyCurrentText(): Promise<void> {

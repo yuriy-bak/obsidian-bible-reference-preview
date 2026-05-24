@@ -13,12 +13,15 @@ export type BiblePreviewContent = {
     blocks: BiblePreviewBlock[];
 };
 
+export type BiblePreviewReferenceBlock = {
+    type: "reference";
+    title: string;
+    references: BibleReference[];
+    paragraphs: BiblePreviewParagraph[];
+};
+
 export type BiblePreviewBlock =
-    | {
-        type: "reference";
-        title: string;
-        paragraphs: BiblePreviewParagraph[];
-    }
+    | BiblePreviewReferenceBlock
     | {
         type: "footnote";
         text: string;
@@ -27,6 +30,12 @@ export type BiblePreviewBlock =
         type: "separator";
         text: typeof DIFFERENT_BOOK_SEPARATOR;
     };
+
+export type BiblePreviewRenderOptions = {
+    getFindUsagesButtonText?(): string;
+    getFindUsagesButtonAria?(block: BiblePreviewReferenceBlock): string;
+    onFindUsages?(block: BiblePreviewReferenceBlock): void;
+};
 
 export type BiblePreviewParagraph = {
     verses: BiblePreviewVerse[];
@@ -39,7 +48,7 @@ export type BiblePreviewVerse = {
 
 type RenderedReferenceBlock = {
     book: number;
-    block: Extract<BiblePreviewBlock, { type: "reference" }>;
+    block: BiblePreviewReferenceBlock;
     footnotes: string[];
 };
 
@@ -50,7 +59,7 @@ export function formatBibleTextBlocks(
 ): BiblePreviewContent {
     const previewBlocks: BiblePreviewBlock[] = [];
     let currentBook: number | null = null;
-    let pendingReferenceBlocks: Array<Extract<BiblePreviewBlock, { type: "reference" }>> = [];
+    let pendingReferenceBlocks: BiblePreviewReferenceBlock[] = [];
     let pendingFootnotes: string[] = [];
 
     const flushCurrentBookGroup = (): void => {
@@ -92,7 +101,7 @@ export function formatBibleTextBlocks(
     };
 }
 
-export function renderBiblePreviewContent(containerEl: HTMLElement, content: BiblePreviewContent): void {
+export function renderBiblePreviewContent(containerEl: HTMLElement, content: BiblePreviewContent, options: BiblePreviewRenderOptions = {}): void {
     containerEl.replaceChildren();
 
     let previousRenderedBlockType: "reference" | "footnote" | "separator" | null = null;
@@ -127,10 +136,41 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         const referenceEl = document.createElement("div");
         referenceEl.className = "bible-preview-reference-block";
 
+        const titleRowEl = document.createElement("div");
+        titleRowEl.className = "bible-preview-reference-title-row";
+        titleRowEl.style.display = "flex";
+        titleRowEl.style.alignItems = "center";
+        titleRowEl.style.gap = "6px";
+        titleRowEl.style.justifyContent = "space-between";
+
         const titleEl = document.createElement("div");
         titleEl.className = "bible-preview-reference-title";
         titleEl.textContent = `${block.title}.`;
-        referenceEl.appendChild(titleEl);
+        titleEl.style.flex = "1 1 auto";
+        titleRowEl.appendChild(titleEl);
+
+        if (options.onFindUsages !== undefined && block.references.length > 0) {
+            const findUsagesButtonEl = document.createElement("button");
+            findUsagesButtonEl.type = "button";
+            findUsagesButtonEl.className = "bible-preview-reference-usages-button";
+            findUsagesButtonEl.textContent = options.getFindUsagesButtonText?.() ?? "🔎";
+            const ariaLabel = options.getFindUsagesButtonAria?.(block) ?? block.title;
+            findUsagesButtonEl.setAttribute("aria-label", ariaLabel);
+            findUsagesButtonEl.setAttribute("title", ariaLabel);
+            findUsagesButtonEl.style.flex = "0 0 auto";
+            findUsagesButtonEl.style.padding = "1px 6px";
+            findUsagesButtonEl.style.minWidth = "24px";
+            findUsagesButtonEl.style.height = "24px";
+            findUsagesButtonEl.style.lineHeight = "1";
+            findUsagesButtonEl.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                options.onFindUsages?.(block);
+            });
+            titleRowEl.appendChild(findUsagesButtonEl);
+        }
+
+        referenceEl.appendChild(titleRowEl);
 
         block.paragraphs.forEach((paragraph) => {
             const paragraphEl = document.createElement("div");
@@ -176,30 +216,73 @@ function renderSourceTextGroup(
     mapping: BookMapping,
     missingVerseText: string,
 ): RenderedReferenceBlock[] {
-    const firstBlock = blocks[0];
-    if (firstBlock === undefined) {
-        return [];
-    }
+    const renderedBlocks = blocks.flatMap((block) => renderBibleTextBlock(block, mapping, missingVerseText, false));
+    const groupedBlocks: RenderedReferenceBlock[] = [];
 
-    if (canRenderUnderSingleSourceTitle(blocks)) {
-        const renderedBlocks = blocks.map((block) => renderSingleChapterBlock(block, mapping, missingVerseText, false));
-        const nonEmptyBlocks = renderedBlocks.filter((block): block is RenderedReferenceBlock => block !== null);
-        if (nonEmptyBlocks.length === 0) {
-            return [];
+    for (const renderedBlock of renderedBlocks) {
+        const previousBlock = groupedBlocks[groupedBlocks.length - 1];
+        if (previousBlock !== undefined && canMergeRenderedReferenceBlocksByChapter(previousBlock, renderedBlock)) {
+            groupedBlocks[groupedBlocks.length - 1] = mergeRenderedReferenceBlocksByChapter(previousBlock, renderedBlock, mapping);
+            continue;
         }
 
-        return [{
-            book: nonEmptyBlocks[0].book,
-            block: {
-                type: "reference",
-                title: formatSourceReferenceTitle(firstBlock.sourceText ?? formatBibleReference(firstBlock.reference, mapping)),
-                paragraphs: nonEmptyBlocks.flatMap((item) => item.block.paragraphs),
-            },
-            footnotes: nonEmptyBlocks.flatMap((item) => item.footnotes),
-        }];
+        groupedBlocks.push(renderedBlock);
     }
 
-    return blocks.flatMap((block) => renderBibleTextBlock(block, mapping, missingVerseText, blocks.length === 1));
+    return groupedBlocks;
+}
+
+function canMergeRenderedReferenceBlocksByChapter(left: RenderedReferenceBlock, right: RenderedReferenceBlock): boolean {
+    const leftReference = left.block.references[0];
+    const rightReference = right.block.references[0];
+
+    return leftReference !== undefined
+        && rightReference !== undefined
+        && leftReference.book === rightReference.book
+        && leftReference.chapterStart === leftReference.chapterEnd
+        && rightReference.chapterStart === rightReference.chapterEnd
+        && leftReference.chapterStart === rightReference.chapterStart;
+}
+
+function mergeRenderedReferenceBlocksByChapter(
+    left: RenderedReferenceBlock,
+    right: RenderedReferenceBlock,
+    mapping: BookMapping,
+): RenderedReferenceBlock {
+    const references = [...left.block.references, ...right.block.references];
+
+    return {
+        book: left.book,
+        block: {
+            type: "reference",
+            title: formatChapterReferenceGroupTitle(references, mapping),
+            references,
+            paragraphs: [...left.block.paragraphs, ...right.block.paragraphs],
+        },
+        footnotes: [...left.footnotes, ...right.footnotes],
+    };
+}
+
+function formatChapterReferenceGroupTitle(references: BibleReference[], mapping: BookMapping): string {
+    const firstReference = references[0];
+    if (firstReference === undefined) {
+        return "";
+    }
+
+    if (references.length === 1) {
+        return formatBibleReference(firstReference, mapping);
+    }
+
+    const verseSegments = references.slice(1).map((reference) => formatReferenceVerseSegment(reference));
+    return `${formatBibleReference(firstReference, mapping)}, ${verseSegments.join(", ")}`;
+}
+
+function formatReferenceVerseSegment(reference: BibleReference): string {
+    if (reference.verseEnd !== undefined && reference.verseEnd !== reference.verseStart) {
+        return `${reference.verseStart}-${reference.verseEnd}`;
+    }
+
+    return `${reference.verseStart}`;
 }
 
 function canRenderUnderSingleSourceTitle(blocks: BibleTextBlock[]): boolean {
@@ -255,6 +338,7 @@ function renderSingleChapterBlock(
             title: useSourceTitle && block.sourceText !== undefined
                 ? formatSourceReferenceTitle(block.sourceText)
                 : formatBibleReference(createReferenceForPart(block.reference, part), mapping),
+            references: [block.reference],
             paragraphs,
         },
         footnotes: collectPartFootnotes(part, mapping),
@@ -277,6 +361,7 @@ function renderPartAsReferenceBlock(
         block: {
             type: "reference",
             title: formatBibleReference(createReferenceForPart(reference, part), mapping),
+            references: [createReferenceForPart(reference, part)],
             paragraphs,
         },
         footnotes: collectPartFootnotes(part, mapping),
