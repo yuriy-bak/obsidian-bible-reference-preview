@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Improved side-panel activation for Bible preview and reference usage results.
+- Added Obsidian commands and default hotkeys for scrolling Bible preview in the side panel and floating window.
+
 ## 0.1.0 - Initial release
 
 - Added Russian and English interface localization.

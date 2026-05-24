@@ -3,6 +3,8 @@ import { BiblePreviewContent, BiblePreviewReferenceBlock, renderBiblePreviewCont
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
+export type BiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
+
 export type BiblePreviewPaneViewInput = {
     getTitle(): string;
     getOpenFloatingAria(): string;
@@ -19,6 +21,7 @@ export type BiblePreviewPaneViewInput = {
 export class BiblePreviewPaneView extends ItemView {
     private rootEl: HTMLDivElement | null = null;
     private contentContainerEl: HTMLDivElement | null = null;
+    private contentScrollEl: HTMLElement | null = null;
     private titleEl: HTMLDivElement | null = null;
     private copyButtonEl: HTMLButtonElement | null = null;
     private openFloatingButtonEl: HTMLButtonElement | null = null;
@@ -40,6 +43,7 @@ export class BiblePreviewPaneView extends ItemView {
     async onClose(): Promise<void> {
         this.rootEl = null;
         this.contentContainerEl = null;
+        this.contentScrollEl = null;
         this.titleEl = null;
         this.copyButtonEl = null;
         this.openFloatingButtonEl = null;
@@ -51,6 +55,34 @@ export class BiblePreviewPaneView extends ItemView {
         this.renderCurrentContent();
         window.requestAnimationFrame(() => this.renderCurrentContent());
         window.setTimeout(() => this.renderCurrentContent(), 50);
+    }
+
+    public canScrollPreview(): boolean {
+        const scrollEl = this.contentScrollEl;
+        return scrollEl !== null && scrollEl.scrollHeight > scrollEl.clientHeight;
+    }
+
+    public scrollPreview(command: BiblePreviewScrollCommand): boolean {
+        const scrollEl = this.contentScrollEl;
+        if (scrollEl === null || scrollEl.clientHeight <= 0 || !this.canScrollPreview()) {
+            return false;
+        }
+
+        const delta = Math.max(120, scrollEl.clientHeight * 0.8);
+        switch (command) {
+            case "page-down":
+                scrollEl.scrollTop += delta;
+                return true;
+            case "page-up":
+                scrollEl.scrollTop -= delta;
+                return true;
+            case "top":
+                scrollEl.scrollTop = 0;
+                return true;
+            case "bottom":
+                scrollEl.scrollTop = scrollEl.scrollHeight;
+                return true;
+        }
     }
 
     clearContent(): void {
@@ -122,6 +154,7 @@ export class BiblePreviewPaneView extends ItemView {
         this.contentContainerEl.style.userSelect = "text";
         this.contentContainerEl.style.lineHeight = "1.45";
         this.contentContainerEl.style.fontSize = "var(--font-text-size)";
+        this.contentScrollEl = this.contentContainerEl;
     }
 
     private createIconButton(text: string, label: string): HTMLButtonElement {

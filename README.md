@@ -49,6 +49,18 @@ Reimporting the same translation replaces its previous data.
 
 The plugin includes the command **Open Bible reference under cursor**. Use the built-in shortcut option in plugin settings or assign any Obsidian hotkey in Settings → Hotkeys.
 
+### Bible preview hotkeys
+
+The Bible preview can be scrolled with Obsidian commands in the side panel and in the floating window.
+Default hotkeys:
+
+- Alt+PageDown — scroll down
+- Alt+PageUp — scroll up
+- Alt+Home — scroll to top
+- Alt+End — scroll to bottom
+
+You can change these shortcuts in Settings → Hotkeys.
+
 ## Known limitations
 
 - Command names are registered when the plugin loads. Restart the plugin to update command names after changing the interface language.
@@ -67,6 +79,18 @@ The plugin includes the command **Open Bible reference under cursor**. Use the b
 4. Импортируй EPUB/TSV.
 5. Используй ссылки вроде `Ин3:16` или `Авд2-4`.
 6. При необходимости назначь hotkey для команды открытия ссылки под курсором.
+
+### Горячие клавиши предпросмотра Библии
+
+Предпросмотр Библии можно прокручивать командами Obsidian в боковой панели и в плавающем окне.
+Горячие клавиши по умолчанию:
+
+- Alt+PageDown — прокрутить вниз
+- Alt+PageUp — прокрутить вверх
+- Alt+Home — в начало
+- Alt+End — в конец
+
+Сочетания можно изменить в Settings → Hotkeys.
 
 ## License
 

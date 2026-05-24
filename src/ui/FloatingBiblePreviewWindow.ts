@@ -5,6 +5,8 @@ export type FloatingBiblePreviewAnchor =
     | { type: "default" }
     | { type: "element"; element: HTMLElement };
 
+export type FloatingBiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
+
 export type FloatingBiblePreviewWindowInput = {
     getTitle(): string;
     getCopyNoticeText(): string;
@@ -169,6 +171,35 @@ export class FloatingBiblePreviewWindow {
     public isVisible(): boolean {
         return this.previewText.length > 0
             && (this.previewPanelEl.style.display !== "none" || this.collapsedButtonEl.style.display !== "none");
+    }
+
+    public canScrollPreview(): boolean {
+        return this.previewText.length > 0
+            && !this.isPreviewCollapsed
+            && this.previewPanelEl.style.display !== "none"
+            && this.previewContentEl.scrollHeight > this.previewContentEl.clientHeight;
+    }
+
+    public scrollPreview(command: FloatingBiblePreviewScrollCommand): boolean {
+        if (!this.canScrollPreview()) {
+            return false;
+        }
+
+        const delta = Math.max(120, this.previewContentEl.clientHeight * 0.8);
+        switch (command) {
+            case "page-down":
+                this.previewContentEl.scrollTop += delta;
+                return true;
+            case "page-up":
+                this.previewContentEl.scrollTop -= delta;
+                return true;
+            case "top":
+                this.previewContentEl.scrollTop = 0;
+                return true;
+            case "bottom":
+                this.previewContentEl.scrollTop = this.previewContentEl.scrollHeight;
+                return true;
+        }
     }
 
     private createPreviewPanelElement(): HTMLDivElement {

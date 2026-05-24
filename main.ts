@@ -16,7 +16,7 @@ import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/Obsidian
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BiblePluginLocale, I18nKey, normalizeBiblePluginLocale, t } from "./src/i18n/I18n";
 import { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./src/ui/FloatingBiblePreviewWindow";
-import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput } from "./src/ui/BiblePreviewPaneView";
+import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, ReferenceUsagePaneViewInput } from "./src/ui/ReferenceUsagePaneView";
 import { ReferenceUsageIndexService, type ReferenceUsageIndexStats, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 
@@ -78,6 +78,10 @@ type BiblePreviewSideDock = {
     expand?(): void;
     activeLeaf?: WorkspaceLeaf;
     activeTab?: { leaf?: WorkspaceLeaf };
+    setActiveLeaf?(leaf: WorkspaceLeaf): void;
+};
+type BiblePreviewWorkspaceReveal = {
+    revealLeaf?(leaf: WorkspaceLeaf): Promise<void> | void;
 };
 type BiblePreviewWorkspaceFocus = {
     setActiveLeaf?(leaf: WorkspaceLeaf, params?: { focus?: boolean }): void;
@@ -192,6 +196,30 @@ export default class BiblePlugin extends Plugin {
         this.addCommand({ id: "show-reference-usage-index-stats", name: this.t("command.showReferenceUsageIndexStats"), callback: () => void this.showReferenceUsageIndexStats() });
         this.addCommand({ id: "find-reference-usages-under-cursor", name: this.t("command.findReferenceUsagesUnderCursor"), callback: () => void this.findReferenceUsagesUnderCursor() });
         this.addCommand({ id: "open-reference-usages-panel-under-cursor", name: this.t("command.openReferenceUsagesPanelUnderCursor"), callback: () => void this.openReferenceUsagesPanelUnderCursor() });
+        this.addCommand({
+            id: "scroll-bible-preview-panel-page-down",
+            name: this.t("command.scrollBiblePreviewPanelPageDown"),
+            hotkeys: [{ modifiers: ["Alt"], key: "PageDown" }],
+            callback: () => void this.scrollBiblePreview("page-down"),
+        });
+        this.addCommand({
+            id: "scroll-bible-preview-panel-page-up",
+            name: this.t("command.scrollBiblePreviewPanelPageUp"),
+            hotkeys: [{ modifiers: ["Alt"], key: "PageUp" }],
+            callback: () => void this.scrollBiblePreview("page-up"),
+        });
+        this.addCommand({
+            id: "scroll-bible-preview-panel-top",
+            name: this.t("command.scrollBiblePreviewPanelTop"),
+            hotkeys: [{ modifiers: ["Alt"], key: "Home" }],
+            callback: () => void this.scrollBiblePreview("top"),
+        });
+        this.addCommand({
+            id: "scroll-bible-preview-panel-bottom",
+            name: this.t("command.scrollBiblePreviewPanelBottom"),
+            hotkeys: [{ modifiers: ["Alt"], key: "End" }],
+            callback: () => void this.scrollBiblePreview("bottom"),
+        });
         this.addCommand({
             id: "toggle-bible-preview-active",
             name: this.t("command.togglePluginActive"),
@@ -857,6 +885,8 @@ export default class BiblePlugin extends Plugin {
         if (existingLeaf !== undefined) {
             const existingView = existingLeaf.view;
             if (existingView instanceof ReferenceUsagePaneView) {
+                await this.revealLeafWithoutStealingEditorFocus(existingLeaf, { focus: true });
+                existingView.refreshInput(this.createReferenceUsagePaneViewInput());
                 return existingView;
             }
         }
@@ -866,6 +896,7 @@ export default class BiblePlugin extends Plugin {
             return null;
         }
         await leaf.setViewState({ type: REFERENCE_USAGE_VIEW_TYPE, active: true });
+        await this.revealLeafWithoutStealingEditorFocus(leaf, { focus: true });
         const view = leaf.view;
         return view instanceof ReferenceUsagePaneView ? view : null;
     }
@@ -1278,31 +1309,38 @@ export default class BiblePlugin extends Plugin {
     }
     private async showBiblePreviewInPanel(content: BiblePreviewContent): Promise<void> {
         this.lastPanePreviewContent = content;
-        const view = await this.getOrCreateBiblePreviewPaneView();
+        const activeLeafBeforeOpen = this.app.workspace.activeLeaf;
+        const restoreActiveLeaf = activeLeafBeforeOpen?.view instanceof MarkdownView ? activeLeafBeforeOpen : null;
+        const view = await this.getOrCreateBiblePreviewPaneView({ restoreActiveLeaf });
         if (view === null) {
             return;
         }
         this.applyContentToPaneView(view, content);
     }
+
     private applyContentToPaneView(view: BiblePreviewPaneView, content: BiblePreviewContent): void {
         view.setContent(content);
         window.requestAnimationFrame(() => view.setContent(content));
         window.setTimeout(() => view.setContent(content), 50);
         window.setTimeout(() => view.setContent(content), 250);
     }
-    private async getOrCreateBiblePreviewPaneView(): Promise<BiblePreviewPaneView | null> {
+
+    private async getOrCreateBiblePreviewPaneView(options: { restoreActiveLeaf?: WorkspaceLeaf | null } = {}): Promise<BiblePreviewPaneView | null> {
         const existingLeaf = this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)[0];
         if (existingLeaf !== undefined) {
             const existingView = existingLeaf.view;
             if (existingView instanceof BiblePreviewPaneView) {
                 this.biblePreviewPaneIsActiveInSideDock = true;
                 this.expandBiblePreviewSideDock();
+                await this.revealLeafWithoutStealingEditorFocus(existingLeaf, {
+                    restoreActiveLeaf: options.restoreActiveLeaf ?? null,
+                    focus: false,
+                });
                 existingView.refreshInput(this.createBiblePreviewPaneViewInput());
                 return existingView;
             }
         }
 
-        const activeLeafBeforeOpen = this.app.workspace.activeLeaf;
         const leaf = this.settings.previewPanelSide === "left"
             ? this.app.workspace.getLeftLeaf(false)
             : this.app.workspace.getRightLeaf(false);
@@ -1316,22 +1354,154 @@ export default class BiblePlugin extends Plugin {
             await leaf.setViewState({ type: BIBLE_PREVIEW_VIEW_TYPE, active: true });
             this.biblePreviewPaneIsActiveInSideDock = true;
             this.expandBiblePreviewSideDock();
+            await this.revealLeafWithoutStealingEditorFocus(leaf, {
+                restoreActiveLeaf: options.restoreActiveLeaf ?? null,
+                focus: false,
+            });
             await this.waitForNextFrame();
             await this.waitForNextFrame();
             const createdLeaf = this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)[0] ?? leaf;
             const view = createdLeaf.view;
             if (view instanceof BiblePreviewPaneView) {
                 view.refreshInput(this.createBiblePreviewPaneViewInput());
-                this.restoreActiveLeafAfterPreviewOpen(activeLeafBeforeOpen);
                 return view;
             }
             return null;
         } finally {
             window.setTimeout(() => {
                 this.suppressPreviewActiveLeafChange = false;
-            }, 0);
+            }, 100);
         }
     }
+
+    private async scrollBiblePreview(command: BiblePreviewScrollCommand): Promise<void> {
+        if (!this.isPluginActive()) {
+            return;
+        }
+
+        this.floatingPreviewWindow?.scrollPreview(command);
+
+        if (this.settings.previewDisplayMode !== "side-panel") {
+            return;
+        }
+
+        const leaf = this.app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)[0];
+        if (leaf === undefined || !(leaf.view instanceof BiblePreviewPaneView)) {
+            return;
+        }
+
+        const activeLeafBeforeScroll = this.app.workspace.activeLeaf;
+        await this.revealLeafWithoutStealingEditorFocus(leaf, {
+            restoreActiveLeaf: activeLeafBeforeScroll?.view instanceof MarkdownView ? activeLeafBeforeScroll : null,
+            focus: false,
+        });
+        leaf.view.scrollPreview(command);
+    }
+
+    private async revealLeafWithoutStealingEditorFocus(
+        leaf: WorkspaceLeaf,
+        options: {
+            restoreActiveLeaf?: WorkspaceLeaf | null;
+            focus?: boolean;
+        } = {},
+    ): Promise<void> {
+        const workspace = this.app.workspace as typeof this.app.workspace & BiblePreviewWorkspaceFocus & BiblePreviewWorkspaceReveal;
+        const shouldSuppressPreviewLeafChange = leaf.view.getViewType() === BIBLE_PREVIEW_VIEW_TYPE;
+        const restoreActiveLeaf = options.restoreActiveLeaf ?? null;
+        const focus = options.focus === true;
+
+        if (shouldSuppressPreviewLeafChange) {
+            this.suppressPreviewActiveLeafChange = true;
+        }
+
+        try {
+            this.expandSideDockForLeaf(leaf);
+            this.activateLeafInSideDock(leaf);
+
+            if (typeof workspace.revealLeaf === "function") {
+                await workspace.revealLeaf(leaf);
+            }
+
+            this.expandSideDockForLeaf(leaf);
+            this.activateLeafInSideDock(leaf);
+
+            if (typeof workspace.setActiveLeaf === "function") {
+                workspace.setActiveLeaf(leaf, { focus });
+            }
+
+            this.expandSideDockForLeaf(leaf);
+            this.activateLeafInSideDock(leaf);
+        } finally {
+            if (restoreActiveLeaf !== null && !focus) {
+                window.setTimeout(() => this.restoreActiveLeafAfterPreviewOpen(restoreActiveLeaf), 0);
+                window.setTimeout(() => this.restoreActiveLeafAfterPreviewOpen(restoreActiveLeaf), 50);
+            }
+            if (shouldSuppressPreviewLeafChange) {
+                window.setTimeout(() => {
+                    this.suppressPreviewActiveLeafChange = false;
+                }, 100);
+            }
+        }
+    }
+
+    private activateLeafInSideDock(leaf: WorkspaceLeaf): void {
+        this.activateLeafInSplit(leaf);
+        const sideDock = this.getSideDockForLeaf(leaf);
+        if (sideDock === undefined) {
+            return;
+        }
+        if (typeof sideDock.setActiveLeaf === "function") {
+            sideDock.setActiveLeaf(leaf);
+        }
+        sideDock.activeLeaf = leaf;
+        if (sideDock.activeTab !== undefined) {
+            sideDock.activeTab.leaf = leaf;
+        }
+    }
+
+    private activateLeafInSplit(leaf: WorkspaceLeaf): void {
+        let parent: unknown = leaf;
+        const visitedParents = new Set<unknown>();
+
+        while (isRecord(parent) && !visitedParents.has(parent)) {
+            visitedParents.add(parent);
+            const setActiveLeaf = parent["setActiveLeaf"];
+            if (typeof setActiveLeaf === "function") {
+                setActiveLeaf.call(parent, leaf);
+            }
+            parent = parent["parent"];
+        }
+    }
+
+    private expandSideDockForLeaf(leaf: WorkspaceLeaf): void {
+        const sideDock = this.getSideDockForLeaf(leaf);
+        if (sideDock !== undefined && sideDock.collapsed === true && typeof sideDock.expand === "function") {
+            sideDock.expand();
+        }
+    }
+
+    private getSideDockForLeaf(leaf: WorkspaceLeaf): BiblePreviewSideDock | undefined {
+        const workspaceWithSideDocks = this.app.workspace as typeof this.app.workspace & {
+            leftSplit?: BiblePreviewSideDock;
+            rightSplit?: BiblePreviewSideDock;
+        };
+        const leftSplit = workspaceWithSideDocks.leftSplit;
+        const rightSplit = workspaceWithSideDocks.rightSplit;
+        const leafContainer = (leaf.view as typeof leaf.view & { containerEl?: HTMLElement }).containerEl;
+
+        if (this.getSideDockActiveLeaf(leftSplit) === leaf || (leafContainer?.closest(".workspace-sidedock.mod-left-split") ?? null) !== null) {
+            return leftSplit;
+        }
+        if (this.getSideDockActiveLeaf(rightSplit) === leaf || (leafContainer?.closest(".workspace-sidedock.mod-right-split") ?? null) !== null) {
+            return rightSplit;
+        }
+
+        if (leaf.view.getViewType() === BIBLE_PREVIEW_VIEW_TYPE) {
+            return this.getBiblePreviewSideDock();
+        }
+        return rightSplit ?? leftSplit;
+    }
+
     private restoreActiveLeafAfterPreviewOpen(activeLeaf: WorkspaceLeaf | null): void {
         if (activeLeaf === null || activeLeaf.view.getViewType() === BIBLE_PREVIEW_VIEW_TYPE) {
             return;
