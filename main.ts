@@ -1,7 +1,8 @@
 
-import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
+import { App, MarkdownView, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, type TAbstractFile, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
 import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
+import type { BibleReference } from "./src/domain/BibleReference";
 import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, type DecorationSet } from "@codemirror/view";
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
@@ -16,6 +17,7 @@ import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/c
 import { BiblePluginLocale, I18nKey, normalizeBiblePluginLocale, t } from "./src/i18n/I18n";
 import { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./src/ui/FloatingBiblePreviewWindow";
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput } from "./src/ui/BiblePreviewPaneView";
+import { ReferenceUsageIndexService, type ReferenceUsageIndexStats, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -98,6 +100,9 @@ type BiblePluginSettings = {
     closePreviewOnActiveLeafChange: boolean;
     interceptLinkOpenShortcut: boolean;
     linkOpenShortcut: BibleLinkOpenShortcut;
+    referenceUsageIndexingEnabled: boolean;
+    referenceUsageAutoUpdate: boolean;
+    referenceUsageExcludedFolders: string[];
 };
 
 const DEFAULT_BIBLE_REFERENCE_LINK_COLOR = "var(--link-color)";
@@ -107,6 +112,8 @@ const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
 const MAX_ANALYZED_PARAGRAPH_LINES = 40;
 const MAX_ANALYZED_PARAGRAPH_CHARACTERS = 2000;
+const DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS = ["Attachments/", "Templates/", "Archive/", "Bible/"];
+const REFERENCE_USAGE_FILE_UPDATE_DELAY_MS = 1500;
 
 
 const DEFAULT_SETTINGS: BiblePluginSettings = {
@@ -121,6 +128,9 @@ const DEFAULT_SETTINGS: BiblePluginSettings = {
     closePreviewOnActiveLeafChange: true,
     interceptLinkOpenShortcut: true,
     linkOpenShortcut: "alt-enter",
+    referenceUsageIndexingEnabled: false,
+    referenceUsageAutoUpdate: !Platform.isMobileApp,
+    referenceUsageExcludedFolders: DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS,
 };
 
 type TranslationSettingsItem = {
@@ -149,6 +159,9 @@ export default class BiblePlugin extends Plugin {
     private suppressPreviewActiveLeafChange = false;
     private biblePreviewPaneIsActiveInSideDock = false;
     private pluginActiveRibbonIconEl: HTMLElement | null = null;
+    private referenceUsageIndexService: ReferenceUsageIndexService | null = null;
+    private referenceUsageIndexingInProgress = false;
+    private readonly referenceUsageFileUpdateTimeouts = new Map<string, number>();
     private readonly editorViews = new Set<EditorView>();
     private readonly previewControllers = new Map<EditorView, BiblePreviewController>();
     private readonly linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.handleLinkOpenShortcutKeydown(event);
@@ -157,6 +170,7 @@ export default class BiblePlugin extends Plugin {
     async onload() {
         await this.loadPluginSettings();
         await this.loadBibleIndex();
+        await this.loadReferenceUsageIndex();
         this.floatingPreviewWindow = new FloatingBiblePreviewWindow(this.createFloatingPreviewWindowInput());
         this.register(() => this.floatingPreviewWindow?.destroy());
         this.registerView(BIBLE_PREVIEW_VIEW_TYPE, (leaf) => {
@@ -170,6 +184,11 @@ export default class BiblePlugin extends Plugin {
         this.addCommand({ id: "reload-bible-index", name: this.t("command.reloadBibleIndex"), callback: () => void this.reloadBibleIndex() });
         this.addCommand({ id: "open-bible-index-folder", name: this.t("command.openBibleIndexFolder"), callback: () => void this.openBibleIndexFolder() });
         this.addCommand({ id: "show-bible-index-stats", name: this.t("command.showBibleIndexStats"), callback: () => void this.showBibleIndexStats() });
+        this.addCommand({ id: "build-reference-usage-index", name: this.t("command.buildReferenceUsageIndex"), callback: () => void this.buildReferenceUsageIndex() });
+        this.addCommand({ id: "rebuild-reference-usage-index", name: this.t("command.rebuildReferenceUsageIndex"), callback: () => void this.rebuildReferenceUsageIndex() });
+        this.addCommand({ id: "clear-reference-usage-index", name: this.t("command.clearReferenceUsageIndex"), callback: () => void this.clearReferenceUsageIndex() });
+        this.addCommand({ id: "show-reference-usage-index-stats", name: this.t("command.showReferenceUsageIndexStats"), callback: () => void this.showReferenceUsageIndexStats() });
+        this.addCommand({ id: "find-reference-usages-under-cursor", name: this.t("command.findReferenceUsagesUnderCursor"), callback: () => void this.findReferenceUsagesUnderCursor() });
         this.addCommand({
             id: "toggle-bible-preview-active",
             name: this.t("command.togglePluginActive"),
@@ -196,9 +215,10 @@ export default class BiblePlugin extends Plugin {
         this.registerGlobalLinkOpenShortcutHandler();
         this.registerReadingModeBibleReferenceLinks();
         this.registerEditorExtension(this.createCursorExtension());
+        this.registerReferenceUsageIndexEvents();
     }
 
-    onunload() {}
+    onunload() { }
 
     private async loadBibleIndex(): Promise<void> {
         try {
@@ -344,6 +364,33 @@ export default class BiblePlugin extends Plugin {
 
     private async savePluginSettings(): Promise<void> {
         await this.saveData(this.settings);
+    }
+
+    private async loadReferenceUsageIndex(): Promise<void> {
+        this.referenceUsageIndexService = new ReferenceUsageIndexService(
+            this.app,
+            () => this.getBibleIndexDataDirectoryPath(),
+            (text) => this.bibleReferenceParser.parseMatches(text),
+            () => this.settings.referenceUsageExcludedFolders,
+        );
+        try {
+            await this.referenceUsageIndexService.load();
+        } catch (error) {
+            console.warn("Bible reference usage index load failed", error);
+            new Notice(this.t("notice.referenceUsageIndexLoadFailed"), 5000);
+        }
+    }
+
+    private getReferenceUsageIndexService(): ReferenceUsageIndexService {
+        if (this.referenceUsageIndexService === null) {
+            this.referenceUsageIndexService = new ReferenceUsageIndexService(
+                this.app,
+                () => this.getBibleIndexDataDirectoryPath(),
+                (text) => this.bibleReferenceParser.parseMatches(text),
+                () => this.settings.referenceUsageExcludedFolders,
+            );
+        }
+        return this.referenceUsageIndexService;
     }
 
     private updateBookMapping(v2Data: BibleIndexV2Data | null): void {
@@ -653,6 +700,240 @@ export default class BiblePlugin extends Plugin {
         this.settings = { ...this.settings, linkOpenShortcut };
         await this.savePluginSettings();
         this.refreshSettingsTab();
+    }
+
+    public isReferenceUsageIndexingEnabled(): boolean {
+        return this.settings.referenceUsageIndexingEnabled;
+    }
+
+    public shouldAutoUpdateReferenceUsageIndex(): boolean {
+        return this.settings.referenceUsageAutoUpdate;
+    }
+
+    public getReferenceUsageExcludedFoldersText(): string {
+        return this.settings.referenceUsageExcludedFolders.join("\n");
+    }
+
+    public async setReferenceUsageIndexingEnabled(referenceUsageIndexingEnabled: boolean): Promise<void> {
+        if (this.settings.referenceUsageIndexingEnabled === referenceUsageIndexingEnabled) return;
+        this.settings = { ...this.settings, referenceUsageIndexingEnabled };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
+    public async setReferenceUsageAutoUpdate(referenceUsageAutoUpdate: boolean): Promise<void> {
+        if (this.settings.referenceUsageAutoUpdate === referenceUsageAutoUpdate) return;
+        this.settings = { ...this.settings, referenceUsageAutoUpdate };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
+    public async setReferenceUsageExcludedFoldersText(value: string): Promise<void> {
+        const referenceUsageExcludedFolders = normalizeReferenceUsageExcludedFolders(value);
+        if (areStringArraysEqual(this.settings.referenceUsageExcludedFolders, referenceUsageExcludedFolders)) return;
+        this.settings = { ...this.settings, referenceUsageExcludedFolders };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
+    public async buildReferenceUsageIndex(): Promise<void> {
+        await this.buildReferenceUsageIndexInternal(false);
+    }
+
+    public async rebuildReferenceUsageIndex(): Promise<void> {
+        await this.buildReferenceUsageIndexInternal(true);
+    }
+
+    private async buildReferenceUsageIndexInternal(forceRebuild: boolean): Promise<void> {
+        if (!this.settings.referenceUsageIndexingEnabled) {
+            new Notice(this.t("notice.referenceUsageIndexDisabled"), 4000);
+            return;
+        }
+        if (!this.hasImportedTranslations()) {
+            new Notice(this.t("notice.noImportedTranslations"), 4000);
+            return;
+        }
+        if (this.referenceUsageIndexingInProgress) {
+            new Notice(this.t("notice.referenceUsageIndexAlreadyRunning"), 4000);
+            return;
+        }
+        this.referenceUsageIndexingInProgress = true;
+        const progressNotice = new Notice(this.t("notice.referenceUsageIndexBuildStarted"), 0);
+        try {
+            const result = await this.getReferenceUsageIndexService().build(this.app.vault.getMarkdownFiles(), forceRebuild);
+            new Notice(this.t("notice.referenceUsageIndexBuildCompleted", {
+                fileCount: result.fileCount,
+                updatedFileCount: result.updatedFileCount,
+                referenceCount: result.referenceCount,
+            }), 8000);
+        } catch (error) {
+            console.warn("Bible reference usage index build failed", error);
+            new Notice(this.t("notice.referenceUsageIndexSaveFailed"), 5000);
+        } finally {
+            progressNotice.hide();
+            this.referenceUsageIndexingInProgress = false;
+            this.refreshSettingsTab();
+        }
+    }
+
+    public async clearReferenceUsageIndex(): Promise<void> {
+        try {
+            await this.getReferenceUsageIndexService().clear();
+            this.refreshSettingsTab();
+            new Notice(this.t("notice.referenceUsageIndexCleared"), 4000);
+        } catch (error) {
+            console.warn("Bible reference usage index clear failed", error);
+            new Notice(this.t("notice.referenceUsageIndexSaveFailed"), 5000);
+        }
+    }
+
+    public async showReferenceUsageIndexStats(): Promise<void> {
+        const stats = this.getReferenceUsageIndexService().getStats();
+        new Notice(this.formatReferenceUsageIndexStats(stats), 12000);
+    }
+
+    private formatReferenceUsageIndexStats(stats: ReferenceUsageIndexStats): string {
+        return [
+            this.t("notice.referenceUsageIndexStats"),
+            this.t("notice.referenceUsageIndexStatsFiles", { count: stats.fileCount }),
+            this.t("notice.referenceUsageIndexStatsReferences", { count: stats.referenceCount }),
+            this.t("notice.referenceUsageIndexStatsUpdated", { date: stats.updatedAt <= 0 ? this.t("notice.none") : new Date(stats.updatedAt).toLocaleString() }),
+            this.t("notice.referenceUsageIndexStatsPath", { path: stats.indexPath }),
+        ].join("\n");
+    }
+
+    public async findReferenceUsagesUnderCursor(): Promise<void> {
+        if (!this.settings.referenceUsageIndexingEnabled) {
+            new Notice(this.t("notice.referenceUsageIndexDisabled"), 4000);
+            return;
+        }
+        const match = this.getBibleReferenceMatchUnderCursorFromActiveEditor(true);
+        if (match === null) return;
+        const results = this.getReferenceUsageIndexService().findUsages(match.references);
+        new ReferenceUsageResultsModal(
+            this.app,
+            this.settings.interfaceLanguage,
+            this.t("modal.referenceUsages.title", { reference: match.text }),
+            results,
+            (result) => void this.openReferenceUsageResult(result),
+        ).open();
+    }
+
+    private async openReferenceUsageResult(result: ReferenceUsageSearchResult): Promise<void> {
+        const file = this.app.vault.getAbstractFileByPath(result.filePath);
+
+        if (!(file instanceof TFile)) {
+            new Notice(`File not found: ${result.filePath}`, 4000);
+            return;
+        }
+
+        const leaf = this.app.workspace.getLeaf(false);
+        await leaf.openFile(file, {
+            active: true,
+            eState: {
+                line: result.line,
+            },
+        });
+
+        await this.waitForNextAnimationFrame();
+
+        const openedView = leaf.view;
+        const markdownView = openedView instanceof MarkdownView
+            ? openedView
+            : this.app.workspace.getActiveViewOfType(MarkdownView);
+
+        if (markdownView === null || markdownView.file?.path !== file.path) {
+            return;
+        }
+
+        const line = Math.max(0, result.line - 1);
+        const from = {
+            line,
+            ch: Math.max(0, result.chStart),
+        };
+        const to = {
+            line,
+            ch: Math.max(from.ch, result.chEnd),
+        };
+
+        markdownView.editor.focus();
+        markdownView.editor.setSelection(from, to);
+        markdownView.editor.scrollIntoView({ from, to }, true);
+    }
+
+    private waitForNextAnimationFrame(): Promise<void> {
+        return new Promise((resolve) => {
+            window.requestAnimationFrame(() => resolve());
+        });
+    }
+
+    private getBibleReferenceMatchUnderCursorFromActiveEditor(showNotice: boolean): { text: string; references: BibleReference[] } | null {
+        if (!this.isPluginActive()) {
+            if (showNotice) new Notice(this.t("notice.pluginInactive"), 2500);
+            return null;
+        }
+        for (const view of this.editorViews) {
+            if (view.hasFocus || view.dom.contains(document.activeElement)) {
+                const match = this.findBibleReferenceMatchAtPosition(view, view.state.selection.main.head);
+                if (match === null) {
+                    if (showNotice) new Notice(this.t("notice.referenceUnderCursorNotFound"), 2500);
+                    return null;
+                }
+                const references = this.bibleReferenceParser.parseMatches(match.text).flatMap((parsedMatch) => parsedMatch.references);
+                return references.length === 0 ? null : { text: match.text, references };
+            }
+        }
+        if (showNotice) new Notice(this.t("notice.activeEditorNotFound"), 2500);
+        return null;
+    }
+
+    private registerReferenceUsageIndexEvents(): void {
+        this.registerEvent(this.app.vault.on("create", (file) => this.handleReferenceUsageFileCreateOrModify(file)));
+        this.registerEvent(this.app.vault.on("modify", (file) => this.handleReferenceUsageFileCreateOrModify(file)));
+        this.registerEvent(this.app.vault.on("delete", (file) => this.handleReferenceUsageFileDelete(file)));
+        this.registerEvent(this.app.vault.on("rename", (file, oldPath) => this.handleReferenceUsageFileRename(file, oldPath)));
+        this.register(() => this.clearReferenceUsagePendingFileUpdates());
+    }
+
+    private handleReferenceUsageFileCreateOrModify(file: TAbstractFile): void {
+        if (!(file instanceof TFile) || !this.shouldAutoProcessReferenceUsageIndexEvents()) return;
+        const service = this.getReferenceUsageIndexService();
+        if (!service.shouldIndexFile(file)) {
+            service.removeFile(file.path);
+            return;
+        }
+        this.scheduleReferenceUsageFileUpdate(file);
+    }
+
+    private handleReferenceUsageFileDelete(file: TAbstractFile): void {
+        if (!this.shouldAutoProcessReferenceUsageIndexEvents()) return;
+        this.getReferenceUsageIndexService().removeFile(file.path);
+    }
+
+    private handleReferenceUsageFileRename(file: TAbstractFile, oldPath: string): void {
+        if (!this.shouldAutoProcessReferenceUsageIndexEvents()) return;
+        this.getReferenceUsageIndexService().removeFile(oldPath);
+        this.handleReferenceUsageFileCreateOrModify(file);
+    }
+
+    private shouldAutoProcessReferenceUsageIndexEvents(): boolean {
+        return this.settings.referenceUsageIndexingEnabled && this.settings.referenceUsageAutoUpdate && this.hasImportedTranslations();
+    }
+
+    private scheduleReferenceUsageFileUpdate(file: TFile): void {
+        const existingTimeout = this.referenceUsageFileUpdateTimeouts.get(file.path);
+        if (existingTimeout !== undefined) window.clearTimeout(existingTimeout);
+        const timeout = window.setTimeout(() => {
+            this.referenceUsageFileUpdateTimeouts.delete(file.path);
+            void this.getReferenceUsageIndexService().updateFile(file);
+        }, REFERENCE_USAGE_FILE_UPDATE_DELAY_MS);
+        this.referenceUsageFileUpdateTimeouts.set(file.path, timeout);
+    }
+
+    private clearReferenceUsagePendingFileUpdates(): void {
+        for (const timeout of this.referenceUsageFileUpdateTimeouts.values()) window.clearTimeout(timeout);
+        this.referenceUsageFileUpdateTimeouts.clear();
+        this.referenceUsageIndexService?.clearPendingSave();
     }
 
     public async setBiblePreviewDisplayMode(previewDisplayMode: BiblePreviewDisplayMode): Promise<void> {
@@ -1697,16 +1978,64 @@ export default class BiblePlugin extends Plugin {
 
 
 
+
+class ReferenceUsageResultsModal extends Modal {
+    constructor(
+        app: App,
+        private readonly locale: BiblePluginLocale,
+        private readonly titleText: string,
+        private readonly results: ReferenceUsageSearchResult[],
+        private readonly openResult: (result: ReferenceUsageSearchResult) => void,
+    ) {
+        super(app);
+    }
+    onOpen(): void {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h2", { text: this.titleText });
+        if (this.results.length === 0) {
+            contentEl.createEl("p", { text: t(this.locale, "modal.referenceUsages.empty") });
+            return;
+        }
+        contentEl.createEl("p", { text: t(this.locale, "modal.referenceUsages.count", { count: this.results.length }) });
+        const listEl = contentEl.createDiv();
+        listEl.style.display = "flex";
+        listEl.style.flexDirection = "column";
+        listEl.style.gap = "8px";
+        for (const result of this.results) {
+            const rowEl = listEl.createDiv();
+            rowEl.style.border = "1px solid var(--background-modifier-border)";
+            rowEl.style.borderRadius = "6px";
+            rowEl.style.padding = "8px";
+            const buttonEl = rowEl.createEl("button", { text: `${result.filePath}:${result.line}` });
+            buttonEl.style.marginBottom = "6px";
+            buttonEl.addEventListener("click", (event) => {
+                event.preventDefault();
+                this.openResult(result);
+                this.close();
+            });
+            rowEl.createDiv({ text: result.sourceText }).style.fontWeight = "600";
+            const excerptEl = rowEl.createDiv({ text: result.excerpt });
+            excerptEl.style.fontSize = "12px";
+            excerptEl.style.color = "var(--text-muted)";
+            excerptEl.style.marginTop = "4px";
+        }
+    }
+    onClose(): void {
+        this.contentEl.empty();
+    }
+}
+
 class BibleReadingModePreviewController {
     private readonly outsideInteractionHandler = (event: Event) => this.hideBiblePreviewIfEventIsOutside(event);
 
-    constructor(private readonly plugin: BiblePlugin) {}
+    constructor(private readonly plugin: BiblePlugin) { }
 
     public show(content: BiblePreviewContent, anchorEl: HTMLElement): void {
         this.plugin.showBiblePreviewContent(content, { type: "element", element: anchorEl });
     }
 
-    public destroy(): void {}
+    public destroy(): void { }
 
     public refreshLocalizedLabels(): void {
         this.plugin.refreshFloatingPreviewLabels();
@@ -2251,6 +2580,7 @@ class BiblePluginSettingTab extends PluginSettingTab {
             .addButton((button) => button.setButtonText(this.plugin.t("settings.import.button")).setCta().onClick(() => this.plugin.openEpubFilePicker()));
 
         this.renderTranslationsSection(containerEl);
+        this.renderReferenceUsageIndexSection(containerEl);
 
         new Setting(containerEl)
             .setName(this.plugin.t("settings.previewMode.name"))
@@ -2362,7 +2692,7 @@ class BiblePluginSettingTab extends PluginSettingTab {
         const previewBackgroundSampleEl = floatingPreviewBackgroundColorSetting.controlEl.createSpan({
             // text: this.plugin.t("settings.previewBackgroundColor.preview")
             text: "..."
-             });
+        });
         previewBackgroundSampleEl.style.background = this.plugin.getFloatingPreviewBackgroundColor();
         previewBackgroundSampleEl.style.color = "var(--text-normal)";
         previewBackgroundSampleEl.style.border = "1px solid var(--background-modifier-border)";
@@ -2400,6 +2730,37 @@ class BiblePluginSettingTab extends PluginSettingTab {
             .setName(this.plugin.t("settings.showStats.name"))
             .setDesc(this.plugin.t("settings.showStats.desc"))
             .addButton((button) => button.setButtonText(this.plugin.t("settings.showStats.button")).onClick(() => void this.plugin.showBibleIndexStats()));
+    }
+
+
+    private renderReferenceUsageIndexSection(containerEl: HTMLElement): void {
+        containerEl.createEl("h3", { text: this.plugin.t("settings.referenceUsageIndex.title") });
+        containerEl.createEl("p", { text: this.plugin.t("settings.referenceUsageIndex.desc") });
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.referenceUsageIndex.enabled.name"))
+            .setDesc(this.plugin.t("settings.referenceUsageIndex.enabled.desc"))
+            .addToggle((toggle) => toggle.setValue(this.plugin.isReferenceUsageIndexingEnabled()).onChange((value) => void this.plugin.setReferenceUsageIndexingEnabled(value)));
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.referenceUsageIndex.autoUpdate.name"))
+            .setDesc(this.plugin.t("settings.referenceUsageIndex.autoUpdate.desc"))
+            .addToggle((toggle) => toggle.setValue(this.plugin.shouldAutoUpdateReferenceUsageIndex()).onChange((value) => void this.plugin.setReferenceUsageAutoUpdate(value)));
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.referenceUsageIndex.excludedFolders.name"))
+            .setDesc(this.plugin.t("settings.referenceUsageIndex.excludedFolders.desc"))
+            .addTextArea((textArea) => {
+                textArea.setPlaceholder("Attachments/\nTemplates/\nArchive/\nBible/")
+                    .setValue(this.plugin.getReferenceUsageExcludedFoldersText())
+                    .onChange((value) => void this.plugin.setReferenceUsageExcludedFoldersText(value));
+                textArea.inputEl.rows = 4;
+                textArea.inputEl.style.width = "100%";
+            });
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.referenceUsageIndex.actions.name"))
+            .setDesc(this.plugin.t("settings.referenceUsageIndex.actions.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.referenceUsageIndex.build.button")).onClick(() => void this.plugin.buildReferenceUsageIndex()))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.referenceUsageIndex.rebuild.button")).onClick(() => void this.plugin.rebuildReferenceUsageIndex()))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.referenceUsageIndex.stats.button")).onClick(() => void this.plugin.showReferenceUsageIndexStats()))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.referenceUsageIndex.clear.button")).onClick(() => void this.plugin.clearReferenceUsageIndex()));
     }
 
     private renderTranslationsSection(containerEl: HTMLElement): void {
@@ -2638,6 +2999,20 @@ function normalizePluginSettings(value: unknown): BiblePluginSettings {
         linkOpenShortcut: typeof value.linkOpenShortcut === "string" && isBibleLinkOpenShortcut(value.linkOpenShortcut)
             ? value.linkOpenShortcut
             : DEFAULT_SETTINGS.linkOpenShortcut,
+        referenceUsageIndexingEnabled: typeof value.referenceUsageIndexingEnabled === "boolean"
+            ? value.referenceUsageIndexingEnabled
+            : DEFAULT_SETTINGS.referenceUsageIndexingEnabled,
+        referenceUsageAutoUpdate: typeof value.referenceUsageAutoUpdate === "boolean"
+            ? value.referenceUsageAutoUpdate
+            : DEFAULT_SETTINGS.referenceUsageAutoUpdate,
+        referenceUsageExcludedFolders: Array.isArray(value.referenceUsageExcludedFolders)
+            ? normalizeReferenceUsageExcludedFolders(
+                value.referenceUsageExcludedFolders
+                    .filter((folder): folder is string => typeof folder === "string")
+                    .join("\n"),
+            )
+            : DEFAULT_SETTINGS.referenceUsageExcludedFolders,
+
     };
 }
 
