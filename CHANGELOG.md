@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Improved side-panel activation for Bible preview and reference usage results.
-- Added Obsidian commands and default hotkeys for scrolling Bible preview in the side panel and floating window.
+- On mobile, tapping the same already-previewed Bible reference again now lets the editor place the cursor so the reference can be edited.
+- Disabled automatic editor-focus restoration on mobile when opening the Bible side panel to avoid visible panel flicker.
 
 ## 0.1.0 - Initial release
 
