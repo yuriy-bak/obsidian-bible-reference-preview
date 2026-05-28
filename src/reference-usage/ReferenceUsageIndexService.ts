@@ -4,7 +4,9 @@ import type { BibleReferenceMatch } from "../parsing/BibleReferenceParser";
 
 export const REFERENCE_USAGE_INDEX_VERSION = 1;
 export const REFERENCE_USAGE_INDEX_FILE_NAME = "reference-usage-index.json";
+export const REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES = 1024 * 1024;
 const REFERENCE_USAGE_INDEX_SAVE_DELAY_MS = 1000;
+const REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES = 25;
 
 export type ReferenceUsageIndex = {
     version: number;
@@ -46,6 +48,8 @@ export type ReferenceUsageIndexStats = {
 
 export type ReferenceUsageIndexBuildResult = ReferenceUsageIndexStats & {
     updatedFileCount: number;
+    skippedLargeFileCount: number;
+    maxFileSizeBytes: number;
 };
 
 export class ReferenceUsageIndexService {
@@ -98,7 +102,9 @@ export class ReferenceUsageIndexService {
 
     public async build(files: TFile[], forceRebuild: boolean): Promise<ReferenceUsageIndexBuildResult> {
         const indexableFiles = files.filter((file) => this.shouldIndexFile(file));
-        const indexedFilePaths = new Set(indexableFiles.map((file) => file.path));
+        const buildableFiles = indexableFiles.filter((file) => !this.isFileTooLargeForIndex(file));
+        const skippedLargeFileCount = indexableFiles.length - buildableFiles.length;
+        const indexedFilePaths = new Set(buildableFiles.map((file) => file.path));
         const nextIndex = forceRebuild ? createEmptyReferenceUsageIndex() : normalizeReferenceUsageIndex(this.index);
 
         for (const indexedFilePath of Object.keys(nextIndex.files)) {
@@ -108,20 +114,29 @@ export class ReferenceUsageIndexService {
         }
 
         let updatedFileCount = 0;
-        for (const file of indexableFiles) {
+        let processedFileCount = 0;
+        for (const file of buildableFiles) {
+            processedFileCount += 1;
             const existingFileIndex = nextIndex.files[file.path];
             if (!forceRebuild && existingFileIndex !== undefined && existingFileIndex.mtime === file.stat.mtime && existingFileIndex.size === file.stat.size) {
+                await yieldReferenceUsageBuildIfNeeded(processedFileCount);
                 continue;
             }
             const content = await this.app.vault.cachedRead(file);
             nextIndex.files[file.path] = this.createIndexedFile(file, content);
             updatedFileCount += 1;
+            await yieldReferenceUsageBuildIfNeeded(processedFileCount);
         }
 
         nextIndex.updatedAt = Date.now();
         this.index = nextIndex;
         await this.save();
-        return { ...this.getStats(), updatedFileCount };
+        return {
+            ...this.getStats(),
+            updatedFileCount,
+            skippedLargeFileCount,
+            maxFileSizeBytes: REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
+        };
     }
 
     public async clear(): Promise<void> {
@@ -130,7 +145,7 @@ export class ReferenceUsageIndexService {
     }
 
     public async updateFile(file: TFile): Promise<void> {
-        if (!this.shouldIndexFile(file)) {
+        if (!this.shouldIndexFile(file) || this.isFileTooLargeForIndex(file)) {
             this.removeFile(file.path);
             return;
         }
@@ -190,6 +205,10 @@ export class ReferenceUsageIndexService {
             const normalizedFolder = normalizeReferenceUsageExcludedFolder(folder);
             return normalizedFolder.length > 0 && normalizedPath.startsWith(normalizedFolder);
         });
+    }
+
+    private isFileTooLargeForIndex(file: TFile): boolean {
+        return file.stat.size > REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES;
     }
 
     private createIndexedFile(file: TFile, content: string): IndexedReferenceUsageFile {
@@ -284,6 +303,13 @@ function doBibleReferenceRangesIntersect(left: BibleReference, right: IndexedRef
 
 function compareBibleReferencePosition(leftChapter: number, leftVerse: number, rightChapter: number, rightVerse: number): number {
     return leftChapter !== rightChapter ? leftChapter - rightChapter : leftVerse - rightVerse;
+}
+
+async function yieldReferenceUsageBuildIfNeeded(processedFileCount: number): Promise<void> {
+    if (processedFileCount % REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES !== 0) {
+        return;
+    }
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 }
 
 async function ensureAdapterDirectoryExists(app: App, path: string): Promise<void> {

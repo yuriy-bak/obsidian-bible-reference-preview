@@ -812,6 +812,12 @@ export default class BiblePlugin extends Plugin {
                 updatedFileCount: result.updatedFileCount,
                 referenceCount: result.referenceCount,
             }), 8000);
+            if (result.skippedLargeFileCount > 0) {
+                new Notice(this.t("notice.referenceUsageIndexSkippedLargeFiles", {
+                    count: result.skippedLargeFileCount,
+                    maxSize: formatMegabytes(result.maxFileSizeBytes),
+                }), 8000);
+            }
         } catch (error) {
             console.warn("Bible reference usage index build failed", error);
             new Notice(this.t("notice.referenceUsageIndexSaveFailed"), 5000);
