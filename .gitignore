@@ -35,3 +35,7 @@ main.js
 
 #папка с индексами не должна лежать в git
 data/
+
+#файлы для ии агента
+/.agent*
+agent_output.json
