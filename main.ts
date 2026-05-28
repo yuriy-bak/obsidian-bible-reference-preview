@@ -17,6 +17,7 @@ import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/Obsidian
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BiblePluginLocale, I18nKey, normalizeBiblePluginLocale, t } from "./src/i18n/I18n";
 import { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./src/ui/FloatingBiblePreviewWindow";
+import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, isCssColor, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "./src/ui/cssColorValidation";
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, ReferenceUsagePaneViewInput } from "./src/ui/ReferenceUsagePaneView";
 import { ReferenceUsageIndexService, type ReferenceUsageIndexStats, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
@@ -114,9 +115,7 @@ type BiblePluginSettings = {
     referenceUsageExcludedFolders: string[];
 };
 
-const DEFAULT_BIBLE_REFERENCE_LINK_COLOR = "var(--link-color)";
 const DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR = "#7c3aed";
-const DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR = "color-mix(in srgb, var(--background-primary) 92%, black 8%)";
 const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
 const MAX_ANALYZED_PARAGRAPH_LINES = 40;
@@ -2629,61 +2628,6 @@ type HsvColor = {
     v: number;
 };
 
-const MAX_CUSTOM_CSS_COLOR_LENGTH = 160;
-const SAFE_CSS_NAMED_COLORS = new Set(["black", "white", "transparent", "currentcolor"]);
-const UNSAFE_CSS_VALUE_PATTERN = /(?:url\s*\(|image\s*\(|image-set\s*\(|paint\s*\(|expression\s*\(|javascript:|@import|[;{}<>])/i;
-
-function isCssColor(value: string): boolean {
-    return isSafeCssColorValue(value);
-}
-
-function isSafeCssColorValue(value: string): boolean {
-    const color = value.trim();
-
-    if (color.length === 0 || color.length > MAX_CUSTOM_CSS_COLOR_LENGTH) {
-        return false;
-    }
-
-    if (UNSAFE_CSS_VALUE_PATTERN.test(color)) {
-        return false;
-    }
-
-    if (isHexColor(color) || isSafeCssVariable(color) || SAFE_CSS_NAMED_COLORS.has(color.toLowerCase()) || isSafeColorMix(color)) {
-        return true;
-    }
-
-    return typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("color", color);
-}
-
-function isSafeCssVariable(value: string): boolean {
-    return /^var\(--[a-z0-9_-]+\)$/i.test(value.trim());
-}
-
-function isSafeColorMix(value: string): boolean {
-    const color = value.trim();
-
-    if (!/^color-mix\(\s*in\s+srgb\s*,/i.test(color) || !color.endsWith(")")) {
-        return false;
-    }
-
-    const inner = color.slice(color.indexOf(",") + 1, -1);
-    const parts = inner.split(",").map((part) => part.trim());
-
-    if (parts.length !== 2) {
-        return false;
-    }
-
-    return parts.every(isSafeColorMixPart);
-}
-
-function isSafeColorMixPart(value: string): boolean {
-    const withoutPercentage = value.replace(/\s+\d+(?:\.\d+)?%$/, "").trim();
-
-    return isHexColor(withoutPercentage)
-        || isSafeCssVariable(withoutPercentage)
-        || SAFE_CSS_NAMED_COLORS.has(withoutPercentage.toLowerCase());
-}
-
 function parseCssColorPickerHex(value: string): HsvColor | null {
     const color = value.trim();
     if (!isHexColor(color)) {
@@ -3349,22 +3293,6 @@ function normalizePluginSettings(value: unknown): BiblePluginSettings {
             : DEFAULT_SETTINGS.referenceUsageExcludedFolders,
 
     };
-}
-
-function normalizeBibleReferenceLinkColor(value: string): string {
-    const color = value.trim();
-
-    return isSafeCssColorValue(color)
-        ? color
-        : DEFAULT_BIBLE_REFERENCE_LINK_COLOR;
-}
-
-function normalizeFloatingPreviewBackgroundColor(value: string): string {
-    const color = value.trim();
-
-    return isSafeCssColorValue(color)
-        ? color
-        : DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR;
 }
 
 function isBiblePreviewTriggerMode(value: string): value is BiblePreviewTriggerMode {
