@@ -4,12 +4,15 @@
 
 - On mobile, tapping the same already-previewed Bible reference again now lets the editor place the cursor so the reference can be edited.
 - Disabled automatic editor-focus restoration on mobile when opening the Bible side panel to avoid visible panel flicker.
+- Hardened custom CSS color validation for link and floating preview background settings.
+- Moved CSS color validation into a standalone testable module.
+- Removed TSV import support from the plugin import flow; EPUB is now the only supported import format.
 
 ## 0.1.0 - Initial release
 
 - Added Russian and English interface localization.
 - Added interface language setting.
-- Added EPUB import as ZIP containers.
+- Added EPUB import.
 - Added Bible Index v2 with multiple translations.
 - Added translation ordering and deletion.
 - Added Bible reference parsing based on imported book metadata and aliases.
