@@ -12,12 +12,12 @@
     "test": "npm run build && npm run build:test-modules && node tests/run-parser-tests.js"
   },
   "devDependencies": {
-    "esbuild": "^0.28.0",
-    "obsidian": "latest",
-    "typescript": "^5.0.0"
+    "esbuild": "0.28.0",
+    "obsidian": "1.12.3",
+    "typescript": "5.9.3"
   },
   "dependencies": {
-    "@melloware/coloris": "^0.25.0",
-    "jszip": "^3.10.1"
+    "@melloware/coloris": "0.25.0",
+    "jszip": "3.10.1"
   }
 }
