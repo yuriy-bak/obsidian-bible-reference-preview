@@ -124,6 +124,8 @@ const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
 const MAX_ANALYZED_PARAGRAPH_LINES = 40;
 const MAX_ANALYZED_PARAGRAPH_CHARACTERS = 2000;
+const MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS = 20000;
+const MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS = 50000;
 const DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS = ["Attachments/", "Templates/", "Archive/", "Bible/"];
 const REFERENCE_USAGE_FILE_UPDATE_DELAY_MS = 1500;
 
@@ -155,6 +157,17 @@ type TranslationSettingsItem = {
     canMoveUp: boolean;
     canMoveDown: boolean;
 };
+
+type BibleReferenceLinkDecorationVisibleRangeInput = {
+    from: number;
+    to: number;
+    text: string;
+};
+
+type BibleReferenceLinkDecorationCacheEntry = {
+    key: string;
+    decorations: DecorationSet;
+};
 export default class BiblePlugin extends Plugin {
     private bookMapping = createBookMapping([]);
     private bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
@@ -175,6 +188,7 @@ export default class BiblePlugin extends Plugin {
     private referenceUsageIndexingInProgress = false;
     private readonly referenceUsageFileUpdateTimeouts = new Map<string, number>();
     private readonly editorViews = new Set<EditorView>();
+    private readonly bibleReferenceLinkDecorationCache = new WeakMap<EditorView, BibleReferenceLinkDecorationCacheEntry>();
     private readonly previewControllers = new Map<EditorView, BiblePreviewController>();
     private readonly linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.handleLinkOpenShortcutKeydown(event);
     private readonly panelEscapeKeydownHandler = (event: KeyboardEvent) => this.handlePanelEscapeKeydown(event);
@@ -1795,6 +1809,7 @@ export default class BiblePlugin extends Plugin {
                 }
                 this.view.dom.removeEventListener("click", this.editorClickHandler);
                 plugin.previewControllers.delete(this.view);
+                plugin.bibleReferenceLinkDecorationCache.delete(this.view);
                 plugin.editorViews.delete(this.view);
             }
 
@@ -1990,17 +2005,43 @@ export default class BiblePlugin extends Plugin {
 
     private createBibleReferenceLinkDecorations(view: EditorView): DecorationSet {
         if (!this.shouldRunBiblePreviewForEditor(view)) {
+            this.bibleReferenceLinkDecorationCache.delete(view);
             return Decoration.none;
         }
         if (!this.hasImportedTranslations()) {
+            this.bibleReferenceLinkDecorationCache.delete(view);
             return Decoration.none;
+        }
+
+        const linkColor = this.getBibleReferenceLinkColor();
+        const rangeInputs: BibleReferenceLinkDecorationVisibleRangeInput[] = [];
+        let totalVisibleCharacters = 0;
+
+        for (const range of view.visibleRanges) {
+            const text = view.state.doc.sliceString(range.from, range.to);
+            if (text.length > MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS) {
+                continue;
+            }
+
+            totalVisibleCharacters += text.length;
+            if (totalVisibleCharacters > MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS) {
+                this.bibleReferenceLinkDecorationCache.delete(view);
+                return Decoration.none;
+            }
+
+            rangeInputs.push({ from: range.from, to: range.to, text });
+        }
+
+        const cacheKey = this.createBibleReferenceLinkDecorationCacheKey(rangeInputs, linkColor);
+        const cachedEntry = this.bibleReferenceLinkDecorationCache.get(view);
+        if (cachedEntry !== undefined && cachedEntry.key === cacheKey) {
+            return cachedEntry.decorations;
         }
 
         const builder = new RangeSetBuilder<Decoration>();
 
-        for (const range of view.visibleRanges) {
-            const text = view.state.doc.sliceString(range.from, range.to);
-            const matches = this.bibleReferenceParser.parseMatches(text);
+        for (const range of rangeInputs) {
+            const matches = this.bibleReferenceParser.parseMatches(range.text);
 
             for (const match of matches) {
                 builder.add(
@@ -2008,13 +2049,23 @@ export default class BiblePlugin extends Plugin {
                     range.from + match.to,
                     Decoration.mark({
                         class: "bible-reference-link",
-                        attributes: { style: `color: ${this.getBibleReferenceLinkColor()};` },
+                        attributes: { style: `color: ${linkColor};` },
                     }),
                 );
             }
         }
 
-        return builder.finish();
+        const decorations = builder.finish();
+        this.bibleReferenceLinkDecorationCache.set(view, { key: cacheKey, decorations });
+        return decorations;
+    }
+
+    private createBibleReferenceLinkDecorationCacheKey(ranges: BibleReferenceLinkDecorationVisibleRangeInput[], linkColor: string): string {
+        return [
+            this.activeTranslationId ?? "",
+            linkColor,
+            ...ranges.map((range) => `${range.from}:${range.to}:${range.text.length}:${range.text}`),
+        ].join("\n");
     }
 
     private refreshBibleReferenceLinks(): void {
@@ -2025,6 +2076,7 @@ export default class BiblePlugin extends Plugin {
 
     private clearBibleReferenceLinks(): void {
         for (const view of this.editorViews) {
+            this.bibleReferenceLinkDecorationCache.delete(view);
             dispatchBibleReferenceLinkDecorations(view, Decoration.none);
         }
     }
