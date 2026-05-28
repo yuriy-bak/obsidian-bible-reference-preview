@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "main": "main.js",
   "scripts": {
-    "build": "tsc && node esbuild.config.mjs",
-    "build:prod": "tsc && node esbuild.config.mjs --production",
-    "watch": "tsc -w",
-    "test": "npm run build && node tests/run-parser-tests.js"
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && node esbuild.config.mjs",
+    "build:prod": "npm run typecheck && node esbuild.config.mjs --production",
+    "watch": "tsc --noEmit --watch",
+    "build:test-modules": "tsc --target ES2018 --module commonjs --moduleResolution Node --esModuleInterop --skipLibCheck --strict --outDir .test-build --rootDir . --noEmit false",
+    "test": "npm run build && npm run build:test-modules && node tests/run-parser-tests.js"
   },
   "devDependencies": {
     "esbuild": "^0.28.0",

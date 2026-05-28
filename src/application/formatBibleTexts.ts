@@ -216,6 +216,28 @@ function renderSourceTextGroup(
     mapping: BookMapping,
     missingVerseText: string,
 ): RenderedReferenceBlock[] {
+    const sourceText = blocks[0]?.sourceText;
+
+    if (sourceText !== undefined && canRenderUnderSingleSourceTitle(blocks)) {
+        const renderedBlocks = blocks.flatMap((block) => renderBibleTextBlock(block, mapping, missingVerseText, false));
+        if (renderedBlocks.length === 0) {
+            return [];
+        }
+
+        return [
+            {
+                book: renderedBlocks[0].book,
+                block: {
+                    type: "reference",
+                    title: formatSourceReferenceTitle(sourceText),
+                    references: renderedBlocks.flatMap((item) => item.block.references),
+                    paragraphs: renderedBlocks.flatMap((item) => item.block.paragraphs),
+                },
+                footnotes: renderedBlocks.flatMap((item) => item.footnotes),
+            },
+        ];
+    }
+
     const renderedBlocks = blocks.flatMap((block) => renderBibleTextBlock(block, mapping, missingVerseText, false));
     const groupedBlocks: RenderedReferenceBlock[] = [];
 

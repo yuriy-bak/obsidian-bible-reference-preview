@@ -1,28 +1,28 @@
 const assert = require("assert");
 const {
   BibleReferenceParser,
-} = require("../src/parsing/BibleReferenceParser.js");
-const { createBookMapping } = require("../src/parsing/BookMapping.js");
+} = require("../.test-build/src/parsing/BibleReferenceParser.js");
+const { createBookMapping } = require("../.test-build/src/parsing/BookMapping.js");
 const DEFAULT_TRANSLATION_ID = "newworld";
-const { getBibleTextBlocks } = require("../src/application/getBibleTexts.js");
+const { getBibleTextBlocks } = require("../.test-build/src/application/getBibleTexts.js");
 const {
   LazyBibleIndexV2,
-} = require("../src/infrastructure/v2/LazyBibleIndexV2.js");
+} = require("../.test-build/src/infrastructure/v2/LazyBibleIndexV2.js");
 const {
   createBookMappingFromBibleIndexV2Data,
-} = require("../src/infrastructure/v2/createBookMappingFromBibleIndexV2Data.js");
+} = require("../.test-build/src/infrastructure/v2/createBookMappingFromBibleIndexV2Data.js");
 const {
   enrichBookTableFromNavigationHtml,
   extractBookNavigationAliasesFromHtml,
   extractBookTableFromHtml,
   extractVersesFromHtml,
-} = require("../src/infrastructure/epub/htmlTextUtils.js");
+} = require("../.test-build/src/infrastructure/epub/htmlTextUtils.js");
 const {
   extractBibleTextFromCompactBook,
-} = require("../src/infrastructure/v2/extractBibleTextFromCompactBook.js");
+} = require("../.test-build/src/infrastructure/v2/extractBibleTextFromCompactBook.js");
 const {
   formatBibleTextBlocks,
-} = require("../src/application/formatBibleTexts.js");
+} = require("../.test-build/src/application/formatBibleTexts.js");
 
 (async () => {
   const mapping = createBookMapping([
