@@ -18,9 +18,12 @@ import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/c
 import { BiblePluginLocale, I18nKey, normalizeBiblePluginLocale, t } from "./src/i18n/I18n";
 import { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./src/ui/FloatingBiblePreviewWindow";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "./src/ui/cssColorValidation";
-import { CssColorDialog, createBackgroundColorPresets, createTextColorPresets, type CssColorDialogInput } from "./src/ui/CssColorDialog";
+import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput } from "./src/ui/CssColorDialog";
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, ReferenceUsagePaneViewInput } from "./src/ui/ReferenceUsagePaneView";
+import { renderTranslationSettingsSection } from "./src/ui/TranslationSettingsList";
+import { renderReferenceUsageIndexSettingsSection } from "./src/ui/ReferenceUsageIndexSettingsSection";
+import { renderColorSettingsSection } from "./src/ui/ColorSettingsSection";
 import { ReferenceUsageIndexService, type ReferenceUsageIndexStats, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 
 
@@ -2447,88 +2450,20 @@ class BiblePluginSettingTab extends PluginSettingTab {
                     .onChange((value) => void this.plugin.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut));
             });
 
-        const bibleReferenceLinkColorSetting = new Setting(containerEl)
-            .setName(this.plugin.t("settings.linkColor.name"))
-            .setDesc(this.plugin.t("settings.linkColor.desc"));
-        const openBibleReferenceLinkColorDialog = () => this.plugin.openCssColorDialog({
-            title: this.plugin.t("settings.linkColor.name"),
-            description: this.plugin.t("settings.linkColor.desc"),
-            value: this.plugin.getBibleReferenceLinkColor(),
-            defaultValue: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
-            previewText: this.plugin.t("settings.linkColor.preview"),
-            presets: createTextColorPresets(),
-            normalize: normalizeBibleReferenceLinkColor,
-            onApply: (color) => void this.plugin.setBibleReferenceLinkColor(color),
-        });
-        const previewEl = bibleReferenceLinkColorSetting.controlEl.createSpan({ text: this.plugin.t("settings.linkColor.preview") });
-        previewEl.style.color = this.plugin.isBibleReferenceLinkColorDefault()
-            ? "var(--link-color)"
-            : this.plugin.getBibleReferenceLinkColorPickerValue();
-        previewEl.style.textDecoration = "underline";
-        previewEl.style.textDecorationStyle = "dotted";
-        previewEl.style.border = "1px solid var(--background-modifier-border)";
-        previewEl.style.borderRadius = "6px";
-        previewEl.style.boxShadow = "var(--input-shadow)";
-        previewEl.style.background = "var(--interactive-normal)";
-        previewEl.style.padding = "4px 10px";
-        previewEl.style.marginLeft = "8px";
-        previewEl.style.whiteSpace = "nowrap";
-        previewEl.style.cursor = "pointer";
-        previewEl.tabIndex = 0;
-        previewEl.setAttribute("role", "button");
-        previewEl.setAttribute("aria-label", this.plugin.t("settings.linkColor.name"));
-        previewEl.addEventListener("click", openBibleReferenceLinkColorDialog);
-        previewEl.addEventListener("keydown", (event) => {
-            if (event.key !== "Enter" && event.key !== " ") {
-                return;
-            }
-            event.preventDefault();
-            openBibleReferenceLinkColorDialog();
-        });
-        const resetButton = bibleReferenceLinkColorSetting.controlEl.createEl("button", { text: this.plugin.t("settings.reset") });
-        resetButton.disabled = this.plugin.isBibleReferenceLinkColorDefault();
-        resetButton.style.marginLeft = "8px";
-        resetButton.addEventListener("click", async (event) => {
-            event.preventDefault();
-            await this.plugin.resetBibleReferenceLinkColor();
-            this.display();
-        });
-
-        const floatingPreviewBackgroundColorSetting = new Setting(containerEl)
-            .setName(this.plugin.t("settings.previewBackgroundColor.name"))
-            .setDesc(this.plugin.t("settings.previewBackgroundColor.desc"));
-        const openFloatingPreviewBackgroundColorDialog = () => this.plugin.openFloatingPreviewBackgroundColorDialog();
-        const previewBackgroundSampleEl = floatingPreviewBackgroundColorSetting.controlEl.createSpan({
-            // text: this.plugin.t("settings.previewBackgroundColor.preview")
-            text: "..."
-        });
-        previewBackgroundSampleEl.style.background = this.plugin.getFloatingPreviewBackgroundColor();
-        previewBackgroundSampleEl.style.color = "var(--text-normal)";
-        previewBackgroundSampleEl.style.border = "1px solid var(--background-modifier-border)";
-        previewBackgroundSampleEl.style.borderRadius = "6px";
-        previewBackgroundSampleEl.style.boxShadow = "var(--input-shadow)";
-        previewBackgroundSampleEl.style.marginLeft = "8px";
-        previewBackgroundSampleEl.style.padding = "4px 10px";
-        previewBackgroundSampleEl.style.whiteSpace = "nowrap";
-        previewBackgroundSampleEl.style.cursor = "pointer";
-        previewBackgroundSampleEl.tabIndex = 0;
-        previewBackgroundSampleEl.setAttribute("role", "button");
-        previewBackgroundSampleEl.setAttribute("aria-label", this.plugin.t("settings.previewBackgroundColor.name"));
-        previewBackgroundSampleEl.addEventListener("click", openFloatingPreviewBackgroundColorDialog);
-        previewBackgroundSampleEl.addEventListener("keydown", (event) => {
-            if (event.key !== "Enter" && event.key !== " ") {
-                return;
-            }
-            event.preventDefault();
-            openFloatingPreviewBackgroundColorDialog();
-        });
-        const resetPreviewBackgroundButton = floatingPreviewBackgroundColorSetting.controlEl.createEl("button", { text: this.plugin.t("settings.reset") });
-        resetPreviewBackgroundButton.disabled = this.plugin.isFloatingPreviewBackgroundColorDefault();
-        resetPreviewBackgroundButton.style.marginLeft = "8px";
-        resetPreviewBackgroundButton.addEventListener("click", async (event) => {
-            event.preventDefault();
-            await this.plugin.resetFloatingPreviewBackgroundColor();
-            this.display();
+        renderColorSettingsSection({
+            containerEl,
+            translate: (key) => this.plugin.t(key),
+            openCssColorDialog: (input) => this.plugin.openCssColorDialog(input),
+            openFloatingPreviewBackgroundColorDialog: () => this.plugin.openFloatingPreviewBackgroundColorDialog(),
+            getBibleReferenceLinkColor: () => this.plugin.getBibleReferenceLinkColor(),
+            getBibleReferenceLinkColorPickerValue: () => this.plugin.getBibleReferenceLinkColorPickerValue(),
+            isBibleReferenceLinkColorDefault: () => this.plugin.isBibleReferenceLinkColorDefault(),
+            setBibleReferenceLinkColor: (color) => this.plugin.setBibleReferenceLinkColor(color),
+            resetBibleReferenceLinkColor: () => this.plugin.resetBibleReferenceLinkColor(),
+            getFloatingPreviewBackgroundColor: () => this.plugin.getFloatingPreviewBackgroundColor(),
+            isFloatingPreviewBackgroundColorDefault: () => this.plugin.isFloatingPreviewBackgroundColorDefault(),
+            resetFloatingPreviewBackgroundColor: () => this.plugin.resetFloatingPreviewBackgroundColor(),
+            refresh: () => this.display(),
         });
         new Setting(containerEl)
             .setName(this.plugin.t("settings.openIndexFolder.name"))
@@ -2543,186 +2478,32 @@ class BiblePluginSettingTab extends PluginSettingTab {
 
 
     private renderReferenceUsageIndexSection(containerEl: HTMLElement): void {
-        containerEl.createEl("h3", { text: this.plugin.t("settings.referenceUsageIndex.title") });
-        containerEl.createEl("p", { text: this.plugin.t("settings.referenceUsageIndex.desc") });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.referenceUsageIndex.enabled.name"))
-            .setDesc(this.plugin.t("settings.referenceUsageIndex.enabled.desc"))
-            .addToggle((toggle) => toggle.setValue(this.plugin.isReferenceUsageIndexingEnabled()).onChange((value) => void this.plugin.setReferenceUsageIndexingEnabled(value)));
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.referenceUsageIndex.autoUpdate.name"))
-            .setDesc(this.plugin.t("settings.referenceUsageIndex.autoUpdate.desc"))
-            .addToggle((toggle) => toggle.setValue(this.plugin.shouldAutoUpdateReferenceUsageIndex()).onChange((value) => void this.plugin.setReferenceUsageAutoUpdate(value)));
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.referenceUsageIndex.excludedFolders.name"))
-            .setDesc(this.plugin.t("settings.referenceUsageIndex.excludedFolders.desc"))
-            .addTextArea((textArea) => {
-                textArea.setPlaceholder("Attachments/\nTemplates/\nArchive/\nBible/")
-                    .setValue(this.plugin.getReferenceUsageExcludedFoldersText())
-                    .onChange((value) => void this.plugin.setReferenceUsageExcludedFoldersText(value));
-                textArea.inputEl.rows = 4;
-                textArea.inputEl.style.width = "100%";
-            });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.referenceUsageIndex.actions.name"))
-            .setDesc(this.plugin.t("settings.referenceUsageIndex.actions.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.referenceUsageIndex.build.button")).onClick(() => void this.plugin.buildReferenceUsageIndex()))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.referenceUsageIndex.rebuild.button")).onClick(() => void this.plugin.rebuildReferenceUsageIndex()))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.referenceUsageIndex.stats.button")).onClick(() => void this.plugin.showReferenceUsageIndexStats()))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.referenceUsageIndex.clear.button")).onClick(() => void this.plugin.clearReferenceUsageIndex()));
+        renderReferenceUsageIndexSettingsSection({
+            containerEl,
+            translate: (key) => this.plugin.t(key),
+            isEnabled: () => this.plugin.isReferenceUsageIndexingEnabled(),
+            setEnabled: (value) => this.plugin.setReferenceUsageIndexingEnabled(value),
+            isAutoUpdateEnabled: () => this.plugin.shouldAutoUpdateReferenceUsageIndex(),
+            setAutoUpdateEnabled: (value) => this.plugin.setReferenceUsageAutoUpdate(value),
+            getExcludedFoldersText: () => this.plugin.getReferenceUsageExcludedFoldersText(),
+            setExcludedFoldersText: (value) => this.plugin.setReferenceUsageExcludedFoldersText(value),
+            buildIndex: () => this.plugin.buildReferenceUsageIndex(),
+            rebuildIndex: () => this.plugin.rebuildReferenceUsageIndex(),
+            showStats: () => this.plugin.showReferenceUsageIndexStats(),
+            clearIndex: () => this.plugin.clearReferenceUsageIndex(),
+        });
     }
 
     private renderTranslationsSection(containerEl: HTMLElement): void {
-        containerEl.createEl("h3", { text: this.plugin.t("settings.translations.title") });
-        containerEl.createEl("p", {
-            text: this.plugin.t("settings.translations.desc"),
+        renderTranslationSettingsSection({
+            containerEl,
+            translations: this.plugin.getTranslationSettingsItems(),
+            translate: (key, params) => this.plugin.t(key, params),
+            onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
+            getCurrentOrder: () => this.plugin.getTranslationSettingsItems().map((item) => item.id),
+            onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
+            refresh: () => this.display(),
         });
-
-        const translations = this.plugin.getTranslationSettingsItems();
-
-        if (translations.length === 0) {
-            containerEl.createEl("p", { text: this.plugin.t("settings.translations.empty") });
-            return;
-        }
-
-        const listEl = containerEl.createDiv();
-        listEl.style.display = "flex";
-        listEl.style.flexDirection = "column";
-        listEl.style.gap = "6px";
-        listEl.style.marginBottom = "12px";
-
-        let draggedTranslationId: string | null = null;
-        const rows: HTMLElement[] = [];
-
-        const clearDropStyles = (): void => {
-            for (const row of rows) {
-                row.style.borderTop = "1px solid var(--background-modifier-border)";
-                row.style.borderBottom = "1px solid var(--background-modifier-border)";
-            }
-        };
-
-        for (const translation of translations) {
-            const row = listEl.createDiv();
-            rows.push(row);
-            row.draggable = true;
-            row.style.display = "flex";
-            row.style.alignItems = "center";
-            row.style.gap = "8px";
-            row.style.padding = "8px";
-            row.style.border = "1px solid var(--background-modifier-border)";
-            row.style.borderRadius = "6px";
-            row.style.background = translation.isActive ? "var(--background-secondary)" : "var(--background-primary)";
-            row.style.cursor = "grab";
-
-            const dragHandle = row.createSpan({ text: "☰" });
-            dragHandle.style.opacity = "0.7";
-            dragHandle.style.fontSize = "18px";
-            dragHandle.style.lineHeight = "1";
-
-            const textEl = row.createDiv();
-            textEl.style.flex = "1";
-            textEl.style.minWidth = "0";
-
-            const titleEl = textEl.createDiv({ text: `${translation.isActive ? "✓ " : ""}${translation.name || translation.id}` });
-            titleEl.style.fontWeight = translation.isActive ? "600" : "500";
-
-            const description = [
-                `ID: ${translation.id}`,
-                this.plugin.t("settings.translations.language", { language: translation.language || "und" }),
-                this.plugin.t("settings.translations.books", { count: translation.bookCount }),
-                translation.sourceFileName.length === 0 ? "" : this.plugin.t("settings.translations.file", { fileName: translation.sourceFileName }),
-            ].filter((part) => part.length > 0).join(" · ");
-
-            const descriptionEl = textEl.createDiv({ text: description });
-            descriptionEl.style.fontSize = "12px";
-            descriptionEl.style.color = "var(--text-muted)";
-            descriptionEl.style.overflow = "hidden";
-            descriptionEl.style.textOverflow = "ellipsis";
-            descriptionEl.style.whiteSpace = "nowrap";
-
-            const deleteButton = row.createEl("button", { text: "🗑" });
-            deleteButton.setAttribute("aria-label", this.plugin.t("settings.translations.deleteAria", { translationName: translation.name || translation.id }));
-            deleteButton.style.cursor = "pointer";
-            deleteButton.addEventListener("click", async (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                await this.plugin.deleteImportedTranslation(translation.id);
-                this.display();
-            });
-
-            row.addEventListener("dragstart", (event) => {
-                draggedTranslationId = translation.id;
-                row.style.opacity = "0.5";
-
-                if (event.dataTransfer !== null) {
-                    event.dataTransfer.effectAllowed = "move";
-                    event.dataTransfer.setData("text/plain", translation.id);
-                }
-            });
-
-            row.addEventListener("dragend", () => {
-                draggedTranslationId = null;
-                row.style.opacity = "1";
-                clearDropStyles();
-            });
-
-            row.addEventListener("dragover", (event) => {
-                const sourceTranslationId = event.dataTransfer?.getData("text/plain") || draggedTranslationId;
-                if (sourceTranslationId === null || sourceTranslationId === translation.id) {
-                    return;
-                }
-
-                event.preventDefault();
-                clearDropStyles();
-
-                const rect = row.getBoundingClientRect();
-                const insertAfter = event.clientY > rect.top + rect.height / 2;
-                if (insertAfter) {
-                    row.style.borderBottom = "2px solid var(--color-accent)";
-                } else {
-                    row.style.borderTop = "2px solid var(--color-accent)";
-                }
-            });
-
-            row.addEventListener("dragleave", () => {
-                row.style.borderTop = "1px solid var(--background-modifier-border)";
-                row.style.borderBottom = "1px solid var(--background-modifier-border)";
-            });
-
-            row.addEventListener("drop", async (event) => {
-                event.preventDefault();
-                const sourceTranslationId = event.dataTransfer?.getData("text/plain") || draggedTranslationId;
-                clearDropStyles();
-
-                if (sourceTranslationId === null || sourceTranslationId === translation.id) {
-                    return;
-                }
-
-                const nextOrder = this.plugin.getTranslationSettingsItems().map((item) => item.id);
-                const sourceIndex = nextOrder.indexOf(sourceTranslationId);
-                let targetIndex = nextOrder.indexOf(translation.id);
-
-                if (sourceIndex < 0 || targetIndex < 0) {
-                    return;
-                }
-
-                const rect = row.getBoundingClientRect();
-                const insertAfter = event.clientY > rect.top + rect.height / 2;
-                nextOrder.splice(sourceIndex, 1);
-
-                if (sourceIndex < targetIndex) {
-                    targetIndex -= 1;
-                }
-
-                if (insertAfter) {
-                    targetIndex += 1;
-                }
-
-                nextOrder.splice(targetIndex, 0, sourceTranslationId);
-                await this.plugin.setTranslationOrder(nextOrder);
-                this.display();
-            });
-        }
     }
 }
 
