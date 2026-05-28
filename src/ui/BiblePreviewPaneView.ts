@@ -26,6 +26,9 @@ export class BiblePreviewPaneView extends ItemView {
     private copyButtonEl: HTMLButtonElement | null = null;
     private openFloatingButtonEl: HTMLButtonElement | null = null;
     private currentContent: BiblePreviewContent | null = null;
+    private renderAnimationFrameId: number | null = null;
+    private renderRetryTimeoutId: number | null = null;
+    private renderGenerationId = 0;
 
     constructor(leaf: WorkspaceLeaf, private input: BiblePreviewPaneViewInput) {
         super(leaf);
@@ -37,10 +40,11 @@ export class BiblePreviewPaneView extends ItemView {
 
     async onOpen(): Promise<void> {
         this.buildLayout();
-        this.renderCurrentContent();
+        this.scheduleRender();
     }
 
     async onClose(): Promise<void> {
+        this.cancelScheduledRender();
         this.rootEl = null;
         this.contentContainerEl = null;
         this.contentScrollEl = null;
@@ -52,9 +56,7 @@ export class BiblePreviewPaneView extends ItemView {
     setContent(content: BiblePreviewContent): void {
         this.currentContent = content;
         if (this.contentContainerEl === null) this.buildLayout();
-        this.renderCurrentContent();
-        window.requestAnimationFrame(() => this.renderCurrentContent());
-        window.setTimeout(() => this.renderCurrentContent(), 50);
+        this.scheduleRender();
     }
 
     public canScrollPreview(): boolean {
@@ -87,6 +89,8 @@ export class BiblePreviewPaneView extends ItemView {
 
     clearContent(): void {
         this.currentContent = null;
+        this.cancelScheduledRender();
+        this.renderGenerationId += 1;
         this.contentContainerEl?.replaceChildren();
     }
 
@@ -95,6 +99,7 @@ export class BiblePreviewPaneView extends ItemView {
         if (this.titleEl !== null) this.titleEl.textContent = this.input.getTitle();
         this.updateIconButton(this.copyButtonEl, this.input.getCopyIcon(), this.input.getCopyAria());
         this.updateIconButton(this.openFloatingButtonEl, this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria());
+        if (this.currentContent !== null) this.scheduleRender();
     }
 
     private buildLayout(): void {
@@ -190,6 +195,43 @@ export class BiblePreviewPaneView extends ItemView {
         const secondChild = this.containerEl.children.item(1);
         if (secondChild instanceof HTMLElement) return secondChild;
         return this.containerEl;
+    }
+
+    private scheduleRender(): void {
+        this.cancelScheduledRender();
+        const generationId = ++this.renderGenerationId;
+
+        this.renderAnimationFrameId = window.requestAnimationFrame(() => {
+            this.renderAnimationFrameId = null;
+            if (generationId !== this.renderGenerationId) return;
+
+            this.renderCurrentContent();
+
+            if (this.shouldRetryRenderAfterLayout() && generationId === this.renderGenerationId) {
+                this.renderRetryTimeoutId = window.setTimeout(() => {
+                    this.renderRetryTimeoutId = null;
+                    if (generationId === this.renderGenerationId) this.renderCurrentContent();
+                }, 50);
+            }
+        });
+    }
+
+    private cancelScheduledRender(): void {
+        if (this.renderAnimationFrameId !== null) {
+            window.cancelAnimationFrame(this.renderAnimationFrameId);
+            this.renderAnimationFrameId = null;
+        }
+
+        if (this.renderRetryTimeoutId !== null) {
+            window.clearTimeout(this.renderRetryTimeoutId);
+            this.renderRetryTimeoutId = null;
+        }
+    }
+
+    private shouldRetryRenderAfterLayout(): boolean {
+        return this.contentContainerEl !== null
+            && this.currentContent !== null
+            && this.contentContainerEl.clientHeight <= 0;
     }
 
     private renderCurrentContent(): void {

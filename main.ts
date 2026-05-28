@@ -1326,9 +1326,6 @@ export default class BiblePlugin extends Plugin {
 
     private applyContentToPaneView(view: BiblePreviewPaneView, content: BiblePreviewContent): void {
         view.setContent(content);
-        window.requestAnimationFrame(() => view.setContent(content));
-        window.setTimeout(() => view.setContent(content), 50);
-        window.setTimeout(() => view.setContent(content), 250);
     }
 
     private async getOrCreateBiblePreviewPaneView(options: { restoreActiveLeaf?: WorkspaceLeaf | null } = {}): Promise<BiblePreviewPaneView | null> {
