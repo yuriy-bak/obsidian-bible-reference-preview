@@ -11,6 +11,7 @@ import { getBibleTextBlocks } from "./src/application/getBibleTexts";
 import { BiblePreviewContent, BiblePreviewReferenceBlock, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
 import { EpubBibleSourceMetadata } from "./src/infrastructure/EpubBibleImporter";
+import { EPUB_IMPORT_LIMITS } from "./src/infrastructure/epub/EpubContainerReader";
 import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
@@ -282,7 +283,7 @@ export default class BiblePlugin extends Plugin {
     public openEpubFilePicker(): void {
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = ".epub,.tsv,application/epub+zip,application/zip";
+        input.accept = ".epub,application/epub+zip";
         input.onchange = () => { const file = input.files?.[0]; if (file !== undefined) void this.importEpubFile(file); };
         input.click();
     }
@@ -352,7 +353,15 @@ export default class BiblePlugin extends Plugin {
     }
 
     private async readAndValidateEpubFile(file: File): Promise<ArrayBuffer> {
+        if (file.size > EPUB_IMPORT_LIMITS.maxArchiveBytes) {
+            throw new Error(`Imported EPUB/ZIP file is too large: ${file.size} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxArchiveBytes} bytes.`);
+        }
+
         const content = await file.arrayBuffer();
+
+        if (content.byteLength > EPUB_IMPORT_LIMITS.maxArchiveBytes) {
+            throw new Error(`Imported EPUB/ZIP file is too large: ${content.byteLength} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxArchiveBytes} bytes.`);
+        }
 
         if (content.byteLength === 0) {
             throw new Error([
@@ -3197,7 +3206,7 @@ class BiblePluginSettingTab extends PluginSettingTab {
 }
 
 function createImportSettingsDefaults(fileName: string, sourceMetadata: EpubBibleSourceMetadata): BibleTranslationImportSettings {
-    const fileNameWithoutExtension = fileName.replace(/\.(epub|tsv)$/i, "").trim();
+    const fileNameWithoutExtension = fileName.replace(/\.epub$/i, "").trim();
     const detectedTranslationName = sourceMetadata.title?.trim() ?? "";
     const translationNameForId = detectedTranslationName || fileNameWithoutExtension || "Imported EPUB Bible";
     const language = normalizeLanguageInput(sourceMetadata.language ?? "") || "und";

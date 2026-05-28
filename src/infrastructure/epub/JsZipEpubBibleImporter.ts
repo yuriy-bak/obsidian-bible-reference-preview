@@ -3,7 +3,7 @@ import { normalizeBookAlias } from "../../parsing/BookMapping";
 import { EpubBibleImporter, EpubBibleImportInput, EpubBibleImportResult, EpubBibleSourceMetadata } from "../EpubBibleImporter";
 import { BibleIndexV2Data } from "../v2/BibleIndexV2Data";
 import { CompactBibleBookData, CompactVerseData } from "../v2/CompactBibleBookData";
-import { readContainerOpfPath, readZipText } from "./EpubContainerReader";
+import { EPUB_IMPORT_LIMITS, normalizeZipPath, readContainerOpfPath, readZipText, validateZipArchive } from "./EpubContainerReader";
 import { EpubImportError } from "./EpubImportError";
 import { parseOpfDocument } from "./EpubOpfReader";
 import {
@@ -18,6 +18,7 @@ import {
 export class JsZipEpubBibleImporter implements EpubBibleImporter {
     async readMetadata(content: ArrayBuffer): Promise<EpubBibleSourceMetadata> {
         const zip = await JSZip.loadAsync(content);
+        validateZipArchive(zip);
         const opfPath = await readContainerOpfPath(zip);
         const opfXml = await readZipText(zip, opfPath);
 
@@ -27,13 +28,14 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
     async importEpub(input: EpubBibleImportInput): Promise<EpubBibleImportResult> {
         const warnings: string[] = [];
         const zip = await JSZip.loadAsync(input.content);
+        validateZipArchive(zip);
 
         const opfPath = await readContainerOpfPath(zip);
         const opfXml = await readZipText(zip, opfPath);
         parseOpfDocument(opfXml);
 
         const sourceMetadata = extractSourceMetadataFromOpf(opfXml);
-        const translationName = input.translationName.trim() || sourceMetadata.title || input.fileName.replace(/\.(epub|tsv)$/i, "");
+        const translationName = input.translationName.trim() || sourceMetadata.title || input.fileName.replace(/\.epub$/i, "");
         const language = normalizeLanguage(input.language) || normalizeLanguage(sourceMetadata.language ?? "") || "und";
         const booksDirectory = `translations/${input.translationId}/books`;
 
@@ -159,13 +161,25 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
 
 async function readAllXhtmlDocuments(zip: JSZip): Promise<Array<{ path: string; html: string }>> {
     const paths = Object.keys(zip.files)
-        .filter((path) => !zip.files[path].dir && /\.xhtml$/i.test(path))
+        .map((path) => normalizeZipPath(path))
+        .filter((path) => !zip.files[path].dir && /\.(?:xhtml|html|xml)$/i.test(path))
         .sort((left, right) => left.localeCompare(right));
 
-    return Promise.all(paths.map(async (path) => ({
-        path,
-        html: await zip.file(path)!.async("text"),
-    })));
+    const documents: Array<{ path: string; html: string }> = [];
+    let totalHtmlTextBytes = 0;
+
+    for (const path of paths) {
+        const html = await readZipText(zip, path, EPUB_IMPORT_LIMITS.maxSingleHtmlTextBytes);
+        totalHtmlTextBytes += byteLength(html);
+
+        if (totalHtmlTextBytes > EPUB_IMPORT_LIMITS.maxTotalHtmlTextBytes) {
+            throw new EpubImportError(`EPUB HTML/XML text content is too large. Size: ${totalHtmlTextBytes} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxTotalHtmlTextBytes} bytes.`);
+        }
+
+        documents.push({ path, html });
+    }
+
+    return documents;
 }
 
 function appendVerses(bookData: CompactBibleBookData, verses: ExtractedVerse[]): number {

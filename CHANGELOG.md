@@ -9,7 +9,7 @@
 
 - Added Russian and English interface localization.
 - Added interface language setting.
-- Added EPUB/TSV import as ZIP containers.
+- Added EPUB import as ZIP containers.
 - Added Bible Index v2 with multiple translations.
 - Added translation ordering and deletion.
 - Added Bible reference parsing based on imported book metadata and aliases.

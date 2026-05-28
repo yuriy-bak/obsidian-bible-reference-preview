@@ -7,7 +7,8 @@
     "build": "npm run typecheck && node esbuild.config.mjs",
     "build:prod": "npm run typecheck && node esbuild.config.mjs --production",
     "watch": "tsc --noEmit --watch",
-    "build:test-modules": "tsc --target ES2018 --module commonjs --moduleResolution Node --esModuleInterop --skipLibCheck --strict --outDir .test-build --rootDir . --noEmit false",
+    "clean:test-build": "node scripts/clean-test-build.mjs",
+    "build:test-modules": "npm run clean:test-build && tsc --target ES2018 --module commonjs --moduleResolution Node --esModuleInterop --skipLibCheck --strict --outDir .test-build --rootDir . --noEmit false",
     "test": "npm run build && npm run build:test-modules && node tests/run-parser-tests.js"
   },
   "devDependencies": {

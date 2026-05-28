@@ -4,7 +4,7 @@ Bible Reference Preview recognizes Bible references in Obsidian notes and shows 
 
 ## Features
 
-- Import Bible translations from EPUB/TSV ZIP containers.
+- Import Bible translations from EPUB files.
 - Store multiple imported translations.
 - Reorder translations and use the top translation as the active one.
 - Recognize Bible references in editor text and Reading view.
@@ -39,7 +39,7 @@ Bible Reference Preview recognizes Bible references in Obsidian notes and shows 
 
 1. Open Settings → Bible Reference Preview.
 2. Click **Import EPUB**.
-3. Choose an EPUB/TSV file.
+3. Choose an EPUB file.
 4. Check the detected translation name and language.
 5. Click **Import**.
 
@@ -69,14 +69,14 @@ You can change these shortcuts in Settings → Hotkeys.
 
 ## Русский раздел
 
-Плагин распознаёт библейские ссылки в заметках Obsidian и показывает текст из импортированного EPUB/TSV-перевода Библии во floating preview.
+Плагин распознаёт библейские ссылки в заметках Obsidian и показывает текст из импортированного EPUB-перевода Библии во floating preview.
 
 Кратко:
 
 1. Установи `main.js` и `manifest.json` в `.obsidian/plugins/bible-reference-preview/`.
 2. Включи плагин в Community plugins.
 3. Открой настройки Bible Reference Preview.
-4. Импортируй EPUB/TSV.
+4. Импортируй EPUB.
 5. Используй ссылки вроде `Ин3:16` или `Авд2-4`.
 6. При необходимости назначь hotkey для команды открытия ссылки под курсором.
 
