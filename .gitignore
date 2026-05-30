@@ -54,6 +54,5 @@ tmp/
 # files for local AI agent
 /.agent*
 .agent_backups/
-.ai/
 agent_output.json
 zip_project.*
