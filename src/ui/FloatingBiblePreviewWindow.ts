@@ -108,7 +108,13 @@ export class FloatingBiblePreviewWindow {
         this.registerListeners();
     }
 
-    public show(content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor = { type: "default" }): void {
+    public show(
+        content: BiblePreviewContent,
+        anchor: FloatingBiblePreviewAnchor = { type: "default" },
+        options: { reveal?: boolean } = {},
+    ): void {
+        const shouldReveal = options.reveal !== false;
+        const wasVisible = this.isVisible();
         this.previewContent = content;
         this.previewText = content.plainText;
         renderBiblePreviewContent(this.previewContentEl, content, {
@@ -118,11 +124,15 @@ export class FloatingBiblePreviewWindow {
         });
         this.updateBiblePreviewTitle();
 
-        if (this.isPreviewCollapsed) {
-            this.isPreviewCollapsed = false;
-            this.setExpandedPreviewPositionFromCollapsedButton();
-        } else if (anchor.type === "element" && this.customPreviewPosition === null) {
-            this.customPreviewPosition = this.getExpandedPreviewPositionForAnchor(anchor.element);
+        if (shouldReveal) {
+            if (this.isPreviewCollapsed) {
+                this.isPreviewCollapsed = false;
+                this.setExpandedPreviewPositionFromCollapsedButton();
+            } else if (anchor.type === "element" && this.customPreviewPosition === null) {
+                this.customPreviewPosition = this.getExpandedPreviewPositionForAnchor(anchor.element);
+            }
+        } else if (!wasVisible) {
+            this.isPreviewCollapsed = true;
         }
 
         this.renderBiblePreview();

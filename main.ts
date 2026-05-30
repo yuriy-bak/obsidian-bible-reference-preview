@@ -112,6 +112,7 @@ type BiblePluginSettings = {
     previewDisplayMode: BiblePreviewDisplayMode;
     previewPanelSide: BiblePreviewPanelSide;
     closePreviewOnActiveLeafChange: boolean;
+    autoOpenPreviewOnVerseChange: boolean;
     interceptLinkOpenShortcut: boolean;
     linkOpenShortcut: BibleLinkOpenShortcut;
     referenceUsageIndexingEnabled: boolean;
@@ -140,6 +141,7 @@ const DEFAULT_SETTINGS: BiblePluginSettings = {
     previewDisplayMode: "floating",
     previewPanelSide: "right",
     closePreviewOnActiveLeafChange: true,
+    autoOpenPreviewOnVerseChange: !Platform.isMobileApp,
     interceptLinkOpenShortcut: true,
     linkOpenShortcut: "alt-enter",
     referenceUsageIndexingEnabled: false,
@@ -734,6 +736,19 @@ export default class BiblePlugin extends Plugin {
         this.refreshSettingsTab();
     }
 
+    public shouldAutoOpenPreviewOnVerseChange(): boolean {
+        return this.settings.autoOpenPreviewOnVerseChange;
+    }
+
+    public async setAutoOpenPreviewOnVerseChange(autoOpenPreviewOnVerseChange: boolean): Promise<void> {
+        if (this.settings.autoOpenPreviewOnVerseChange === autoOpenPreviewOnVerseChange) {
+            return;
+        }
+        this.settings = { ...this.settings, autoOpenPreviewOnVerseChange };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
     public shouldInterceptLinkOpenShortcut(): boolean {
         return this.settings.interceptLinkOpenShortcut;
     }
@@ -1315,17 +1330,26 @@ export default class BiblePlugin extends Plugin {
             onOpenResult: (result) => void this.openReferenceUsageResult(result),
         };
     }
-    public showBiblePreviewContent(content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor = { type: "default" }): void {
+    public showBiblePreviewContent(
+        content: BiblePreviewContent,
+        anchor: FloatingBiblePreviewAnchor = { type: "default" },
+        options: { reveal?: boolean } = {},
+    ): void {
+        const reveal = options.reveal !== false;
         if (this.settings.previewDisplayMode === "side-panel") {
-            void this.showBiblePreviewInPanel(content);
+            void this.showBiblePreviewInPanel(content, { reveal });
             this.hideFloatingBiblePreview();
             return;
         }
 
-        this.showFloatingBiblePreview(content, anchor);
+        this.showFloatingBiblePreview(content, anchor, { reveal });
     }
-    public showFloatingBiblePreview(content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor = { type: "default" }): void {
-        this.floatingPreviewWindow?.show(content, anchor);
+    public showFloatingBiblePreview(
+        content: BiblePreviewContent,
+        anchor: FloatingBiblePreviewAnchor = { type: "default" },
+        options: { reveal?: boolean } = {},
+    ): void {
+        this.floatingPreviewWindow?.show(content, anchor, { reveal: options.reveal !== false });
     }
     private async switchBiblePreviewToPanel(content: BiblePreviewContent): Promise<void> {
         if (this.settings.previewDisplayMode !== "side-panel") {
@@ -1345,11 +1369,12 @@ export default class BiblePlugin extends Plugin {
         await this.closeBiblePreviewPane({ collapseSideDock: true, requireActivePreview: true });
         this.showFloatingBiblePreview(content, { type: "default" });
     }
-    private async showBiblePreviewInPanel(content: BiblePreviewContent): Promise<void> {
+    private async showBiblePreviewInPanel(content: BiblePreviewContent, options: { reveal?: boolean } = {}): Promise<void> {
         this.lastPanePreviewContent = content;
+        const reveal = options.reveal !== false;
         const activeLeafBeforeOpen = this.app.workspace.activeLeaf;
-        const restoreActiveLeaf = !Platform.isMobileApp && activeLeafBeforeOpen?.view instanceof MarkdownView ? activeLeafBeforeOpen : null;
-        const view = await this.getOrCreateBiblePreviewPaneView({ restoreActiveLeaf });
+        const restoreActiveLeaf = reveal && !Platform.isMobileApp && activeLeafBeforeOpen?.view instanceof MarkdownView ? activeLeafBeforeOpen : null;
+        const view = await this.getOrCreateBiblePreviewPaneView({ restoreActiveLeaf, reveal });
         if (view === null) {
             return;
         }
@@ -1360,21 +1385,28 @@ export default class BiblePlugin extends Plugin {
         view.setContent(content);
     }
 
-    private async getOrCreateBiblePreviewPaneView(options: { restoreActiveLeaf?: WorkspaceLeaf | null } = {}): Promise<BiblePreviewPaneView | null> {
+    private async getOrCreateBiblePreviewPaneView(options: { restoreActiveLeaf?: WorkspaceLeaf | null; reveal?: boolean } = {}): Promise<BiblePreviewPaneView | null> {
+        const reveal = options.reveal !== false;
         const existingLeaf = this.getFirstWorkspaceLeafOfType(BIBLE_PREVIEW_VIEW_TYPE);
         if (existingLeaf !== null) {
             const existingView = existingLeaf.view;
             if (existingView instanceof BiblePreviewPaneView) {
-                this.biblePreviewPaneIsActiveInSideDock = true;
-                this.expandBiblePreviewSideDock();
-                await this.revealLeafWithoutStealingEditorFocus(existingLeaf, {
-                    restoreActiveLeaf: options.restoreActiveLeaf ?? null,
-                    focus: false,
-                });
+                if (reveal) {
+                    this.biblePreviewPaneIsActiveInSideDock = true;
+                    this.expandBiblePreviewSideDock();
+                    await this.revealLeafWithoutStealingEditorFocus(existingLeaf, {
+                        restoreActiveLeaf: options.restoreActiveLeaf ?? null,
+                        focus: false,
+                    });
+                }
                 await this.detachDuplicateWorkspaceLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE, existingLeaf);
                 existingView.refreshInput(this.createBiblePreviewPaneViewInput());
                 return existingView;
             }
+        }
+
+        if (!reveal) {
+            return null;
         }
 
         const leaf = this.settings.previewPanelSide === "left"
@@ -1386,14 +1418,18 @@ export default class BiblePlugin extends Plugin {
 
         this.suppressPreviewActiveLeafChange = true;
         try {
-            this.expandBiblePreviewSideDock();
-            await leaf.setViewState({ type: BIBLE_PREVIEW_VIEW_TYPE, active: true });
-            this.biblePreviewPaneIsActiveInSideDock = true;
-            this.expandBiblePreviewSideDock();
-            await this.revealLeafWithoutStealingEditorFocus(leaf, {
-                restoreActiveLeaf: options.restoreActiveLeaf ?? null,
-                focus: false,
-            });
+            if (reveal) {
+                this.expandBiblePreviewSideDock();
+            }
+            await leaf.setViewState({ type: BIBLE_PREVIEW_VIEW_TYPE, active: reveal });
+            if (reveal) {
+                this.biblePreviewPaneIsActiveInSideDock = true;
+                this.expandBiblePreviewSideDock();
+                await this.revealLeafWithoutStealingEditorFocus(leaf, {
+                    restoreActiveLeaf: options.restoreActiveLeaf ?? null,
+                    focus: false,
+                });
+            }
             await this.waitForNextFrame();
             await this.waitForNextFrame();
             const createdLeaf = this.getFirstWorkspaceLeafOfType(BIBLE_PREVIEW_VIEW_TYPE) ?? leaf;
@@ -1798,7 +1834,7 @@ export default class BiblePlugin extends Plugin {
                         this.hideBiblePreview();
                         return;
                     }
-                    plugin.showBiblePreviewContent(content, { type: "default" });
+                    plugin.showBiblePreviewContent(content, { type: "default" }, { reveal: plugin.shouldAutoOpenPreviewOnVerseChange() });
                 });
             }
 
@@ -1884,7 +1920,7 @@ export default class BiblePlugin extends Plugin {
                         this.hideBiblePreview(true);
                         return;
                     }
-                    plugin.showBiblePreviewContent(content, { type: "default" });
+                    plugin.showBiblePreviewContent(content, { type: "default" }, { reveal: plugin.shouldAutoOpenPreviewOnVerseChange() });
                 });
             }
 
@@ -2381,7 +2417,7 @@ class BibleReadingModePreviewController {
     constructor(private readonly plugin: BiblePlugin) { }
 
     public show(content: BiblePreviewContent, anchorEl: HTMLElement): void {
-        this.plugin.showBiblePreviewContent(content, { type: "element", element: anchorEl });
+        this.plugin.showBiblePreviewContent(content, { type: "element", element: anchorEl }, { reveal: this.plugin.shouldAutoOpenPreviewOnVerseChange() });
     }
 
     public destroy(): void { }
@@ -2471,6 +2507,14 @@ class BiblePluginSettingTab extends PluginSettingTab {
                     .addOption("side-panel", this.plugin.t("settings.previewDisplayMode.sidePanel"))
                     .setValue(this.plugin.getBiblePreviewDisplayMode())
                     .onChange((value) => void this.plugin.setBiblePreviewDisplayMode(value as BiblePreviewDisplayMode));
+            });
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.autoOpenPreviewOnVerseChange.name"))
+            .setDesc(this.plugin.t("settings.autoOpenPreviewOnVerseChange.desc"))
+            .addToggle((toggle) => {
+                toggle
+                    .setValue(this.plugin.shouldAutoOpenPreviewOnVerseChange())
+                    .onChange((value) => void this.plugin.setAutoOpenPreviewOnVerseChange(value));
             });
         new Setting(containerEl)
             .setName(this.plugin.t("settings.previewPanelSide.name"))
@@ -2596,6 +2640,9 @@ function normalizePluginSettings(value: unknown): BiblePluginSettings {
         closePreviewOnActiveLeafChange: typeof value.closePreviewOnActiveLeafChange === "boolean"
             ? value.closePreviewOnActiveLeafChange
             : DEFAULT_SETTINGS.closePreviewOnActiveLeafChange,
+        autoOpenPreviewOnVerseChange: typeof value.autoOpenPreviewOnVerseChange === "boolean"
+            ? value.autoOpenPreviewOnVerseChange
+            : DEFAULT_SETTINGS.autoOpenPreviewOnVerseChange,
         interceptLinkOpenShortcut: typeof value.interceptLinkOpenShortcut === "boolean"
             ? value.interceptLinkOpenShortcut
             : DEFAULT_SETTINGS.interceptLinkOpenShortcut,

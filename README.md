@@ -1,6 +1,6 @@
 # Bible Reference Preview
 
-Bible Reference Preview recognizes Bible references in Obsidian notes and shows verse previews from imported EPUB Bible translations.
+Bible Reference Preview finds Bible references in Obsidian notes and shows verse previews from EPUB Bible translations that you import into the plugin.
 
 ## Features
 
