@@ -55,3 +55,4 @@ tmp/
 /.agent*
 .agent_backups/
 agent_output.json
+zip_project.*

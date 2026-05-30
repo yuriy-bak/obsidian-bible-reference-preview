@@ -35,6 +35,7 @@ Bible Reference Preview finds Bible references in Obsidian notes and shows verse
    ```text
    main.js
    manifest.json
+   styles.css
    ```
 
 4. Open Obsidian → Settings → Community plugins and enable **Bible Reference Preview**.
@@ -94,7 +95,7 @@ You can change these shortcuts in Settings → Hotkeys.
 
 Кратко:
 
-1. Установи `main.js` и `manifest.json` в `.obsidian/plugins/bible-reference-preview/`.
+1. Установи `main.js`, `manifest.json` и `styles.css` в `.obsidian/plugins/bible-reference-preview/`.
 2. Включи плагин в Community plugins.
 3. Открой настройки Bible Reference Preview.
 4. Импортируй EPUB.
@@ -119,29 +120,6 @@ You can change these shortcuts in Settings → Hotkeys.
 - Alt+End — в конец
 
 Сочетания можно изменить в Settings → Hotkeys.
-
-## Quality improvements status
-
-The current quality-improvements package has been completed.
-
-Completed areas:
-
-- ESLint baseline and CI;
-- Development documentation;
-- Git hygiene / runtime data audit;
-- Translation comparison;
-- Reference Usage Index tests;
-- EPUB / ZIP security tests;
-- mobile performance improvements;
-- UI lifecycle and listener cleanup;
-- initial CSS / UI cleanup.
-
-Final checks:
-
-- `npm run lint` — passed;
-- `npm test` — passed.
-
-There are no active tasks left in the current quality-improvements package. New work should start from a newly approved scope.
 
 ## Development
 
