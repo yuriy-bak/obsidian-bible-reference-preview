@@ -120,6 +120,37 @@ You can change these shortcuts in Settings → Hotkeys.
 
 Сочетания можно изменить в Settings → Hotkeys.
 
+## Development
+
+Use the npm scripts from `package.json` for local development and verification:
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+npm test
+```
+
+Script overview:
+
+- `npm run lint` checks the TypeScript and JavaScript sources with ESLint.
+- `npm run typecheck` runs TypeScript type checking without emitting files.
+- `npm run build` type-checks the project and builds the Obsidian plugin bundle.
+- `npm test` runs the production build, builds CommonJS test modules into `.test-build/`, and runs parser/importer tests.
+
+Build and repository hygiene notes:
+
+- `.test-build/` is test output and should not be committed.
+- Generated `src/**/*.js` files should not be committed; source files live in `src/**/*.ts`.
+- `main.js` is the Obsidian plugin build artifact used for manual installation and releases.
+- Do not change the `main.js` release/build policy without a separate project decision.
+
+Import and indexing notes:
+
+- The supported import flow is EPUB-only: translations are imported through the plugin settings with **Import EPUB**.
+- The Reference Usage Index scans Markdown files in the vault to find Bible reference usages.
+- Large Markdown files can be skipped by the Reference Usage Index according to its size limit to avoid slow indexing and UI freezes.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

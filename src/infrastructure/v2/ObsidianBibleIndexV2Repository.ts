@@ -9,6 +9,7 @@ import { LazyBibleIndexV2 } from "./LazyBibleIndexV2";
 const BIBLES_INDEX_FILE_NAME = "bibles-index.json";
 const OLD_BIBLE_INDEX_V2_FILE_NAME = "bible-index-v2.json";
 const IMPORT_REPORT_FILE_NAME = "import-report.json";
+const SAVE_BIBLE_INDEX_YIELD_EVERY_BOOKS = 10;
 
 const EMPTY_BIBLE_INDEX: BibleIndex = {
     async getBibleText() {
@@ -66,10 +67,13 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         delete nextData.translations[translationId];
         await this.removeTranslationDirectory(translationId);
 
+        let savedBookCount = 0;
         for (const [path, book] of Object.entries(input.books)) {
             const fullPath = normalizePath(`${this.dataDirectoryPath}/${path}`);
             await this.ensureDirectoryExists(getDirectoryPath(fullPath));
             await this.adapter.write(fullPath, JSON.stringify(book));
+            savedBookCount += 1;
+            await yieldSaveBibleIndexIfNeeded(savedBookCount);
         }
 
         nextData.translations[translationId] = incomingTranslation;
@@ -200,6 +204,13 @@ function isImportReport(value: unknown): value is EpubBibleImportReport {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function yieldSaveBibleIndexIfNeeded(savedBookCount: number): Promise<void> {
+    if (savedBookCount % SAVE_BIBLE_INDEX_YIELD_EVERY_BOOKS !== 0) {
+        return;
+    }
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 }
 
 function normalizePath(path: string): string {

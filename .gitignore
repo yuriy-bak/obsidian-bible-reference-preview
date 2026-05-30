@@ -12,6 +12,9 @@ node_modules/
 *.tsbuildinfo
 .test-build/
 
+# test caches
+.pytest_cache/
+
 # logs
 npm-debug.log*
 yarn-debug.log*
@@ -25,18 +28,30 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Obsidian (важно)
+# Obsidian
 .obsidian/
 
-# Plugin build artifacts (если работаешь из той же папки)
+# Plugin build artifacts
 main.js
 
-# dotenv (на будущее)
+# dotenv / local secrets
 .env
+.env.*
 
-#папка с индексами не должна лежать в git
+# runtime data / indexes
 data/
 
-#файлы для ии агента
+# temporary files and local archives
+temp/
+tmp/
+*.tmp
+*.bak
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# files for local AI agent
 /.agent*
+.agent_backups/
 agent_output.json

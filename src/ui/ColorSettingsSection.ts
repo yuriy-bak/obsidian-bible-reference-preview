@@ -45,19 +45,10 @@ export function renderColorSettingsSection(input: ColorSettingsSectionInput): vo
     });
 
     const previewEl = bibleReferenceLinkColorSetting.controlEl.createSpan({ text: translate("settings.linkColor.preview") });
+    previewEl.className = "bible-reference-preview-color-sample bible-reference-preview-link-color-sample";
     previewEl.style.color = input.isBibleReferenceLinkColorDefault()
         ? "var(--link-color)"
         : input.getBibleReferenceLinkColorPickerValue();
-    previewEl.style.textDecoration = "underline";
-    previewEl.style.textDecorationStyle = "dotted";
-    previewEl.style.border = "1px solid var(--background-modifier-border)";
-    previewEl.style.borderRadius = "6px";
-    previewEl.style.boxShadow = "var(--input-shadow)";
-    previewEl.style.background = "var(--interactive-normal)";
-    previewEl.style.padding = "4px 10px";
-    previewEl.style.marginLeft = "8px";
-    previewEl.style.whiteSpace = "nowrap";
-    previewEl.style.cursor = "pointer";
     previewEl.tabIndex = 0;
     previewEl.setAttribute("role", "button");
     previewEl.setAttribute("aria-label", translate("settings.linkColor.name"));
@@ -72,7 +63,7 @@ export function renderColorSettingsSection(input: ColorSettingsSectionInput): vo
 
     const resetButton = bibleReferenceLinkColorSetting.controlEl.createEl("button", { text: translate("settings.reset") });
     resetButton.disabled = input.isBibleReferenceLinkColorDefault();
-    resetButton.style.marginLeft = "8px";
+    resetButton.className = "bible-reference-preview-setting-inline-button";
     resetButton.addEventListener("click", async (event) => {
         event.preventDefault();
         await input.resetBibleReferenceLinkColor();
@@ -87,15 +78,8 @@ export function renderColorSettingsSection(input: ColorSettingsSectionInput): vo
     const previewBackgroundSampleEl = floatingPreviewBackgroundColorSetting.controlEl.createSpan({
         text: "...",
     });
+    previewBackgroundSampleEl.className = "bible-reference-preview-color-sample bible-reference-preview-background-color-sample";
     previewBackgroundSampleEl.style.background = input.getFloatingPreviewBackgroundColor();
-    previewBackgroundSampleEl.style.color = "var(--text-normal)";
-    previewBackgroundSampleEl.style.border = "1px solid var(--background-modifier-border)";
-    previewBackgroundSampleEl.style.borderRadius = "6px";
-    previewBackgroundSampleEl.style.boxShadow = "var(--input-shadow)";
-    previewBackgroundSampleEl.style.marginLeft = "8px";
-    previewBackgroundSampleEl.style.padding = "4px 10px";
-    previewBackgroundSampleEl.style.whiteSpace = "nowrap";
-    previewBackgroundSampleEl.style.cursor = "pointer";
     previewBackgroundSampleEl.tabIndex = 0;
     previewBackgroundSampleEl.setAttribute("role", "button");
     previewBackgroundSampleEl.setAttribute("aria-label", translate("settings.previewBackgroundColor.name"));
@@ -110,7 +94,7 @@ export function renderColorSettingsSection(input: ColorSettingsSectionInput): vo
 
     const resetPreviewBackgroundButton = floatingPreviewBackgroundColorSetting.controlEl.createEl("button", { text: translate("settings.reset") });
     resetPreviewBackgroundButton.disabled = input.isFloatingPreviewBackgroundColorDefault();
-    resetPreviewBackgroundButton.style.marginLeft = "8px";
+    resetPreviewBackgroundButton.className = "bible-reference-preview-setting-inline-button";
     resetPreviewBackgroundButton.addEventListener("click", async (event) => {
         event.preventDefault();
         await input.resetFloatingPreviewBackgroundColor();

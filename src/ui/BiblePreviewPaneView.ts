@@ -278,7 +278,6 @@ export class BiblePreviewPaneView extends ItemView {
 
     private renderCurrentContent(): void {
         if (this.contentContainerEl === null) return;
-        this.contentContainerEl.replaceChildren();
         if (this.currentContent !== null) {
             renderBiblePreviewContent(this.contentContainerEl, this.currentContent, {
                 getFindUsagesButtonText: this.input.getFindUsagesButtonText,
@@ -286,6 +285,8 @@ export class BiblePreviewPaneView extends ItemView {
                 onFindUsages: this.input.onFindUsages,
             });
             this.renderComparisonTranslationSelector();
+        } else {
+            this.contentContainerEl.replaceChildren();
         }
     }
 

@@ -15,6 +15,9 @@ import {
     ExtractedVerse,
 } from "./htmlTextUtils";
 
+const EPUB_IMPORT_READ_DOCUMENTS_YIELD_EVERY_FILES = 10;
+const EPUB_IMPORT_APPEND_VERSES_YIELD_EVERY_VERSES = 500;
+
 export class JsZipEpubBibleImporter implements EpubBibleImporter {
     async readMetadata(content: ArrayBuffer): Promise<EpubBibleSourceMetadata> {
         const zip = await JSZip.loadAsync(content);
@@ -114,7 +117,7 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
                 continue;
             }
 
-            importedVerseCount += appendVerses(compactBooks[bookPath], verses);
+            importedVerseCount += await appendVerses(compactBooks[bookPath], verses);
         }
 
         if (importedVerseCount === 0) {
@@ -168,7 +171,8 @@ async function readAllXhtmlDocuments(zip: JSZip): Promise<Array<{ path: string; 
     const documents: Array<{ path: string; html: string }> = [];
     let totalHtmlTextBytes = 0;
 
-    for (const path of paths) {
+    for (let pathIndex = 0; pathIndex < paths.length; pathIndex += 1) {
+        const path = paths[pathIndex];
         const html = await readZipText(zip, path, EPUB_IMPORT_LIMITS.maxSingleHtmlTextBytes);
         totalHtmlTextBytes += byteLength(html);
 
@@ -177,12 +181,13 @@ async function readAllXhtmlDocuments(zip: JSZip): Promise<Array<{ path: string; 
         }
 
         documents.push({ path, html });
+        await yieldEpubImportIfNeeded(pathIndex + 1, EPUB_IMPORT_READ_DOCUMENTS_YIELD_EVERY_FILES);
     }
 
     return documents;
 }
 
-function appendVerses(bookData: CompactBibleBookData, verses: ExtractedVerse[]): number {
+async function appendVerses(bookData: CompactBibleBookData, verses: ExtractedVerse[]): Promise<number> {
     let importedVerseCount = 0;
 
     for (const verse of verses) {
@@ -194,6 +199,7 @@ function appendVerses(bookData: CompactBibleBookData, verses: ExtractedVerse[]):
 
         chapter[verse.verse] = toCompactVerseData(verse);
         importedVerseCount += 1;
+        await yieldEpubImportIfNeeded(importedVerseCount, EPUB_IMPORT_APPEND_VERSES_YIELD_EVERY_VERSES);
     }
 
     return importedVerseCount;
@@ -368,6 +374,13 @@ function calculateStats(books: Record<string, CompactBibleBookData>): { chapters
     }
 
     return { chapters, verses, footnotes };
+}
+
+async function yieldEpubImportIfNeeded(processedCount: number, everyCount: number): Promise<void> {
+    if (processedCount % everyCount !== 0) {
+        return;
+    }
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 }
 
 function byteLength(value: string): number {

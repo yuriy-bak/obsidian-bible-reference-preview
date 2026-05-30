@@ -169,7 +169,7 @@ export function formatBibleTextBlocks(
 }
 
 export function renderBiblePreviewContent(containerEl: HTMLElement, content: BiblePreviewContent, options: BiblePreviewRenderOptions = {}): void {
-    containerEl.replaceChildren();
+    const fragment = document.createDocumentFragment();
 
     let previousRenderedBlockType: "reference" | "footnote" | "separator" | null = null;
 
@@ -178,7 +178,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
             const separatorEl = document.createElement("div");
             separatorEl.className = "bible-preview-separator";
             separatorEl.textContent = block.text;
-            containerEl.appendChild(separatorEl);
+            fragment.appendChild(separatorEl);
 
             previousRenderedBlockType = "separator";
             continue;
@@ -194,7 +194,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
             }
 
             appendTextWithLineBreaks(footnoteEl, block.text);
-            containerEl.appendChild(footnoteEl);
+            fragment.appendChild(footnoteEl);
 
             previousRenderedBlockType = "footnote";
             continue;
@@ -241,7 +241,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
                 }
             }
 
-            containerEl.appendChild(comparisonEl);
+            fragment.appendChild(comparisonEl);
             previousRenderedBlockType = "reference";
             continue;
         }
@@ -294,10 +294,12 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
             referenceEl.appendChild(paragraphEl);
         });
 
-        containerEl.appendChild(referenceEl);
+        fragment.appendChild(referenceEl);
 
         previousRenderedBlockType = "reference";
     }
+
+    containerEl.replaceChildren(fragment);
 }
 
 function groupSourceTextBlocks(blocks: BibleTextBlock[]): BibleTextBlock[][] {

@@ -29,6 +29,26 @@ const {
   normalizeBibleReferenceLinkColor,
   normalizeFloatingPreviewBackgroundColor,
 } = require("../.test-build/src/ui/cssColorValidation.js");
+const {
+  ReferenceUsageIndexService,
+  REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
+} = require("../.test-build/src/reference-usage/ReferenceUsageIndexService.js");
+const JSZip = require("jszip");
+const {
+  EPUB_IMPORT_LIMITS,
+  normalizeZipPath,
+  readContainerOpfPath,
+  readZipText,
+  resolveZipPath,
+  validateZipArchive,
+} = require("../.test-build/src/infrastructure/epub/EpubContainerReader.js");
+const {
+  getSpineXhtmlItems,
+  parseOpfDocument,
+} = require("../.test-build/src/infrastructure/epub/EpubOpfReader.js");
+const {
+  EpubImportError,
+} = require("../.test-build/src/infrastructure/epub/EpubImportError.js");
 
 (async () => {
   assert.strictEqual(isCssColor("#7c3aed"), true);
@@ -664,6 +684,260 @@ const {
   assert(comparisonContent.plainText.includes("[Translation A]\n📖 Ин 3:16.\n16 Text A"));
   assert(comparisonContent.plainText.includes("^Ин 3:16 Footnote A"));
   assert(comparisonContent.plainText.includes("[Translation B]\n📖 Yhn 3:16.\n16 Text B"));
+
+  global.window = global.window || global;
+
+  function createReferenceUsageTestFile(path, size, mtime) {
+    const extension = path.includes(".") ? path.slice(path.lastIndexOf(".") + 1) : "";
+    return { path, extension, stat: { size, mtime } };
+  }
+
+  function createReferenceUsageTestApp(fileContents) {
+    const writes = new Map();
+    const directories = new Set();
+    const readPaths = [];
+    return {
+      writes,
+      directories,
+      readPaths,
+      vault: {
+        async cachedRead(file) {
+          readPaths.push(file.path);
+          return fileContents[file.path] || "";
+        },
+        adapter: {
+          async exists(path) {
+            return writes.has(path) || directories.has(path);
+          },
+          async read(path) {
+            return writes.get(path) || "";
+          },
+          async write(path, content) {
+            writes.set(path, content);
+          },
+          async mkdir(path) {
+            directories.add(path);
+          },
+        },
+      },
+    };
+  }
+
+  function createReferenceUsageTestParseMatches(text) {
+    const definitions = [
+      { sourceText: "Ин 3:16", book: 43, chapter: 3, verse: 16 },
+      { sourceText: "Ин 3:17", book: 43, chapter: 3, verse: 17 },
+      { sourceText: "Рим 8:28", book: 45, chapter: 8, verse: 28 },
+    ];
+    return definitions.flatMap((definition) => {
+      const from = text.indexOf(definition.sourceText);
+      if (from < 0) {
+        return [];
+      }
+      return [
+        {
+          text: definition.sourceText,
+          from,
+          to: from + definition.sourceText.length,
+          references: [
+            {
+              book: definition.book,
+              chapterStart: definition.chapter,
+              verseStart: definition.verse,
+              chapterEnd: definition.chapter,
+              verseEnd: definition.verse,
+            },
+          ],
+        },
+      ];
+    });
+  }
+
+  const referenceUsageFiles = [
+    createReferenceUsageTestFile("notes/one.md", 100, 1),
+    createReferenceUsageTestFile("notes/large.md", REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES + 1, 2),
+    createReferenceUsageTestFile("archive/old.md", 100, 3),
+    createReferenceUsageTestFile("data/bible/reference.md", 100, 4),
+    createReferenceUsageTestFile("notes/plain.txt", 100, 5),
+  ];
+  const referenceUsageApp = createReferenceUsageTestApp({
+    "notes/one.md": "Intro\nИн 3:16 and Рим 8:28",
+    "notes/large.md": "Ин 3:17",
+    "archive/old.md": "Ин 3:17",
+    "data/bible/reference.md": "Ин 3:17",
+    "notes/plain.txt": "Ин 3:17",
+  });
+  const referenceUsageService = new ReferenceUsageIndexService(
+    referenceUsageApp,
+    () => "data/bible",
+    createReferenceUsageTestParseMatches,
+    () => ["archive"]
+  );
+  const referenceUsageBuildResult = await referenceUsageService.build(referenceUsageFiles, true);
+  assert.strictEqual(referenceUsageBuildResult.fileCount, 1);
+  assert.strictEqual(referenceUsageBuildResult.referenceCount, 2);
+  assert.strictEqual(referenceUsageBuildResult.updatedFileCount, 1);
+  assert.strictEqual(referenceUsageBuildResult.skippedLargeFileCount, 1);
+  assert.strictEqual(
+    referenceUsageBuildResult.maxFileSizeBytes,
+    REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES
+  );
+  assert.deepStrictEqual(referenceUsageApp.readPaths, ["notes/one.md"]);
+  assert(referenceUsageApp.writes.has("data/bible/reference-usage-index.json"));
+
+  const referenceUsageStats = referenceUsageService.getStats();
+  assert.strictEqual(referenceUsageStats.fileCount, 1);
+  assert.strictEqual(referenceUsageStats.referenceCount, 2);
+  assert.strictEqual(referenceUsageStats.indexPath, "data/bible/reference-usage-index.json");
+
+  const referenceUsageResults = referenceUsageService.findUsages([
+    { book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 16 },
+  ]);
+  assert.strictEqual(referenceUsageResults.length, 1);
+  assert.strictEqual(referenceUsageResults[0].filePath, "notes/one.md");
+  assert.strictEqual(referenceUsageResults[0].sourceText, "Ин 3:16");
+  assert.strictEqual(referenceUsageResults[0].line, 2);
+  assert.strictEqual(referenceUsageResults[0].excerpt, "Ин 3:16 and Рим 8:28");
+
+  const referenceUsageUpdateFile = createReferenceUsageTestFile("notes/update.md", 100, 6);
+  referenceUsageApp.vault.cachedRead = async (file) => {
+    referenceUsageApp.readPaths.push(file.path);
+    return "Ин 3:17";
+  };
+  await referenceUsageService.updateFile(referenceUsageUpdateFile);
+  assert.strictEqual(referenceUsageService.getStats().fileCount, 2);
+  referenceUsageUpdateFile.stat.size = REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES + 1;
+  await referenceUsageService.updateFile(referenceUsageUpdateFile);
+  assert.strictEqual(referenceUsageService.getStats().fileCount, 1);
+  assert.strictEqual(
+    referenceUsageService.findUsages([
+      { book: 43, chapterStart: 3, verseStart: 17, chapterEnd: 3, verseEnd: 17 },
+    ]).length,
+    0
+  );
+  referenceUsageService.clearPendingSave();
+
+  assert.strictEqual(referenceUsageService.removeFile("notes/one.md"), true);
+  assert.strictEqual(referenceUsageService.removeFile("notes/one.md"), false);
+  referenceUsageService.clearPendingSave();
+  await referenceUsageService.clear();
+  assert.deepStrictEqual(referenceUsageService.getStats(), {
+    fileCount: 0,
+    referenceCount: 0,
+    updatedAt: referenceUsageService.getStats().updatedAt,
+    indexPath: "data/bible/reference-usage-index.json",
+  });
+
+  function assertEpubImportError(action, expectedMessagePart) {
+    assert.throws(action, (error) => {
+      assert(error instanceof EpubImportError);
+      assert(error.message.includes(expectedMessagePart));
+      return true;
+    });
+  }
+
+  async function assertEpubImportErrorAsync(action, expectedMessagePart) {
+    await assert.rejects(action, (error) => {
+      assert(error instanceof EpubImportError);
+      assert(error.message.includes(expectedMessagePart));
+      return true;
+    });
+  }
+
+  assert.strictEqual(normalizeZipPath("OPS/./Text//chapter.xhtml"), "OPS/Text/chapter.xhtml");
+  assertEpubImportError(() => normalizeZipPath("../evil.xhtml"), "path traversal");
+  assertEpubImportError(() => normalizeZipPath("/evil.xhtml"), "must not be absolute");
+  assertEpubImportError(() => normalizeZipPath("C:/evil.xhtml"), "must not be absolute");
+  assertEpubImportError(() => normalizeZipPath("OPS\\evil.xhtml"), "backslash");
+  assert.strictEqual(
+    resolveZipPath("OPS/content.opf", "Text/chapter.xhtml"),
+    "OPS/Text/chapter.xhtml"
+  );
+  assert.strictEqual(
+    resolveZipPath("OPS/package/content.opf", "../Text/chapter.xhtml"),
+    "OPS/Text/chapter.xhtml"
+  );
+  assertEpubImportError(() => resolveZipPath("OPS/content.opf", "../../evil.xhtml"), "escapes archive root");
+  assertEpubImportError(() => resolveZipPath("OPS/content.opf", "/evil.xhtml"), "must be relative");
+  assertEpubImportError(() => resolveZipPath("OPS/content.opf", "OPS\\evil.xhtml"), "backslash");
+
+  const zipEntryLimitFiles = {};
+  for (let index = 0; index < EPUB_IMPORT_LIMITS.maxZipEntries + 1; index += 1) {
+    zipEntryLimitFiles[`file-${index}.xhtml`] = { name: `file-${index}.xhtml` };
+  }
+  assertEpubImportError(
+    () => validateZipArchive({ files: zipEntryLimitFiles }),
+    "too many entries"
+  );
+  assertEpubImportError(
+    () => validateZipArchive({ files: { bad: { name: "OPS\\bad.xhtml" } } }),
+    "backslash"
+  );
+
+  const validZip = new JSZip();
+  validZip.file(
+    "META-INF/container.xml",
+    "<container><rootfiles><rootfile full-path='OPS/content.opf' /></rootfiles></container>"
+  );
+  validZip.file("OPS/content.opf", "<package><metadata><dc:title>Test</dc:title></metadata></package>");
+  validateZipArchive(validZip);
+  assert.strictEqual(await readContainerOpfPath(validZip), "OPS/content.opf");
+  assert((await readZipText(validZip, "OPS/content.opf")).includes("package"));
+
+  const missingContainerRootZip = new JSZip();
+  missingContainerRootZip.file("META-INF/container.xml", "<container></container>");
+  await assertEpubImportErrorAsync(
+    () => readContainerOpfPath(missingContainerRootZip),
+    "does not contain OPF rootfile path"
+  );
+  await assertEpubImportErrorAsync(
+    () => readZipText(new JSZip(), "OPS/missing.opf"),
+    "file not found"
+  );
+  await assertEpubImportErrorAsync(
+    () => readZipText(
+      {
+        file() {
+          return {
+            _data: { uncompressedSize: EPUB_IMPORT_LIMITS.maxXmlTextBytes + 1 },
+            async() {
+              return "";
+            },
+          };
+        },
+      },
+      "OPS/large.opf"
+    ),
+    "file is too large"
+  );
+  await assertEpubImportErrorAsync(
+    () => readZipText(
+      {
+        file() {
+          return {
+            async() {
+              return "a".repeat(EPUB_IMPORT_LIMITS.maxXmlTextBytes + 1);
+            },
+          };
+        },
+      },
+      "OPS/large-after-decompression.opf"
+    ),
+    "too large after decompression"
+  );
+
+  const parsedOpf = parseOpfDocument(
+    "<package><manifest>\u003citem id='nav' href='nav.xhtml' media-type='application/xhtml+xml' /\u003e\u003citem id='style' href='style.css' media-type='text/css' /\u003e</manifest><spine><itemref idref='nav' /><itemref idref='missing' /></spine></package>"
+  );
+  assert.strictEqual(parsedOpf.manifestItems.length, 2);
+  assert.strictEqual(parsedOpf.spineItems.length, 2);
+  assert.deepStrictEqual(getSpineXhtmlItems(parsedOpf), [
+    { id: "nav", href: "nav.xhtml", mediaType: "application/xhtml+xml" },
+  ]);
+  assert.deepStrictEqual(parseOpfDocument("<package></package>"), {
+    manifestItems: [],
+    spineItems: [],
+  });
 
   console.log("All parser/importer tests passed.");
 })().catch((error) => {

@@ -57,6 +57,24 @@ const EDGE_SIZE = 8;
 const CORNER_SIZE = 16;
 const MOBILE_HANDLE_HEIGHT = 22;
 
+type Disposable = () => void;
+
+function addDisposableEventListener(
+    target: EventTarget,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+): Disposable {
+    target.addEventListener(type, listener, options);
+    return () => target.removeEventListener(type, listener, options);
+}
+
+function disposeAll(disposables: Disposable[]): void {
+    for (const dispose of disposables.splice(0)) {
+        dispose();
+    }
+}
+
 export class FloatingBiblePreviewWindow {
     private readonly previewPanelEl: HTMLDivElement;
     private readonly previewContentEl: HTMLDivElement;
@@ -102,6 +120,7 @@ export class FloatingBiblePreviewWindow {
         startHeight: number;
     } | null = null;
     private suppressCollapsedButtonClick = false;
+    private readonly disposables: Disposable[] = [];
 
     private readonly viewportChangeHandler = () => this.updateBiblePreviewPosition();
     private readonly pointerMoveHandler = (event: PointerEvent) => this.handlePointerMove(event);
@@ -712,23 +731,19 @@ export class FloatingBiblePreviewWindow {
     }
 
     private registerListeners(): void {
-        window.addEventListener("resize", this.viewportChangeHandler);
-        window.visualViewport?.addEventListener("resize", this.viewportChangeHandler);
-        window.visualViewport?.addEventListener("scroll", this.viewportChangeHandler);
-        window.addEventListener("pointermove", this.pointerMoveHandler);
-        window.addEventListener("pointerup", this.pointerUpHandler);
-        window.addEventListener("pointercancel", this.pointerUpHandler);
-        document.addEventListener("keydown", this.keydownHandler, true);
+        this.disposables.push(addDisposableEventListener(window, "resize", this.viewportChangeHandler));
+        if (window.visualViewport !== null) {
+            this.disposables.push(addDisposableEventListener(window.visualViewport, "resize", this.viewportChangeHandler));
+            this.disposables.push(addDisposableEventListener(window.visualViewport, "scroll", this.viewportChangeHandler));
+        }
+        this.disposables.push(addDisposableEventListener(window, "pointermove", this.pointerMoveHandler as EventListener));
+        this.disposables.push(addDisposableEventListener(window, "pointerup", this.pointerUpHandler as EventListener));
+        this.disposables.push(addDisposableEventListener(window, "pointercancel", this.pointerUpHandler as EventListener));
+        this.disposables.push(addDisposableEventListener(document, "keydown", this.keydownHandler as EventListener, true));
     }
 
     private unregisterListeners(): void {
-        window.removeEventListener("resize", this.viewportChangeHandler);
-        window.visualViewport?.removeEventListener("resize", this.viewportChangeHandler);
-        window.visualViewport?.removeEventListener("scroll", this.viewportChangeHandler);
-        window.removeEventListener("pointermove", this.pointerMoveHandler);
-        window.removeEventListener("pointerup", this.pointerUpHandler);
-        window.removeEventListener("pointercancel", this.pointerUpHandler);
-        document.removeEventListener("keydown", this.keydownHandler, true);
+        disposeAll(this.disposables);
         this.collapsedButtonDragState = null;
         this.previewDragState = null;
         this.previewResizeState = null;
