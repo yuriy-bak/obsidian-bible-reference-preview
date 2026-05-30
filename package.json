@@ -1,7 +1,17 @@
 {
   "name": "obsidian-bible-reference-preview",
   "version": "0.1.0",
+  "description": "Recognize Bible references in Obsidian notes and show verse previews from imported EPUB Bible translations.",
+  "license": "MIT",
   "main": "main.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuriy-bak/obsidian-bible-reference-preview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues"
+  },
+  "homepage": "https://github.com/yuriy-bak/obsidian-bible-reference-preview#readme",
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

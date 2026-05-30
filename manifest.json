@@ -5,6 +5,7 @@
   "minAppVersion": "1.0.0",
   "description": "Recognize Bible references in Obsidian notes and show verse previews from imported EPUB Bible translations.",
   "author": "YuBak",
+  "authorUrl": "https://github.com/yuriy-bak",
   "isDesktopOnly": false,
   "main": "main.js"
 }
