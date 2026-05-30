@@ -5,6 +5,13 @@ export type FloatingBiblePreviewAnchor =
     | { type: "default" }
     | { type: "element"; element: HTMLElement };
 
+export type PreviewComparisonTranslationOption = {
+    id: string;
+    name: string;
+    isSelected: boolean;
+    isDisabled: boolean;
+};
+
 export type FloatingBiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
 
 export type FloatingBiblePreviewWindowInput = {
@@ -17,6 +24,12 @@ export type FloatingBiblePreviewWindowInput = {
     getFindUsagesButtonText?(): string;
     getFindUsagesButtonAria?(block: BiblePreviewReferenceBlock): string;
     onFindUsages?(block: BiblePreviewReferenceBlock): void;
+    getComparisonButtonText?(): string;
+    getComparisonButtonAria?(): string;
+    getComparisonTranslationsTitle?(): string;
+    getComparisonTranslations?(): PreviewComparisonTranslationOption[];
+    onToggleComparisonTranslation?(translationId: string, enabled: boolean): void;
+    onToggleComparison?(content: BiblePreviewContent): void;
     getCloseAria?(): string;
     getOpenInPanelAria?(): string;
     getOpenInPanelIcon?(): string;
@@ -50,7 +63,9 @@ export class FloatingBiblePreviewWindow {
     private readonly collapsedButtonEl: HTMLButtonElement;
     private readonly resizeHandleEls: HTMLDivElement[];
     private previewTitleEl: HTMLDivElement | null = null;
+    private comparisonSelectorEl: HTMLDivElement | null = null;
     private copyPreviewButtonEl: HTMLButtonElement | null = null;
+    private comparisonPreviewButtonEl: HTMLButtonElement | null = null;
     private collapsePreviewButtonEl: HTMLButtonElement | null = null;
     private closePreviewButtonEl: HTMLButtonElement | null = null;
     private openInPanelButtonEl: HTMLButtonElement | null = null;
@@ -122,6 +137,7 @@ export class FloatingBiblePreviewWindow {
             getFindUsagesButtonAria: this.labels.getFindUsagesButtonAria,
             onFindUsages: this.labels.onFindUsages,
         });
+        this.renderComparisonTranslationSelector();
         this.updateBiblePreviewTitle();
 
         if (shouldReveal) {
@@ -136,6 +152,10 @@ export class FloatingBiblePreviewWindow {
         }
 
         this.renderBiblePreview();
+    }
+
+    public getContent(): BiblePreviewContent | null {
+        return this.previewContent;
     }
 
     public hide(resetPosition = false): void {
@@ -166,6 +186,7 @@ export class FloatingBiblePreviewWindow {
         this.updateBiblePreviewTitle();
         this.updateBiblePreviewBackground();
         this.setPreviewButtonLabel(this.copyPreviewButtonEl, this.labels.getCopyAria());
+        this.updateComparisonButtonText();
         this.setPreviewButtonLabel(this.collapsePreviewButtonEl, this.labels.getCollapseAria());
         this.setPreviewButtonLabel(this.closePreviewButtonEl, this.getCloseAriaLabel());
         this.setPreviewButtonLabel(this.openInPanelButtonEl, this.getOpenInPanelAriaLabel());
@@ -259,6 +280,15 @@ export class FloatingBiblePreviewWindow {
             textOverflow: "ellipsis",
         });
 
+        const comparisonSelectorEl = headerEl.createDiv();
+        this.comparisonSelectorEl = comparisonSelectorEl;
+        this.setStyles(comparisonSelectorEl, {
+            flex: "1 1 auto",
+            minWidth: "0",
+        });
+        comparisonSelectorEl.addEventListener("pointerdown", (event) => event.stopPropagation());
+        comparisonSelectorEl.addEventListener("click", (event) => event.stopPropagation());
+
         const copyButton = this.createPreviewIconButton("📋", this.labels.getCopyAria());
         this.copyPreviewButtonEl = copyButton;
         copyButton.addEventListener("pointerdown", (event) => event.stopPropagation());
@@ -268,6 +298,19 @@ export class FloatingBiblePreviewWindow {
             void this.copyBiblePreviewText();
         });
         headerEl.appendChild(copyButton);
+
+        const comparisonButton = this.createPreviewIconButton("⇄", this.getComparisonAriaLabel());
+        this.comparisonPreviewButtonEl = comparisonButton;
+        this.updateComparisonButtonText();
+        comparisonButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+        comparisonButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (this.previewContent !== null && this.labels.onToggleComparison !== undefined) {
+                this.labels.onToggleComparison(this.previewContent);
+            }
+        });
+        headerEl.appendChild(comparisonButton);
 
         const openInPanelButton = this.createPreviewIconButton("◨", this.getOpenInPanelAriaLabel());
         this.openInPanelButtonEl = openInPanelButton;
@@ -543,6 +586,104 @@ export class FloatingBiblePreviewWindow {
 
     private getOpenInPanelButtonIcon(): string {
         return this.labels.getOpenInPanelIcon?.() ?? "◨";
+    }
+
+    private getComparisonAriaLabel(): string {
+        return this.labels.getComparisonButtonAria?.() ?? this.labels.getComparisonButtonText?.() ?? "Compare translations";
+    }
+
+    private updateComparisonButtonText(): void {
+        if (this.comparisonPreviewButtonEl === null) {
+            return;
+        }
+        this.comparisonPreviewButtonEl.textContent = this.labels.getComparisonButtonText?.() ?? "⇄";
+        this.comparisonPreviewButtonEl.setAttribute("aria-label", this.getComparisonAriaLabel());
+        this.comparisonPreviewButtonEl.title = this.getComparisonAriaLabel();
+        this.comparisonPreviewButtonEl.style.display = this.labels.onToggleComparison === undefined ? "none" : "inline-flex";
+    }
+
+    private renderComparisonTranslationSelector(): void {
+        const hostEl = this.comparisonSelectorEl;
+        if (hostEl === null) {
+            return;
+        }
+
+        hostEl.replaceChildren();
+        const options = this.labels.getComparisonTranslations?.() ?? [];
+        if (options.length <= 1 || this.labels.onToggleComparisonTranslation === undefined) {
+            hostEl.style.display = "none";
+            if (this.previewTitleEl !== null) {
+                this.previewTitleEl.style.display = "block";
+            }
+            return;
+        }
+
+        hostEl.style.display = "block";
+        if (this.previewTitleEl !== null) {
+            this.previewTitleEl.style.display = "none";
+        }
+        const selectedCount = options.filter((option) => option.isSelected).length;
+        const selectorEl = document.createElement("details");
+        selectorEl.className = "bible-preview-comparison-selector";
+        selectorEl.style.position = "relative";
+
+        const summaryEl = document.createElement("summary");
+        summaryEl.textContent = `${this.labels.getComparisonTranslationsTitle?.() ?? "Compare:"} ${selectedCount}/${Math.min(options.length, 4)}`;
+        summaryEl.style.cursor = "pointer";
+        summaryEl.style.fontWeight = "600";
+        summaryEl.style.fontSize = "12px";
+        summaryEl.style.whiteSpace = "nowrap";
+        summaryEl.style.overflow = "hidden";
+        summaryEl.style.textOverflow = "ellipsis";
+        summaryEl.style.userSelect = "none";
+        selectorEl.appendChild(summaryEl);
+
+        const optionsEl = document.createElement("div");
+        optionsEl.style.position = "absolute";
+        optionsEl.style.left = "0";
+        optionsEl.style.top = "calc(100% + 6px)";
+        optionsEl.style.display = "flex";
+        optionsEl.style.flexDirection = "column";
+        optionsEl.style.gap = "6px";
+        optionsEl.style.minWidth = "min(230px, calc(100vw - 24px))";
+        optionsEl.style.maxWidth = "calc(100vw - 24px)";
+        optionsEl.style.maxHeight = "240px";
+        optionsEl.style.overflow = "auto";
+        optionsEl.style.padding = "10px";
+        optionsEl.style.border = "1px solid var(--background-modifier-border)";
+        optionsEl.style.borderRadius = "6px";
+        optionsEl.style.background = "var(--background-primary)";
+        optionsEl.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.35)";
+        optionsEl.style.zIndex = "1002";
+
+        for (const option of options) {
+            const labelEl = document.createElement("label");
+            labelEl.style.display = "inline-flex";
+            labelEl.style.alignItems = "center";
+            labelEl.style.gap = "8px";
+            labelEl.style.fontSize = "14px";
+            labelEl.style.lineHeight = "1.35";
+            labelEl.style.whiteSpace = "normal";
+            labelEl.style.minHeight = "28px";
+
+            const checkboxEl = document.createElement("input");
+            checkboxEl.type = "checkbox";
+            checkboxEl.style.flex = "0 0 auto";
+            checkboxEl.style.width = "16px";
+            checkboxEl.style.height = "16px";
+            checkboxEl.checked = option.isSelected;
+            checkboxEl.disabled = option.isDisabled;
+            checkboxEl.addEventListener("change", () => {
+                this.labels.onToggleComparisonTranslation?.(option.id, checkboxEl.checked);
+            });
+
+            labelEl.appendChild(checkboxEl);
+            labelEl.appendChild(document.createTextNode(option.name));
+            optionsEl.appendChild(labelEl);
+        }
+
+        selectorEl.appendChild(optionsEl);
+        hostEl.appendChild(selectorEl);
     }
 
     private updateOpenInPanelButtonText(): void {

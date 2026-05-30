@@ -1,6 +1,13 @@
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
 import { BiblePreviewContent, BiblePreviewReferenceBlock, renderBiblePreviewContent } from "../application/formatBibleTexts";
 
+export type PreviewComparisonTranslationOption = {
+    id: string;
+    name: string;
+    isSelected: boolean;
+    isDisabled: boolean;
+};
+
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
 export type BiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
@@ -15,6 +22,12 @@ export type BiblePreviewPaneViewInput = {
     getFindUsagesButtonText?(): string;
     getFindUsagesButtonAria?(block: BiblePreviewReferenceBlock): string;
     onFindUsages?(block: BiblePreviewReferenceBlock): void;
+    getComparisonButtonText?(): string;
+    getComparisonButtonAria?(): string;
+    getComparisonTranslationsTitle?(): string;
+    getComparisonTranslations?(): PreviewComparisonTranslationOption[];
+    onToggleComparisonTranslation?(translationId: string, enabled: boolean): void;
+    onToggleComparison?(content: BiblePreviewContent): void;
     onOpenFloating(content: BiblePreviewContent): void;
 };
 
@@ -23,7 +36,9 @@ export class BiblePreviewPaneView extends ItemView {
     private contentContainerEl: HTMLDivElement | null = null;
     private contentScrollEl: HTMLElement | null = null;
     private titleEl: HTMLDivElement | null = null;
+    private comparisonSelectorEl: HTMLDivElement | null = null;
     private copyButtonEl: HTMLButtonElement | null = null;
+    private comparisonButtonEl: HTMLButtonElement | null = null;
     private openFloatingButtonEl: HTMLButtonElement | null = null;
     private currentContent: BiblePreviewContent | null = null;
     private renderAnimationFrameId: number | null = null;
@@ -49,7 +64,9 @@ export class BiblePreviewPaneView extends ItemView {
         this.contentContainerEl = null;
         this.contentScrollEl = null;
         this.titleEl = null;
+        this.comparisonSelectorEl = null;
         this.copyButtonEl = null;
+        this.comparisonButtonEl = null;
         this.openFloatingButtonEl = null;
     }
 
@@ -98,6 +115,8 @@ export class BiblePreviewPaneView extends ItemView {
         this.input = input;
         if (this.titleEl !== null) this.titleEl.textContent = this.input.getTitle();
         this.updateIconButton(this.copyButtonEl, this.input.getCopyIcon(), this.input.getCopyAria());
+        this.renderComparisonTranslationSelector();
+        this.updateComparisonButton();
         this.updateIconButton(this.openFloatingButtonEl, this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria());
         if (this.currentContent !== null) this.scheduleRender();
     }
@@ -134,6 +153,11 @@ export class BiblePreviewPaneView extends ItemView {
         this.titleEl.style.overflow = "hidden";
         this.titleEl.style.textOverflow = "ellipsis";
 
+        this.comparisonSelectorEl = headerEl.createDiv();
+        this.comparisonSelectorEl.style.flex = "1 1 auto";
+        this.comparisonSelectorEl.style.minWidth = "0";
+        this.comparisonSelectorEl.addEventListener("click", (event) => event.stopPropagation());
+
         this.copyButtonEl = this.createIconButton(this.input.getCopyIcon(), this.input.getCopyAria());
         this.copyButtonEl.addEventListener("click", (event) => {
             event.preventDefault();
@@ -141,6 +165,15 @@ export class BiblePreviewPaneView extends ItemView {
             void this.copyCurrentText();
         });
         headerEl.appendChild(this.copyButtonEl);
+
+        this.comparisonButtonEl = this.createIconButton(this.input.getComparisonButtonText?.() ?? "⇄", this.input.getComparisonButtonAria?.() ?? this.input.getComparisonButtonText?.() ?? "Compare translations");
+        this.updateComparisonButton();
+        this.comparisonButtonEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (this.currentContent !== null) this.input.onToggleComparison?.(this.currentContent);
+        });
+        headerEl.appendChild(this.comparisonButtonEl);
 
         this.openFloatingButtonEl = this.createIconButton(this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria());
         this.openFloatingButtonEl.addEventListener("click", (event) => {
@@ -187,6 +220,15 @@ export class BiblePreviewPaneView extends ItemView {
         buttonEl.textContent = text;
         buttonEl.setAttribute("aria-label", label);
         buttonEl.title = label;
+    }
+
+    private updateComparisonButton(): void {
+        const buttonEl = this.comparisonButtonEl;
+        if (buttonEl === null) return;
+        const text = this.input.getComparisonButtonText?.() ?? "⇄";
+        const label = this.input.getComparisonButtonAria?.() ?? text;
+        this.updateIconButton(buttonEl, text, label);
+        buttonEl.style.display = this.input.onToggleComparison === undefined ? "none" : "inline-flex";
     }
 
     private getContentRootElement(): HTMLElement {
@@ -237,11 +279,96 @@ export class BiblePreviewPaneView extends ItemView {
     private renderCurrentContent(): void {
         if (this.contentContainerEl === null) return;
         this.contentContainerEl.replaceChildren();
-        if (this.currentContent !== null) renderBiblePreviewContent(this.contentContainerEl, this.currentContent, {
-            getFindUsagesButtonText: this.input.getFindUsagesButtonText,
-            getFindUsagesButtonAria: this.input.getFindUsagesButtonAria,
-            onFindUsages: this.input.onFindUsages,
-        });
+        if (this.currentContent !== null) {
+            renderBiblePreviewContent(this.contentContainerEl, this.currentContent, {
+                getFindUsagesButtonText: this.input.getFindUsagesButtonText,
+                getFindUsagesButtonAria: this.input.getFindUsagesButtonAria,
+                onFindUsages: this.input.onFindUsages,
+            });
+            this.renderComparisonTranslationSelector();
+        }
+    }
+
+    private renderComparisonTranslationSelector(): void {
+        const hostEl = this.comparisonSelectorEl;
+        if (hostEl === null) return;
+
+        hostEl.replaceChildren();
+        const options = this.input.getComparisonTranslations?.() ?? [];
+        if (options.length <= 1 || this.input.onToggleComparisonTranslation === undefined) {
+            hostEl.style.display = "none";
+            if (this.titleEl !== null) {
+                this.titleEl.style.display = "block";
+            }
+            return;
+        }
+
+        hostEl.style.display = "block";
+        if (this.titleEl !== null) {
+            this.titleEl.style.display = "none";
+        }
+        const selectedCount = options.filter((option) => option.isSelected).length;
+        const selectorEl = document.createElement("details");
+        selectorEl.className = "bible-preview-comparison-selector";
+        selectorEl.style.position = "relative";
+
+        const summaryEl = document.createElement("summary");
+        summaryEl.textContent = `${this.input.getComparisonTranslationsTitle?.() ?? "Compare:"} ${selectedCount}/${Math.min(options.length, 4)}`;
+        summaryEl.style.cursor = "pointer";
+        summaryEl.style.fontWeight = "600";
+        summaryEl.style.fontSize = "12px";
+        summaryEl.style.whiteSpace = "nowrap";
+        summaryEl.style.overflow = "hidden";
+        summaryEl.style.textOverflow = "ellipsis";
+        summaryEl.style.userSelect = "none";
+        selectorEl.appendChild(summaryEl);
+
+        const optionsEl = document.createElement("div");
+        optionsEl.style.position = "absolute";
+        optionsEl.style.left = "0";
+        optionsEl.style.top = "calc(100% + 6px)";
+        optionsEl.style.display = "flex";
+        optionsEl.style.flexDirection = "column";
+        optionsEl.style.gap = "6px";
+        optionsEl.style.minWidth = "min(230px, calc(100vw - 24px))";
+        optionsEl.style.maxWidth = "calc(100vw - 24px)";
+        optionsEl.style.maxHeight = "240px";
+        optionsEl.style.overflow = "auto";
+        optionsEl.style.padding = "10px";
+        optionsEl.style.border = "1px solid var(--background-modifier-border)";
+        optionsEl.style.borderRadius = "6px";
+        optionsEl.style.background = "var(--background-primary)";
+        optionsEl.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.35)";
+        optionsEl.style.zIndex = "1002";
+
+        for (const option of options) {
+            const labelEl = document.createElement("label");
+            labelEl.style.display = "inline-flex";
+            labelEl.style.alignItems = "center";
+            labelEl.style.gap = "8px";
+            labelEl.style.fontSize = "14px";
+            labelEl.style.lineHeight = "1.35";
+            labelEl.style.whiteSpace = "normal";
+            labelEl.style.minHeight = "28px";
+
+            const checkboxEl = document.createElement("input");
+            checkboxEl.type = "checkbox";
+            checkboxEl.style.flex = "0 0 auto";
+            checkboxEl.style.width = "16px";
+            checkboxEl.style.height = "16px";
+            checkboxEl.checked = option.isSelected;
+            checkboxEl.disabled = option.isDisabled;
+            checkboxEl.addEventListener("change", () => {
+                this.input.onToggleComparisonTranslation?.(option.id, checkboxEl.checked);
+            });
+
+            labelEl.appendChild(checkboxEl);
+            labelEl.appendChild(document.createTextNode(option.name));
+            optionsEl.appendChild(labelEl);
+        }
+
+        selectorEl.appendChild(optionsEl);
+        hostEl.appendChild(selectorEl);
     }
 
     private async copyCurrentText(): Promise<void> {

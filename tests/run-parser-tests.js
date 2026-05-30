@@ -21,6 +21,7 @@ const {
   extractBibleTextFromCompactBook,
 } = require("../.test-build/src/infrastructure/v2/extractBibleTextFromCompactBook.js");
 const {
+  formatBibleComparisonTextBlocks,
   formatBibleTextBlocks,
 } = require("../.test-build/src/application/formatBibleTexts.js");
 const {
@@ -565,6 +566,104 @@ const {
       verseEnd: 30,
     },
   ]);
+
+  const turkishFormatterMapping = createBookMapping([
+    { id: 43, name: "Yuhanna", abbreviation: "Yhn" },
+  ]);
+
+  const comparisonContent = formatBibleComparisonTextBlocks(
+    [
+      {
+        title: "Ин 3:16",
+        references: [
+          {
+            book: 43,
+            chapterStart: 3,
+            verseStart: 16,
+            chapterEnd: 3,
+            verseEnd: 16,
+          },
+        ],
+        translations: [
+          {
+            translationName: "Translation A",
+            mapping: formatterMapping,
+            blocks: [
+              {
+                reference: {
+                  book: 43,
+                  chapterStart: 3,
+                  verseStart: 16,
+                  chapterEnd: 3,
+                  verseEnd: 16,
+                },
+                parts: [
+                  {
+                    range: { book: 43, chapter: 3, verseStart: 16, verseEnd: 16 },
+                    bibleText: {
+                      translationId: "a",
+                      book: 43,
+                      bookName: "Иоанна",
+                      chapter: 3,
+                      verses: [
+                        {
+                          number: 16,
+                          text: "Text A",
+                          footnotes: ["Footnote A"],
+                          paragraphStart: true,
+                        },
+                      ],
+                    },
+                  },
+                ],
+                sourceText: "Ин 3:16",
+              },
+            ],
+          },
+          {
+            translationName: "Translation B",
+            mapping: turkishFormatterMapping,
+            blocks: [
+              {
+                reference: {
+                  book: 43,
+                  chapterStart: 3,
+                  verseStart: 16,
+                  chapterEnd: 3,
+                  verseEnd: 16,
+                },
+                parts: [
+                  {
+                    range: { book: 43, chapter: 3, verseStart: 16, verseEnd: 16 },
+                    bibleText: {
+                      translationId: "b",
+                      book: 43,
+                      bookName: "Иоанна",
+                      chapter: 3,
+                      verses: [
+                        {
+                          number: 16,
+                          text: "Text B",
+                          footnotes: [],
+                          paragraphStart: true,
+                        },
+                      ],
+                    },
+                  },
+                ],
+                sourceText: "Ин 3:16",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    formatterMapping
+  );
+  assert(comparisonContent.plainText.includes("📖 Ин 3:16."));
+  assert(comparisonContent.plainText.includes("[Translation A]\n📖 Ин 3:16.\n16 Text A"));
+  assert(comparisonContent.plainText.includes("^Ин 3:16 Footnote A"));
+  assert(comparisonContent.plainText.includes("[Translation B]\n📖 Yhn 3:16.\n16 Text B"));
 
   console.log("All parser/importer tests passed.");
 })().catch((error) => {

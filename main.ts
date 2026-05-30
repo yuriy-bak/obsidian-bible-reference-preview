@@ -8,7 +8,7 @@ import { EditorView, ViewPlugin, ViewUpdate, Decoration, type DecorationSet } fr
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
-import { BiblePreviewContent, BiblePreviewReferenceBlock, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
+import { BiblePreviewComparisonBlock, BiblePreviewComparisonInput, BiblePreviewContent, BiblePreviewReferenceBlock, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
 import { BibleTranslationImportModal, createImportSettingsDefaults, type BibleTranslationImportSettings } from "./src/ui/BibleTranslationImportModal";
 import { EPUB_IMPORT_LIMITS } from "./src/infrastructure/epub/EpubContainerReader";
@@ -106,6 +106,7 @@ type BiblePluginSettings = {
     isPluginActive: boolean;
     interfaceLanguage: BiblePluginLocale;
     translationOrder: string[];
+    comparisonTranslationIds: string[];
     bibleReferenceLinkColor: string;
     floatingPreviewBackgroundColor: string;
     previewTriggerMode: BiblePreviewTriggerMode;
@@ -113,6 +114,7 @@ type BiblePluginSettings = {
     previewPanelSide: BiblePreviewPanelSide;
     closePreviewOnActiveLeafChange: boolean;
     autoOpenPreviewOnVerseChange: boolean;
+    previewComparisonEnabled: boolean;
     interceptLinkOpenShortcut: boolean;
     linkOpenShortcut: BibleLinkOpenShortcut;
     referenceUsageIndexingEnabled: boolean;
@@ -135,6 +137,7 @@ const DEFAULT_SETTINGS: BiblePluginSettings = {
     isPluginActive: true,
     interfaceLanguage: "ru",
     translationOrder: [],
+    comparisonTranslationIds: [],
     bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
     floatingPreviewBackgroundColor: DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
     previewTriggerMode: "current-paragraph",
@@ -142,6 +145,7 @@ const DEFAULT_SETTINGS: BiblePluginSettings = {
     previewPanelSide: "right",
     closePreviewOnActiveLeafChange: true,
     autoOpenPreviewOnVerseChange: !Platform.isMobileApp,
+    previewComparisonEnabled: false,
     interceptLinkOpenShortcut: true,
     linkOpenShortcut: "alt-enter",
     referenceUsageIndexingEnabled: false,
@@ -156,8 +160,16 @@ type TranslationSettingsItem = {
     sourceFileName: string;
     bookCount: number;
     isActive: boolean;
+    isComparisonEnabled: boolean;
     canMoveUp: boolean;
     canMoveDown: boolean;
+};
+
+type PreviewComparisonTranslationOption = {
+    id: string;
+    name: string;
+    isSelected: boolean;
+    isDisabled: boolean;
 };
 
 type BibleReferenceLinkDecorationVisibleRangeInput = {
@@ -528,6 +540,7 @@ export default class BiblePlugin extends Plugin {
 
         const translations = this.activeV2Data.translations;
         const order = this.settings.translationOrder.filter((translationId) => translations[translationId] !== undefined);
+        const comparisonTranslationIds = new Set(this.getComparisonTranslationIds());
 
         return order.map((translationId, index) => {
             const translation = translations[translationId];
@@ -538,6 +551,7 @@ export default class BiblePlugin extends Plugin {
                 sourceFileName: translation.sourceFileName ?? "",
                 bookCount: Object.keys(translation.books).length,
                 isActive: translationId === this.activeTranslationId,
+                isComparisonEnabled: comparisonTranslationIds.has(translationId),
                 canMoveUp: index > 0,
                 canMoveDown: index < order.length - 1,
             };
@@ -589,6 +603,64 @@ export default class BiblePlugin extends Plugin {
         this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
         this.updateBookMapping(this.activeV2Data);
         new Notice(this.t("notice.currentTranslation", { translationName: this.getActiveTranslationDisplayName() }), 4000);
+    }
+
+    public async setComparisonTranslationEnabled(translationId: string, enabled: boolean): Promise<void> {
+        const availableTranslations = new Set(Object.keys(this.activeV2Data?.translations ?? {}));
+        if (!availableTranslations.has(translationId)) {
+            return;
+        }
+
+        const current = this.getComparisonTranslationIds();
+        const next = enabled
+            ? [...current, translationId]
+            : current.filter((existingTranslationId) => existingTranslationId !== translationId);
+        const normalized = [...new Set(next)]
+            .filter((existingTranslationId) => availableTranslations.has(existingTranslationId))
+            .slice(0, 4);
+
+        if (normalized.length === 0 || areStringArraysEqual(this.settings.comparisonTranslationIds, normalized)) {
+            return;
+        }
+
+        this.settings = { ...this.settings, comparisonTranslationIds: normalized };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+        await this.refreshVisibleBiblePreviewContent();
+    }
+
+    public getPreviewComparisonTranslationOptions(): PreviewComparisonTranslationOption[] {
+        if (this.activeV2Data === null) {
+            return [];
+        }
+
+        const selectedIds = new Set(this.getComparisonTranslationIds());
+        const selectedCount = selectedIds.size;
+        return this.getTranslationSettingsItems().map((translation) => ({
+            id: translation.id,
+            name: translation.name || translation.id,
+            isSelected: selectedIds.has(translation.id),
+            isDisabled: !selectedIds.has(translation.id) && selectedCount >= 4,
+        }));
+    }
+
+    private async refreshVisibleBiblePreviewContent(): Promise<void> {
+        const content = this.getCurrentBiblePreviewContent();
+        if (content === null) {
+            return;
+        }
+
+        const nextContent = await this.rebuildBiblePreviewContent(content);
+        if (nextContent !== null) {
+            this.showBiblePreviewContent(nextContent, { type: "default" }, { reveal: false });
+        }
+    }
+
+    private getCurrentBiblePreviewContent(): BiblePreviewContent | null {
+        if (this.settings.previewDisplayMode === "side-panel") {
+            return this.lastPanePreviewContent;
+        }
+        return this.floatingPreviewWindow?.getContent() ?? null;
     }
 
     public async setBibleReferenceLinkColor(color: string): Promise<void> {
@@ -745,6 +817,19 @@ export default class BiblePlugin extends Plugin {
             return;
         }
         this.settings = { ...this.settings, autoOpenPreviewOnVerseChange };
+        await this.savePluginSettings();
+        this.refreshSettingsTab();
+    }
+
+    public isPreviewComparisonEnabled(): boolean {
+        return this.settings.previewComparisonEnabled;
+    }
+
+    public async setPreviewComparisonEnabled(previewComparisonEnabled: boolean): Promise<void> {
+        if (this.settings.previewComparisonEnabled === previewComparisonEnabled) {
+            return;
+        }
+        this.settings = { ...this.settings, previewComparisonEnabled };
         await this.savePluginSettings();
         this.refreshSettingsTab();
     }
@@ -1300,6 +1385,12 @@ export default class BiblePlugin extends Plugin {
             getFindUsagesButtonText: () => this.t("preview.findUsagesIcon"),
             getFindUsagesButtonAria: (block) => this.t("preview.findUsagesAria", { reference: block.title }),
             onFindUsages: (block) => void this.showReferenceUsagesForPreviewBlock(block),
+            getComparisonButtonText: () => this.settings.previewComparisonEnabled ? "1" : "⇄",
+            getComparisonButtonAria: () => this.settings.previewComparisonEnabled ? this.t("preview.comparisonOffAria") : this.t("preview.comparisonOnAria"),
+            getComparisonTranslationsTitle: () => this.t("preview.comparisonTranslationsTitle"),
+            getComparisonTranslations: () => this.settings.previewComparisonEnabled ? this.getPreviewComparisonTranslationOptions() : [],
+            onToggleComparisonTranslation: (translationId, enabled) => void this.setComparisonTranslationEnabled(translationId, enabled),
+            onToggleComparison: (content) => void this.toggleBiblePreviewComparison(content),
             getCloseAria: () => this.t("preview.closeAria"),
             getOpenInPanelAria: () => this.t("preview.openInPanelAria"),
             getOpenInPanelIcon: () => this.t("preview.openInPanelIcon"),
@@ -1317,6 +1408,12 @@ export default class BiblePlugin extends Plugin {
             getFindUsagesButtonText: () => this.t("preview.findUsagesIcon"),
             getFindUsagesButtonAria: (block) => this.t("preview.findUsagesAria", { reference: block.title }),
             onFindUsages: (block) => void this.showReferenceUsagesForPreviewBlock(block),
+            getComparisonButtonText: () => this.settings.previewComparisonEnabled ? "1" : "⇄",
+            getComparisonButtonAria: () => this.settings.previewComparisonEnabled ? this.t("preview.comparisonOffAria") : this.t("preview.comparisonOnAria"),
+            getComparisonTranslationsTitle: () => this.t("preview.comparisonTranslationsTitle"),
+            getComparisonTranslations: () => this.settings.previewComparisonEnabled ? this.getPreviewComparisonTranslationOptions() : [],
+            onToggleComparisonTranslation: (translationId, enabled) => void this.setComparisonTranslationEnabled(translationId, enabled),
+            onToggleComparison: (content) => void this.toggleBiblePreviewComparison(content),
             onOpenFloating: (content) => void this.switchBiblePreviewToFloating(content),
         };
     }
@@ -1403,10 +1500,6 @@ export default class BiblePlugin extends Plugin {
                 existingView.refreshInput(this.createBiblePreviewPaneViewInput());
                 return existingView;
             }
-        }
-
-        if (!reveal) {
-            return null;
         }
 
         const leaf = this.settings.previewPanelSide === "left"
@@ -2125,6 +2218,16 @@ export default class BiblePlugin extends Plugin {
 
             const matches = this.bibleReferenceParser.parseMatches(text);
             if (matches.length === 0) return null;
+            if (this.settings.previewComparisonEnabled) {
+                const comparisonInputs = await Promise.all(matches.map(async (match): Promise<BiblePreviewComparisonInput> => ({
+                    title: match.text,
+                    references: match.references,
+                    translations: await this.getComparisonTranslationInputs(match.references, match.text),
+                })));
+                const content = formatBibleComparisonTextBlocks(comparisonInputs, this.bookMapping, this.t("preview.missingVerse"));
+                return content.plainText.length === 0 ? null : content;
+            }
+
             const bibleTextBlocks = (await Promise.all(matches.map((match) =>
                 getBibleTextBlocks(match.references, this.bibleIndex, this.activeTranslationId!, match.text),
             ))).flat();
@@ -2136,6 +2239,89 @@ export default class BiblePlugin extends Plugin {
 
     async analyzeReferenceTextAsync(text: string): Promise<BiblePreviewContent | null> {
         return this.analyzeParagraphAsync(text);
+    }
+
+    private async toggleBiblePreviewComparison(content: BiblePreviewContent): Promise<void> {
+        await this.setPreviewComparisonEnabled(!this.settings.previewComparisonEnabled);
+        const nextContent = await this.rebuildBiblePreviewContent(content);
+        if (nextContent !== null) {
+            this.showBiblePreviewContent(nextContent, { type: "default" }, { reveal: true });
+        }
+    }
+
+    private async rebuildBiblePreviewContent(content: BiblePreviewContent): Promise<BiblePreviewContent | null> {
+        if (this.activeTranslationId === null) {
+            return null;
+        }
+
+        const previewReferenceBlocks = content.blocks.filter((block): block is BiblePreviewReferenceBlock | BiblePreviewComparisonBlock =>
+            block.type === "reference" || block.type === "comparison",
+        );
+        if (previewReferenceBlocks.length === 0) {
+            return null;
+        }
+
+        if (this.settings.previewComparisonEnabled) {
+            const comparisonInputs = await Promise.all(previewReferenceBlocks.map(async (block): Promise<BiblePreviewComparisonInput> => ({
+                title: block.title,
+                references: block.references,
+                translations: await this.getComparisonTranslationInputs(block.references, block.title),
+            })));
+            const comparisonContent = formatBibleComparisonTextBlocks(comparisonInputs, this.bookMapping, this.t("preview.missingVerse"));
+            return comparisonContent.plainText.length === 0 ? null : comparisonContent;
+        }
+
+        const bibleTextBlocks = (await Promise.all(previewReferenceBlocks.map((block) =>
+            getBibleTextBlocks(block.references, this.bibleIndex, this.activeTranslationId!, block.title),
+        ))).flat();
+        if (bibleTextBlocks.length === 0) return null;
+        const standardContent = formatBibleTextBlocks(bibleTextBlocks, this.bookMapping, this.t("preview.missingVerse"));
+        return standardContent.plainText.length === 0 ? null : standardContent;
+    }
+
+    private async getComparisonTranslationInputs(references: BiblePreviewReferenceBlock["references"], sourceText: string): Promise<BiblePreviewComparisonInput["translations"]> {
+        const translationIds = this.getComparisonTranslationIds();
+        return Promise.all(translationIds.map(async (translationId) => ({
+            translationName: this.getTranslationPreviewTitle(translationId),
+            blocks: await getBibleTextBlocks(references, this.bibleIndex, translationId, sourceText),
+            mapping: this.activeV2Data === null
+                ? this.bookMapping
+                : createBookMappingFromBibleIndexV2Data(this.activeV2Data, translationId),
+        })));
+    }
+
+    private getComparisonTranslationIds(): string[] {
+        if (this.activeV2Data === null) {
+            return this.activeTranslationId === null ? [] : [this.activeTranslationId];
+        }
+
+        const availableTranslations = new Set(Object.keys(this.activeV2Data.translations));
+        const normalizedSelectedIds = this.settings.comparisonTranslationIds
+            .filter((translationId) => availableTranslations.has(translationId))
+            .slice(0, 4);
+
+        return normalizedSelectedIds.length > 0
+            ? normalizedSelectedIds
+            : this.getDefaultComparisonTranslationIds();
+    }
+
+    private getDefaultComparisonTranslationIds(): string[] {
+        if (this.activeV2Data === null) {
+            return this.activeTranslationId === null ? [] : [this.activeTranslationId];
+        }
+
+        const availableTranslationIds = Object.keys(this.activeV2Data.translations);
+        const orderedTranslationIds = [
+            ...this.settings.translationOrder,
+            ...availableTranslationIds,
+        ];
+        return [...new Set(orderedTranslationIds)]
+            .filter((translationId) => this.activeV2Data?.translations[translationId] !== undefined)
+            .slice(0, 4);
+    }
+
+    private getTranslationPreviewTitle(translationId: string): string {
+        return this.activeV2Data?.translations[translationId]?.name ?? translationId;
     }
 
     private findBibleReferenceMatchAtPosition(view: EditorView, position: number): { from: number; to: number; text: string } | null {
@@ -2602,6 +2788,7 @@ class BiblePluginSettingTab extends PluginSettingTab {
             translations: this.plugin.getTranslationSettingsItems(),
             translate: (key, params) => this.plugin.t(key, params),
             onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
+            onToggleComparison: (translationId, enabled) => this.plugin.setComparisonTranslationEnabled(translationId, enabled),
             getCurrentOrder: () => this.plugin.getTranslationSettingsItems().map((item) => item.id),
             onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
             refresh: () => this.display(),
@@ -2617,11 +2804,15 @@ function normalizePluginSettings(value: unknown): BiblePluginSettings {
     const translationOrder = Array.isArray(value.translationOrder)
         ? value.translationOrder.filter((translationId): translationId is string => typeof translationId === "string")
         : [];
+    const comparisonTranslationIds = Array.isArray(value.comparisonTranslationIds)
+        ? value.comparisonTranslationIds.filter((translationId): translationId is string => typeof translationId === "string").slice(0, 4)
+        : [];
 
     return {
         isPluginActive: typeof value.isPluginActive === "boolean" ? value.isPluginActive : DEFAULT_SETTINGS.isPluginActive,
         interfaceLanguage: normalizeBiblePluginLocale(value.interfaceLanguage),
         translationOrder: [...new Set(translationOrder)],
+        comparisonTranslationIds: [...new Set(comparisonTranslationIds)],
         bibleReferenceLinkColor: typeof value.bibleReferenceLinkColor === "string"
             ? normalizeBibleReferenceLinkColor(value.bibleReferenceLinkColor)
             : DEFAULT_SETTINGS.bibleReferenceLinkColor,
@@ -2643,6 +2834,9 @@ function normalizePluginSettings(value: unknown): BiblePluginSettings {
         autoOpenPreviewOnVerseChange: typeof value.autoOpenPreviewOnVerseChange === "boolean"
             ? value.autoOpenPreviewOnVerseChange
             : DEFAULT_SETTINGS.autoOpenPreviewOnVerseChange,
+        previewComparisonEnabled: typeof value.previewComparisonEnabled === "boolean"
+            ? value.previewComparisonEnabled
+            : DEFAULT_SETTINGS.previewComparisonEnabled,
         interceptLinkOpenShortcut: typeof value.interceptLinkOpenShortcut === "boolean"
             ? value.interceptLinkOpenShortcut
             : DEFAULT_SETTINGS.interceptLinkOpenShortcut,

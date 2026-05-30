@@ -5,6 +5,7 @@ type TranslationSettingsListI18nKey =
     | "settings.translations.language"
     | "settings.translations.books"
     | "settings.translations.file"
+    | "settings.translations.compare"
     | "settings.translations.deleteAria";
 
 type TranslationSettingsListI18nParams = Record<string, string | number>;
@@ -16,6 +17,7 @@ export type TranslationSettingsListItem = {
     sourceFileName: string;
     bookCount: number;
     isActive: boolean;
+    isComparisonEnabled: boolean;
 };
 
 export type TranslationSettingsSectionInput = {
@@ -23,6 +25,7 @@ export type TranslationSettingsSectionInput = {
     translations: TranslationSettingsListItem[];
     translate(key: TranslationSettingsListI18nKey, params?: TranslationSettingsListI18nParams): string;
     onDelete(translationId: string): Promise<void>;
+    onToggleComparison(translationId: string, enabled: boolean): Promise<void>;
     getCurrentOrder(): string[];
     onReorder(nextOrder: string[]): Promise<void>;
     refresh(): void;
@@ -95,6 +98,22 @@ export function renderTranslationSettingsSection(input: TranslationSettingsSecti
         descriptionEl.style.overflow = "hidden";
         descriptionEl.style.textOverflow = "ellipsis";
         descriptionEl.style.whiteSpace = "nowrap";
+
+        const comparisonLabelEl = row.createEl("label");
+        comparisonLabelEl.style.display = "inline-flex";
+        comparisonLabelEl.style.alignItems = "center";
+        comparisonLabelEl.style.gap = "4px";
+        comparisonLabelEl.style.fontSize = "12px";
+        comparisonLabelEl.style.cursor = "pointer";
+
+        const comparisonCheckboxEl = comparisonLabelEl.createEl("input", { type: "checkbox" });
+        comparisonCheckboxEl.checked = translation.isComparisonEnabled;
+        comparisonCheckboxEl.addEventListener("click", (event) => event.stopPropagation());
+        comparisonCheckboxEl.addEventListener("change", async () => {
+            await input.onToggleComparison(translation.id, comparisonCheckboxEl.checked);
+            input.refresh();
+        });
+        comparisonLabelEl.createSpan({ text: translate("settings.translations.compare") });
 
         const deleteButton = row.createEl("button", { text: "🗑" });
         deleteButton.setAttribute("aria-label", translate("settings.translations.deleteAria", { translationName: translation.name || translation.id }));

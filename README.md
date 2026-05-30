@@ -7,13 +7,17 @@ Bible Reference Preview finds Bible references in Obsidian notes and shows verse
 - Import Bible translations from EPUB files.
 - Store multiple imported translations.
 - Reorder translations and use the top translation as the active one.
+- Compare up to four imported translations in the Bible preview.
+- Select comparison translations in plugin settings or directly from the preview header.
 - Recognize Bible references in editor text and Reading view.
 - Highlight recognized references in the editor and turn Reading view references into clickable preview links.
 - Show a floating Bible preview.
+- Show Bible text in an Obsidian side panel.
 - Open previews automatically for the current paragraph or only by clicking a reference.
 - Open the Bible reference under the cursor with a command or configured shortcut.
 - Copy preview text to the clipboard.
 - Collapse, expand, and drag the preview panel.
+- Copy comparison output with per-translation references and footnotes.
 - Dynamically detect one-chapter books from imported metadata (`chapterCount`).
 - Interface localization: Russian and English.
 
@@ -44,6 +48,23 @@ Bible Reference Preview finds Bible references in Obsidian notes and shows verse
 5. Click **Import**.
 
 Reimporting the same translation replaces its previous data.
+
+## Comparing translations
+
+Bible Reference Preview can show the same Bible reference in several imported translations at once.
+
+1. Import at least two translations.
+2. Open Settings → Bible Reference Preview.
+3. In the translation list, enable **Compare** for the translations you want to use.
+4. Open a Bible preview and click the comparison toggle (`⇄`).
+5. Use the **Translations 2/4** dropdown in the preview header to quickly adjust the selected translations.
+
+Notes:
+
+- Up to four translations can be selected for comparison.
+- Each translation uses its own book names and reference formatting.
+- Footnotes are shown directly after the text of the corresponding translation.
+- The comparison selector works in both the floating preview and the side panel.
 
 ## Hotkeys
 
@@ -78,7 +99,14 @@ You can change these shortcuts in Settings → Hotkeys.
 3. Открой настройки Bible Reference Preview.
 4. Импортируй EPUB.
 5. Используй ссылки вроде `Ин3:16` или `Авд2-4`.
-6. При необходимости назначь hotkey для команды открытия ссылки под курсором.
+6. Для сравнения переводов включи `Сравнивать` у нужных переводов в настройках или выбери переводы через выпадающий список `Переводы 2/4` в заголовке предпросмотра.
+7. При необходимости назначь hotkey для команды открытия ссылки под курсором.
+
+### Сравнение переводов
+
+В режиме сравнения предпросмотр показывает выбранные переводы отдельными блоками. Можно выбрать до четырёх переводов. Заголовки отрывков и сноски используют названия книг конкретного перевода. Сноски выводятся сразу после текста соответствующего перевода.
+
+Сравнение работает в плавающем окне и в боковой панели. На мобильных устройствах выпадающий список переводов адаптирован под ширину экрана.
 
 ### Горячие клавиши предпросмотра Библии
 

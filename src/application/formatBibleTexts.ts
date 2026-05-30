@@ -20,8 +20,23 @@ export type BiblePreviewReferenceBlock = {
     paragraphs: BiblePreviewParagraph[];
 };
 
+export type BiblePreviewComparisonTranslation = {
+    translationName: string;
+    referenceTitle: string;
+    paragraphs: BiblePreviewParagraph[];
+    footnotes: string[];
+};
+
+export type BiblePreviewComparisonBlock = {
+    type: "comparison";
+    title: string;
+    references: BibleReference[];
+    translations: BiblePreviewComparisonTranslation[];
+};
+
 export type BiblePreviewBlock =
     | BiblePreviewReferenceBlock
+    | BiblePreviewComparisonBlock
     | {
         type: "footnote";
         text: string;
@@ -31,11 +46,63 @@ export type BiblePreviewBlock =
         text: typeof DIFFERENT_BOOK_SEPARATOR;
     };
 
+export type BiblePreviewComparisonInput = {
+    title: string;
+    references: BibleReference[];
+    translations: {
+        translationName: string;
+        blocks: BibleTextBlock[];
+        mapping: BookMapping;
+    }[];
+};
+
 export type BiblePreviewRenderOptions = {
     getFindUsagesButtonText?(): string;
     getFindUsagesButtonAria?(block: BiblePreviewReferenceBlock): string;
     onFindUsages?(block: BiblePreviewReferenceBlock): void;
 };
+
+export function formatBibleComparisonTextBlocks(
+    inputs: BiblePreviewComparisonInput[],
+    mapping: BookMapping,
+    missingVerseText = DEFAULT_MISSING_VERSE_TEXT,
+): BiblePreviewContent {
+    const previewBlocks: BiblePreviewBlock[] = [];
+
+    for (const input of inputs) {
+        const translations = input.translations
+            .map((translation) => {
+                const content = formatBibleTextBlocks(translation.blocks, translation.mapping, missingVerseText);
+                return {
+                    translationName: translation.translationName,
+                    referenceTitle: formatComparisonReferenceTitle(input.references, translation.mapping),
+                    paragraphs: content.blocks
+                        .filter((block): block is BiblePreviewReferenceBlock => block.type === "reference")
+                        .flatMap((block) => block.paragraphs),
+                    footnotes: content.blocks
+                        .filter((block): block is Extract<BiblePreviewBlock, { type: "footnote" }> => block.type === "footnote")
+                        .map((block) => block.text),
+                };
+            })
+            .filter((translation) => translation.paragraphs.length > 0);
+
+        if (translations.length === 0) {
+            continue;
+        }
+
+        previewBlocks.push({
+            type: "comparison",
+            title: formatSourceReferenceTitle(input.title),
+            references: input.references,
+            translations,
+        });
+    }
+
+    return {
+        blocks: previewBlocks,
+        plainText: buildPlainText(previewBlocks),
+    };
+}
 
 export type BiblePreviewParagraph = {
     verses: BiblePreviewVerse[];
@@ -130,6 +197,52 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
             containerEl.appendChild(footnoteEl);
 
             previousRenderedBlockType = "footnote";
+            continue;
+        }
+
+        if (block.type === "comparison") {
+            const comparisonEl = document.createElement("div");
+            comparisonEl.className = "bible-preview-comparison-block";
+            if (previousRenderedBlockType !== null) {
+                comparisonEl.style.marginTop = "1.15em";
+            }
+
+            for (const translation of block.translations) {
+                const translationTitleEl = document.createElement("div");
+                translationTitleEl.className = "bible-preview-comparison-translation-title";
+                translationTitleEl.textContent = `[${translation.translationName}]`;
+                translationTitleEl.style.marginTop = "0.8em";
+                translationTitleEl.style.fontWeight = "600";
+                comparisonEl.appendChild(translationTitleEl);
+
+                const translationReferenceEl = document.createElement("div");
+                translationReferenceEl.className = "bible-preview-comparison-reference-title";
+                translationReferenceEl.textContent = `${translation.referenceTitle}.`;
+                translationReferenceEl.style.marginTop = "0.25em";
+                translationReferenceEl.style.fontWeight = "500";
+                comparisonEl.appendChild(translationReferenceEl);
+
+                translation.paragraphs.forEach((paragraph) => {
+                    const paragraphEl = document.createElement("div");
+                    paragraphEl.className = "bible-preview-paragraph";
+                    paragraphEl.style.setProperty("text-align", "justify");
+
+                    appendPreviewVerses(paragraphEl, paragraph.verses);
+                    comparisonEl.appendChild(paragraphEl);
+                });
+
+                for (const footnote of translation.footnotes) {
+                    const footnoteEl = document.createElement("div");
+                    footnoteEl.className = "bible-preview-footnote";
+                    footnoteEl.style.marginLeft = "0.2em";
+                    footnoteEl.style.marginTop = "0.45em";
+                    appendTextWithLineBreaks(footnoteEl, footnote);
+                    comparisonEl.appendChild(footnoteEl);
+                }
+            }
+
+            containerEl.appendChild(comparisonEl);
+            previousRenderedBlockType = "reference";
             continue;
         }
 
@@ -473,6 +586,33 @@ function cleanupFootnoteTextForPreview(footnote: string): string {
     return withoutRepeatedReference.length === 0 ? withoutMarker : withoutRepeatedReference;
 }
 
+function formatComparisonReferenceTitle(references: BibleReference[], mapping: BookMapping): string {
+    if (references.length === 0) {
+        return formatSourceReferenceTitle("");
+    }
+
+    const firstReference = references[0];
+    const canUseSingleChapterTitle = references.every((reference) =>
+        reference.book === firstReference.book
+        && reference.chapterStart === firstReference.chapterStart
+        && reference.chapterEnd === reference.chapterStart,
+    );
+
+    if (canUseSingleChapterTitle) {
+        const bookName = mapping.idToDisplayName.get(firstReference.book) ?? String(firstReference.book);
+        const verseSegments = references.map((reference) => formatReferenceVerseSegment(reference));
+        const title = mapping.oneChapterBooks.has(firstReference.book)
+            ? `${bookName} ${verseSegments.join(", ")}`
+            : `${bookName} ${firstReference.chapterStart}:${verseSegments.join(", ")}`;
+        return formatSourceReferenceTitle(title);
+    }
+
+    const title = references
+        .map((reference) => formatBibleReference(reference, mapping))
+        .join("; ");
+    return formatSourceReferenceTitle(title);
+}
+
 function formatVerseReference(range: ChapterVerseRange, verseNumber: number, mapping: BookMapping): string {
     const bookName = mapping.idToDisplayName.get(range.book) ?? String(range.book);
     if (mapping.oneChapterBooks.has(range.book)) {
@@ -518,7 +658,22 @@ function buildPlainText(blocks: BiblePreviewBlock[]): string {
     return sections.join("\n\n");
 }
 
-function formatReferenceBlockPlainText(block: Extract<BiblePreviewBlock, { type: "reference" }>): string {
+function formatReferenceBlockPlainText(block: Extract<BiblePreviewBlock, { type: "reference" | "comparison" }>): string {
+    if (block.type === "comparison") {
+        const translationTexts = block.translations
+            .map((translation) => [
+                `[${translation.translationName}]`,
+                `${translation.referenceTitle}.`,
+                translation.paragraphs
+                    .map((paragraph) => `${formatParagraphPlainText(paragraph)}`)
+                    .join("\n\n"),
+                translation.footnotes.map((footnote) => ` ${footnote}`).join("\n"),
+            ].filter((part) => part.length > 0).join("\n"))
+            .join("\n\n");
+
+        return translationTexts;
+    }
+
     const paragraphsText = block.paragraphs
         .map((paragraph) => `${formatParagraphPlainText(paragraph)}`)
         .join("\n\n");
