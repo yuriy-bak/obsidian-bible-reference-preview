@@ -9,8 +9,7 @@
 }
 
 .bible-reference-preview-link-color-sample {
-    text-decoration: underline;
-    text-decoration-style: dotted;
+    border-bottom: 1px dotted currentColor;
     background: var(--interactive-normal);
 }
 
