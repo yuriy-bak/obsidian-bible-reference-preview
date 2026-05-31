@@ -15,7 +15,8 @@ import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow } from "./s
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "./src/ui/cssColorValidation";
 import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput } from "./src/ui/CssColorDialog";
 import { BIBLE_PREVIEW_VIEW_TYPE, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
-import { refreshBiblePreviewPaneViewInputs, scrollBiblePreviewPane as scrollBiblePreviewPaneFlow, showBiblePreviewInPanel as showBiblePreviewInPanelFlow } from "./src/ui/BiblePreviewPaneFlow";
+import { scrollBiblePreviewPane as scrollBiblePreviewPaneFlow, showBiblePreviewInPanel as showBiblePreviewInPanelFlow } from "./src/ui/BiblePreviewPaneFlow";
+import { refreshBiblePreviewLocalizedLabels as refreshBiblePreviewLocalizedLabelsFlow } from "./src/ui/BiblePreviewLocalizedRefreshFlow";
 import { closeBiblePreviewPaneFromState as closeBiblePreviewPaneFromStateFlow, handleBiblePreviewActiveLeafChange as handleBiblePreviewActiveLeafChangeFlow, handleBiblePreviewPanelEscapeKeydown as handleBiblePreviewPanelEscapeKeydownFlow, type BiblePreviewPaneStateFlowInput } from "./src/ui/BiblePreviewPaneStateFlow";
 import { createScrollBiblePreviewPaneFlowInput as createScrollBiblePreviewPaneFlowInputFlow, createShowBiblePreviewInPanelFlowInput as createShowBiblePreviewInPanelFlowInputFlow, type BiblePreviewPaneFlowInputFactoryInput } from "./src/ui/BiblePreviewPaneFlowInputFactory";
 import { createBiblePreviewPaneViewInput as createBiblePreviewPaneViewInputFlow, createFloatingBiblePreviewWindowInput as createFloatingBiblePreviewWindowInputFlow, type BiblePreviewViewInputFactoryInput } from "./src/ui/BiblePreviewViewInputFactory";
@@ -45,13 +46,11 @@ import { processReadingModeBibleReferences as processReadingModeBibleReferenceLi
 import { findBibleReferenceMatchAtPosition as findEditorBibleReferenceMatchAtPosition, getCurrentParagraph as getCurrentEditorParagraph } from "./src/editor/EditorTextAnalysis";
 import { getBibleReferenceMatchUnderCursorFromActiveEditor, type EditorReferenceUnderCursorInput } from "./src/editor/EditorReferenceUnderCursor";
 import { clearEditorReferenceLinks, createEditorReferenceLinkDecorations, type EditorReferenceLinkDecorationFlowInput, refreshEditorReferenceLinks } from "./src/editor/EditorReferenceLinkDecorationFlow";
-import { refreshEditorPreviewControllerLocalizedLabels } from "./src/editor/EditorPreviewControllerRegistration";
 import { createEditorCursorExtension } from "./src/editor/EditorCursorExtension";
 import { createEditorRuntimeState } from "./src/editor/EditorRuntimeState";
 import { dispatchEditorViewNoopUpdate, findFocusedEditorPreviewController } from "./src/editor/EditorViewFocus";
 import {
     getFirstWorkspaceLeafOfType as getFirstWorkspaceLeafOfTypeFlow,
-    getWorkspaceLeavesOfType as getWorkspaceLeavesOfTypeFlow,
 } from "./src/workspace/BiblePreviewWorkspace";
 
 
@@ -1231,11 +1230,11 @@ export default class BiblePlugin extends Plugin {
         this.settings = { ...this.settings, interfaceLanguage };
         await this.savePluginSettings();
         this.refreshSettingsTab();
-        this.refreshFloatingPreviewLabels();
-        refreshEditorPreviewControllerLocalizedLabels(this.editorRuntimeState.previewControllers.values());
-        this.readingModePreviewController?.refreshLocalizedLabels();
-        refreshBiblePreviewPaneViewInputs({
-            getWorkspaceLeavesOfType: (viewType) => getWorkspaceLeavesOfTypeFlow(this.app, viewType),
+        refreshBiblePreviewLocalizedLabelsFlow({
+            app: this.app,
+            previewControllers: this.editorRuntimeState.previewControllers.values(),
+            readingModePreviewController: this.readingModePreviewController,
+            refreshFloatingPreviewLabels: () => this.refreshFloatingPreviewLabels(),
             createBiblePreviewPaneViewInput: () => this.createBiblePreviewPaneViewInput(),
         });
         new Notice(this.t("notice.restartPluginForCommandNames"), 6000);
