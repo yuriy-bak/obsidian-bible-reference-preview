@@ -1,4 +1,5 @@
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
+import { areStringArraysEqual } from "../utils/ArrayEquality";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./TranslationModels";
 
 export type TranslationControllerState = {
@@ -178,8 +179,4 @@ export class TranslationController {
     public static getTranslationPreviewTitle(state: TranslationControllerState, translationId: string): string {
         return state.v2Data?.translations[translationId]?.name ?? translationId;
     }
-}
-
-function areStringArraysEqual(left: string[], right: string[]): boolean {
-    return left.length === right.length && left.every((value, index) => value === right[index]);
 }

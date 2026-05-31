@@ -4,16 +4,18 @@ import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import type { BibleReference } from "./src/domain/BibleReference";
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
+import { areStringArraysEqual } from "./src/utils/ArrayEquality";
 import { createBookMapping } from "./src/parsing/BookMapping";
-import { getBibleTextBlocks } from "./src/application/getBibleTexts";
-import { BiblePreviewComparisonBlock, BiblePreviewComparisonInput, BiblePreviewContent, BiblePreviewReferenceBlock, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
+import type { BiblePreviewContent, BiblePreviewReferenceBlock } from "./src/application/formatBibleTexts";
+import { analyzeBiblePreviewParagraph as analyzeBiblePreviewParagraphFlow, rebuildBiblePreviewContent as rebuildBiblePreviewContentFlow, toggleBiblePreviewComparison as toggleBiblePreviewComparisonFlow, type BiblePreviewAnalyzerFlowInput } from "./src/application/BiblePreviewAnalyzerFlow";
 import { isEpubImportAbortError } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BiblePluginLocale, I18nKey, t } from "./src/i18n/I18n";
 import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "./src/ui/cssColorValidation";
-import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput } from "./src/ui/CssColorDialog";
+import type { CssColorDialogInput } from "./src/ui/CssColorDialog";
+import { getBibleReferenceLinkColorPickerValue as getBibleReferenceLinkColorPickerValueFlow, getFloatingPreviewBackgroundColorPickerValue as getFloatingPreviewBackgroundColorPickerValueFlow, openCssColorDialog as openCssColorDialogFlow, openFloatingPreviewBackgroundColorDialog as openFloatingPreviewBackgroundColorDialogFlow } from "./src/ui/ColorSettingsFlow";
 import { BIBLE_PREVIEW_VIEW_TYPE, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
 import { scrollBiblePreviewPane as scrollBiblePreviewPaneFlow, showBiblePreviewInPanel as showBiblePreviewInPanelFlow } from "./src/ui/BiblePreviewPaneFlow";
 import { refreshBiblePreviewLocalizedLabels as refreshBiblePreviewLocalizedLabelsFlow } from "./src/ui/BiblePreviewLocalizedRefreshFlow";
@@ -32,11 +34,10 @@ import { createReferenceUsagePaneFlowInput as createReferenceUsagePaneFlowInputF
 import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, type ReferenceUsageIndexServiceOptions, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 import { TranslationController, type TranslationControllerState } from "./src/translations/TranslationController";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
-import { BiblePreviewAnalyzer, type BiblePreviewAnalyzerInput } from "./src/application/BiblePreviewAnalyzer";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
 import { executePreparedEpubImport, prepareEpubImportSettings } from "./src/import/EpubImportFlow";
-import { formatBibleIndexV2StatsNotice, formatEpubImportSuccessNotice, formatLastImportReportNotice, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
-import { ensureVaultDirectoryExists } from "./src/infrastructure/VaultPathUtils";
+import { formatEpubImportSuccessNotice, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
+import { openBibleIndexFolder as openBibleIndexFolderFlow, showBibleIndexStats as showBibleIndexStatsFlow } from "./src/import/BibleIndexInfoFlow";
 import { registerPluginActiveRibbonIcon, registerPluginCommands } from "./src/lifecycle/PluginCommandRegistration";
 import { registerPluginViews } from "./src/lifecycle/PluginViewRegistration";
 import { initializeFloatingPreviewWindow, initializeReadingModePreviewController } from "./src/lifecycle/PluginPreviewInitialization";
@@ -45,13 +46,11 @@ import { registerContentProcessingExtensions } from "./src/lifecycle/PluginConte
 import { processReadingModeBibleReferences as processReadingModeBibleReferenceLinks } from "./src/reading-mode/ReadingModeBibleReferenceProcessor";
 import { findBibleReferenceMatchAtPosition as findEditorBibleReferenceMatchAtPosition, getCurrentParagraph as getCurrentEditorParagraph } from "./src/editor/EditorTextAnalysis";
 import { getBibleReferenceMatchUnderCursorFromActiveEditor, type EditorReferenceUnderCursorInput } from "./src/editor/EditorReferenceUnderCursor";
-import { clearEditorReferenceLinks, createEditorReferenceLinkDecorations, type EditorReferenceLinkDecorationFlowInput, refreshEditorReferenceLinks } from "./src/editor/EditorReferenceLinkDecorationFlow";
+import { clearEditorReferenceLinks, refreshEditorReferenceLinks } from "./src/editor/EditorReferenceLinkDecorationFlow";
 import { createEditorCursorExtension } from "./src/editor/EditorCursorExtension";
+import { createEditorCursorExtensionInput as createEditorCursorExtensionInputFlow, createEditorReferenceLinkDecorationFlowInput as createEditorReferenceLinkDecorationFlowInputFlow, type EditorPluginInputFactoryInput } from "./src/editor/EditorPluginInputFactory";
 import { createEditorRuntimeState } from "./src/editor/EditorRuntimeState";
 import { dispatchEditorViewNoopUpdate, findFocusedEditorPreviewController } from "./src/editor/EditorViewFocus";
-import {
-    getFirstWorkspaceLeafOfType as getFirstWorkspaceLeafOfTypeFlow,
-} from "./src/workspace/BiblePreviewWorkspace";
 
 
 const EMPTY_BIBLE_INDEX: BibleIndex = {
@@ -59,9 +58,6 @@ const EMPTY_BIBLE_INDEX: BibleIndex = {
         return null;
     },
 };
-
-const DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR = "#7c3aed";
-const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
 
 export default class BiblePlugin extends Plugin {
@@ -488,9 +484,7 @@ export default class BiblePlugin extends Plugin {
     }
 
     public getBibleReferenceLinkColorPickerValue(): string {
-        return isHexColor(this.settings.bibleReferenceLinkColor)
-            ? this.settings.bibleReferenceLinkColor
-            : DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR;
+        return getBibleReferenceLinkColorPickerValueFlow(this.settings.bibleReferenceLinkColor);
     }
 
     public isBibleReferenceLinkColorDefault(): boolean {
@@ -517,9 +511,7 @@ export default class BiblePlugin extends Plugin {
     }
 
     public getFloatingPreviewBackgroundColorPickerValue(): string {
-        return isHexColor(this.settings.floatingPreviewBackgroundColor)
-            ? this.settings.floatingPreviewBackgroundColor
-            : DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR;
+        return getFloatingPreviewBackgroundColorPickerValueFlow(this.settings.floatingPreviewBackgroundColor);
     }
 
     public isFloatingPreviewBackgroundColorDefault(): boolean {
@@ -527,19 +519,19 @@ export default class BiblePlugin extends Plugin {
     }
 
     public openCssColorDialog(input: CssColorDialogInput): void {
-        new CssColorDialog(this.app, this.settings.interfaceLanguage, input).open();
+        openCssColorDialogFlow({
+            app: this.app,
+            locale: this.settings.interfaceLanguage,
+        }, input);
     }
 
     public openFloatingPreviewBackgroundColorDialog(): void {
-        this.openCssColorDialog({
-            title: this.t("settings.previewBackgroundColor.name"),
-            description: this.t("settings.previewBackgroundColor.desc"),
-            value: this.getFloatingPreviewBackgroundColor(),
-            defaultValue: DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
-            previewText: this.t("settings.previewBackgroundColor.preview"),
-            presets: createBackgroundColorPresets(),
-            normalize: normalizeFloatingPreviewBackgroundColor,
-            onApply: (color) => void this.setFloatingPreviewBackgroundColor(color),
+        openFloatingPreviewBackgroundColorDialogFlow({
+            app: this.app,
+            locale: this.settings.interfaceLanguage,
+            translate: (key) => this.t(key),
+            getFloatingPreviewBackgroundColor: () => this.getFloatingPreviewBackgroundColor(),
+            setFloatingPreviewBackgroundColor: (color) => void this.setFloatingPreviewBackgroundColor(color),
         });
     }
 
@@ -1075,16 +1067,21 @@ export default class BiblePlugin extends Plugin {
 
 
     createCursorExtension() {
-        return createEditorCursorExtension({
+        return createEditorCursorExtension(createEditorCursorExtensionInputFlow(this.createEditorPluginInputFactoryInput()));
+    }
+
+    private createEditorPluginInputFactoryInput(): EditorPluginInputFactoryInput {
+        return {
+            app: this.app,
+            previewViewType: BIBLE_PREVIEW_VIEW_TYPE,
+            editorRuntimeState: this.editorRuntimeState,
             getActiveTranslationId: () => this.activeTranslationId,
-            editorViews: this.editorRuntimeState.editorViews,
-            previewControllers: this.editorRuntimeState.previewControllers,
-            bibleReferenceLinkDecorationCache: this.editorRuntimeState.bibleReferenceLinkDecorationCache,
+            getBibleReferenceLinkColor: () => this.getBibleReferenceLinkColor(),
             shouldRunBiblePreviewForEditor: (view) => this.shouldRunBiblePreviewForEditor(view),
             getBiblePreviewTriggerMode: () => this.getBiblePreviewTriggerMode(),
             getBiblePreviewDisplayMode: () => this.getBiblePreviewDisplayMode(),
             hasImportedTranslations: () => this.hasImportedTranslations(),
-            hasBiblePreviewPane: () => getFirstWorkspaceLeafOfTypeFlow(this.app, BIBLE_PREVIEW_VIEW_TYPE) !== null,
+            parseMatches: (text) => this.bibleReferenceParser.parseMatches(text),
             findBibleReferenceMatchAtPosition: (view, position) => findEditorBibleReferenceMatchAtPosition(view, position, (text) => this.bibleReferenceParser.parseMatches(text)),
             getCurrentParagraph: getCurrentEditorParagraph,
             analyzeParagraph: (paragraph) => this.analyzeParagraphAsync(paragraph),
@@ -1092,9 +1089,8 @@ export default class BiblePlugin extends Plugin {
             showBiblePreviewContent: (content) => this.showBiblePreviewContent(content, { type: "default" }, { reveal: this.shouldAutoOpenPreviewOnVerseChange() }),
             refreshFloatingPreviewLabels: () => this.refreshFloatingPreviewLabels(),
             hideFloatingBiblePreview: () => this.hideFloatingBiblePreview(),
-            createBibleReferenceLinkDecorations: (view) => createEditorReferenceLinkDecorations(this.createEditorReferenceLinkDecorationFlowInput(), view),
             translate: (key) => this.t(key),
-        });
+        };
     }
 
 
@@ -1104,44 +1100,30 @@ export default class BiblePlugin extends Plugin {
             && this.activeV2Data.translations[this.activeTranslationId] !== undefined;
     }
 
-    private createEditorReferenceLinkDecorationFlowInput(): EditorReferenceLinkDecorationFlowInput {
-        return {
-            editorRuntimeState: this.editorRuntimeState,
-            activeTranslationId: this.activeTranslationId,
-            linkColor: this.getBibleReferenceLinkColor(),
-            shouldRunBiblePreviewForEditor: (editorView) => this.shouldRunBiblePreviewForEditor(editorView),
-            hasImportedTranslations: () => this.hasImportedTranslations(),
-            parseMatches: (text) => this.bibleReferenceParser.parseMatches(text),
-        };
-    }
-
     private refreshBibleReferenceLinks(): void {
-        refreshEditorReferenceLinks(this.createEditorReferenceLinkDecorationFlowInput());
+        refreshEditorReferenceLinks(createEditorReferenceLinkDecorationFlowInputFlow(this.createEditorPluginInputFactoryInput()));
     }
 
     private clearBibleReferenceLinks(): void {
-        clearEditorReferenceLinks(this.createEditorReferenceLinkDecorationFlowInput());
+        clearEditorReferenceLinks(createEditorReferenceLinkDecorationFlowInputFlow(this.createEditorPluginInputFactoryInput()));
     }
 
-    private createBiblePreviewAnalyzerInput(): BiblePreviewAnalyzerInput {
+    private createBiblePreviewAnalyzerFlowInput(): BiblePreviewAnalyzerFlowInput {
         return {
+            bibleIndex: this.bibleIndex,
+            bookMapping: this.bookMapping,
+            activeV2Data: this.activeV2Data,
+            translationControllerState: this.createTranslationControllerState(),
             hasImportedTranslations: () => this.hasImportedTranslations(),
             getActiveTranslationId: () => this.activeTranslationId,
             isPreviewComparisonEnabled: () => this.settings.previewComparisonEnabled,
             parseMatches: (text) => this.bibleReferenceParser.parseMatches(text),
-            getBibleTextBlocks: (references, translationId, sourceText) => getBibleTextBlocks(references, this.bibleIndex, translationId, sourceText),
-            formatBibleTextBlocks: (blocks) => formatBibleTextBlocks(blocks, this.bookMapping, this.t("preview.missingVerse")),
-            formatBibleComparisonTextBlocks: (inputs) => formatBibleComparisonTextBlocks(inputs, this.bookMapping, this.t("preview.missingVerse")),
-            getComparisonTranslationIds: () => this.getComparisonTranslationIds(),
-            getTranslationPreviewTitle: (translationId) => this.getTranslationPreviewTitle(translationId),
-            getComparisonMapping: (translationId) => this.activeV2Data === null
-                ? this.bookMapping
-                : createBookMappingFromBibleIndexV2Data(this.activeV2Data, translationId),
+            getMissingVerseText: () => this.t("preview.missingVerse"),
         };
     }
 
     async analyzeParagraphAsync(text: string): Promise<BiblePreviewContent | null> {
-        return new BiblePreviewAnalyzer(this.createBiblePreviewAnalyzerInput()).analyzeParagraph(text);
+        return analyzeBiblePreviewParagraphFlow(this.createBiblePreviewAnalyzerFlowInput(), text);
     }
 
     async analyzeReferenceTextAsync(text: string): Promise<BiblePreviewContent | null> {
@@ -1149,70 +1131,33 @@ export default class BiblePlugin extends Plugin {
     }
 
     private async toggleBiblePreviewComparison(content: BiblePreviewContent): Promise<void> {
-        await this.setPreviewComparisonEnabled(!this.settings.previewComparisonEnabled);
-        const nextContent = await this.rebuildBiblePreviewContent(content);
-        if (nextContent !== null) {
-            this.showBiblePreviewContent(nextContent, { type: "default" }, { reveal: true });
-        }
+        await toggleBiblePreviewComparisonFlow({
+            ...this.createBiblePreviewAnalyzerFlowInput(),
+            setPreviewComparisonEnabled: (enabled) => this.setPreviewComparisonEnabled(enabled),
+            showBiblePreviewContent: (nextContent) => this.showBiblePreviewContent(nextContent, { type: "default" }, { reveal: true }),
+        }, content);
     }
 
     private async rebuildBiblePreviewContent(content: BiblePreviewContent): Promise<BiblePreviewContent | null> {
-        return new BiblePreviewAnalyzer(this.createBiblePreviewAnalyzerInput()).rebuildContent(content);
-    }
-
-    private getComparisonTranslationIds(): string[] {
-        return TranslationController.getComparisonTranslationIds(this.createTranslationControllerState());
-    }
-
-    private getTranslationPreviewTitle(translationId: string): string {
-        return TranslationController.getTranslationPreviewTitle(this.createTranslationControllerState(), translationId);
+        return rebuildBiblePreviewContentFlow(this.createBiblePreviewAnalyzerFlowInput(), content);
     }
 
     async openBibleIndexFolder(): Promise<void> {
-        const directoryPath = this.getBibleIndexDataDirectoryPath();
-        await ensureVaultDirectoryExists(this.app.vault.adapter, directoryPath);
-
-        if (Platform.isMobileApp) {
-            new Notice([
-                this.t("notice.mobileFolderUnavailable"),
-                this.t("notice.indexFolder", { directoryPath }),
-            ].join("\n"), 12000);
-            return;
-        }
-
-        const appWithShowInFolder = this.app as App & { showInFolder?: (path: string) => void };
-        if (typeof appWithShowInFolder.showInFolder === "function") {
-            appWithShowInFolder.showInFolder(directoryPath);
-            return;
-        }
-
-        new Notice(this.t("notice.indexFolder", { directoryPath }), 10000);
+        await openBibleIndexFolderFlow({
+            app: this.app,
+            directoryPath: this.getBibleIndexDataDirectoryPath(),
+            isMobile: Platform.isMobileApp,
+            translate: (key, params) => this.t(key, params),
+        });
     }
 
     async showBibleIndexStats(): Promise<void> {
-        const repository = this.createObsidianBibleIndexRepository();
-        await repository.load();
-        const report = await repository.readLastImportReport();
-
-        if (report !== null) {
-            new Notice(formatLastImportReportNotice(
-                report,
-                (key, params) => this.t(key, params),
-            ), 15000);
-            return;
-        }
-
-        if (this.activeV2Data !== null) {
-            const translationCount = Object.keys(this.activeV2Data.translations).length;
-            new Notice(formatBibleIndexV2StatsNotice(
-                translationCount,
-                this.activeTranslationId ?? this.t("notice.none"),
-                (key, params) => this.t(key, params),
-            ), 10000);
-            return;
-        }
-
-        new Notice(this.t("notice.noImportedTranslations"), 5000);
+        await showBibleIndexStatsFlow({
+            activeV2Data: this.activeV2Data,
+            activeTranslationIdText: this.activeTranslationId ?? this.t("notice.none"),
+            createRepository: () => this.createObsidianBibleIndexRepository(),
+            translate: (key, params) => this.t(key, params),
+        });
     }
 
     public t(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string {
@@ -1244,13 +1189,5 @@ export default class BiblePlugin extends Plugin {
 }
 
 
-
-function isHexColor(value: string): boolean {
-    return /^#[0-9a-f]{6}$/i.test(value.trim());
-}
-
-function areStringArraysEqual(left: string[], right: string[]): boolean {
-    return left.length === right.length && left.every((value, index) => value === right[index]);
-}
 
 
