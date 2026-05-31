@@ -10,9 +10,7 @@ import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
 import { BiblePreviewComparisonBlock, BiblePreviewComparisonInput, BiblePreviewContent, BiblePreviewReferenceBlock, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
-import type { EpubBibleImportProgress } from "./src/infrastructure/EpubBibleImporter";
 import { BibleTranslationImportModal, createImportSettingsDefaults, type BibleTranslationImportSettings } from "./src/ui/BibleTranslationImportModal";
-import { EPUB_IMPORT_LIMITS } from "./src/infrastructure/epub/EpubContainerReader";
 import { JsZipEpubBibleImporter, isEpubImportAbortError } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
@@ -32,6 +30,8 @@ import { TranslationController, type TranslationControllerState } from "./src/tr
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
 import { BiblePreviewAnalyzer, type BiblePreviewAnalyzerInput } from "./src/application/BiblePreviewAnalyzer";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
+import { readAndValidateEpubFile } from "./src/import/EpubFileValidation";
+import { formatEpubImportProgress, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -270,7 +270,7 @@ export default class BiblePlugin extends Plugin {
 
     public async importEpubFile(file: File): Promise<void> {
         try {
-            const content = await this.readAndValidateEpubFile(file);
+            const content = await readAndValidateEpubFile(file, (key, params) => this.t(key, params));
             const importer = new JsZipEpubBibleImporter();
             const sourceMetadata = await importer.readMetadata(content);
             const defaults = createImportSettingsDefaults(file.name, sourceMetadata);
@@ -287,7 +287,7 @@ export default class BiblePlugin extends Plugin {
             const progressModal = new ProgressCancelModal(
                 this.app,
                 this.t("notice.importStarted", { fileName: file.name }),
-                this.formatEpubImportProgress({ stage: "loading-zip", processedCount: 0, totalCount: 1 }),
+                formatEpubImportProgress({ stage: "loading-zip", processedCount: 0, totalCount: 1 }, (key, params) => this.t(key, params)),
                 this.t("common.cancel"),
                 () => abortController.abort(),
             );
@@ -309,7 +309,7 @@ export default class BiblePlugin extends Plugin {
                     repository,
                     importOptions: {
                         signal: abortController.signal,
-                        onProgress: (progress) => progressModal.updateMessage(this.formatEpubImportProgress(progress)),
+                        onProgress: (progress) => progressModal.updateMessage(formatEpubImportProgress(progress, (key, params) => this.t(key, params))),
                     },
                 });
 
@@ -344,44 +344,8 @@ export default class BiblePlugin extends Plugin {
                 return;
             }
             console.error("EPUB import failed", error);
-            new Notice(this.t("notice.importFailed", { message: this.localizeImportErrorMessage(error) }), 15000);
+            new Notice(this.t("notice.importFailed", { message: localizeImportErrorMessage(error, (key, params) => this.t(key, params)) }), 15000);
         }
-    }
-
-    private async readAndValidateEpubFile(file: File): Promise<ArrayBuffer> {
-        if (file.size > EPUB_IMPORT_LIMITS.maxArchiveBytes) {
-            throw new Error(`Imported EPUB/ZIP file is too large: ${file.size} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxArchiveBytes} bytes.`);
-        }
-
-        const content = await file.arrayBuffer();
-
-        if (content.byteLength > EPUB_IMPORT_LIMITS.maxArchiveBytes) {
-            throw new Error(`Imported EPUB/ZIP file is too large: ${content.byteLength} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxArchiveBytes} bytes.`);
-        }
-
-        if (content.byteLength === 0) {
-            throw new Error([
-                this.t("import.error.emptyFile"),
-                this.t("import.error.emptyFileDetails", { fileName: file.name, size: file.size }),
-                this.t("import.error.androidPickerHint"),
-                this.t("import.error.androidPickerSuggestion"),
-            ].join(" "));
-        }
-
-        if (content.byteLength < 4) {
-            throw new Error(this.t("import.error.fileTooSmall", { size: content.byteLength }));
-        }
-
-        const bytes = new Uint8Array(content.slice(0, 4));
-        if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
-            throw new Error([
-                this.t("import.error.notZip"),
-                this.t("import.error.firstBytes", { bytes: Array.from(bytes).join(", ") }),
-                this.t("import.error.selectRealEpub"),
-            ].join(" "));
-        }
-
-        return content;
     }
 
     private openImportSettingsModal(
@@ -403,14 +367,6 @@ export default class BiblePlugin extends Plugin {
 
     private async savePluginSettings(): Promise<void> {
         await this.saveData(this.settings);
-    }
-
-    private formatEpubImportProgress(progress: EpubBibleImportProgress): string {
-        return this.t("notice.importProgress", {
-            stage: this.t(`notice.importProgress.stage.${progress.stage}`),
-            processed: progress.processedCount,
-            total: progress.totalCount,
-        });
     }
 
     private getReferenceUsageIndexServiceOptions(): ReferenceUsageIndexServiceOptions {
@@ -2265,26 +2221,6 @@ export default class BiblePlugin extends Plugin {
         new Notice(this.t("notice.restartPluginForCommandNames"), 6000);
     }
 
-    private localizeImportErrorMessage(error: unknown): string {
-        const message = getErrorMessage(error);
-        if (message === "EPUB does not contain XHTML documents.") {
-            return this.t("import.error.noXhtml");
-        }
-        if (message === "EPUB complete 66-book table was not found. Import cannot continue without a validated book table.") {
-            return this.t("import.error.noBookTable");
-        }
-        if (message === "EPUB import completed without extracted verses.") {
-            return this.t("import.error.noVerses");
-        }
-        if (message === "EPUB container.xml does not contain OPF rootfile path.") {
-            return this.t("import.error.containerNoRootfile");
-        }
-        const fileNotFoundMatch = /^EPUB file not found: (.+)$/.exec(message);
-        if (fileNotFoundMatch !== null) {
-            return this.t("import.error.fileNotFound", { path: fileNotFoundMatch[1] });
-        }
-        return message;
-    }
 
 }
 
