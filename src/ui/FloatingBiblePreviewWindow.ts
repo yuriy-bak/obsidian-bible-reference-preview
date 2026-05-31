@@ -1,16 +1,10 @@
 import { Notice, Platform } from "obsidian";
 import { BiblePreviewContent, BiblePreviewReferenceBlock, renderBiblePreviewContent } from "../application/formatBibleTexts";
+import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
 
 export type FloatingBiblePreviewAnchor =
     | { type: "default" }
     | { type: "element"; element: HTMLElement };
-
-export type PreviewComparisonTranslationOption = {
-    id: string;
-    name: string;
-    isSelected: boolean;
-    isDisabled: boolean;
-};
 
 export type FloatingBiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
 

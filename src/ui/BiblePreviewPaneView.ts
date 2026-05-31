@@ -1,12 +1,6 @@
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
 import { BiblePreviewContent, BiblePreviewReferenceBlock, renderBiblePreviewContent } from "../application/formatBibleTexts";
-
-export type PreviewComparisonTranslationOption = {
-    id: string;
-    name: string;
-    isSelected: boolean;
-    isDisabled: boolean;
-};
+import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 

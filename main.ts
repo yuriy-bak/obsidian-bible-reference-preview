@@ -1,5 +1,5 @@
 
-import { App, MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
+import { App, MarkdownView, Notice, Platform, Plugin, TFile, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
 import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import type { BibleReference } from "./src/domain/BibleReference";
@@ -22,14 +22,14 @@ import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND
 import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput } from "./src/ui/CssColorDialog";
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, ReferenceUsagePaneViewInput } from "./src/ui/ReferenceUsagePaneView";
-import { renderTranslationSettingsSection } from "./src/ui/TranslationSettingsList";
-import { renderReferenceUsageIndexSettingsSection } from "./src/ui/ReferenceUsageIndexSettingsSection";
-import { renderColorSettingsSection } from "./src/ui/ColorSettingsSection";
+import { BiblePluginSettingTab } from "./src/ui/BiblePluginSettingTab";
 import { ProgressCancelModal } from "./src/ui/ProgressCancelModal";
 import { ReferenceUsageResultsModal } from "./src/ui/ReferenceUsageResultsModal";
 import { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
 import { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageController";
 import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, type ReferenceUsageIndexServiceOptions, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
+import { TranslationController, type TranslationControllerState } from "./src/translations/TranslationController";
+import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -157,24 +157,6 @@ const DEFAULT_SETTINGS: BiblePluginSettings = {
     referenceUsageExcludedFolders: DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS,
 };
 
-type TranslationSettingsItem = {
-    id: string;
-    name: string;
-    language: string;
-    sourceFileName: string;
-    bookCount: number;
-    isActive: boolean;
-    isComparisonEnabled: boolean;
-    canMoveUp: boolean;
-    canMoveDown: boolean;
-};
-
-type PreviewComparisonTranslationOption = {
-    id: string;
-    name: string;
-    isSelected: boolean;
-    isDisabled: boolean;
-};
 
 type BibleReferenceLinkDecorationVisibleRangeInput = {
     from: number;
@@ -519,99 +501,46 @@ export default class BiblePlugin extends Plugin {
         this.refreshBibleReferenceLinks();
     }
 
-    private selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string | null {
-        if (v2Data === null) {
-            return null;
-        }
+    private createTranslationControllerState(v2Data: BibleIndexV2Data | null = this.activeV2Data): TranslationControllerState {
+        return {
+            v2Data,
+            activeTranslationId: this.activeTranslationId,
+            translationOrder: this.settings.translationOrder,
+            comparisonTranslationIds: this.settings.comparisonTranslationIds,
+        };
+    }
 
-        const availableTranslations = new Set(Object.keys(v2Data.translations));
-        return this.settings.translationOrder.find((translationId) => availableTranslations.has(translationId))
-            ?? Object.keys(v2Data.translations)[0]
-            ?? null;
+    private selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string | null {
+        return TranslationController.selectActiveTranslationId(this.createTranslationControllerState(v2Data));
     }
 
     private async syncTranslationOrder(
         v2Data: BibleIndexV2Data | null,
         preferredTranslationId?: string,
     ): Promise<void> {
-        if (v2Data === null) {
+        const nextOrder = TranslationController.syncTranslationOrder(this.createTranslationControllerState(v2Data), preferredTranslationId);
+        if (nextOrder === null) {
             return;
         }
-
-        const availableTranslationIds = Object.keys(v2Data.translations);
-        const availableTranslations = new Set(availableTranslationIds);
-        const nextOrder: string[] = [];
-
-        if (this.settings.translationOrder.length === 0
-            && preferredTranslationId !== undefined
-            && availableTranslations.has(preferredTranslationId)) {
-            nextOrder.push(preferredTranslationId);
-        }
-
-        for (const translationId of this.settings.translationOrder) {
-            if (availableTranslations.has(translationId) && !nextOrder.includes(translationId)) {
-                nextOrder.push(translationId);
-            }
-        }
-
-        for (const translationId of availableTranslationIds) {
-            if (!nextOrder.includes(translationId)) {
-                nextOrder.push(translationId);
-            }
-        }
-
-        if (!areStringArraysEqual(this.settings.translationOrder, nextOrder)) {
-            this.settings = { ...this.settings, translationOrder: nextOrder };
-            await this.savePluginSettings();
-        }
+        this.settings = { ...this.settings, translationOrder: nextOrder };
+        await this.savePluginSettings();
     }
 
     private async promoteTranslationToTop(translationId: string): Promise<void> {
-        const nextOrder = [
-            translationId,
-            ...this.settings.translationOrder.filter((existingTranslationId) => existingTranslationId !== translationId),
-        ];
-
-        this.settings = { ...this.settings, translationOrder: nextOrder };
+        this.settings = { ...this.settings, translationOrder: TranslationController.promoteTranslationToTop(this.createTranslationControllerState(), translationId) };
         await this.savePluginSettings();
         await this.syncTranslationOrder(this.activeV2Data, translationId);
     }
 
     public getTranslationSettingsItems(): TranslationSettingsItem[] {
-        if (this.activeV2Data === null) {
-            return [];
-        }
-
-        const translations = this.activeV2Data.translations;
-        const order = this.settings.translationOrder.filter((translationId) => translations[translationId] !== undefined);
-        const comparisonTranslationIds = new Set(this.getComparisonTranslationIds());
-
-        return order.map((translationId, index) => {
-            const translation = translations[translationId];
-            return {
-                id: translationId,
-                name: translation.name,
-                language: translation.language,
-                sourceFileName: translation.sourceFileName ?? "",
-                bookCount: Object.keys(translation.books).length,
-                isActive: translationId === this.activeTranslationId,
-                isComparisonEnabled: comparisonTranslationIds.has(translationId),
-                canMoveUp: index > 0,
-                canMoveDown: index < order.length - 1,
-            };
-        });
+        return TranslationController.getTranslationSettingsItems(this.createTranslationControllerState());
     }
 
     public async moveTranslation(translationId: string, direction: -1 | 1): Promise<void> {
-        const currentIndex = this.settings.translationOrder.indexOf(translationId);
-        const nextIndex = currentIndex + direction;
-
-        if (currentIndex < 0 || nextIndex < 0 || nextIndex >= this.settings.translationOrder.length) {
+        const nextOrder = TranslationController.moveTranslation(this.createTranslationControllerState(), translationId, direction);
+        if (nextOrder === null) {
             return;
         }
-
-        const nextOrder = [...this.settings.translationOrder];
-        [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
         this.settings = { ...this.settings, translationOrder: nextOrder };
         await this.savePluginSettings();
         await this.syncTranslationOrder(this.activeV2Data);
@@ -621,22 +550,7 @@ export default class BiblePlugin extends Plugin {
     }
 
     public async setTranslationOrder(nextOrder: string[]): Promise<void> {
-        const availableTranslations = new Set(Object.keys(this.activeV2Data?.translations ?? {}));
-        const currentOrder = this.getTranslationSettingsItems().map((translation) => translation.id);
-        const normalizedOrder: string[] = [];
-
-        for (const translationId of nextOrder) {
-            if (availableTranslations.has(translationId) && !normalizedOrder.includes(translationId)) {
-                normalizedOrder.push(translationId);
-            }
-        }
-
-        for (const translationId of currentOrder) {
-            if (!normalizedOrder.includes(translationId)) {
-                normalizedOrder.push(translationId);
-            }
-        }
-
+        const normalizedOrder = TranslationController.normalizeTranslationOrder(this.createTranslationControllerState(), nextOrder);
         if (areStringArraysEqual(this.settings.translationOrder, normalizedOrder)) {
             return;
         }
@@ -650,20 +564,8 @@ export default class BiblePlugin extends Plugin {
     }
 
     public async setComparisonTranslationEnabled(translationId: string, enabled: boolean): Promise<void> {
-        const availableTranslations = new Set(Object.keys(this.activeV2Data?.translations ?? {}));
-        if (!availableTranslations.has(translationId)) {
-            return;
-        }
-
-        const current = this.getComparisonTranslationIds();
-        const next = enabled
-            ? [...current, translationId]
-            : current.filter((existingTranslationId) => existingTranslationId !== translationId);
-        const normalized = [...new Set(next)]
-            .filter((existingTranslationId) => availableTranslations.has(existingTranslationId))
-            .slice(0, 4);
-
-        if (normalized.length === 0 || areStringArraysEqual(this.settings.comparisonTranslationIds, normalized)) {
+        const normalized = TranslationController.normalizeComparisonTranslationIds(this.createTranslationControllerState(), translationId, enabled);
+        if (normalized === null || areStringArraysEqual(this.settings.comparisonTranslationIds, normalized)) {
             return;
         }
 
@@ -674,18 +576,7 @@ export default class BiblePlugin extends Plugin {
     }
 
     public getPreviewComparisonTranslationOptions(): PreviewComparisonTranslationOption[] {
-        if (this.activeV2Data === null) {
-            return [];
-        }
-
-        const selectedIds = new Set(this.getComparisonTranslationIds());
-        const selectedCount = selectedIds.size;
-        return this.getTranslationSettingsItems().map((translation) => ({
-            id: translation.id,
-            name: translation.name || translation.id,
-            isSelected: selectedIds.has(translation.id),
-            isDisabled: !selectedIds.has(translation.id) && selectedCount >= 4,
-        }));
+        return TranslationController.getPreviewComparisonTranslationOptions(this.createTranslationControllerState());
     }
 
     private async refreshVisibleBiblePreviewContent(): Promise<void> {
@@ -2258,37 +2149,11 @@ export default class BiblePlugin extends Plugin {
     }
 
     private getComparisonTranslationIds(): string[] {
-        if (this.activeV2Data === null) {
-            return this.activeTranslationId === null ? [] : [this.activeTranslationId];
-        }
-
-        const availableTranslations = new Set(Object.keys(this.activeV2Data.translations));
-        const normalizedSelectedIds = this.settings.comparisonTranslationIds
-            .filter((translationId) => availableTranslations.has(translationId))
-            .slice(0, 4);
-
-        return normalizedSelectedIds.length > 0
-            ? normalizedSelectedIds
-            : this.getDefaultComparisonTranslationIds();
-    }
-
-    private getDefaultComparisonTranslationIds(): string[] {
-        if (this.activeV2Data === null) {
-            return this.activeTranslationId === null ? [] : [this.activeTranslationId];
-        }
-
-        const availableTranslationIds = Object.keys(this.activeV2Data.translations);
-        const orderedTranslationIds = [
-            ...this.settings.translationOrder,
-            ...availableTranslationIds,
-        ];
-        return [...new Set(orderedTranslationIds)]
-            .filter((translationId) => this.activeV2Data?.translations[translationId] !== undefined)
-            .slice(0, 4);
+        return TranslationController.getComparisonTranslationIds(this.createTranslationControllerState());
     }
 
     private getTranslationPreviewTitle(translationId: string): string {
-        return this.activeV2Data?.translations[translationId]?.name ?? translationId;
+        return TranslationController.getTranslationPreviewTitle(this.createTranslationControllerState(), translationId);
     }
 
     private findBibleReferenceMatchAtPosition(view: EditorView, position: number): { from: number; to: number; text: string } | null {
@@ -2514,165 +2379,6 @@ export default class BiblePlugin extends Plugin {
 
 }
 
-
-
-class BiblePluginSettingTab extends PluginSettingTab {
-    constructor(app: App, private readonly plugin: BiblePlugin) { super(app, plugin); }
-
-    display(): void {
-        const { containerEl } = this;
-        containerEl.empty();
-        containerEl.createEl("h2", { text: this.plugin.t("settings.title") });
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.pluginActive.name"))
-            .setDesc(this.plugin.t("settings.pluginActive.desc"))
-            .addToggle((toggle) => toggle
-                .setValue(this.plugin.isPluginActive())
-                .onChange(async (value) => {
-                    await this.plugin.setPluginActive(value);
-                }));
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.interfaceLanguage.name"))
-            .setDesc(this.plugin.t("settings.interfaceLanguage.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("ru", this.plugin.t("settings.interfaceLanguage.ru"))
-                    .addOption("en", this.plugin.t("settings.interfaceLanguage.en"))
-                    .setValue(this.plugin.getInterfaceLanguage())
-                    .onChange((value) => void this.plugin.setInterfaceLanguage(value as BiblePluginLocale));
-            });
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.import.name"))
-            .setDesc(this.plugin.t("settings.import.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.import.button")).setCta().onClick(() => this.plugin.openEpubFilePicker()));
-
-        this.renderTranslationsSection(containerEl);
-        this.renderReferenceUsageIndexSection(containerEl);
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.previewMode.name"))
-            .setDesc(this.plugin.t("settings.previewMode.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("current-paragraph", this.plugin.t("settings.previewMode.currentParagraph"))
-                    .addOption("clicked-reference", this.plugin.t("settings.previewMode.clickedReference"))
-                    .setValue(this.plugin.getBiblePreviewTriggerMode())
-                    .onChange((value) => void this.plugin.setBiblePreviewTriggerMode(value as BiblePreviewTriggerMode));
-            });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.previewDisplayMode.name"))
-            .setDesc(this.plugin.t("settings.previewDisplayMode.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("floating", this.plugin.t("settings.previewDisplayMode.floating"))
-                    .addOption("side-panel", this.plugin.t("settings.previewDisplayMode.sidePanel"))
-                    .setValue(this.plugin.getBiblePreviewDisplayMode())
-                    .onChange((value) => void this.plugin.setBiblePreviewDisplayMode(value as BiblePreviewDisplayMode));
-            });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.autoOpenPreviewOnVerseChange.name"))
-            .setDesc(this.plugin.t("settings.autoOpenPreviewOnVerseChange.desc"))
-            .addToggle((toggle) => {
-                toggle
-                    .setValue(this.plugin.shouldAutoOpenPreviewOnVerseChange())
-                    .onChange((value) => void this.plugin.setAutoOpenPreviewOnVerseChange(value));
-            });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.previewPanelSide.name"))
-            .setDesc(this.plugin.t("settings.previewPanelSide.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("right", this.plugin.t("settings.previewPanelSide.right"))
-                    .addOption("left", this.plugin.t("settings.previewPanelSide.left"))
-                    .setValue(this.plugin.getBiblePreviewPanelSide())
-                    .onChange((value) => void this.plugin.setBiblePreviewPanelSide(value as BiblePreviewPanelSide));
-            });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.closePreviewOnTabChange.name"))
-            .setDesc(this.plugin.t("settings.closePreviewOnTabChange.desc"))
-            .addToggle((toggle) => {
-                toggle
-                    .setValue(this.plugin.shouldClosePreviewOnActiveLeafChange())
-                    .onChange((value) => void this.plugin.setClosePreviewOnActiveLeafChange(value));
-            });
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.hotkey.name"))
-            .setDesc(this.plugin.t("settings.hotkey.desc"))
-            .addToggle((toggle) => {
-                toggle
-                    .setValue(this.plugin.shouldInterceptLinkOpenShortcut())
-                    .onChange((value) => void this.plugin.setInterceptLinkOpenShortcut(value));
-            })
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("alt-enter", "Alt+Enter")
-                    .addOption("ctrl-enter", "Ctrl+Enter")
-                    .addOption("ctrl-alt-enter", "Ctrl+Alt+Enter")
-                    .setValue(this.plugin.getBibleLinkOpenShortcut())
-                    .onChange((value) => void this.plugin.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut));
-            });
-
-        renderColorSettingsSection({
-            containerEl,
-            translate: (key) => this.plugin.t(key),
-            openCssColorDialog: (input) => this.plugin.openCssColorDialog(input),
-            openFloatingPreviewBackgroundColorDialog: () => this.plugin.openFloatingPreviewBackgroundColorDialog(),
-            getBibleReferenceLinkColor: () => this.plugin.getBibleReferenceLinkColor(),
-            getBibleReferenceLinkColorPickerValue: () => this.plugin.getBibleReferenceLinkColorPickerValue(),
-            isBibleReferenceLinkColorDefault: () => this.plugin.isBibleReferenceLinkColorDefault(),
-            setBibleReferenceLinkColor: (color) => this.plugin.setBibleReferenceLinkColor(color),
-            resetBibleReferenceLinkColor: () => this.plugin.resetBibleReferenceLinkColor(),
-            getFloatingPreviewBackgroundColor: () => this.plugin.getFloatingPreviewBackgroundColor(),
-            isFloatingPreviewBackgroundColorDefault: () => this.plugin.isFloatingPreviewBackgroundColorDefault(),
-            resetFloatingPreviewBackgroundColor: () => this.plugin.resetFloatingPreviewBackgroundColor(),
-            refresh: () => this.display(),
-        });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.openIndexFolder.name"))
-            .setDesc(this.plugin.t("settings.openIndexFolder.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.openIndexFolder.button")).onClick(() => void this.plugin.openBibleIndexFolder()));
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.showStats.name"))
-            .setDesc(this.plugin.t("settings.showStats.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.showStats.button")).onClick(() => void this.plugin.showBibleIndexStats()));
-    }
-
-
-    private renderReferenceUsageIndexSection(containerEl: HTMLElement): void {
-        renderReferenceUsageIndexSettingsSection({
-            containerEl,
-            translate: (key) => this.plugin.t(key),
-            isEnabled: () => this.plugin.isReferenceUsageIndexingEnabled(),
-            setEnabled: (value) => this.plugin.setReferenceUsageIndexingEnabled(value),
-            isAutoUpdateEnabled: () => this.plugin.shouldAutoUpdateReferenceUsageIndex(),
-            setAutoUpdateEnabled: (value) => this.plugin.setReferenceUsageAutoUpdate(value),
-            getExcludedFoldersText: () => this.plugin.getReferenceUsageExcludedFoldersText(),
-            setExcludedFoldersText: (value) => this.plugin.setReferenceUsageExcludedFoldersText(value),
-            buildIndex: () => this.plugin.buildReferenceUsageIndex(),
-            rebuildIndex: () => this.plugin.rebuildReferenceUsageIndex(),
-            showStats: () => this.plugin.showReferenceUsageIndexStats(),
-            clearIndex: () => this.plugin.clearReferenceUsageIndex(),
-        });
-    }
-
-    private renderTranslationsSection(containerEl: HTMLElement): void {
-        renderTranslationSettingsSection({
-            containerEl,
-            translations: this.plugin.getTranslationSettingsItems(),
-            translate: (key, params) => this.plugin.t(key, params),
-            onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
-            onToggleComparison: (translationId, enabled) => this.plugin.setComparisonTranslationEnabled(translationId, enabled),
-            getCurrentOrder: () => this.plugin.getTranslationSettingsItems().map((item) => item.id),
-            onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
-            refresh: () => this.display(),
-        });
-    }
-}
 
 function normalizePluginSettings(value: unknown): BiblePluginSettings {
     if (!isRecord(value)) {
