@@ -15,8 +15,10 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && node esbuild.config.mjs",
+    "build": "npm run build:prod",
+    "build:dev": "npm run typecheck && node esbuild.config.mjs",
     "build:prod": "npm run typecheck && node esbuild.config.mjs --production",
+    "build:analyze": "npm run typecheck && node esbuild.config.mjs --production --metafile",
     "watch": "tsc --noEmit --watch",
     "clean:test-build": "node scripts/clean-test-build.mjs",
     "build:test-modules": "npm run clean:test-build && tsc --target ES2018 --module commonjs --moduleResolution Node --esModuleInterop --skipLibCheck --strict --outDir .test-build --rootDir . --noEmit false",
@@ -31,7 +33,6 @@
     "typescript-eslint": "^8.60.0"
   },
   "dependencies": {
-    "@melloware/coloris": "0.25.0",
     "jszip": "3.10.1"
   }
 }

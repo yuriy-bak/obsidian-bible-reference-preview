@@ -4,6 +4,7 @@ node_modules/
 # build output
 *.js
 *.js.map
+meta.json
 
 ## keep JS tests
 !tests/**/*.js

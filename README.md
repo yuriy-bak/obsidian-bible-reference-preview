@@ -129,6 +129,8 @@ Use the npm scripts from `package.json` for local development and verification:
 npm run lint
 npm run typecheck
 npm run build
+npm run build:dev
+npm run build:analyze
 npm test
 ```
 
@@ -136,7 +138,9 @@ Script overview:
 
 - `npm run lint` checks the TypeScript and JavaScript sources with ESLint.
 - `npm run typecheck` runs TypeScript type checking without emitting files.
-- `npm run build` type-checks the project and builds the Obsidian plugin bundle.
+- `npm run build` type-checks the project and builds the production Obsidian plugin bundle.
+- `npm run build:dev` type-checks the project and builds a larger development bundle with an inline source map for debugging.
+- `npm run build:analyze` builds the production bundle and writes `meta.json` for bundle-size analysis.
 - `npm test` runs the production build, builds CommonJS test modules into `.test-build/`, and runs parser/importer tests.
 
 Build and repository hygiene notes:
