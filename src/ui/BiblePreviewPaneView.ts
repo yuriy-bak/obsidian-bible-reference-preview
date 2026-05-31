@@ -1,6 +1,7 @@
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
 import { BiblePreviewContent, BiblePreviewReferenceBlock, renderBiblePreviewContent } from "../application/formatBibleTexts";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
+import { renderComparisonTranslationSelector as renderComparisonTranslationSelectorView } from "./ComparisonTranslationSelector";
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
@@ -119,16 +120,43 @@ export class BiblePreviewPaneView extends ItemView {
         const contentRootEl = this.getContentRootElement();
         contentRootEl.empty();
 
-        this.rootEl = contentRootEl.createDiv();
-        this.rootEl.style.display = "flex";
-        this.rootEl.style.flexDirection = "column";
-        this.rootEl.style.height = "100%";
-        this.rootEl.style.minHeight = "0";
-        this.rootEl.style.overflow = "hidden";
-        this.rootEl.style.background = "var(--background-secondary)";
-        this.rootEl.style.color = "var(--text-normal)";
+        this.buildRoot(contentRootEl);
 
-        const headerEl = this.rootEl.createDiv();
+        this.buildHeader();
+        this.buildContentContainer();
+    }
+
+    private buildRoot(contentRootEl: HTMLElement): void {
+        this.rootEl = contentRootEl.createDiv();
+        this.styleRoot(this.rootEl);
+    }
+
+    private styleRoot(rootEl: HTMLElement): void {
+        rootEl.style.display = "flex";
+        rootEl.style.flexDirection = "column";
+        rootEl.style.height = "100%";
+        rootEl.style.minHeight = "0";
+        rootEl.style.overflow = "hidden";
+        rootEl.style.background = "var(--background-secondary)";
+        rootEl.style.color = "var(--text-normal)";
+    }
+
+    private buildHeader(): void {
+        const rootEl = this.rootEl;
+        if (rootEl === null) return;
+
+        const headerEl = rootEl.createDiv();
+        this.styleHeader(headerEl);
+
+        this.buildTitle(headerEl);
+        this.buildComparisonSelectorHost(headerEl);
+
+        this.buildCopyButton(headerEl);
+        this.buildComparisonButton(headerEl);
+        this.buildOpenFloatingButton(headerEl);
+    }
+
+    private styleHeader(headerEl: HTMLElement): void {
         headerEl.style.display = "flex";
         headerEl.style.alignItems = "center";
         headerEl.style.gap = "6px";
@@ -136,22 +164,36 @@ export class BiblePreviewPaneView extends ItemView {
         headerEl.style.padding = "5px 8px";
         headerEl.style.borderBottom = "1px solid var(--background-modifier-border)";
         headerEl.style.background = "var(--background-secondary-alt)";
+    }
 
+    private buildTitle(headerEl: HTMLElement): void {
         this.titleEl = headerEl.createDiv({ text: this.input.getTitle() });
-        this.titleEl.style.flex = "1";
-        this.titleEl.style.minWidth = "0";
-        this.titleEl.style.fontWeight = "600";
-        this.titleEl.style.fontSize = "12px";
-        this.titleEl.style.lineHeight = "1.2";
-        this.titleEl.style.whiteSpace = "nowrap";
-        this.titleEl.style.overflow = "hidden";
-        this.titleEl.style.textOverflow = "ellipsis";
+        this.styleTitle(this.titleEl);
+    }
 
+    private styleTitle(titleEl: HTMLElement): void {
+        titleEl.style.flex = "1";
+        titleEl.style.minWidth = "0";
+        titleEl.style.fontWeight = "600";
+        titleEl.style.fontSize = "12px";
+        titleEl.style.lineHeight = "1.2";
+        titleEl.style.whiteSpace = "nowrap";
+        titleEl.style.overflow = "hidden";
+        titleEl.style.textOverflow = "ellipsis";
+    }
+
+    private buildComparisonSelectorHost(headerEl: HTMLElement): void {
         this.comparisonSelectorEl = headerEl.createDiv();
-        this.comparisonSelectorEl.style.flex = "1 1 auto";
-        this.comparisonSelectorEl.style.minWidth = "0";
+        this.styleComparisonSelectorHost(this.comparisonSelectorEl);
         this.comparisonSelectorEl.addEventListener("click", (event) => event.stopPropagation());
+    }
 
+    private styleComparisonSelectorHost(hostEl: HTMLElement): void {
+        hostEl.style.flex = "1 1 auto";
+        hostEl.style.minWidth = "0";
+    }
+
+    private buildCopyButton(headerEl: HTMLElement): void {
         this.copyButtonEl = this.createIconButton(this.input.getCopyIcon(), this.input.getCopyAria());
         this.copyButtonEl.addEventListener("click", (event) => {
             event.preventDefault();
@@ -159,7 +201,9 @@ export class BiblePreviewPaneView extends ItemView {
             void this.copyCurrentText();
         });
         headerEl.appendChild(this.copyButtonEl);
+    }
 
+    private buildComparisonButton(headerEl: HTMLElement): void {
         this.comparisonButtonEl = this.createIconButton(this.input.getComparisonButtonText?.() ?? "⇄", this.input.getComparisonButtonAria?.() ?? this.input.getComparisonButtonText?.() ?? "Compare translations");
         this.updateComparisonButton();
         this.comparisonButtonEl.addEventListener("click", (event) => {
@@ -168,7 +212,9 @@ export class BiblePreviewPaneView extends ItemView {
             if (this.currentContent !== null) this.input.onToggleComparison?.(this.currentContent);
         });
         headerEl.appendChild(this.comparisonButtonEl);
+    }
 
+    private buildOpenFloatingButton(headerEl: HTMLElement): void {
         this.openFloatingButtonEl = this.createIconButton(this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria());
         this.openFloatingButtonEl.addEventListener("click", (event) => {
             event.preventDefault();
@@ -176,23 +222,37 @@ export class BiblePreviewPaneView extends ItemView {
             if (this.currentContent !== null) this.input.onOpenFloating(this.currentContent);
         });
         headerEl.appendChild(this.openFloatingButtonEl);
+    }
 
-        this.contentContainerEl = this.rootEl.createDiv();
-        this.contentContainerEl.style.flex = "1 1 auto";
-        this.contentContainerEl.style.minHeight = "0";
-        this.contentContainerEl.style.overflow = "auto";
-        this.contentContainerEl.style.padding = "10px";
-        this.contentContainerEl.style.whiteSpace = "pre-wrap";
-        this.contentContainerEl.style.userSelect = "text";
-        this.contentContainerEl.style.lineHeight = "1.45";
-        this.contentContainerEl.style.fontSize = "var(--font-text-size)";
+    private buildContentContainer(): void {
+        const rootEl = this.rootEl;
+        if (rootEl === null) return;
+
+        this.contentContainerEl = rootEl.createDiv();
+        this.styleContentContainer(this.contentContainerEl);
         this.contentScrollEl = this.contentContainerEl;
+    }
+
+    private styleContentContainer(contentContainerEl: HTMLElement): void {
+        contentContainerEl.style.flex = "1 1 auto";
+        contentContainerEl.style.minHeight = "0";
+        contentContainerEl.style.overflow = "auto";
+        contentContainerEl.style.padding = "10px";
+        contentContainerEl.style.whiteSpace = "pre-wrap";
+        contentContainerEl.style.userSelect = "text";
+        contentContainerEl.style.lineHeight = "1.45";
+        contentContainerEl.style.fontSize = "var(--font-text-size)";
     }
 
     private createIconButton(text: string, label: string): HTMLButtonElement {
         const buttonEl = document.createElement("button");
         buttonEl.type = "button";
         this.updateIconButton(buttonEl, text, label);
+        this.styleIconButton(buttonEl);
+        return buttonEl;
+    }
+
+    private styleIconButton(buttonEl: HTMLButtonElement): void {
         buttonEl.style.width = "26px";
         buttonEl.style.height = "26px";
         buttonEl.style.display = "inline-flex";
@@ -206,7 +266,6 @@ export class BiblePreviewPaneView extends ItemView {
         buttonEl.style.fontSize = "13px";
         buttonEl.style.lineHeight = "1";
         buttonEl.style.padding = "0";
-        return buttonEl;
     }
 
     private updateIconButton(buttonEl: HTMLButtonElement | null, text: string, label: string): void {
@@ -302,68 +361,11 @@ export class BiblePreviewPaneView extends ItemView {
         if (this.titleEl !== null) {
             this.titleEl.style.display = "none";
         }
-        const selectedCount = options.filter((option) => option.isSelected).length;
-        const selectorEl = document.createElement("details");
-        selectorEl.className = "bible-preview-comparison-selector";
-        selectorEl.style.position = "relative";
-
-        const summaryEl = document.createElement("summary");
-        summaryEl.textContent = `${this.input.getComparisonTranslationsTitle?.() ?? "Compare:"} ${selectedCount}/${Math.min(options.length, 4)}`;
-        summaryEl.style.cursor = "pointer";
-        summaryEl.style.fontWeight = "600";
-        summaryEl.style.fontSize = "12px";
-        summaryEl.style.whiteSpace = "nowrap";
-        summaryEl.style.overflow = "hidden";
-        summaryEl.style.textOverflow = "ellipsis";
-        summaryEl.style.userSelect = "none";
-        selectorEl.appendChild(summaryEl);
-
-        const optionsEl = document.createElement("div");
-        optionsEl.style.position = "absolute";
-        optionsEl.style.left = "0";
-        optionsEl.style.top = "calc(100% + 6px)";
-        optionsEl.style.display = "flex";
-        optionsEl.style.flexDirection = "column";
-        optionsEl.style.gap = "6px";
-        optionsEl.style.minWidth = "min(230px, calc(100vw - 24px))";
-        optionsEl.style.maxWidth = "calc(100vw - 24px)";
-        optionsEl.style.maxHeight = "240px";
-        optionsEl.style.overflow = "auto";
-        optionsEl.style.padding = "10px";
-        optionsEl.style.border = "1px solid var(--background-modifier-border)";
-        optionsEl.style.borderRadius = "6px";
-        optionsEl.style.background = "var(--background-primary)";
-        optionsEl.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.35)";
-        optionsEl.style.zIndex = "1002";
-
-        for (const option of options) {
-            const labelEl = document.createElement("label");
-            labelEl.style.display = "inline-flex";
-            labelEl.style.alignItems = "center";
-            labelEl.style.gap = "8px";
-            labelEl.style.fontSize = "14px";
-            labelEl.style.lineHeight = "1.35";
-            labelEl.style.whiteSpace = "normal";
-            labelEl.style.minHeight = "28px";
-
-            const checkboxEl = document.createElement("input");
-            checkboxEl.type = "checkbox";
-            checkboxEl.style.flex = "0 0 auto";
-            checkboxEl.style.width = "16px";
-            checkboxEl.style.height = "16px";
-            checkboxEl.checked = option.isSelected;
-            checkboxEl.disabled = option.isDisabled;
-            checkboxEl.addEventListener("change", () => {
-                this.input.onToggleComparisonTranslation?.(option.id, checkboxEl.checked);
-            });
-
-            labelEl.appendChild(checkboxEl);
-            labelEl.appendChild(document.createTextNode(option.name));
-            optionsEl.appendChild(labelEl);
-        }
-
-        selectorEl.appendChild(optionsEl);
-        hostEl.appendChild(selectorEl);
+        hostEl.appendChild(renderComparisonTranslationSelectorView({
+            options,
+            getTitle: () => this.input.getComparisonTranslationsTitle?.() ?? "Compare:",
+            onToggleTranslation: (translationId, enabled) => this.input.onToggleComparisonTranslation?.(translationId, enabled),
+        }));
     }
 
     private async copyCurrentText(): Promise<void> {
