@@ -33,6 +33,9 @@ export type ReferenceUsagePluginFlowInput = {
     hasImportedTranslations(): boolean;
     getReferenceUnderCursor: ReferenceUsageUnderCursorFlowInput["getReferenceUnderCursor"];
     getReferenceUsageIndexService(): ReferenceUsageIndexService;
+    getReferenceUsageController(): ReferenceUsageController;
+    registerEvent(eventRef: ReturnType<App["vault"]["on"]>): void;
+    registerDisposer(disposer: () => void): void;
     translate: ReferenceUsagePluginTranslate;
     refreshSettings(): void;
     waitForNextAnimationFrame(): Promise<void>;
@@ -117,4 +120,13 @@ export function createReferenceUsagePreviewBlockFlowInput(input: ReferenceUsageP
         formatTitle: (referenceText) => input.translate("modal.referenceUsages.title", { reference: referenceText }),
         createReferenceUsagePaneFlowInput: () => createReferenceUsagePaneFlowInput(input),
     };
+}
+
+export function registerReferenceUsageIndexEvents(input: ReferenceUsagePluginFlowInput): void {
+    const controller = input.getReferenceUsageController();
+    input.registerEvent(input.app.vault.on("create", (file) => controller.handleFileCreateOrModify(file)));
+    input.registerEvent(input.app.vault.on("modify", (file) => controller.handleFileCreateOrModify(file)));
+    input.registerEvent(input.app.vault.on("delete", (file) => controller.handleFileDelete(file)));
+    input.registerEvent(input.app.vault.on("rename", (file, oldPath) => controller.handleFileRename(file, oldPath)));
+    input.registerDisposer(() => controller.clearPendingUpdates());
 }
