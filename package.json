@@ -1,6 +1,6 @@
 {
   "name": "obsidian-bible-reference-preview",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Recognize Bible references in notes and show verse previews from imported EPUB Bible translations.",
   "license": "MIT",
   "main": "main.js",

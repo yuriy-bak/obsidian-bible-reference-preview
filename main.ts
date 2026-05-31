@@ -10,9 +10,10 @@ import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
 import { BiblePreviewComparisonBlock, BiblePreviewComparisonInput, BiblePreviewContent, BiblePreviewReferenceBlock, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
+import type { EpubBibleImportProgress } from "./src/infrastructure/EpubBibleImporter";
 import { BibleTranslationImportModal, createImportSettingsDefaults, type BibleTranslationImportSettings } from "./src/ui/BibleTranslationImportModal";
 import { EPUB_IMPORT_LIMITS } from "./src/infrastructure/epub/EpubContainerReader";
-import { JsZipEpubBibleImporter } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
+import { JsZipEpubBibleImporter, isEpubImportAbortError } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BiblePluginLocale, I18nKey, normalizeBiblePluginLocale, t } from "./src/i18n/I18n";
@@ -24,7 +25,7 @@ import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, ReferenceUsagePaneVi
 import { renderTranslationSettingsSection } from "./src/ui/TranslationSettingsList";
 import { renderReferenceUsageIndexSettingsSection } from "./src/ui/ReferenceUsageIndexSettingsSection";
 import { renderColorSettingsSection } from "./src/ui/ColorSettingsSection";
-import { ReferenceUsageIndexService, type ReferenceUsageIndexStats, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
+import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, isReferenceUsageIndexBuildAbortError, type ReferenceUsageIndexBuildProgress, type ReferenceUsageIndexServiceOptions, type ReferenceUsageIndexStats, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -334,7 +335,15 @@ export default class BiblePlugin extends Plugin {
                 return;
             }
 
-            const progressNotice = new Notice(this.t("notice.importStarted", { fileName: file.name }), 0);
+            const abortController = new AbortController();
+            const progressModal = new ProgressCancelModal(
+                this.app,
+                this.t("notice.importStarted", { fileName: file.name }),
+                this.formatEpubImportProgress({ stage: "loading-zip", processedCount: 0, totalCount: 1 }),
+                this.t("common.cancel"),
+                () => abortController.abort(),
+            );
+            progressModal.open();
 
             try {
                 const repository = this.createObsidianBibleIndexRepository();
@@ -350,6 +359,10 @@ export default class BiblePlugin extends Plugin {
                     },
                     importer,
                     repository,
+                    importOptions: {
+                        signal: abortController.signal,
+                        onProgress: (progress) => progressModal.updateMessage(this.formatEpubImportProgress(progress)),
+                    },
                 });
 
                 this.bibleIndex = repository.getIndex();
@@ -358,7 +371,7 @@ export default class BiblePlugin extends Plugin {
                 this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
                 this.updateBookMapping(this.activeV2Data);
                 this.refreshSettingsTab();
-                progressNotice.hide();
+                progressModal.finish();
 
                 if (result.warnings.length > 0) console.warn("EPUB import warnings", result.warnings);
                 const warningsText = result.warnings.length === 0 ? "" : `\n${this.t("notice.importWarnings", { count: result.warnings.length })}`;
@@ -374,10 +387,14 @@ export default class BiblePlugin extends Plugin {
                     this.t("import.summary.booksSize", { size: formatMegabytes(result.report.booksBytes) }),
                 ].join("\n") + warningsText, 15000);
             } catch (error) {
-                progressNotice.hide();
+                progressModal.finish();
                 throw error;
             }
         } catch (error) {
+            if (isEpubImportAbortError(error)) {
+                new Notice(this.t("notice.importCancelled"), 5000);
+                return;
+            }
             console.error("EPUB import failed", error);
             new Notice(this.t("notice.importFailed", { message: this.localizeImportErrorMessage(error) }), 15000);
         }
@@ -440,12 +457,30 @@ export default class BiblePlugin extends Plugin {
         await this.saveData(this.settings);
     }
 
+    private formatEpubImportProgress(progress: EpubBibleImportProgress): string {
+        return this.t("notice.importProgress", {
+            stage: this.t(`notice.importProgress.stage.${progress.stage}`),
+            processed: progress.processedCount,
+            total: progress.totalCount,
+        });
+    }
+
+    private getReferenceUsageIndexServiceOptions(): ReferenceUsageIndexServiceOptions {
+        return Platform.isMobileApp
+            ? {
+                maxMarkdownFileSizeBytes: REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
+                buildYieldEveryFiles: REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES,
+            }
+            : {};
+    }
+
     private async loadReferenceUsageIndex(): Promise<void> {
         this.referenceUsageIndexService = new ReferenceUsageIndexService(
             this.app,
             () => this.getBibleIndexDataDirectoryPath(),
             (text) => this.bibleReferenceParser.parseMatches(text),
             () => this.settings.referenceUsageExcludedFolders,
+            this.getReferenceUsageIndexServiceOptions(),
         );
         try {
             await this.referenceUsageIndexService.load();
@@ -462,6 +497,7 @@ export default class BiblePlugin extends Plugin {
                 () => this.getBibleIndexDataDirectoryPath(),
                 (text) => this.bibleReferenceParser.parseMatches(text),
                 () => this.settings.referenceUsageExcludedFolders,
+                this.getReferenceUsageIndexServiceOptions(),
             );
         }
         return this.referenceUsageIndexService;
@@ -918,9 +954,26 @@ export default class BiblePlugin extends Plugin {
             return;
         }
         this.referenceUsageIndexingInProgress = true;
-        const progressNotice = new Notice(this.t("notice.referenceUsageIndexBuildStarted"), 0);
+        const abortController = new AbortController();
+        const files = this.app.vault.getMarkdownFiles();
+        const progressModal = new ProgressCancelModal(
+            this.app,
+            this.t("notice.referenceUsageIndexBuildStarted"),
+            this.formatReferenceUsageIndexBuildProgress({
+                totalFileCount: files.length,
+                processedFileCount: 0,
+                updatedFileCount: 0,
+                skippedLargeFileCount: 0,
+            }),
+            this.t("common.cancel"),
+            () => abortController.abort(),
+        );
+        progressModal.open();
         try {
-            const result = await this.getReferenceUsageIndexService().build(this.app.vault.getMarkdownFiles(), forceRebuild);
+            const result = await this.getReferenceUsageIndexService().build(files, forceRebuild, {
+                signal: abortController.signal,
+                onProgress: (progress) => progressModal.updateMessage(this.formatReferenceUsageIndexBuildProgress(progress)),
+            });
             new Notice(this.t("notice.referenceUsageIndexBuildCompleted", {
                 fileCount: result.fileCount,
                 updatedFileCount: result.updatedFileCount,
@@ -933,13 +986,26 @@ export default class BiblePlugin extends Plugin {
                 }), 8000);
             }
         } catch (error) {
-            console.warn("Bible reference usage index build failed", error);
-            new Notice(this.t("notice.referenceUsageIndexSaveFailed"), 5000);
+            if (isReferenceUsageIndexBuildAbortError(error)) {
+                new Notice(this.t("notice.referenceUsageIndexBuildCancelled"), 5000);
+            } else {
+                console.warn("Bible reference usage index build failed", error);
+                new Notice(this.t("notice.referenceUsageIndexSaveFailed"), 5000);
+            }
         } finally {
-            progressNotice.hide();
+            progressModal.finish();
             this.referenceUsageIndexingInProgress = false;
             this.refreshSettingsTab();
         }
+    }
+
+    private formatReferenceUsageIndexBuildProgress(progress: ReferenceUsageIndexBuildProgress): string {
+        return this.t("notice.referenceUsageIndexBuildProgress", {
+            processed: progress.processedFileCount,
+            total: progress.totalFileCount,
+            updated: progress.updatedFileCount,
+            skipped: progress.skippedLargeFileCount,
+        });
     }
 
     public async clearReferenceUsageIndex(): Promise<void> {
@@ -2549,6 +2615,56 @@ export default class BiblePlugin extends Plugin {
 
 
 
+
+class ProgressCancelModal extends Modal {
+    private messageEl: HTMLDivElement | null = null;
+    private completed = false;
+
+    constructor(
+        app: App,
+        private readonly titleText: string,
+        private messageText: string,
+        private readonly cancelText: string,
+        private readonly onCancel: () => void,
+    ) {
+        super(app);
+    }
+
+    onOpen(): void {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h2", { text: this.titleText });
+        this.messageEl = contentEl.createDiv({ text: this.messageText });
+        this.messageEl.style.whiteSpace = "pre-wrap";
+        new Setting(contentEl)
+            .addButton((button) => button
+                .setButtonText(this.cancelText)
+                .onClick(() => {
+                    this.onCancel();
+                    this.close();
+                }));
+    }
+
+    onClose(): void {
+        this.contentEl.empty();
+        this.messageEl = null;
+        if (!this.completed) {
+            this.onCancel();
+        }
+    }
+
+    public updateMessage(messageText: string): void {
+        this.messageText = messageText;
+        if (this.messageEl !== null) {
+            this.messageEl.textContent = messageText;
+        }
+    }
+
+    public finish(): void {
+        this.completed = true;
+        this.close();
+    }
+}
 
 class ReferenceUsageResultsModal extends Modal {
     constructor(

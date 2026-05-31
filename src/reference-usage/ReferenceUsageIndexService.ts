@@ -5,8 +5,28 @@ import type { BibleReferenceMatch } from "../parsing/BibleReferenceParser";
 export const REFERENCE_USAGE_INDEX_VERSION = 1;
 export const REFERENCE_USAGE_INDEX_FILE_NAME = "reference-usage-index.json";
 export const REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES = 1024 * 1024;
+export const REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES = 512 * 1024;
 const REFERENCE_USAGE_INDEX_SAVE_DELAY_MS = 1000;
 const REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES = 25;
+export const REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES = 10;
+const REFERENCE_USAGE_BUILD_ABORT_ERROR_NAME = "AbortError";
+
+export type ReferenceUsageIndexServiceOptions = {
+    maxMarkdownFileSizeBytes?: number;
+    buildYieldEveryFiles?: number;
+};
+
+export type ReferenceUsageIndexBuildProgress = {
+    totalFileCount: number;
+    processedFileCount: number;
+    updatedFileCount: number;
+    skippedLargeFileCount: number;
+};
+
+export type ReferenceUsageIndexBuildOptions = {
+    signal?: AbortSignal;
+    onProgress?(progress: ReferenceUsageIndexBuildProgress): void;
+};
 
 export type ReferenceUsageIndex = {
     version: number;
@@ -55,13 +75,19 @@ export type ReferenceUsageIndexBuildResult = ReferenceUsageIndexStats & {
 export class ReferenceUsageIndexService {
     private index: ReferenceUsageIndex = createEmptyReferenceUsageIndex();
     private saveTimeout: number | null = null;
+    private readonly maxMarkdownFileSizeBytes: number;
+    private readonly buildYieldEveryFiles: number;
 
     constructor(
         private readonly app: App,
         private readonly getDataDirectoryPath: () => string,
         private readonly parseMatches: (text: string) => BibleReferenceMatch[],
         private readonly getExcludedFolders: () => string[],
-    ) {}
+        options: ReferenceUsageIndexServiceOptions = {},
+    ) {
+        this.maxMarkdownFileSizeBytes = options.maxMarkdownFileSizeBytes ?? REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES;
+        this.buildYieldEveryFiles = options.buildYieldEveryFiles ?? REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES;
+    }
 
     public getIndexPath(): string {
         return `${this.getDataDirectoryPath()}/${REFERENCE_USAGE_INDEX_FILE_NAME}`;
@@ -100,7 +126,12 @@ export class ReferenceUsageIndexService {
         }
     }
 
-    public async build(files: TFile[], forceRebuild: boolean): Promise<ReferenceUsageIndexBuildResult> {
+    public async build(
+        files: TFile[],
+        forceRebuild: boolean,
+        options: ReferenceUsageIndexBuildOptions = {},
+    ): Promise<ReferenceUsageIndexBuildResult> {
+        assertReferenceUsageBuildNotAborted(options.signal);
         const indexableFiles = files.filter((file) => this.shouldIndexFile(file));
         const buildableFiles = indexableFiles.filter((file) => !this.isFileTooLargeForIndex(file));
         const skippedLargeFileCount = indexableFiles.length - buildableFiles.length;
@@ -115,19 +146,26 @@ export class ReferenceUsageIndexService {
 
         let updatedFileCount = 0;
         let processedFileCount = 0;
+        options.onProgress?.(createReferenceUsageBuildProgress(buildableFiles.length, processedFileCount, updatedFileCount, skippedLargeFileCount));
+
         for (const file of buildableFiles) {
+            assertReferenceUsageBuildNotAborted(options.signal);
             processedFileCount += 1;
             const existingFileIndex = nextIndex.files[file.path];
             if (!forceRebuild && existingFileIndex !== undefined && existingFileIndex.mtime === file.stat.mtime && existingFileIndex.size === file.stat.size) {
-                await yieldReferenceUsageBuildIfNeeded(processedFileCount);
+                options.onProgress?.(createReferenceUsageBuildProgress(buildableFiles.length, processedFileCount, updatedFileCount, skippedLargeFileCount));
+                await yieldReferenceUsageBuildIfNeeded(processedFileCount, this.buildYieldEveryFiles);
                 continue;
             }
             const content = await this.app.vault.cachedRead(file);
+            assertReferenceUsageBuildNotAborted(options.signal);
             nextIndex.files[file.path] = this.createIndexedFile(file, content);
             updatedFileCount += 1;
-            await yieldReferenceUsageBuildIfNeeded(processedFileCount);
+            options.onProgress?.(createReferenceUsageBuildProgress(buildableFiles.length, processedFileCount, updatedFileCount, skippedLargeFileCount));
+            await yieldReferenceUsageBuildIfNeeded(processedFileCount, this.buildYieldEveryFiles);
         }
 
+        assertReferenceUsageBuildNotAborted(options.signal);
         nextIndex.updatedAt = Date.now();
         this.index = nextIndex;
         await this.save();
@@ -135,7 +173,7 @@ export class ReferenceUsageIndexService {
             ...this.getStats(),
             updatedFileCount,
             skippedLargeFileCount,
-            maxFileSizeBytes: REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
+            maxFileSizeBytes: this.maxMarkdownFileSizeBytes,
         };
     }
 
@@ -208,7 +246,7 @@ export class ReferenceUsageIndexService {
     }
 
     private isFileTooLargeForIndex(file: TFile): boolean {
-        return file.stat.size > REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES;
+        return file.stat.size > this.maxMarkdownFileSizeBytes;
     }
 
     private createIndexedFile(file: TFile, content: string): IndexedReferenceUsageFile {
@@ -238,6 +276,10 @@ export class ReferenceUsageIndexService {
         }
         return { path: file.path, mtime: file.stat.mtime, size: file.stat.size, references };
     }
+}
+
+export function isReferenceUsageIndexBuildAbortError(error: unknown): boolean {
+    return error instanceof Error && error.name === REFERENCE_USAGE_BUILD_ABORT_ERROR_NAME;
 }
 
 export function normalizeReferenceUsageExcludedFolders(value: string): string[] {
@@ -305,8 +347,31 @@ function compareBibleReferencePosition(leftChapter: number, leftVerse: number, r
     return leftChapter !== rightChapter ? leftChapter - rightChapter : leftVerse - rightVerse;
 }
 
-async function yieldReferenceUsageBuildIfNeeded(processedFileCount: number): Promise<void> {
-    if (processedFileCount % REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES !== 0) {
+function createReferenceUsageBuildProgress(
+    totalFileCount: number,
+    processedFileCount: number,
+    updatedFileCount: number,
+    skippedLargeFileCount: number,
+): ReferenceUsageIndexBuildProgress {
+    return {
+        totalFileCount,
+        processedFileCount,
+        updatedFileCount,
+        skippedLargeFileCount,
+    };
+}
+
+function assertReferenceUsageBuildNotAborted(signal: AbortSignal | undefined): void {
+    if (signal?.aborted !== true) {
+        return;
+    }
+    const error = new Error("Reference usage index build was cancelled.");
+    error.name = REFERENCE_USAGE_BUILD_ABORT_ERROR_NAME;
+    throw error;
+}
+
+async function yieldReferenceUsageBuildIfNeeded(processedFileCount: number, everyCount: number): Promise<void> {
+    if (everyCount <= 0 || processedFileCount % everyCount !== 0) {
         return;
     }
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));

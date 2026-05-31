@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.1 - Mobile performance and release bundle update
+
+- Changed the default `npm run build` script to create a production plugin bundle.
+- Added `npm run build:dev` for the larger inline-sourcemap development bundle.
+- Added `npm run build:analyze` for production bundle analysis with `meta.json`.
+- Removed the unused `@melloware/coloris` dependency.
+- Reduced the production `main.js` bundle size by enabling production minification and UTF-8 output.
+- Added mobile-specific Reference Usage Index limits and more frequent mobile yielding.
+- Added progress and cancel UI for Reference Usage Index build/rebuild.
+- Added progress and cancel UI for the safe in-memory part of EPUB import.
 - On mobile, tapping the same already-previewed Bible reference again now lets the editor place the cursor so the reference can be edited.
 - Disabled automatic editor-focus restoration on mobile when opening the Bible side panel to avoid visible panel flicker.
 - Hardened custom CSS color validation for link and floating preview background settings.

@@ -15,6 +15,23 @@ export type EpubBibleSourceMetadata = {
     language: string | null;
 };
 
+export type EpubBibleImportProgressStage =
+    | "loading-zip"
+    | "reading-documents"
+    | "extracting-verses"
+    | "building-index";
+
+export type EpubBibleImportProgress = {
+    stage: EpubBibleImportProgressStage;
+    processedCount: number;
+    totalCount: number;
+};
+
+export type EpubBibleImportOptions = {
+    signal?: AbortSignal;
+    onProgress?(progress: EpubBibleImportProgress): void;
+};
+
 export type EpubBibleImportReport = {
     fileName: string;
     translationId: string;
@@ -43,5 +60,5 @@ export type EpubBibleImportResult = {
 
 export type EpubBibleImporter = {
     readMetadata?(content: ArrayBuffer): Promise<EpubBibleSourceMetadata>;
-    importEpub(input: EpubBibleImportInput): Promise<EpubBibleImportResult>;
+    importEpub(input: EpubBibleImportInput, options?: EpubBibleImportOptions): Promise<EpubBibleImportResult>;
 };

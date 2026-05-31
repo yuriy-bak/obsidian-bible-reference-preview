@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { normalizeBookAlias } from "../../parsing/BookMapping";
-import { EpubBibleImporter, EpubBibleImportInput, EpubBibleImportResult, EpubBibleSourceMetadata } from "../EpubBibleImporter";
+import { EpubBibleImporter, EpubBibleImportInput, EpubBibleImportOptions, EpubBibleImportResult, EpubBibleSourceMetadata } from "../EpubBibleImporter";
 import { BibleIndexV2Data } from "../v2/BibleIndexV2Data";
 import { CompactBibleBookData, CompactVerseData } from "../v2/CompactBibleBookData";
 import { EPUB_IMPORT_LIMITS, normalizeZipPath, readContainerOpfPath, readZipText, validateZipArchive } from "./EpubContainerReader";
@@ -17,6 +17,7 @@ import {
 
 const EPUB_IMPORT_READ_DOCUMENTS_YIELD_EVERY_FILES = 10;
 const EPUB_IMPORT_APPEND_VERSES_YIELD_EVERY_VERSES = 500;
+const EPUB_IMPORT_ABORT_ERROR_NAME = "AbortError";
 
 export class JsZipEpubBibleImporter implements EpubBibleImporter {
     async readMetadata(content: ArrayBuffer): Promise<EpubBibleSourceMetadata> {
@@ -28,9 +29,13 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
         return extractSourceMetadataFromOpf(opfXml);
     }
 
-    async importEpub(input: EpubBibleImportInput): Promise<EpubBibleImportResult> {
+    async importEpub(input: EpubBibleImportInput, options: EpubBibleImportOptions = {}): Promise<EpubBibleImportResult> {
         const warnings: string[] = [];
+        assertEpubImportNotAborted(options.signal);
+        options.onProgress?.({ stage: "loading-zip", processedCount: 0, totalCount: 1 });
         const zip = await JSZip.loadAsync(input.content);
+        assertEpubImportNotAborted(options.signal);
+        options.onProgress?.({ stage: "loading-zip", processedCount: 1, totalCount: 1 });
         validateZipArchive(zip);
 
         const opfPath = await readContainerOpfPath(zip);
@@ -42,7 +47,7 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
         const language = normalizeLanguage(input.language) || normalizeLanguage(sourceMetadata.language ?? "") || "und";
         const booksDirectory = `translations/${input.translationId}/books`;
 
-        const xhtmlDocuments = await readAllXhtmlDocuments(zip);
+        const xhtmlDocuments = await readAllXhtmlDocuments(zip, options);
         if (xhtmlDocuments.length === 0) {
             throw new EpubImportError("EPUB does not contain XHTML documents.");
         }
@@ -99,7 +104,10 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
         }
 
         let importedVerseCount = 0;
+        let processedVerseDocumentCount = 0;
+        options.onProgress?.({ stage: "extracting-verses", processedCount: 0, totalCount: xhtmlDocuments.length });
         for (const document of xhtmlDocuments) {
+            assertEpubImportNotAborted(options.signal);
             const verses = extractVersesFromHtml(document.html);
             if (verses.length === 0) {
                 continue;
@@ -117,18 +125,25 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
                 continue;
             }
 
-            importedVerseCount += await appendVerses(compactBooks[bookPath], verses);
+            importedVerseCount += await appendVerses(compactBooks[bookPath], verses, options);
+            processedVerseDocumentCount += 1;
+            options.onProgress?.({ stage: "extracting-verses", processedCount: processedVerseDocumentCount, totalCount: xhtmlDocuments.length });
         }
 
         if (importedVerseCount === 0) {
             throw new EpubImportError("EPUB import completed without extracted verses.");
         }
 
+        assertEpubImportNotAborted(options.signal);
+        options.onProgress?.({ stage: "building-index", processedCount: 0, totalCount: bookTable.books.length });
+        let processedBookMetadataCount = 0;
         for (const bookMetadata of Object.values(translation.books)) {
             const compactBook = compactBooks[bookMetadata.path];
             if (compactBook !== undefined) {
                 bookMetadata.chapterCount = countImportedChapters(compactBook);
             }
+            processedBookMetadataCount += 1;
+            options.onProgress?.({ stage: "building-index", processedCount: processedBookMetadataCount, totalCount: bookTable.books.length });
         }
 
         const stats = calculateStats(compactBooks);
@@ -162,7 +177,7 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
     }
 }
 
-async function readAllXhtmlDocuments(zip: JSZip): Promise<Array<{ path: string; html: string }>> {
+async function readAllXhtmlDocuments(zip: JSZip, options: EpubBibleImportOptions): Promise<Array<{ path: string; html: string }>> {
     const paths = Object.keys(zip.files)
         .map((path) => normalizeZipPath(path))
         .filter((path) => !zip.files[path].dir && /\.(?:xhtml|html|xml)$/i.test(path))
@@ -170,8 +185,10 @@ async function readAllXhtmlDocuments(zip: JSZip): Promise<Array<{ path: string; 
 
     const documents: Array<{ path: string; html: string }> = [];
     let totalHtmlTextBytes = 0;
+    options.onProgress?.({ stage: "reading-documents", processedCount: 0, totalCount: paths.length });
 
     for (let pathIndex = 0; pathIndex < paths.length; pathIndex += 1) {
+        assertEpubImportNotAborted(options.signal);
         const path = paths[pathIndex];
         const html = await readZipText(zip, path, EPUB_IMPORT_LIMITS.maxSingleHtmlTextBytes);
         totalHtmlTextBytes += byteLength(html);
@@ -181,16 +198,18 @@ async function readAllXhtmlDocuments(zip: JSZip): Promise<Array<{ path: string; 
         }
 
         documents.push({ path, html });
+        options.onProgress?.({ stage: "reading-documents", processedCount: pathIndex + 1, totalCount: paths.length });
         await yieldEpubImportIfNeeded(pathIndex + 1, EPUB_IMPORT_READ_DOCUMENTS_YIELD_EVERY_FILES);
     }
 
     return documents;
 }
 
-async function appendVerses(bookData: CompactBibleBookData, verses: ExtractedVerse[]): Promise<number> {
+async function appendVerses(bookData: CompactBibleBookData, verses: ExtractedVerse[], options: EpubBibleImportOptions): Promise<number> {
     let importedVerseCount = 0;
 
     for (const verse of verses) {
+        assertEpubImportNotAborted(options.signal);
         bookData.chapters[verse.chapter] ??= [null];
         const chapter = bookData.chapters[verse.chapter];
         if (chapter === null) {
@@ -374,6 +393,19 @@ function calculateStats(books: Record<string, CompactBibleBookData>): { chapters
     }
 
     return { chapters, verses, footnotes };
+}
+
+export function isEpubImportAbortError(error: unknown): boolean {
+    return error instanceof Error && error.name === EPUB_IMPORT_ABORT_ERROR_NAME;
+}
+
+function assertEpubImportNotAborted(signal: AbortSignal | undefined): void {
+    if (signal?.aborted !== true) {
+        return;
+    }
+    const error = new Error("EPUB import was cancelled.");
+    error.name = EPUB_IMPORT_ABORT_ERROR_NAME;
+    throw error;
 }
 
 async function yieldEpubImportIfNeeded(processedCount: number, everyCount: number): Promise<void> {

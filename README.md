@@ -155,6 +155,7 @@ Import and indexing notes:
 - The supported import flow is EPUB-only: translations are imported through the plugin settings with **Import EPUB**.
 - The Reference Usage Index scans Markdown files in the vault to find Bible reference usages.
 - Large Markdown files can be skipped by the Reference Usage Index according to its size limit to avoid slow indexing and UI freezes.
+- Long Reference Usage Index builds and the safe in-memory part of EPUB import show progress and can be cancelled.
 
 ## License
 

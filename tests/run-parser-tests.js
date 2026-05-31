@@ -32,6 +32,7 @@ const {
 const {
   ReferenceUsageIndexService,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
+  REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
 } = require("../.test-build/src/reference-usage/ReferenceUsageIndexService.js");
 const JSZip = require("jszip");
 const {
@@ -784,6 +785,32 @@ const {
   );
   assert.deepStrictEqual(referenceUsageApp.readPaths, ["notes/one.md"]);
   assert(referenceUsageApp.writes.has("data/bible/reference-usage-index.json"));
+
+  const referenceUsageMobileLimitApp = createReferenceUsageTestApp({
+    "notes/mobile-small.md": "Ин 3:16",
+    "notes/mobile-large.md": "Ин 3:17",
+  });
+  const referenceUsageMobileLimitService = new ReferenceUsageIndexService(
+    referenceUsageMobileLimitApp,
+    () => "data/bible",
+    createReferenceUsageTestParseMatches,
+    () => [],
+    {
+      maxMarkdownFileSizeBytes: REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
+      buildYieldEveryFiles: 1,
+    }
+  );
+  const referenceUsageMobileLimitResult = await referenceUsageMobileLimitService.build([
+    createReferenceUsageTestFile("notes/mobile-small.md", REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, 7),
+    createReferenceUsageTestFile("notes/mobile-large.md", REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES + 1, 8),
+  ], true);
+  assert.strictEqual(referenceUsageMobileLimitResult.fileCount, 1);
+  assert.strictEqual(referenceUsageMobileLimitResult.skippedLargeFileCount, 1);
+  assert.strictEqual(
+    referenceUsageMobileLimitResult.maxFileSizeBytes,
+    REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES
+  );
+  assert.deepStrictEqual(referenceUsageMobileLimitApp.readPaths, ["notes/mobile-small.md"]);
 
   const referenceUsageStats = referenceUsageService.getStats();
   assert.strictEqual(referenceUsageStats.fileCount, 1);
