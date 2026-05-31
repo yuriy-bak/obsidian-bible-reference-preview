@@ -1,5 +1,5 @@
 
-import { App, MarkdownView, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
+import { App, MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
 import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import type { BibleReference } from "./src/domain/BibleReference";
@@ -27,6 +27,7 @@ import { renderReferenceUsageIndexSettingsSection } from "./src/ui/ReferenceUsag
 import { renderColorSettingsSection } from "./src/ui/ColorSettingsSection";
 import { ProgressCancelModal } from "./src/ui/ProgressCancelModal";
 import { ReferenceUsageResultsModal } from "./src/ui/ReferenceUsageResultsModal";
+import { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
 import { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageController";
 import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, type ReferenceUsageIndexServiceOptions, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 
@@ -273,7 +274,13 @@ export default class BiblePlugin extends Plugin {
             name: this.t("command.openBibleReferenceUnderCursor"),
             callback: () => this.openBibleReferenceUnderCursorFromActiveEditor(true),
         });
-        this.readingModePreviewController = new BibleReadingModePreviewController(this);
+        this.readingModePreviewController = new BibleReadingModePreviewController({
+            showBiblePreviewContent: (content, anchor, options) => this.showBiblePreviewContent(content, anchor, options),
+            shouldAutoOpenPreviewOnVerseChange: () => this.shouldAutoOpenPreviewOnVerseChange(),
+            refreshFloatingPreviewLabels: () => this.refreshFloatingPreviewLabels(),
+            isFloatingPreviewTarget: (target) => this.isFloatingPreviewTarget(target),
+            hideFloatingBiblePreview: () => this.hideFloatingBiblePreview(),
+        });
         this.register(() => this.readingModePreviewController?.destroy());
         this.settingsTab = new BiblePluginSettingTab(this.app, this);
         this.addSettingTab(this.settingsTab);
@@ -2507,46 +2514,6 @@ export default class BiblePlugin extends Plugin {
 
 }
 
-
-class BibleReadingModePreviewController {
-    private readonly outsideInteractionHandler = (event: Event) => this.hideBiblePreviewIfEventIsOutside(event);
-
-    constructor(private readonly plugin: BiblePlugin) { }
-
-    public show(content: BiblePreviewContent, anchorEl: HTMLElement): void {
-        this.plugin.showBiblePreviewContent(content, { type: "element", element: anchorEl }, { reveal: this.plugin.shouldAutoOpenPreviewOnVerseChange() });
-    }
-
-    public destroy(): void { }
-
-    public refreshLocalizedLabels(): void {
-        this.plugin.refreshFloatingPreviewLabels();
-    }
-
-    private registerListeners(): void {
-        document.addEventListener("pointerdown", this.outsideInteractionHandler, true);
-        document.addEventListener("focusin", this.outsideInteractionHandler, true);
-    }
-
-    private unregisterListeners(): void {
-        document.removeEventListener("pointerdown", this.outsideInteractionHandler, true);
-        document.removeEventListener("focusin", this.outsideInteractionHandler, true);
-    }
-
-    private hideBiblePreviewIfEventIsOutside(event: Event): void {
-        const target = event.target;
-        if (!(target instanceof Node)) {
-            return;
-        }
-        if (this.plugin.isFloatingPreviewTarget(target)) {
-            return;
-        }
-        if (target instanceof HTMLElement && target.closest(".bible-reference-reading-link") !== null) {
-            return;
-        }
-        this.plugin.hideFloatingBiblePreview();
-    }
-}
 
 
 class BiblePluginSettingTab extends PluginSettingTab {
