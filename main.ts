@@ -16,11 +16,9 @@ import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND
 import type { CssColorDialogInput } from "./src/ui/CssColorDialog";
 import { getBibleReferenceLinkColorPickerValue as getBibleReferenceLinkColorPickerValueFlow, getFloatingPreviewBackgroundColorPickerValue as getFloatingPreviewBackgroundColorPickerValueFlow, openCssColorDialog as openCssColorDialogFlow, openFloatingPreviewBackgroundColorDialog as openFloatingPreviewBackgroundColorDialogFlow } from "./src/ui/ColorSettingsFlow";
 import { BIBLE_PREVIEW_VIEW_TYPE, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
-import { scrollBiblePreviewPane as scrollBiblePreviewPaneFlow, showBiblePreviewInPanel as showBiblePreviewInPanelFlow } from "./src/ui/BiblePreviewPaneFlow";
 import { refreshBiblePreviewLocalizedLabels as refreshBiblePreviewLocalizedLabelsFlow } from "./src/ui/BiblePreviewLocalizedRefreshFlow";
-import { closeBiblePreviewPaneFromState as closeBiblePreviewPaneFromStateFlow, handleBiblePreviewActiveLeafChange as handleBiblePreviewActiveLeafChangeFlow, handleBiblePreviewPanelEscapeKeydown as handleBiblePreviewPanelEscapeKeydownFlow, type BiblePreviewPaneStateFlowInput } from "./src/ui/BiblePreviewPaneStateFlow";
-import { createScrollBiblePreviewPaneFlowInput as createScrollBiblePreviewPaneFlowInputFlow, createShowBiblePreviewInPanelFlowInput as createShowBiblePreviewInPanelFlowInputFlow, type BiblePreviewPaneFlowInputFactoryInput } from "./src/ui/BiblePreviewPaneFlowInputFactory";
-import { createBiblePreviewPaneViewInput as createBiblePreviewPaneViewInputFlow, createFloatingBiblePreviewWindowInput as createFloatingBiblePreviewWindowInputFlow, type BiblePreviewViewInputFactoryInput } from "./src/ui/BiblePreviewViewInputFactory";
+import { handleBiblePreviewActiveLeafChange as handleBiblePreviewActiveLeafChangeFlow, handleBiblePreviewPanelEscapeKeydown as handleBiblePreviewPanelEscapeKeydownFlow } from "./src/ui/BiblePreviewPaneStateFlow";
+import { closeBiblePreviewPane as closeBiblePreviewPaneFlow, createBiblePreviewPaneFlowInputFactoryInput as createBiblePreviewPaneFlowInputFactoryInputFlow, createBiblePreviewPaneStateFlowInput as createBiblePreviewPaneStateFlowInputFlow, createBiblePreviewPaneViewInput as createBiblePreviewPaneViewInputFlow, createFloatingBiblePreviewWindowInput as createFloatingBiblePreviewWindowInputFlow, hideFloatingBiblePreview as hideFloatingBiblePreviewFlow, isFloatingPreviewTarget as isFloatingPreviewTargetFlow, refreshFloatingPreviewLabels as refreshFloatingPreviewLabelsFlow, scrollBiblePreview as scrollBiblePreviewFlow, showBiblePreviewContent as showBiblePreviewContentFlow, showBiblePreviewInPanel as showBiblePreviewInPanelFlow, showFloatingBiblePreview as showFloatingBiblePreviewFlow, switchBiblePreviewToFloating as switchBiblePreviewToFloatingFlow, switchBiblePreviewToPanel as switchBiblePreviewToPanelFlow, type BiblePreviewPluginFlowInput } from "./src/ui/BiblePreviewPluginFlow";
 import type { BiblePluginSettingTab } from "./src/ui/BiblePluginSettingTab";
 
 import type { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
@@ -868,35 +866,30 @@ export default class BiblePlugin extends Plugin {
     private getBibleIndexDataDirectoryPath(): string { return `${this.getPluginDirectoryPath()}/data`; }
     private getPluginDirectoryPath(): string { const manifestWithDirectory = this.manifest as { dir?: string }; return manifestWithDirectory.dir ?? `.obsidian/plugins/${this.manifest.id}`; }
 
-    private createPreviewViewInputFactoryInput(): BiblePreviewViewInputFactoryInput {
+    private createBiblePreviewPluginFlowInput(): BiblePreviewPluginFlowInput {
         return {
+            app: this.app,
+            isMobile: Platform.isMobileApp,
+            previewViewType: BIBLE_PREVIEW_VIEW_TYPE,
+            getPreviewPanelSide: () => this.settings.previewPanelSide,
+            getPreviewDisplayMode: () => this.settings.previewDisplayMode,
+            setPreviewDisplayMode: (previewDisplayMode) => {
+                this.settings = { ...this.settings, previewDisplayMode };
+            },
+            saveSettings: () => this.savePluginSettings(),
+            refreshSettings: () => this.refreshSettingsTab(),
             getActiveTranslationPreviewTitle: () => this.getActiveTranslationPreviewTitle(),
-            translate: (key: I18nKey, params?: Record<string, string | number>) => this.t(key, params),
+            translate: (key, params) => this.t(key, params),
             getFloatingPreviewBackgroundColor: () => this.getFloatingPreviewBackgroundColor(),
             isPreviewComparisonEnabled: () => this.settings.previewComparisonEnabled,
             getPreviewComparisonTranslationOptions: () => this.getPreviewComparisonTranslationOptions(),
             showReferenceUsagesForPreviewBlock: (block) => void this.showReferenceUsagesForPreviewBlock(block),
             setComparisonTranslationEnabled: (translationId, enabled) => void this.setComparisonTranslationEnabled(translationId, enabled),
             toggleBiblePreviewComparison: (content) => void this.toggleBiblePreviewComparison(content),
-            switchBiblePreviewToPanel: (content) => void this.switchBiblePreviewToPanel(content),
-            switchBiblePreviewToFloating: (content) => void this.switchBiblePreviewToFloating(content),
-        };
-    }
-
-    private createFloatingPreviewWindowInput() {
-        return createFloatingBiblePreviewWindowInputFlow(this.createPreviewViewInputFactoryInput());
-    }
-
-    private createBiblePreviewPaneViewInput() {
-        return createBiblePreviewPaneViewInputFlow(this.createPreviewViewInputFactoryInput());
-    }
-
-    private createBiblePreviewPaneFlowInputFactoryInput(): BiblePreviewPaneFlowInputFactoryInput {
-        return {
-            app: this.app,
-            isMobile: Platform.isMobileApp,
-            getPreviewPanelSide: () => this.settings.previewPanelSide,
-            createBiblePreviewPaneViewInput: () => this.createBiblePreviewPaneViewInput(),
+            showFloatingBiblePreview: (content, anchor, options) => this.floatingPreviewWindow?.show(content, anchor, options),
+            scrollFloatingBiblePreview: (command) => {
+                this.floatingPreviewWindow?.scrollPreview(command);
+            },
             waitForNextFrame: () => this.waitForNextFrame(),
             setLastPanePreviewContent: (nextContent) => {
                 this.lastPanePreviewContent = nextContent;
@@ -904,84 +897,6 @@ export default class BiblePlugin extends Plugin {
             setSuppressPreviewActiveLeafChange: (value) => {
                 this.suppressPreviewActiveLeafChange = value;
             },
-            setBiblePreviewPaneIsActiveInSideDock: (value) => {
-                this.biblePreviewPaneIsActiveInSideDock = value;
-            },
-        };
-    }
-
-    public showBiblePreviewContent(
-        content: BiblePreviewContent,
-        anchor: FloatingBiblePreviewAnchor = { type: "default" },
-        options: { reveal?: boolean } = {},
-    ): void {
-        const reveal = options.reveal !== false;
-        if (this.settings.previewDisplayMode === "side-panel") {
-            void this.showBiblePreviewInPanel(content, { reveal });
-            this.hideFloatingBiblePreview();
-            return;
-        }
-
-        this.showFloatingBiblePreview(content, anchor, { reveal });
-    }
-    public showFloatingBiblePreview(
-        content: BiblePreviewContent,
-        anchor: FloatingBiblePreviewAnchor = { type: "default" },
-        options: { reveal?: boolean } = {},
-    ): void {
-        this.floatingPreviewWindow?.show(content, anchor, { reveal: options.reveal !== false });
-    }
-    private async switchBiblePreviewToPanel(content: BiblePreviewContent): Promise<void> {
-        if (this.settings.previewDisplayMode !== "side-panel") {
-            this.settings = { ...this.settings, previewDisplayMode: "side-panel" };
-            await this.savePluginSettings();
-            this.refreshSettingsTab();
-        }
-        await this.showBiblePreviewInPanel(content);
-        this.hideFloatingBiblePreview();
-    }
-    private async switchBiblePreviewToFloating(content: BiblePreviewContent): Promise<void> {
-        if (this.settings.previewDisplayMode !== "floating") {
-            this.settings = { ...this.settings, previewDisplayMode: "floating" };
-            await this.savePluginSettings();
-            this.refreshSettingsTab();
-        }
-        await this.closeBiblePreviewPane({ collapseSideDock: true, requireActivePreview: true });
-        this.showFloatingBiblePreview(content, { type: "default" });
-    }
-    private async showBiblePreviewInPanel(content: BiblePreviewContent, options: { reveal?: boolean } = {}): Promise<void> {
-        await showBiblePreviewInPanelFlow(createShowBiblePreviewInPanelFlowInputFlow(
-            this.createBiblePreviewPaneFlowInputFactoryInput(),
-            content,
-            options.reveal,
-        ));
-    }
-
-    private async scrollBiblePreview(command: BiblePreviewScrollCommand): Promise<void> {
-        if (!this.isPluginActive()) {
-            return;
-        }
-
-        this.floatingPreviewWindow?.scrollPreview(command);
-
-        if (this.settings.previewDisplayMode !== "side-panel") {
-            return;
-        }
-
-        await scrollBiblePreviewPaneFlow(createScrollBiblePreviewPaneFlowInputFlow(
-            this.createBiblePreviewPaneFlowInputFactoryInput(),
-            command,
-        ));
-    }
-
-    private async closeBiblePreviewPane(options: { collapseSideDock?: boolean; requireActivePreview?: boolean } = {}): Promise<void> {
-        await closeBiblePreviewPaneFromStateFlow(this.createBiblePreviewPaneStateFlowInput(), options);
-    }
-    private createBiblePreviewPaneStateFlowInput(): BiblePreviewPaneStateFlowInput {
-        return {
-            app: this.app,
-            previewViewType: BIBLE_PREVIEW_VIEW_TYPE,
-            previewPanelSide: this.settings.previewPanelSide,
             getBiblePreviewPaneIsActiveInSideDock: () => this.biblePreviewPaneIsActiveInSideDock,
             setBiblePreviewPaneIsActiveInSideDock: (value) => {
                 this.biblePreviewPaneIsActiveInSideDock = value;
@@ -992,9 +907,58 @@ export default class BiblePlugin extends Plugin {
             },
             isFloatingPreviewVisible: () => this.floatingPreviewWindow?.isVisible() === true,
             isClosePreviewOnActiveLeafChangeEnabled: () => this.settings.closePreviewOnActiveLeafChange,
-            hideFloatingBiblePreview: () => this.hideFloatingBiblePreview(),
-            closeActiveBiblePreviewPane: () => void this.closeBiblePreviewPane({ collapseSideDock: true, requireActivePreview: true }),
+            isPluginActive: () => this.isPluginActive(),
+            hideFloatingBiblePreview: (resetPosition) => this.floatingPreviewWindow?.hide(resetPosition),
+            refreshFloatingPreviewLabels: (input) => this.floatingPreviewWindow?.refreshLabels(input),
+            isFloatingPreviewTarget: (target) => this.floatingPreviewWindow?.containsTarget(target) ?? false,
         };
+    }
+
+    private createFloatingPreviewWindowInput() {
+        return createFloatingBiblePreviewWindowInputFlow(this.createBiblePreviewPluginFlowInput());
+    }
+
+    private createBiblePreviewPaneViewInput() {
+        return createBiblePreviewPaneViewInputFlow(this.createBiblePreviewPluginFlowInput());
+    }
+
+    private createBiblePreviewPaneFlowInputFactoryInput() {
+        return createBiblePreviewPaneFlowInputFactoryInputFlow(this.createBiblePreviewPluginFlowInput());
+    }
+
+    public showBiblePreviewContent(
+        content: BiblePreviewContent,
+        anchor: FloatingBiblePreviewAnchor = { type: "default" },
+        options: { reveal?: boolean } = {},
+    ): void {
+        showBiblePreviewContentFlow(this.createBiblePreviewPluginFlowInput(), content, anchor, options);
+    }
+    public showFloatingBiblePreview(
+        content: BiblePreviewContent,
+        anchor: FloatingBiblePreviewAnchor = { type: "default" },
+        options: { reveal?: boolean } = {},
+    ): void {
+        showFloatingBiblePreviewFlow(this.createBiblePreviewPluginFlowInput(), content, anchor, options);
+    }
+    private async switchBiblePreviewToPanel(content: BiblePreviewContent): Promise<void> {
+        await switchBiblePreviewToPanelFlow(this.createBiblePreviewPluginFlowInput(), content);
+    }
+    private async switchBiblePreviewToFloating(content: BiblePreviewContent): Promise<void> {
+        await switchBiblePreviewToFloatingFlow(this.createBiblePreviewPluginFlowInput(), content);
+    }
+    private async showBiblePreviewInPanel(content: BiblePreviewContent, options: { reveal?: boolean } = {}): Promise<void> {
+        await showBiblePreviewInPanelFlow(this.createBiblePreviewPluginFlowInput(), content, options);
+    }
+
+    private async scrollBiblePreview(command: BiblePreviewScrollCommand): Promise<void> {
+        await scrollBiblePreviewFlow(this.createBiblePreviewPluginFlowInput(), command);
+    }
+
+    private async closeBiblePreviewPane(options: { collapseSideDock?: boolean; requireActivePreview?: boolean } = {}): Promise<void> {
+        await closeBiblePreviewPaneFlow(this.createBiblePreviewPluginFlowInput(), options);
+    }
+    private createBiblePreviewPaneStateFlowInput() {
+        return createBiblePreviewPaneStateFlowInputFlow(this.createBiblePreviewPluginFlowInput());
     }
 
     private handlePanelEscapeKeydown(event: KeyboardEvent): void {
@@ -1011,13 +975,13 @@ export default class BiblePlugin extends Plugin {
         return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
     }
     public hideFloatingBiblePreview(resetPosition = false): void {
-        this.floatingPreviewWindow?.hide(resetPosition);
+        hideFloatingBiblePreviewFlow(this.createBiblePreviewPluginFlowInput(), resetPosition);
     }
     public refreshFloatingPreviewLabels(): void {
-        this.floatingPreviewWindow?.refreshLabels(this.createFloatingPreviewWindowInput());
+        refreshFloatingPreviewLabelsFlow(this.createBiblePreviewPluginFlowInput());
     }
     public isFloatingPreviewTarget(target: Node): boolean {
-        return this.floatingPreviewWindow?.containsTarget(target) ?? false;
+        return isFloatingPreviewTargetFlow(this.createBiblePreviewPluginFlowInput(), target);
     }
 
 
