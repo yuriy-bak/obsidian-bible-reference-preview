@@ -9,9 +9,7 @@ import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
 import { BiblePreviewComparisonBlock, BiblePreviewComparisonInput, BiblePreviewContent, BiblePreviewReferenceBlock, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
-import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
-import { createImportSettingsDefaults, openBibleTranslationImportSettingsModal } from "./src/ui/BibleTranslationImportModal";
-import { JsZipEpubBibleImporter, isEpubImportAbortError } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
+import { isEpubImportAbortError } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BiblePluginLocale, I18nKey, t } from "./src/i18n/I18n";
@@ -21,7 +19,7 @@ import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput 
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, ReferenceUsagePaneViewInput } from "./src/ui/ReferenceUsagePaneView";
 import { BiblePluginSettingTab } from "./src/ui/BiblePluginSettingTab";
-import { ProgressCancelModal } from "./src/ui/ProgressCancelModal";
+
 import { ReferenceUsageResultsModal } from "./src/ui/ReferenceUsageResultsModal";
 import { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
 import { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageController";
@@ -30,8 +28,8 @@ import { TranslationController, type TranslationControllerState } from "./src/tr
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
 import { BiblePreviewAnalyzer, type BiblePreviewAnalyzerInput } from "./src/application/BiblePreviewAnalyzer";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
-import { readAndValidateEpubFile } from "./src/import/EpubFileValidation";
-import { formatEpubImportProgress, formatEpubImportSuccessNotice, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
+import { executePreparedEpubImport, prepareEpubImportSettings } from "./src/import/EpubImportFlow";
+import { formatEpubImportSuccessNotice, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -270,73 +268,41 @@ export default class BiblePlugin extends Plugin {
 
     public async importEpubFile(file: File): Promise<void> {
         try {
-            const content = await readAndValidateEpubFile(file, (key, params) => this.t(key, params));
-            const importer = new JsZipEpubBibleImporter();
-            const sourceMetadata = await importer.readMetadata(content);
-            const defaults = createImportSettingsDefaults(file.name, sourceMetadata);
-            const existingRepository = this.createObsidianBibleIndexRepository();
-            await existingRepository.load();
-            const translationAlreadyExists = existingRepository.getV2Data()?.translations[defaults.translationId] !== undefined;
-            const importSettings = await openBibleTranslationImportSettingsModal(
-                this.app,
-                defaults,
-                translationAlreadyExists,
-                this.settings.interfaceLanguage,
-            );
+            const preparedImport = await prepareEpubImportSettings({
+                app: this.app,
+                file,
+                locale: this.settings.interfaceLanguage,
+                translate: (key, params) => this.t(key, params),
+                createRepository: () => this.createObsidianBibleIndexRepository(),
+            });
 
-            if (importSettings === null) {
+            if (preparedImport === null) {
                 return;
             }
 
-            const abortController = new AbortController();
-            const progressModal = new ProgressCancelModal(
-                this.app,
-                this.t("notice.importStarted", { fileName: file.name }),
-                formatEpubImportProgress({ stage: "loading-zip", processedCount: 0, totalCount: 1 }, (key, params) => this.t(key, params)),
-                this.t("common.cancel"),
-                () => abortController.abort(),
-            );
-            progressModal.open();
+            const result = await executePreparedEpubImport({
+                app: this.app,
+                fileName: file.name,
+                preparedImport,
+                translate: (key, params) => this.t(key, params),
+                createRepository: () => this.createObsidianBibleIndexRepository(),
+                onImported: async (repository, importResult) => {
+                    this.bibleIndex = repository.getIndex();
+                    this.activeV2Data = repository.getV2Data();
+                    await this.promoteTranslationToTop(importResult.translationId);
+                    this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
+                    this.updateBookMapping(this.activeV2Data);
+                    this.refreshSettingsTab();
+                },
+            });
 
-            try {
-                const repository = this.createObsidianBibleIndexRepository();
-                await repository.load();
-
-                const result = await importBibleFromEpub({
-                    epub: {
-                        fileName: file.name,
-                        content,
-                        translationId: importSettings.translationId,
-                        translationName: importSettings.translationName,
-                        language: importSettings.language,
-                    },
-                    importer,
-                    repository,
-                    importOptions: {
-                        signal: abortController.signal,
-                        onProgress: (progress) => progressModal.updateMessage(formatEpubImportProgress(progress, (key, params) => this.t(key, params))),
-                    },
-                });
-
-                this.bibleIndex = repository.getIndex();
-                this.activeV2Data = repository.getV2Data();
-                await this.promoteTranslationToTop(result.translationId);
-                this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
-                this.updateBookMapping(this.activeV2Data);
-                this.refreshSettingsTab();
-                progressModal.finish();
-
-                if (result.warnings.length > 0) console.warn("EPUB import warnings", result.warnings);
-                new Notice(formatEpubImportSuccessNotice(
-                    result,
-                    (key, params) => this.t(key, params),
-                    formatKilobytes,
-                    formatMegabytes,
-                ), 15000);
-            } catch (error) {
-                progressModal.finish();
-                throw error;
-            }
+            if (result.warnings.length > 0) console.warn("EPUB import warnings", result.warnings);
+            new Notice(formatEpubImportSuccessNotice(
+                result,
+                (key, params) => this.t(key, params),
+                formatKilobytes,
+                formatMegabytes,
+            ), 15000);
         } catch (error) {
             if (isEpubImportAbortError(error)) {
                 new Notice(this.t("notice.importCancelled"), 5000);
