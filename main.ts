@@ -3,8 +3,6 @@ import { App, MarkdownView, Notice, Platform, Plugin, TFile, type MarkdownPostPr
 import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import type { BibleReference } from "./src/domain/BibleReference";
-import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
-import { EditorView, ViewPlugin, ViewUpdate, Decoration, type DecorationSet } from "@codemirror/view";
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
@@ -23,6 +21,7 @@ import type { BiblePluginSettingTab } from "./src/ui/BiblePluginSettingTab";
 import { ReferenceUsageResultsModal } from "./src/ui/ReferenceUsageResultsModal";
 import type { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
 import { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageController";
+import { findReferenceUsagesUnderCursor as findReferenceUsagesUnderCursorFlow, openReferenceUsagesPanelUnderCursor as openReferenceUsagesPanelUnderCursorFlow, type ReferenceUsageUnderCursorFlowInput } from "./src/reference-usage/ReferenceUsageUnderCursorFlow";
 import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, type ReferenceUsageIndexServiceOptions, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 import { TranslationController, type TranslationControllerState } from "./src/translations/TranslationController";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
@@ -38,49 +37,13 @@ import { initializeSettingsTab, registerWorkspaceAndKeyboardHandlers } from "./s
 import { registerContentProcessingExtensions } from "./src/lifecycle/PluginContentRegistration";
 import { processReadingModeBibleReferences as processReadingModeBibleReferenceLinks } from "./src/reading-mode/ReadingModeBibleReferenceProcessor";
 import { findBibleReferenceMatchAtPosition as findEditorBibleReferenceMatchAtPosition, getCurrentParagraph as getCurrentEditorParagraph } from "./src/editor/EditorTextAnalysis";
+import { getBibleReferenceMatchUnderCursorFromActiveEditor, type EditorReferenceUnderCursorInput } from "./src/editor/EditorReferenceUnderCursor";
+import { clearEditorReferenceLinks, createEditorReferenceLinkDecorations, type EditorReferenceLinkDecorationFlowInput, refreshEditorReferenceLinks } from "./src/editor/EditorReferenceLinkDecorationFlow";
+import { refreshEditorPreviewControllerLocalizedLabels } from "./src/editor/EditorPreviewControllerRegistration";
+import { createEditorCursorExtension } from "./src/editor/EditorCursorExtension";
+import { createEditorRuntimeState } from "./src/editor/EditorRuntimeState";
+import { dispatchEditorViewNoopUpdate, findFocusedEditorPreviewController } from "./src/editor/EditorViewFocus";
 
-
-const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
-
-const bibleReferenceLinkDecorationsField = StateField.define<DecorationSet>({
-    create() {
-        return Decoration.none;
-    },
-
-    update(decorations, transaction) {
-        let nextDecorations = decorations.map(transaction.changes);
-
-        for (const effect of transaction.effects) {
-            if (effect.is(setBibleReferenceLinkDecorationsEffect)) {
-                nextDecorations = effect.value;
-            }
-        }
-
-        return nextDecorations;
-    },
-
-    provide: (field) => EditorView.decorations.from(field),
-});
-
-const bibleReferenceLinkTheme = EditorView.baseTheme({
-    ".bible-reference-link": {
-        textDecoration: "underline",
-        textDecorationStyle: "dotted",
-        cursor: "pointer",
-    },
-});
-
-function dispatchBibleReferenceLinkDecorations(view: EditorView, decorations: DecorationSet): void {
-    window.setTimeout(() => {
-        if (view.state.field(bibleReferenceLinkDecorationsField, false) === undefined) {
-            return;
-        }
-
-        view.dispatch({
-            effects: setBibleReferenceLinkDecorationsEffect.of(decorations),
-        });
-    }, 0);
-}
 
 const EMPTY_BIBLE_INDEX: BibleIndex = {
     async getBibleText() {
@@ -106,28 +69,10 @@ type BiblePreviewWorkspaceLeafIterator = {
     iterateAllLeaves?(callback: (leaf: WorkspaceLeaf) => void): void;
 };
 
-type BiblePreviewController = {
-    openBibleReferenceUnderCursor(showNotice?: boolean): boolean;
-    refreshLocalizedLabels(): void;
-};
-
 const DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR = "#7c3aed";
 const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
-const MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS = 20000;
-const MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS = 50000;
 
-
-type BibleReferenceLinkDecorationVisibleRangeInput = {
-    from: number;
-    to: number;
-    text: string;
-};
-
-type BibleReferenceLinkDecorationCacheEntry = {
-    key: string;
-    decorations: DecorationSet;
-};
 export default class BiblePlugin extends Plugin {
     private bookMapping = createBookMapping([]);
     private bibleReferenceParser = new BibleReferenceParser(this.bookMapping);
@@ -145,9 +90,7 @@ export default class BiblePlugin extends Plugin {
     private pluginActiveRibbonIconEl: HTMLElement | null = null;
     private referenceUsageIndexService: ReferenceUsageIndexService | null = null;
     private referenceUsageController: ReferenceUsageController | null = null;
-    private readonly editorViews = new Set<EditorView>();
-    private readonly bibleReferenceLinkDecorationCache = new WeakMap<EditorView, BibleReferenceLinkDecorationCacheEntry>();
-    private readonly previewControllers = new Map<EditorView, BiblePreviewController>();
+    private readonly editorRuntimeState = createEditorRuntimeState();
     private readonly linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.handleLinkOpenShortcutKeydown(event);
     private readonly panelEscapeKeydownHandler = (event: KeyboardEvent) => this.handlePanelEscapeKeydown(event);
 
@@ -508,7 +451,7 @@ export default class BiblePlugin extends Plugin {
         return this.settings.isPluginActive;
     }
 
-    public shouldRunBiblePreviewForEditor(_view?: EditorView): boolean {
+    public shouldRunBiblePreviewForEditor(_view?: unknown): boolean {
         // Central runtime gate. Future folder/file/frontmatter filters should be added here
         // so hot paths can keep a single early-exit check.
         return this.isPluginActive();
@@ -737,31 +680,31 @@ export default class BiblePlugin extends Plugin {
     }
 
     public async findReferenceUsagesUnderCursor(): Promise<void> {
-        if (!this.settings.referenceUsageIndexingEnabled) {
-            new Notice(this.t("notice.referenceUsageIndexDisabled"), 4000);
-            return;
-        }
-        const match = this.getBibleReferenceMatchUnderCursorFromActiveEditor(true);
-        if (match === null) return;
-        const results = this.getReferenceUsageIndexService().findUsages(match.references);
-        new ReferenceUsageResultsModal(
-            this.app,
-            this.settings.interfaceLanguage,
-            this.t("modal.referenceUsages.title", { reference: match.text }),
-            results,
-            (result) => void this.openReferenceUsageResult(result),
-        ).open();
+        await findReferenceUsagesUnderCursorFlow(this.createReferenceUsageUnderCursorFlowInput());
     }
 
     public async openReferenceUsagesPanelUnderCursor(): Promise<void> {
-        if (!this.settings.referenceUsageIndexingEnabled) {
-            new Notice(this.t("notice.referenceUsageIndexDisabled"), 4000);
-            return;
-        }
-        const match = this.getBibleReferenceMatchUnderCursorFromActiveEditor(true);
-        if (match === null) return;
-        const results = this.getReferenceUsageIndexService().findUsages(match.references);
-        await this.showReferenceUsageResultsInPanel(this.t("modal.referenceUsages.title", { reference: match.text }), results);
+        await openReferenceUsagesPanelUnderCursorFlow(this.createReferenceUsageUnderCursorFlowInput());
+    }
+
+    private createReferenceUsageUnderCursorFlowInput(): ReferenceUsageUnderCursorFlowInput {
+        return {
+            isIndexingEnabled: () => this.settings.referenceUsageIndexingEnabled,
+            showIndexingDisabledNotice: () => new Notice(this.t("notice.referenceUsageIndexDisabled"), 4000),
+            getReferenceUnderCursor: () => getBibleReferenceMatchUnderCursorFromActiveEditor(this.createEditorReferenceUnderCursorInput(true)),
+            findUsages: (references) => this.getReferenceUsageIndexService().findUsages(references),
+            formatTitle: (referenceText) => this.t("modal.referenceUsages.title", { reference: referenceText }),
+            openResultsModal: (titleText, results) => {
+                new ReferenceUsageResultsModal(
+                    this.app,
+                    this.settings.interfaceLanguage,
+                    titleText,
+                    results,
+                    (result) => void this.openReferenceUsageResult(result),
+                ).open();
+            },
+            showResultsInPanel: (titleText, results) => this.showReferenceUsageResultsInPanel(titleText, results),
+        };
     }
 
     private async showReferenceUsagesForPreviewBlock(block: BiblePreviewReferenceBlock): Promise<void> {
@@ -855,24 +798,15 @@ export default class BiblePlugin extends Plugin {
         });
     }
 
-    private getBibleReferenceMatchUnderCursorFromActiveEditor(showNotice: boolean): { text: string; references: BibleReference[] } | null {
-        if (!this.isPluginActive()) {
-            if (showNotice) new Notice(this.t("notice.pluginInactive"), 2500);
-            return null;
-        }
-        for (const view of this.editorViews) {
-            if (view.hasFocus || view.dom.contains(document.activeElement)) {
-                const match = this.findBibleReferenceMatchAtPosition(view, view.state.selection.main.head);
-                if (match === null) {
-                    if (showNotice) new Notice(this.t("notice.referenceUnderCursorNotFound"), 2500);
-                    return null;
-                }
-                const references = this.bibleReferenceParser.parseMatches(match.text).flatMap((parsedMatch) => parsedMatch.references);
-                return references.length === 0 ? null : { text: match.text, references };
-            }
-        }
-        if (showNotice) new Notice(this.t("notice.activeEditorNotFound"), 2500);
-        return null;
+    private createEditorReferenceUnderCursorInput(showNotice: boolean): EditorReferenceUnderCursorInput {
+        return {
+            editorRuntimeState: this.editorRuntimeState,
+            showNotice,
+            isPluginActive: () => this.isPluginActive(),
+            parseMatches: (text) => this.bibleReferenceParser.parseMatches(text),
+            parseReferenceMatches: (text) => this.bibleReferenceParser.parseMatches(text),
+            translate: (key) => this.t(key),
+        };
     }
 
     private registerReferenceUsageIndexEvents(): void {
@@ -933,9 +867,7 @@ export default class BiblePlugin extends Plugin {
         await this.savePluginSettings();
         this.refreshSettingsTab();
 
-        for (const view of this.editorViews) {
-            view.dispatch({});
-        }
+        dispatchEditorViewNoopUpdate(this.editorRuntimeState.editorViews);
     }
 
     public getBibleReferenceLinkColor(): string {
@@ -997,10 +929,9 @@ export default class BiblePlugin extends Plugin {
             }
             return false;
         }
-        for (const [view, controller] of this.previewControllers.entries()) {
-            if (view.hasFocus || view.dom.contains(document.activeElement)) {
-                return controller.openBibleReferenceUnderCursor(showNotice);
-            }
+        const controller = findFocusedEditorPreviewController(this.editorRuntimeState.previewControllers.entries());
+        if (controller !== null) {
+            return controller.openBibleReferenceUnderCursor(showNotice);
         }
 
         if (showNotice) {
@@ -1521,303 +1452,26 @@ export default class BiblePlugin extends Plugin {
 
 
     createCursorExtension() {
-        const plugin = this;
-        const cursorPlugin = ViewPlugin.fromClass(class {
-            lastParagraph = "";
-            requestId = 0;
-            referenceLinkUpdateTimeout: number | null = null;
-            lastActiveTranslationId = plugin.activeTranslationId;
-            lastPluginRuntimeEnabled = false;
-            private clickedReference: { from: number; to: number; text: string } | null = null;
-            private lastPreviewTriggerMode = plugin.getBiblePreviewTriggerMode();
-            private readonly outsideInteractionHandler = (event: Event) => this.hideBiblePreviewIfEventIsOutsideEditor(event);
-            private readonly editorClickHandler = (event: MouseEvent) => this.handleEditorClick(event);
-
-            constructor(private readonly view: EditorView) {
-                plugin.editorViews.add(view);
-                plugin.previewControllers.set(view, this);
-                this.lastPluginRuntimeEnabled = plugin.shouldRunBiblePreviewForEditor(view);
-                this.view.dom.addEventListener("click", this.editorClickHandler);
-                this.scheduleReferenceLinkUpdate();
-            }
-
-            update(update: ViewUpdate) {
-                const pluginRuntimeEnabled = plugin.shouldRunBiblePreviewForEditor(this.view);
-                if (this.lastPluginRuntimeEnabled !== pluginRuntimeEnabled) {
-                    this.lastPluginRuntimeEnabled = pluginRuntimeEnabled;
-                    this.lastParagraph = "";
-                    this.clickedReference = null;
-                    this.requestId += 1;
-                    if (this.referenceLinkUpdateTimeout !== null) {
-                        window.clearTimeout(this.referenceLinkUpdateTimeout);
-                        this.referenceLinkUpdateTimeout = null;
-                    }
-                    if (!pluginRuntimeEnabled) {
-                        this.hideBiblePreview(true);
-                        dispatchBibleReferenceLinkDecorations(this.view, Decoration.none);
-                    } else {
-                        this.scheduleReferenceLinkUpdate();
-                    }
-                }
-                if (!pluginRuntimeEnabled) {
-                    return;
-                }
-
-                if (this.lastActiveTranslationId !== plugin.activeTranslationId) {
-                    this.lastActiveTranslationId = plugin.activeTranslationId;
-                    this.lastParagraph = "";
-                    this.clickedReference = null;
-                    this.requestId += 1;
-                    plugin.refreshFloatingPreviewLabels();
-                    this.scheduleReferenceLinkUpdate();
-                }
-
-                const previewTriggerMode = plugin.getBiblePreviewTriggerMode();
-                if (this.lastPreviewTriggerMode !== previewTriggerMode) {
-                    this.lastPreviewTriggerMode = previewTriggerMode;
-                    this.clickedReference = null;
-                    this.hideBiblePreview(true);
-                }
-
-                if (update.docChanged || update.viewportChanged) {
-                    this.scheduleReferenceLinkUpdate();
-                }
-
-                if (!update.selectionSet && !update.docChanged) {
-                    return;
-                }
-
-                if (!plugin.hasImportedTranslations()) {
-                    this.lastParagraph = "";
-                    this.clickedReference = null;
-                    this.requestId += 1;
-                    this.hideBiblePreview();
-                    return;
-                }
-
-                if (previewTriggerMode === "clicked-reference") {
-                    if (update.docChanged) {
-                        this.updateClickedReferenceAfterDocumentChange(update);
-                    }
-                    return;
-                }
-
-                const paragraph = plugin.getCurrentParagraph(update);
-                if (paragraph === this.lastParagraph) {
-                    return;
-                }
-
-                this.lastParagraph = paragraph;
-                const currentRequestId = ++this.requestId;
-                if (!paragraph) {
-                    this.hideBiblePreview();
-                    return;
-                }
-
-                void plugin.analyzeParagraphAsync(paragraph).then((content) => {
-                    if (currentRequestId !== this.requestId || paragraph !== this.lastParagraph) {
-                        return;
-                    }
-                    if (content === null || content.plainText.length === 0) {
-                        this.hideBiblePreview();
-                        return;
-                    }
-                    plugin.showBiblePreviewContent(content, { type: "default" }, { reveal: plugin.shouldAutoOpenPreviewOnVerseChange() });
-                });
-            }
-
-            destroy() {
-                if (this.referenceLinkUpdateTimeout !== null) {
-                    window.clearTimeout(this.referenceLinkUpdateTimeout);
-                    this.referenceLinkUpdateTimeout = null;
-                }
-                this.view.dom.removeEventListener("click", this.editorClickHandler);
-                plugin.previewControllers.delete(this.view);
-                plugin.bibleReferenceLinkDecorationCache.delete(this.view);
-                plugin.editorViews.delete(this.view);
-            }
-
-            public refreshLocalizedLabels(): void {
-                plugin.refreshFloatingPreviewLabels();
-            }
-
-            public openBibleReferenceUnderCursor(showNotice = false): boolean {
-                if (!plugin.shouldRunBiblePreviewForEditor(this.view)) {
-                    if (showNotice) {
-                        new Notice(plugin.t("notice.pluginInactive"), 2500);
-                    }
-                    return false;
-                }
-                if (!plugin.hasImportedTranslations()) {
-                    if (showNotice) {
-                        new Notice(plugin.t("notice.noImportedTranslations"), 2500);
-                    }
-                    return false;
-                }
-                const position = this.view.state.selection.main.head;
-                const match = plugin.findBibleReferenceMatchAtPosition(this.view, position);
-                if (match === null) {
-                    if (showNotice) {
-                        new Notice(plugin.t("notice.referenceUnderCursorNotFound"), 2500);
-                    }
-                    return false;
-                }
-                this.openBibleReferenceMatch(match);
-                return true;
-            }
-
-            private handleEditorClick(event: MouseEvent): void {
-                if (!plugin.shouldRunBiblePreviewForEditor(this.view)) {
-                    return;
-                }
-                if (plugin.getBiblePreviewTriggerMode() !== "clicked-reference" || !plugin.hasImportedTranslations()) {
-                    return;
-                }
-                const position = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
-                if (position === null) {
-                    return;
-                }
-                const match = plugin.findBibleReferenceMatchAtPosition(this.view, position);
-                if (match === null) {
-                    return;
-                }
-                if (
-                    Platform.isMobileApp
-                    && plugin.getBiblePreviewDisplayMode() === "side-panel"
-                    && plugin.getFirstWorkspaceLeafOfType(BIBLE_PREVIEW_VIEW_TYPE) !== null
-                    && this.clickedReference?.from === match.from
-                    && this.clickedReference.to === match.to
-                    && this.clickedReference.text === match.text
-                ) {
-                    return;
-                }
-                event.preventDefault();
-                this.openBibleReferenceMatch(match);
-            }
-
-            private openBibleReferenceMatch(match: { from: number; to: number; text: string }): void {
-                this.clickedReference = match;
-                this.lastParagraph = "";
-                const currentRequestId = ++this.requestId;
-                void plugin.analyzeReferenceTextAsync(match.text).then((content) => {
-                    if (currentRequestId !== this.requestId || this.clickedReference?.text !== match.text) {
-                        return;
-                    }
-                    if (content === null || content.plainText.length === 0) {
-                        this.clickedReference = null;
-                        this.hideBiblePreview(true);
-                        return;
-                    }
-                    plugin.showBiblePreviewContent(content, { type: "default" }, { reveal: plugin.shouldAutoOpenPreviewOnVerseChange() });
-                });
-            }
-
-            private updateClickedReferenceAfterDocumentChange(update: ViewUpdate): void {
-                if (this.clickedReference === null) {
-                    return;
-                }
-                const currentReference = this.clickedReference;
-                if (this.didChangesTouchRange(update, currentReference.from, currentReference.to)) {
-                    this.clickedReference = null;
-                    this.hideBiblePreview(true);
-                    return;
-                }
-                const nextFrom = update.changes.mapPos(currentReference.from, 1);
-                const nextTo = update.changes.mapPos(currentReference.to, -1);
-                if (nextFrom >= nextTo) {
-                    this.clickedReference = null;
-                    this.hideBiblePreview(true);
-                    return;
-                }
-                const nextText = update.state.doc.sliceString(nextFrom, nextTo);
-                if (nextText !== currentReference.text) {
-                    this.clickedReference = null;
-                    this.hideBiblePreview(true);
-                    return;
-                }
-                const nextMatch = plugin.findBibleReferenceMatchAtPosition(this.view, nextFrom);
-                if (
-                    nextMatch === null
-                    || nextMatch.from !== nextFrom
-                    || nextMatch.to !== nextTo
-                    || nextMatch.text !== currentReference.text
-                ) {
-                    this.clickedReference = null;
-                    this.hideBiblePreview(true);
-                    return;
-                }
-                this.clickedReference = {
-                    ...currentReference,
-                    from: nextFrom,
-                    to: nextTo,
-                };
-            }
-
-            private didChangesTouchRange(update: ViewUpdate, from: number, to: number): boolean {
-                let touched = false;
-                update.changes.iterChangedRanges((changedFrom, changedTo) => {
-                    if (changedFrom === changedTo) {
-                        if (changedFrom > from && changedFrom < to) {
-                            touched = true;
-                        }
-                        return;
-                    }
-                    if (changedFrom < to && changedTo > from) {
-                        touched = true;
-                    }
-                });
-                return touched;
-            }
-
-            private hideBiblePreview(resetParagraphCache = false): void {
-                plugin.hideFloatingBiblePreview();
-                if (resetParagraphCache) {
-                    this.lastParagraph = "";
-                    this.clickedReference = null;
-                    this.requestId += 1;
-                }
-            }
-
-            private registerOutsideInteractionListeners(): void {
-                document.addEventListener("pointerdown", this.outsideInteractionHandler, true);
-                document.addEventListener("focusin", this.outsideInteractionHandler, true);
-            }
-
-            private unregisterOutsideInteractionListeners(): void {
-                document.removeEventListener("pointerdown", this.outsideInteractionHandler, true);
-                document.removeEventListener("focusin", this.outsideInteractionHandler, true);
-            }
-
-            private hideBiblePreviewIfEventIsOutsideEditor(event: Event): void {
-                const target = event.target;
-                if (!(target instanceof Node)) {
-                    return;
-                }
-                if (this.view.dom.contains(target) || plugin.isFloatingPreviewTarget(target)) {
-                    return;
-                }
-                this.hideBiblePreview(true);
-            }
-
-            private scheduleReferenceLinkUpdate(): void {
-                if (!plugin.shouldRunBiblePreviewForEditor(this.view)) {
-                    return;
-                }
-                if (this.referenceLinkUpdateTimeout !== null) {
-                    window.clearTimeout(this.referenceLinkUpdateTimeout);
-                }
-                this.referenceLinkUpdateTimeout = window.setTimeout(() => {
-                    this.referenceLinkUpdateTimeout = null;
-                    dispatchBibleReferenceLinkDecorations(this.view, plugin.createBibleReferenceLinkDecorations(this.view));
-                }, 75);
-            }
+        return createEditorCursorExtension({
+            getActiveTranslationId: () => this.activeTranslationId,
+            editorViews: this.editorRuntimeState.editorViews,
+            previewControllers: this.editorRuntimeState.previewControllers,
+            bibleReferenceLinkDecorationCache: this.editorRuntimeState.bibleReferenceLinkDecorationCache,
+            shouldRunBiblePreviewForEditor: (view) => this.shouldRunBiblePreviewForEditor(view),
+            getBiblePreviewTriggerMode: () => this.getBiblePreviewTriggerMode(),
+            getBiblePreviewDisplayMode: () => this.getBiblePreviewDisplayMode(),
+            hasImportedTranslations: () => this.hasImportedTranslations(),
+            hasBiblePreviewPane: () => this.getFirstWorkspaceLeafOfType(BIBLE_PREVIEW_VIEW_TYPE) !== null,
+            findBibleReferenceMatchAtPosition: (view, position) => findEditorBibleReferenceMatchAtPosition(view, position, (text) => this.bibleReferenceParser.parseMatches(text)),
+            getCurrentParagraph: getCurrentEditorParagraph,
+            analyzeParagraph: (paragraph) => this.analyzeParagraphAsync(paragraph),
+            analyzeReferenceText: (text) => this.analyzeReferenceTextAsync(text),
+            showBiblePreviewContent: (content) => this.showBiblePreviewContent(content, { type: "default" }, { reveal: this.shouldAutoOpenPreviewOnVerseChange() }),
+            refreshFloatingPreviewLabels: () => this.refreshFloatingPreviewLabels(),
+            hideFloatingBiblePreview: () => this.hideFloatingBiblePreview(),
+            createBibleReferenceLinkDecorations: (view) => createEditorReferenceLinkDecorations(this.createEditorReferenceLinkDecorationFlowInput(), view),
+            translate: (key) => this.t(key),
         });
-
-        return [
-            bibleReferenceLinkDecorationsField,
-            bibleReferenceLinkTheme,
-            cursorPlugin,
-        ];
     }
 
 
@@ -1827,82 +1481,23 @@ export default class BiblePlugin extends Plugin {
             && this.activeV2Data.translations[this.activeTranslationId] !== undefined;
     }
 
-    private createBibleReferenceLinkDecorations(view: EditorView): DecorationSet {
-        if (!this.shouldRunBiblePreviewForEditor(view)) {
-            this.bibleReferenceLinkDecorationCache.delete(view);
-            return Decoration.none;
-        }
-        if (!this.hasImportedTranslations()) {
-            this.bibleReferenceLinkDecorationCache.delete(view);
-            return Decoration.none;
-        }
-
-        const linkColor = this.getBibleReferenceLinkColor();
-        const rangeInputs: BibleReferenceLinkDecorationVisibleRangeInput[] = [];
-        let totalVisibleCharacters = 0;
-
-        for (const range of view.visibleRanges) {
-            const text = view.state.doc.sliceString(range.from, range.to);
-            if (text.length > MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS) {
-                continue;
-            }
-
-            totalVisibleCharacters += text.length;
-            if (totalVisibleCharacters > MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS) {
-                this.bibleReferenceLinkDecorationCache.delete(view);
-                return Decoration.none;
-            }
-
-            rangeInputs.push({ from: range.from, to: range.to, text });
-        }
-
-        const cacheKey = this.createBibleReferenceLinkDecorationCacheKey(rangeInputs, linkColor);
-        const cachedEntry = this.bibleReferenceLinkDecorationCache.get(view);
-        if (cachedEntry !== undefined && cachedEntry.key === cacheKey) {
-            return cachedEntry.decorations;
-        }
-
-        const builder = new RangeSetBuilder<Decoration>();
-
-        for (const range of rangeInputs) {
-            const matches = this.bibleReferenceParser.parseMatches(range.text);
-
-            for (const match of matches) {
-                builder.add(
-                    range.from + match.from,
-                    range.from + match.to,
-                    Decoration.mark({
-                        class: "bible-reference-link",
-                        attributes: { style: `color: ${linkColor};` },
-                    }),
-                );
-            }
-        }
-
-        const decorations = builder.finish();
-        this.bibleReferenceLinkDecorationCache.set(view, { key: cacheKey, decorations });
-        return decorations;
-    }
-
-    private createBibleReferenceLinkDecorationCacheKey(ranges: BibleReferenceLinkDecorationVisibleRangeInput[], linkColor: string): string {
-        return [
-            this.activeTranslationId ?? "",
-            linkColor,
-            ...ranges.map((range) => `${range.from}:${range.to}:${range.text.length}:${range.text}`),
-        ].join("\n");
+    private createEditorReferenceLinkDecorationFlowInput(): EditorReferenceLinkDecorationFlowInput {
+        return {
+            editorRuntimeState: this.editorRuntimeState,
+            activeTranslationId: this.activeTranslationId,
+            linkColor: this.getBibleReferenceLinkColor(),
+            shouldRunBiblePreviewForEditor: (editorView) => this.shouldRunBiblePreviewForEditor(editorView),
+            hasImportedTranslations: () => this.hasImportedTranslations(),
+            parseMatches: (text) => this.bibleReferenceParser.parseMatches(text),
+        };
     }
 
     private refreshBibleReferenceLinks(): void {
-        for (const view of this.editorViews) {
-            dispatchBibleReferenceLinkDecorations(view, this.createBibleReferenceLinkDecorations(view));
-        }
+        refreshEditorReferenceLinks(this.createEditorReferenceLinkDecorationFlowInput());
     }
 
     private clearBibleReferenceLinks(): void {
-        for (const view of this.editorViews) {
-            this.bibleReferenceLinkDecorationCache.delete(view);
-            dispatchBibleReferenceLinkDecorations(view, Decoration.none);
-        }
+        clearEditorReferenceLinks(this.createEditorReferenceLinkDecorationFlowInput());
     }
 
     private createBiblePreviewAnalyzerInput(): BiblePreviewAnalyzerInput {
@@ -1948,14 +1543,6 @@ export default class BiblePlugin extends Plugin {
 
     private getTranslationPreviewTitle(translationId: string): string {
         return TranslationController.getTranslationPreviewTitle(this.createTranslationControllerState(), translationId);
-    }
-
-    private findBibleReferenceMatchAtPosition(view: EditorView, position: number): { from: number; to: number; text: string } | null {
-        return findEditorBibleReferenceMatchAtPosition(view, position, (text) => this.bibleReferenceParser.parseMatches(text));
-    }
-
-    getCurrentParagraph(update: ViewUpdate): string {
-        return getCurrentEditorParagraph(update);
     }
 
     async openBibleIndexFolder(): Promise<void> {
@@ -2021,9 +1608,7 @@ export default class BiblePlugin extends Plugin {
         await this.savePluginSettings();
         this.refreshSettingsTab();
         this.refreshFloatingPreviewLabels();
-        for (const controller of this.previewControllers.values()) {
-            controller.refreshLocalizedLabels();
-        }
+        refreshEditorPreviewControllerLocalizedLabels(this.editorRuntimeState.previewControllers.values());
         this.readingModePreviewController?.refreshLocalizedLabels();
         for (const leaf of this.getWorkspaceLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)) {
             if (leaf.view instanceof BiblePreviewPaneView) {
