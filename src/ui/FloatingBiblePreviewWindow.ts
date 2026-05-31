@@ -205,8 +205,7 @@ export class FloatingBiblePreviewWindow {
         this.setPreviewButtonLabel(this.closePreviewButtonEl, this.getCloseAriaLabel());
         this.setPreviewButtonLabel(this.openInPanelButtonEl, this.getOpenInPanelAriaLabel());
         this.updateOpenInPanelButtonText();
-        this.collapsedButtonEl.setAttribute("aria-label", this.labels.getExpandAria());
-        this.collapsedButtonEl.title = this.labels.getExpandAria();
+        this.setCollapsedButtonLabel(this.collapsedButtonEl);
     }
 
     public containsTarget(target: Node): boolean {
@@ -416,7 +415,11 @@ export class FloatingBiblePreviewWindow {
     }
 
     private configurePreviewContentElement(): void {
-        this.setStyles(this.previewContentEl, {
+        this.stylePreviewContentElement(this.previewContentEl);
+    }
+
+    private stylePreviewContentElement(contentEl: HTMLElement): void {
+        this.setStyles(contentEl, {
             flex: "1 1 auto",
             minHeight: "0",
             padding: "8px 10px 18px",
@@ -432,8 +435,18 @@ export class FloatingBiblePreviewWindow {
         const buttonEl = document.createElement("button");
         buttonEl.type = "button";
         buttonEl.textContent = "📖";
+        this.setCollapsedButtonLabel(buttonEl);
+        this.styleCollapsedButton(buttonEl);
+        this.registerCollapsedButtonListeners(buttonEl);
+        return buttonEl;
+    }
+
+    private setCollapsedButtonLabel(buttonEl: HTMLButtonElement): void {
         buttonEl.setAttribute("aria-label", this.labels.getExpandAria());
         buttonEl.title = this.labels.getExpandAria();
+    }
+
+    private styleCollapsedButton(buttonEl: HTMLButtonElement): void {
         this.setStyles(buttonEl, {
             position: "fixed",
             display: "none",
@@ -452,17 +465,21 @@ export class FloatingBiblePreviewWindow {
             lineHeight: "1",
             padding: "0",
         });
+    }
+
+    private registerCollapsedButtonListeners(buttonEl: HTMLButtonElement): void {
         buttonEl.addEventListener("pointerdown", (event) => this.startCollapsedButtonDrag(event));
-        buttonEl.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (this.suppressCollapsedButtonClick) {
-                this.suppressCollapsedButtonClick = false;
-                return;
-            }
-            this.expandBiblePreviewFromCollapsedButton();
-        });
-        return buttonEl;
+        buttonEl.addEventListener("click", (event) => this.handleCollapsedButtonClick(event));
+    }
+
+    private handleCollapsedButtonClick(event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        if (this.suppressCollapsedButtonClick) {
+            this.suppressCollapsedButtonClick = false;
+            return;
+        }
+        this.expandBiblePreviewFromCollapsedButton();
     }
 
     private createPreviewIconButton(text: string, label: string): HTMLButtonElement {
