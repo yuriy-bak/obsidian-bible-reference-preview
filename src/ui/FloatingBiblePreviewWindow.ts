@@ -46,6 +46,8 @@ type PreviewSize = { width: number; height: number };
 type PreviewViewport = { left: number; top: number; width: number; height: number };
 type PreviewSafeMargins = { top: number; right: number; bottom: number; left: number };
 type PreviewBounds = { left: number; top: number; right: number; bottom: number };
+type PreviewSizeBounds = { maxWidth: number; maxHeight: number };
+type PreviewPositionBounds = { minLeft: number; maxLeft: number; minTop: number; maxTop: number };
 type PreviewPointerDelta = { x: number; y: number };
 type PreviewResizeStartEdges = { right: number; bottom: number };
 type PreviewResizeResult = PreviewPosition & PreviewSize;
@@ -78,6 +80,10 @@ const DEFAULT_MOBILE_HEIGHT = 220;
 const EDGE_SIZE = 8;
 const CORNER_SIZE = 16;
 const MOBILE_HANDLE_HEIGHT = 22;
+const MOBILE_SAFE_TOP_ANDROID = 72;
+const MOBILE_SAFE_TOP_DEFAULT = 56;
+const MOBILE_SAFE_SIDE = 8;
+const MOBILE_SAFE_BOTTOM = 12;
 
 type Disposable = () => void;
 
@@ -1391,20 +1397,36 @@ export class FloatingBiblePreviewWindow {
 
     private getPreviewPanelSize(viewportWidth: number, viewportHeight: number): PreviewSize {
         if (this.isMobilePreviewLayout(viewportWidth)) {
-            const height = this.customPreviewSize?.height ?? DEFAULT_MOBILE_HEIGHT;
-            const size = this.clampPreviewSize(this.getMobilePreviewWidth(viewportWidth), height, viewportWidth, viewportHeight);
-            this.customPreviewSize = size;
-            return size;
+            return this.getMobilePreviewPanelSize(viewportWidth, viewportHeight);
         }
 
-        if (this.customPreviewSize !== null) {
-            const clampedSize = this.clampPreviewSize(this.customPreviewSize.width, this.customPreviewSize.height, viewportWidth, viewportHeight);
-            this.customPreviewSize = clampedSize;
-            return clampedSize;
+        const customSize = this.getCustomPreviewPanelSize(viewportWidth, viewportHeight);
+        if (customSize !== null) {
+            return customSize;
         }
 
+        return this.getDefaultDesktopPreviewPanelSize(viewportWidth, viewportHeight);
+    }
+
+    private getMobilePreviewPanelSize(viewportWidth: number, viewportHeight: number): PreviewSize {
+        const height = this.customPreviewSize?.height ?? DEFAULT_MOBILE_HEIGHT;
+        const size = this.clampPreviewSize(this.getMobilePreviewWidth(viewportWidth), height, viewportWidth, viewportHeight);
+        this.customPreviewSize = size;
+        return size;
+    }
+
+    private getCustomPreviewPanelSize(viewportWidth: number, viewportHeight: number): PreviewSize | null {
+        if (this.customPreviewSize === null) {
+            return null;
+        }
+        const clampedSize = this.clampPreviewSize(this.customPreviewSize.width, this.customPreviewSize.height, viewportWidth, viewportHeight);
+        this.customPreviewSize = clampedSize;
+        return clampedSize;
+    }
+
+    private getDefaultDesktopPreviewPanelSize(viewportWidth: number, viewportHeight: number): PreviewSize {
         const defaultSize = this.clampPreviewSize(
-            Math.min(720, Math.max(320, Math.min(DEFAULT_DESKTOP_WIDTH, viewportWidth * 0.42))),
+            this.getDefaultDesktopPreviewWidth(viewportWidth),
             DEFAULT_DESKTOP_HEIGHT,
             viewportWidth,
             viewportHeight,
@@ -1413,13 +1435,25 @@ export class FloatingBiblePreviewWindow {
         return defaultSize;
     }
 
+    private getDefaultDesktopPreviewWidth(viewportWidth: number): number {
+        return Math.min(720, Math.max(320, Math.min(DEFAULT_DESKTOP_WIDTH, viewportWidth * 0.42)));
+    }
+
     private applyPreviewSize(width: number, height: number): void {
         const viewport = this.getBiblePreviewViewport();
+        this.applyPreviewPanelDimensions(width, height);
+        this.applyPreviewContentMaxHeight(height);
+        this.updateResizeHandleStyles(viewport.width);
+    }
+
+    private applyPreviewPanelDimensions(width: number, height: number): void {
         this.previewPanelEl.style.width = `${width}px`;
         this.previewPanelEl.style.height = `${height}px`;
         this.previewPanelEl.style.maxHeight = `${height}px`;
+    }
+
+    private applyPreviewContentMaxHeight(height: number): void {
         this.previewContentEl.style.maxHeight = `${Math.max(78, height - HEADER_HEIGHT)}px`;
-        this.updateResizeHandleStyles(viewport.width);
     }
 
     private getExpandedPreviewPositionForAnchor(anchorEl: HTMLElement): PreviewPosition {
@@ -1441,25 +1475,39 @@ export class FloatingBiblePreviewWindow {
     }
 
     private clampPreviewSize(width: number, height: number, viewportWidth: number, viewportHeight: number): PreviewSize {
-        const safeMargins = this.getBiblePreviewSafeMargins(viewportWidth);
-        const maxWidth = Math.max(MIN_WIDTH, viewportWidth - safeMargins.left - safeMargins.right);
-        const maxHeight = Math.max(MIN_HEIGHT, viewportHeight - safeMargins.top - safeMargins.bottom);
+        const bounds = this.getPreviewSizeBounds(viewportWidth, viewportHeight);
         return {
-            width: Math.min(Math.max(width, MIN_WIDTH), maxWidth),
-            height: Math.min(Math.max(height, MIN_HEIGHT), maxHeight),
+            width: Math.min(Math.max(width, MIN_WIDTH), bounds.maxWidth),
+            height: Math.min(Math.max(height, MIN_HEIGHT), bounds.maxHeight),
+        };
+    }
+
+    private getPreviewSizeBounds(viewportWidth: number, viewportHeight: number): PreviewSizeBounds {
+        const safeMargins = this.getBiblePreviewSafeMargins(viewportWidth);
+        return {
+            maxWidth: Math.max(MIN_WIDTH, viewportWidth - safeMargins.left - safeMargins.right),
+            maxHeight: Math.max(MIN_HEIGHT, viewportHeight - safeMargins.top - safeMargins.bottom),
         };
     }
 
     private clampBiblePreviewPosition(left: number, top: number, width: number, height: number): PreviewPosition {
+        const bounds = this.getPreviewPositionBounds(width, height);
+        return {
+            left: this.clampNumber(left, bounds.minLeft, bounds.maxLeft),
+            top: this.clampNumber(top, bounds.minTop, bounds.maxTop),
+        };
+    }
+
+    private getPreviewPositionBounds(width: number, height: number): PreviewPositionBounds {
         const viewport = this.getBiblePreviewViewport();
         const safeMargins = this.getBiblePreviewSafeMargins(viewport.width);
         const minLeft = viewport.left + safeMargins.left;
-        const maxLeft = Math.max(minLeft, viewport.left + viewport.width - width - safeMargins.right);
         const minTop = viewport.top + safeMargins.top;
-        const maxTop = Math.max(minTop, viewport.top + viewport.height - height - safeMargins.bottom);
         return {
-            left: this.clampNumber(left, minLeft, maxLeft),
-            top: this.clampNumber(top, minTop, maxTop),
+            minLeft,
+            maxLeft: Math.max(minLeft, viewport.left + viewport.width - width - safeMargins.right),
+            minTop,
+            maxTop: Math.max(minTop, viewport.top + viewport.height - height - safeMargins.bottom),
         };
     }
 
@@ -1468,19 +1516,27 @@ export class FloatingBiblePreviewWindow {
     }
 
     private getBiblePreviewViewport(): PreviewViewport {
-        const rootWorkspaceEl = document.querySelector(".workspace-split.mod-root");
-        if (rootWorkspaceEl instanceof HTMLElement) {
-            const rect = rootWorkspaceEl.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-                return {
-                    left: rect.left,
-                    top: rect.top,
-                    width: rect.width,
-                    height: rect.height,
-                };
-            }
-        }
+        return this.getWorkspacePreviewViewport() ?? this.getWindowPreviewViewport();
+    }
 
+    private getWorkspacePreviewViewport(): PreviewViewport | null {
+        const rootWorkspaceEl = document.querySelector(".workspace-split.mod-root");
+        if (!(rootWorkspaceEl instanceof HTMLElement)) {
+            return null;
+        }
+        const rect = rootWorkspaceEl.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+            return null;
+        }
+        return {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+        };
+    }
+
+    private getWindowPreviewViewport(): PreviewViewport {
         const viewport = window.visualViewport;
         return {
             left: viewport?.offsetLeft ?? 0,
@@ -1491,14 +1547,21 @@ export class FloatingBiblePreviewWindow {
     }
 
     private getBiblePreviewSafeMargins(viewportWidth: number): PreviewSafeMargins {
-        if (this.isMobilePreviewLayout(viewportWidth)) {
-            return {
-                top: Platform.isAndroidApp ? 72 : 56,
-                right: 8,
-                bottom: 12,
-                left: 8,
-            };
-        }
+        return this.isMobilePreviewLayout(viewportWidth)
+            ? this.getMobilePreviewSafeMargins()
+            : this.getDefaultPreviewSafeMargins();
+    }
+
+    private getMobilePreviewSafeMargins(): PreviewSafeMargins {
+        return {
+            top: Platform.isAndroidApp ? MOBILE_SAFE_TOP_ANDROID : MOBILE_SAFE_TOP_DEFAULT,
+            right: MOBILE_SAFE_SIDE,
+            bottom: MOBILE_SAFE_BOTTOM,
+            left: MOBILE_SAFE_SIDE,
+        };
+    }
+
+    private getDefaultPreviewSafeMargins(): PreviewSafeMargins {
         return {
             top: 0,
             right: 0,
