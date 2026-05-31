@@ -10,7 +10,7 @@ import { createBookMapping } from "./src/parsing/BookMapping";
 import { getBibleTextBlocks } from "./src/application/getBibleTexts";
 import { BiblePreviewComparisonBlock, BiblePreviewComparisonInput, BiblePreviewContent, BiblePreviewReferenceBlock, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./src/application/formatBibleTexts";
 import { importBibleFromEpub } from "./src/application/importBibleFromEpub";
-import { BibleTranslationImportModal, createImportSettingsDefaults, type BibleTranslationImportSettings } from "./src/ui/BibleTranslationImportModal";
+import { createImportSettingsDefaults, openBibleTranslationImportSettingsModal } from "./src/ui/BibleTranslationImportModal";
 import { JsZipEpubBibleImporter, isEpubImportAbortError } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
@@ -31,7 +31,7 @@ import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from
 import { BiblePreviewAnalyzer, type BiblePreviewAnalyzerInput } from "./src/application/BiblePreviewAnalyzer";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
 import { readAndValidateEpubFile } from "./src/import/EpubFileValidation";
-import { formatEpubImportProgress, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
+import { formatEpubImportProgress, formatEpubImportSuccessNotice, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -277,7 +277,12 @@ export default class BiblePlugin extends Plugin {
             const existingRepository = this.createObsidianBibleIndexRepository();
             await existingRepository.load();
             const translationAlreadyExists = existingRepository.getV2Data()?.translations[defaults.translationId] !== undefined;
-            const importSettings = await this.openImportSettingsModal(defaults, translationAlreadyExists);
+            const importSettings = await openBibleTranslationImportSettingsModal(
+                this.app,
+                defaults,
+                translationAlreadyExists,
+                this.settings.interfaceLanguage,
+            );
 
             if (importSettings === null) {
                 return;
@@ -322,18 +327,12 @@ export default class BiblePlugin extends Plugin {
                 progressModal.finish();
 
                 if (result.warnings.length > 0) console.warn("EPUB import warnings", result.warnings);
-                const warningsText = result.warnings.length === 0 ? "" : `\n${this.t("notice.importWarnings", { count: result.warnings.length })}`;
-                new Notice([
-                    this.t("notice.epubImported"),
-                    this.t("import.summary.translation", { translationName: result.translationName }),
-                    this.t("import.summary.language", { language: result.language }),
-                    this.t("import.summary.books", { count: result.report.books }),
-                    this.t("import.summary.chapters", { count: result.report.chapters }),
-                    this.t("import.summary.verses", { count: result.report.verses }),
-                    this.t("import.summary.footnotes", { count: result.report.footnotes }),
-                    this.t("import.summary.metadataSize", { size: formatKilobytes(result.report.metadataBytes) }),
-                    this.t("import.summary.booksSize", { size: formatMegabytes(result.report.booksBytes) }),
-                ].join("\n") + warningsText, 15000);
+                new Notice(formatEpubImportSuccessNotice(
+                    result,
+                    (key, params) => this.t(key, params),
+                    formatKilobytes,
+                    formatMegabytes,
+                ), 15000);
             } catch (error) {
                 progressModal.finish();
                 throw error;
@@ -346,15 +345,6 @@ export default class BiblePlugin extends Plugin {
             console.error("EPUB import failed", error);
             new Notice(this.t("notice.importFailed", { message: localizeImportErrorMessage(error, (key, params) => this.t(key, params)) }), 15000);
         }
-    }
-
-    private openImportSettingsModal(
-        defaults: BibleTranslationImportSettings,
-        translationAlreadyExists: boolean,
-    ): Promise<BibleTranslationImportSettings | null> {
-        return new Promise((resolve) => {
-            new BibleTranslationImportModal(this.app, defaults, translationAlreadyExists, this.settings.interfaceLanguage, resolve).open();
-        });
     }
 
     private createObsidianBibleIndexRepository(): ObsidianBibleIndexV2Repository {

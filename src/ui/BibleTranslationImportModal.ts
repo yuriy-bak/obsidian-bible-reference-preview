@@ -9,6 +9,17 @@ export type BibleTranslationImportSettings = {
     translationId: string;
 };
 
+export function openBibleTranslationImportSettingsModal(
+    app: App,
+    defaults: BibleTranslationImportSettings,
+    translationAlreadyExists: boolean,
+    locale: BiblePluginLocale,
+): Promise<BibleTranslationImportSettings | null> {
+    return new Promise((resolve) => {
+        new BibleTranslationImportModal(app, defaults, translationAlreadyExists, locale, resolve).open();
+    });
+}
+
 export class BibleTranslationImportModal extends Modal {
     private value: BibleTranslationImportSettings;
     private resolved = false;

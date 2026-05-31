@@ -1,7 +1,8 @@
-import type { EpubBibleImportProgress } from "../infrastructure/EpubBibleImporter";
+import type { EpubBibleImportProgress, EpubBibleImportResult } from "../infrastructure/EpubBibleImporter";
 import type { I18nKey } from "../i18n/I18n";
 
 export type EpubImportTranslate = (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
+export type EpubImportSizeFormatter = (bytes: number) => string;
 
 export function formatEpubImportProgress(progress: EpubBibleImportProgress, translate: EpubImportTranslate): string {
     return translate("notice.importProgress", {
@@ -9,6 +10,26 @@ export function formatEpubImportProgress(progress: EpubBibleImportProgress, tran
         processed: progress.processedCount,
         total: progress.totalCount,
     });
+}
+
+export function formatEpubImportSuccessNotice(
+    result: EpubBibleImportResult,
+    translate: EpubImportTranslate,
+    formatKilobytes: EpubImportSizeFormatter,
+    formatMegabytes: EpubImportSizeFormatter,
+): string {
+    const warningsText = result.warnings.length === 0 ? "" : `\n${translate("notice.importWarnings", { count: result.warnings.length })}`;
+    return [
+        translate("notice.epubImported"),
+        translate("import.summary.translation", { translationName: result.translationName }),
+        translate("import.summary.language", { language: result.language }),
+        translate("import.summary.books", { count: result.report.books }),
+        translate("import.summary.chapters", { count: result.report.chapters }),
+        translate("import.summary.verses", { count: result.report.verses }),
+        translate("import.summary.footnotes", { count: result.report.footnotes }),
+        translate("import.summary.metadataSize", { size: formatKilobytes(result.report.metadataBytes) }),
+        translate("import.summary.booksSize", { size: formatMegabytes(result.report.booksBytes) }),
+    ].join("\n") + warningsText;
 }
 
 export function localizeImportErrorMessage(error: unknown, translate: EpubImportTranslate): string {
