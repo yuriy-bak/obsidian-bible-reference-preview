@@ -341,11 +341,7 @@ export class FloatingBiblePreviewWindow {
         const copyButton = this.createPreviewIconButton("📋", this.labels.getCopyAria());
         this.copyPreviewButtonEl = copyButton;
         this.stopHeaderButtonDrag(copyButton);
-        copyButton.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            void this.copyBiblePreviewText();
-        });
+        copyButton.addEventListener("click", (event) => this.handleCopyPreviewButtonClick(event));
         headerEl.appendChild(copyButton);
     }
 
@@ -354,13 +350,7 @@ export class FloatingBiblePreviewWindow {
         this.comparisonPreviewButtonEl = comparisonButton;
         this.updateComparisonButtonText();
         this.stopHeaderButtonDrag(comparisonButton);
-        comparisonButton.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (this.previewContent !== null && this.labels.onToggleComparison !== undefined) {
-                this.labels.onToggleComparison(this.previewContent);
-            }
-        });
+        comparisonButton.addEventListener("click", (event) => this.handleComparisonPreviewButtonClick(event));
         headerEl.appendChild(comparisonButton);
     }
 
@@ -369,14 +359,7 @@ export class FloatingBiblePreviewWindow {
         this.openInPanelButtonEl = openInPanelButton;
         this.updateOpenInPanelButtonText();
         this.stopHeaderButtonDrag(openInPanelButton);
-        openInPanelButton.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (this.previewContent !== null && this.labels.onOpenInPanel !== undefined) {
-                this.labels.onOpenInPanel(this.previewContent);
-                this.hide();
-            }
-        });
+        openInPanelButton.addEventListener("click", (event) => this.handleOpenInPanelButtonClick(event));
         headerEl.appendChild(openInPanelButton);
     }
 
@@ -384,11 +367,7 @@ export class FloatingBiblePreviewWindow {
         const collapseButton = this.createPreviewIconButton("▾", this.labels.getCollapseAria());
         this.collapsePreviewButtonEl = collapseButton;
         this.stopHeaderButtonDrag(collapseButton);
-        collapseButton.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            this.collapseBiblePreview(collapseButton);
-        });
+        collapseButton.addEventListener("click", (event) => this.handleCollapsePreviewButtonClick(event, collapseButton));
         headerEl.appendChild(collapseButton);
     }
 
@@ -397,12 +376,43 @@ export class FloatingBiblePreviewWindow {
         this.closePreviewButtonEl = closeButton;
         this.styleClosePreviewButton(closeButton);
         this.stopHeaderButtonDrag(closeButton);
-        closeButton.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            this.hide();
-        });
+        closeButton.addEventListener("click", (event) => this.handleClosePreviewButtonClick(event));
         headerEl.appendChild(closeButton);
+    }
+
+    private handleCopyPreviewButtonClick(event: MouseEvent): void {
+        this.stopHeaderButtonClick(event);
+        void this.copyBiblePreviewText();
+    }
+
+    private handleComparisonPreviewButtonClick(event: MouseEvent): void {
+        this.stopHeaderButtonClick(event);
+        if (this.previewContent !== null && this.labels.onToggleComparison !== undefined) {
+            this.labels.onToggleComparison(this.previewContent);
+        }
+    }
+
+    private handleOpenInPanelButtonClick(event: MouseEvent): void {
+        this.stopHeaderButtonClick(event);
+        if (this.previewContent !== null && this.labels.onOpenInPanel !== undefined) {
+            this.labels.onOpenInPanel(this.previewContent);
+            this.hide();
+        }
+    }
+
+    private handleCollapsePreviewButtonClick(event: MouseEvent, collapseButton: HTMLButtonElement): void {
+        this.stopHeaderButtonClick(event);
+        this.collapseBiblePreview(collapseButton);
+    }
+
+    private handleClosePreviewButtonClick(event: MouseEvent): void {
+        this.stopHeaderButtonClick(event);
+        this.hide();
+    }
+
+    private stopHeaderButtonClick(event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
     }
 
     private styleClosePreviewButton(closeButton: HTMLButtonElement): void {

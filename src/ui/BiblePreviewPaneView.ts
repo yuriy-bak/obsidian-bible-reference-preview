@@ -195,33 +195,41 @@ export class BiblePreviewPaneView extends ItemView {
 
     private buildCopyButton(headerEl: HTMLElement): void {
         this.copyButtonEl = this.createIconButton(this.input.getCopyIcon(), this.input.getCopyAria());
-        this.copyButtonEl.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            void this.copyCurrentText();
-        });
+        this.copyButtonEl.addEventListener("click", (event) => this.handleCopyButtonClick(event));
         headerEl.appendChild(this.copyButtonEl);
     }
 
     private buildComparisonButton(headerEl: HTMLElement): void {
         this.comparisonButtonEl = this.createIconButton(this.input.getComparisonButtonText?.() ?? "⇄", this.input.getComparisonButtonAria?.() ?? this.input.getComparisonButtonText?.() ?? "Compare translations");
         this.updateComparisonButton();
-        this.comparisonButtonEl.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (this.currentContent !== null) this.input.onToggleComparison?.(this.currentContent);
-        });
+        this.comparisonButtonEl.addEventListener("click", (event) => this.handleComparisonButtonClick(event));
         headerEl.appendChild(this.comparisonButtonEl);
     }
 
     private buildOpenFloatingButton(headerEl: HTMLElement): void {
         this.openFloatingButtonEl = this.createIconButton(this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria());
-        this.openFloatingButtonEl.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (this.currentContent !== null) this.input.onOpenFloating(this.currentContent);
-        });
+        this.openFloatingButtonEl.addEventListener("click", (event) => this.handleOpenFloatingButtonClick(event));
         headerEl.appendChild(this.openFloatingButtonEl);
+    }
+
+    private handleCopyButtonClick(event: MouseEvent): void {
+        this.stopHeaderButtonClick(event);
+        void this.copyCurrentText();
+    }
+
+    private handleComparisonButtonClick(event: MouseEvent): void {
+        this.stopHeaderButtonClick(event);
+        if (this.currentContent !== null) this.input.onToggleComparison?.(this.currentContent);
+    }
+
+    private handleOpenFloatingButtonClick(event: MouseEvent): void {
+        this.stopHeaderButtonClick(event);
+        if (this.currentContent !== null) this.input.onOpenFloating(this.currentContent);
+    }
+
+    private stopHeaderButtonClick(event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
     }
 
     private buildContentContainer(): void {
