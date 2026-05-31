@@ -13,15 +13,15 @@ import { isEpubImportAbortError } from "./src/infrastructure/epub/JsZipEpubBible
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BiblePluginLocale, I18nKey, t } from "./src/i18n/I18n";
-import { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./src/ui/FloatingBiblePreviewWindow";
+import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./src/ui/FloatingBiblePreviewWindow";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "./src/ui/cssColorValidation";
 import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput } from "./src/ui/CssColorDialog";
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, ReferenceUsagePaneViewInput } from "./src/ui/ReferenceUsagePaneView";
-import { BiblePluginSettingTab } from "./src/ui/BiblePluginSettingTab";
+import type { BiblePluginSettingTab } from "./src/ui/BiblePluginSettingTab";
 
 import { ReferenceUsageResultsModal } from "./src/ui/ReferenceUsageResultsModal";
-import { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
+import type { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
 import { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageController";
 import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, type ReferenceUsageIndexServiceOptions, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 import { TranslationController, type TranslationControllerState } from "./src/translations/TranslationController";
@@ -31,6 +31,13 @@ import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, 
 import { executePreparedEpubImport, prepareEpubImportSettings } from "./src/import/EpubImportFlow";
 import { formatBibleIndexV2StatsNotice, formatEpubImportSuccessNotice, formatLastImportReportNotice, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
 import { ensureVaultDirectoryExists } from "./src/infrastructure/VaultPathUtils";
+import { registerPluginActiveRibbonIcon, registerPluginCommands } from "./src/lifecycle/PluginCommandRegistration";
+import { registerPluginViews } from "./src/lifecycle/PluginViewRegistration";
+import { initializeFloatingPreviewWindow, initializeReadingModePreviewController } from "./src/lifecycle/PluginPreviewInitialization";
+import { initializeSettingsTab, registerWorkspaceAndKeyboardHandlers } from "./src/lifecycle/PluginUiInitialization";
+import { registerContentProcessingExtensions } from "./src/lifecycle/PluginContentRegistration";
+import { processReadingModeBibleReferences as processReadingModeBibleReferenceLinks } from "./src/reading-mode/ReadingModeBibleReferenceProcessor";
+import { findBibleReferenceMatchAtPosition as findEditorBibleReferenceMatchAtPosition, getCurrentParagraph as getCurrentEditorParagraph } from "./src/editor/EditorTextAnalysis";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -107,8 +114,6 @@ type BiblePreviewController = {
 const DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR = "#7c3aed";
 const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
-const MAX_ANALYZED_PARAGRAPH_LINES = 40;
-const MAX_ANALYZED_PARAGRAPH_CHARACTERS = 2000;
 const MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS = 20000;
 const MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS = 50000;
 
@@ -152,8 +157,8 @@ export default class BiblePlugin extends Plugin {
         await this.loadReferenceUsageIndex();
         this.initializeFloatingPreviewWindow();
         this.registerPluginViews();
-        this.registerPluginCommands();
-        this.registerPluginActiveRibbonIcon();
+        this.registerCommands();
+        this.registerActiveRibbonIcon();
         this.initializeReadingModePreviewController();
         this.initializeSettingsTab();
         this.registerWorkspaceAndKeyboardHandlers();
@@ -163,79 +168,52 @@ export default class BiblePlugin extends Plugin {
     onunload() { }
 
     private initializeFloatingPreviewWindow(): void {
-        this.floatingPreviewWindow = new FloatingBiblePreviewWindow(this.createFloatingPreviewWindowInput());
-        this.register(() => this.floatingPreviewWindow?.destroy());
+        this.floatingPreviewWindow = initializeFloatingPreviewWindow({
+            createInput: () => this.createFloatingPreviewWindowInput(),
+            registerDisposer: (disposer) => this.register(disposer),
+        });
     }
 
     private registerPluginViews(): void {
-        this.registerView(BIBLE_PREVIEW_VIEW_TYPE, (leaf) => {
-            const view = new BiblePreviewPaneView(leaf, this.createBiblePreviewPaneViewInput());
-            if (this.lastPanePreviewContent !== null) {
-                window.setTimeout(() => view.setContent(this.lastPanePreviewContent!), 0);
-            }
-            return view;
-        });
-        this.registerView(REFERENCE_USAGE_VIEW_TYPE, (leaf) => new ReferenceUsagePaneView(leaf, this.createReferenceUsagePaneViewInput()));
-    }
-
-    private registerPluginCommands(): void {
-        this.addCommand({ id: "import-epub-bible", name: this.t("command.importEpubBible"), callback: () => this.openEpubFilePicker() });
-        this.addCommand({ id: "reload-bible-index", name: this.t("command.reloadBibleIndex"), callback: () => void this.reloadBibleIndex() });
-        this.addCommand({ id: "open-bible-index-folder", name: this.t("command.openBibleIndexFolder"), callback: () => void this.openBibleIndexFolder() });
-        this.addCommand({ id: "show-bible-index-stats", name: this.t("command.showBibleIndexStats"), callback: () => void this.showBibleIndexStats() });
-        this.addCommand({ id: "build-reference-usage-index", name: this.t("command.buildReferenceUsageIndex"), callback: () => void this.buildReferenceUsageIndex() });
-        this.addCommand({ id: "rebuild-reference-usage-index", name: this.t("command.rebuildReferenceUsageIndex"), callback: () => void this.rebuildReferenceUsageIndex() });
-        this.addCommand({ id: "clear-reference-usage-index", name: this.t("command.clearReferenceUsageIndex"), callback: () => void this.clearReferenceUsageIndex() });
-        this.addCommand({ id: "show-reference-usage-index-stats", name: this.t("command.showReferenceUsageIndexStats"), callback: () => void this.showReferenceUsageIndexStats() });
-        this.addCommand({ id: "find-reference-usages-under-cursor", name: this.t("command.findReferenceUsagesUnderCursor"), callback: () => void this.findReferenceUsagesUnderCursor() });
-        this.addCommand({ id: "open-reference-usages-panel-under-cursor", name: this.t("command.openReferenceUsagesPanelUnderCursor"), callback: () => void this.openReferenceUsagesPanelUnderCursor() });
-        this.addCommand({
-            id: "scroll-bible-preview-panel-page-down",
-            name: this.t("command.scrollBiblePreviewPanelPageDown"),
-            hotkeys: [{ modifiers: ["Alt"], key: "PageDown" }],
-            callback: () => void this.scrollBiblePreview("page-down"),
-        });
-        this.addCommand({
-            id: "scroll-bible-preview-panel-page-up",
-            name: this.t("command.scrollBiblePreviewPanelPageUp"),
-            hotkeys: [{ modifiers: ["Alt"], key: "PageUp" }],
-            callback: () => void this.scrollBiblePreview("page-up"),
-        });
-        this.addCommand({
-            id: "scroll-bible-preview-panel-top",
-            name: this.t("command.scrollBiblePreviewPanelTop"),
-            hotkeys: [{ modifiers: ["Alt"], key: "Home" }],
-            callback: () => void this.scrollBiblePreview("top"),
-        });
-        this.addCommand({
-            id: "scroll-bible-preview-panel-bottom",
-            name: this.t("command.scrollBiblePreviewPanelBottom"),
-            hotkeys: [{ modifiers: ["Alt"], key: "End" }],
-            callback: () => void this.scrollBiblePreview("bottom"),
-        });
-        this.addCommand({
-            id: "toggle-bible-preview-active",
-            name: this.t("command.togglePluginActive"),
-            callback: () => void this.togglePluginActive(),
-        });
-        this.addCommand({
-            id: "open-bible-reference-under-cursor",
-            name: this.t("command.openBibleReferenceUnderCursor"),
-            callback: () => this.openBibleReferenceUnderCursorFromActiveEditor(true),
+        registerPluginViews({
+            registerView: (viewType, viewCreator) => this.registerView(viewType, viewCreator),
+            createBiblePreviewPaneViewInput: () => this.createBiblePreviewPaneViewInput(),
+            createReferenceUsagePaneViewInput: () => this.createReferenceUsagePaneViewInput(),
+            getLastPanePreviewContent: () => this.lastPanePreviewContent,
         });
     }
 
-    private registerPluginActiveRibbonIcon(): void {
-        this.pluginActiveRibbonIconEl = this.addRibbonIcon(
-            "book-open",
-            this.getPluginActiveRibbonTitle(),
-            () => void this.togglePluginActive(),
-        );
+    private registerCommands(): void {
+        registerPluginCommands({
+            addCommand: (command) => this.addCommand(command),
+            translate: (key) => this.t(key),
+            openEpubFilePicker: () => this.openEpubFilePicker(),
+            reloadBibleIndex: () => this.reloadBibleIndex(),
+            openBibleIndexFolder: () => this.openBibleIndexFolder(),
+            showBibleIndexStats: () => this.showBibleIndexStats(),
+            buildReferenceUsageIndex: () => this.buildReferenceUsageIndex(),
+            rebuildReferenceUsageIndex: () => this.rebuildReferenceUsageIndex(),
+            clearReferenceUsageIndex: () => this.clearReferenceUsageIndex(),
+            showReferenceUsageIndexStats: () => this.showReferenceUsageIndexStats(),
+            findReferenceUsagesUnderCursor: () => this.findReferenceUsagesUnderCursor(),
+            openReferenceUsagesPanelUnderCursor: () => this.openReferenceUsagesPanelUnderCursor(),
+            scrollBiblePreview: (command) => this.scrollBiblePreview(command),
+            togglePluginActive: () => this.togglePluginActive(),
+            openBibleReferenceUnderCursorFromActiveEditor: (showNotice) => this.openBibleReferenceUnderCursorFromActiveEditor(showNotice),
+        });
+    }
+
+    private registerActiveRibbonIcon(): void {
+        this.pluginActiveRibbonIconEl = registerPluginActiveRibbonIcon({
+            addRibbonIcon: (icon, title, callback) => this.addRibbonIcon(icon, title, callback),
+            title: this.getPluginActiveRibbonTitle(),
+            togglePluginActive: () => this.togglePluginActive(),
+        });
         this.updatePluginActiveRibbonIcon();
     }
 
     private initializeReadingModePreviewController(): void {
-        this.readingModePreviewController = new BibleReadingModePreviewController({
+        this.readingModePreviewController = initializeReadingModePreviewController({
             showBiblePreviewContent: (content, anchor, options) => this.showBiblePreviewContent(content, anchor, options),
             shouldAutoOpenPreviewOnVerseChange: () => this.shouldAutoOpenPreviewOnVerseChange(),
             hasImportedTranslations: () => this.hasImportedTranslations(),
@@ -244,26 +222,36 @@ export default class BiblePlugin extends Plugin {
             refreshFloatingPreviewLabels: () => this.refreshFloatingPreviewLabels(),
             isFloatingPreviewTarget: (target) => this.isFloatingPreviewTarget(target),
             hideFloatingBiblePreview: () => this.hideFloatingBiblePreview(),
-        });
-        this.register(() => this.readingModePreviewController?.destroy());
+        }, (disposer) => this.register(disposer));
     }
 
     private initializeSettingsTab(): void {
-        this.settingsTab = new BiblePluginSettingTab(this.app, this);
-        this.addSettingTab(this.settingsTab);
+        this.settingsTab = initializeSettingsTab({
+            app: this.app,
+            plugin: this,
+            addSettingTab: (tab) => this.addSettingTab(tab),
+        });
     }
 
     private registerWorkspaceAndKeyboardHandlers(): void {
-        this.registerEvent(this.app.workspace.on("active-leaf-change", (activeLeaf) => this.handlePreviewActiveLeafChange(activeLeaf)));
-        document.addEventListener("keydown", this.panelEscapeKeydownHandler, true);
-        this.register(() => document.removeEventListener("keydown", this.panelEscapeKeydownHandler, true));
-        this.registerGlobalLinkOpenShortcutHandler();
+        registerWorkspaceAndKeyboardHandlers({
+            app: this.app,
+            registerEvent: (eventRef) => this.registerEvent(eventRef),
+            registerDisposer: (disposer) => this.register(disposer),
+            onActiveLeafChange: (activeLeaf) => this.handlePreviewActiveLeafChange(activeLeaf),
+            panelEscapeKeydownHandler: (event) => this.panelEscapeKeydownHandler(event),
+            registerGlobalLinkOpenShortcutHandler: () => this.registerGlobalLinkOpenShortcutHandler(),
+        });
     }
 
     private registerContentProcessingExtensions(): void {
-        this.registerReadingModeBibleReferenceLinks();
-        this.registerEditorExtension(this.createCursorExtension());
-        this.registerReferenceUsageIndexEvents();
+        registerContentProcessingExtensions({
+            registerMarkdownPostProcessor: (postProcessor) => this.registerMarkdownPostProcessor(postProcessor),
+            registerEditorExtension: (extension) => this.registerEditorExtension(extension),
+            createCursorExtension: () => this.createCursorExtension(),
+            processReadingModeBibleReferences: (element, context) => this.processReadingModeBibleReferences(element, context),
+            registerReferenceUsageIndexEvents: () => this.registerReferenceUsageIndexEvents(),
+        });
     }
 
     private async loadBibleIndex(): Promise<void> {
@@ -955,61 +943,15 @@ export default class BiblePlugin extends Plugin {
     }
 
 
-    private registerReadingModeBibleReferenceLinks(): void {
-        this.registerMarkdownPostProcessor((element, context) => this.processReadingModeBibleReferences(element, context));
-    }
 
     private processReadingModeBibleReferences(element: HTMLElement, _context: MarkdownPostProcessorContext): void {
-        if (!this.hasImportedTranslations()) return;
-        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
-            acceptNode: (node) => {
-                if (!(node instanceof Text) || node.data.trim().length === 0) return NodeFilter.FILTER_REJECT;
-                const parent = node.parentElement;
-                if (parent === null || parent.closest("a,code,pre,script,style,textarea,button,input,select,option,.math,.math-block,.math-inline,.cm-inline-code,.bible-reference-reading-link") !== null) {
-                    return NodeFilter.FILTER_REJECT;
-                }
-                return NodeFilter.FILTER_ACCEPT;
-            },
+        processReadingModeBibleReferenceLinks({
+            element,
+            hasImportedTranslations: () => this.hasImportedTranslations(),
+            parseMatches: (text) => this.bibleReferenceParser.parseMatches(text),
+            getBibleReferenceLinkColor: () => this.getBibleReferenceLinkColor(),
+            openBibleReference: (anchorEl, referenceText) => this.readingModePreviewController?.open(anchorEl, referenceText),
         });
-        const textNodes: Text[] = [];
-        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-            if (node instanceof Text) textNodes.push(node);
-        }
-        for (const textNode of textNodes) this.replaceReadingModeBibleReferencesInTextNode(textNode);
-    }
-
-    private replaceReadingModeBibleReferencesInTextNode(textNode: Text): void {
-        const sourceText = textNode.data;
-        const matches = this.bibleReferenceParser.parseMatches(sourceText);
-        if (matches.length === 0 || textNode.parentNode === null) return;
-        const fragment = document.createDocumentFragment();
-        let currentOffset = 0;
-        for (const match of matches) {
-            if (match.from < currentOffset) continue;
-            if (match.from > currentOffset) fragment.appendChild(document.createTextNode(sourceText.slice(currentOffset, match.from)));
-            const linkEl = document.createElement("a");
-            linkEl.href = "#";
-            linkEl.textContent = sourceText.slice(match.from, match.to);
-            linkEl.className = "bible-reference-link bible-reference-reading-link";
-            linkEl.dataset.bibleReference = match.text;
-            linkEl.style.color = this.getBibleReferenceLinkColor();
-            linkEl.style.textDecoration = "underline";
-            linkEl.style.textDecorationStyle = "dotted";
-            linkEl.style.cursor = "pointer";
-            linkEl.addEventListener("click", (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void this.openReadingModeBibleReference(linkEl, match.text);
-            });
-            fragment.appendChild(linkEl);
-            currentOffset = match.to;
-        }
-        if (currentOffset < sourceText.length) fragment.appendChild(document.createTextNode(sourceText.slice(currentOffset)));
-        textNode.parentNode.replaceChild(fragment, textNode);
-    }
-
-    private async openReadingModeBibleReference(anchorEl: HTMLElement, referenceText: string): Promise<void> {
-        await this.readingModePreviewController?.open(anchorEl, referenceText);
     }
 
     private registerGlobalLinkOpenShortcutHandler(): void {
@@ -2009,113 +1951,11 @@ export default class BiblePlugin extends Plugin {
     }
 
     private findBibleReferenceMatchAtPosition(view: EditorView, position: number): { from: number; to: number; text: string } | null {
-        const line = view.state.doc.lineAt(position);
-        const offset = position - line.from;
-        const matches = this.bibleReferenceParser.parseMatches(line.text);
-
-        for (const match of matches) {
-            if (offset >= match.from && offset <= match.to) {
-                return {
-                    from: line.from + match.from,
-                    to: line.from + match.to,
-                    text: match.text,
-                };
-            }
-        }
-
-        return null;
-    }
-
-    private getCurrentAnalysisFragment(update: ViewUpdate): { text: string; end: number } | null {
-        const doc = update.state.doc;
-        const cursorPosition = update.state.selection.main.head;
-        const line = doc.lineAt(cursorPosition);
-
-        if (line.text.trim() === "") {
-            return null;
-        }
-
-        if (line.text.length > MAX_ANALYZED_PARAGRAPH_CHARACTERS) {
-            return this.getCurrentLineAnalysisFragment(line.text, line.from, cursorPosition);
-        }
-
-        const lines: string[] = [line.text];
-        let characterCount = line.text.length;
-        let topLine = line;
-        let bottomLine = line;
-        let canExpandUp = true;
-        let canExpandDown = true;
-
-        while (lines.length < MAX_ANALYZED_PARAGRAPH_LINES && (canExpandUp || canExpandDown)) {
-            let expanded = false;
-
-            if (canExpandUp && lines.length < MAX_ANALYZED_PARAGRAPH_LINES) {
-                if (topLine.number <= 1) {
-                    canExpandUp = false;
-                } else {
-                    const previousLine = doc.line(topLine.number - 1);
-
-                    if (previousLine.text.trim() === "") {
-                        canExpandUp = false;
-                    } else if (characterCount + previousLine.text.length + 1 > MAX_ANALYZED_PARAGRAPH_CHARACTERS) {
-                        canExpandUp = false;
-                    } else {
-                        lines.unshift(previousLine.text);
-                        characterCount += previousLine.text.length + 1;
-                        topLine = previousLine;
-                        expanded = true;
-                    }
-                }
-            }
-
-            if (canExpandDown && lines.length < MAX_ANALYZED_PARAGRAPH_LINES) {
-                if (bottomLine.number >= doc.lines) {
-                    canExpandDown = false;
-                } else {
-                    const nextLine = doc.line(bottomLine.number + 1);
-
-                    if (nextLine.text.trim() === "") {
-                        canExpandDown = false;
-                    } else if (characterCount + nextLine.text.length + 1 > MAX_ANALYZED_PARAGRAPH_CHARACTERS) {
-                        canExpandDown = false;
-                    } else {
-                        lines.push(nextLine.text);
-                        characterCount += nextLine.text.length + 1;
-                        bottomLine = nextLine;
-                        expanded = true;
-                    }
-                }
-            }
-
-            if (!expanded && !canExpandUp && !canExpandDown) {
-                break;
-            }
-        }
-
-        return {
-            text: lines.join("\n"),
-            end: bottomLine.to,
-        };
-    }
-
-    private getCurrentLineAnalysisFragment(lineText: string, lineFrom: number, cursorPosition: number): { text: string; end: number } {
-        const cursorOffset = cursorPosition - lineFrom;
-        const halfLimit = Math.floor(MAX_ANALYZED_PARAGRAPH_CHARACTERS / 2);
-        let fromOffset = Math.max(0, cursorOffset - halfLimit);
-        let toOffset = Math.min(lineText.length, fromOffset + MAX_ANALYZED_PARAGRAPH_CHARACTERS);
-
-        if (toOffset === lineText.length) {
-            fromOffset = Math.max(0, toOffset - MAX_ANALYZED_PARAGRAPH_CHARACTERS);
-        }
-
-        return {
-            text: lineText.slice(fromOffset, toOffset),
-            end: lineFrom + toOffset,
-        };
+        return findEditorBibleReferenceMatchAtPosition(view, position, (text) => this.bibleReferenceParser.parseMatches(text));
     }
 
     getCurrentParagraph(update: ViewUpdate): string {
-        return this.getCurrentAnalysisFragment(update)?.text ?? "";
+        return getCurrentEditorParagraph(update);
     }
 
     async openBibleIndexFolder(): Promise<void> {
