@@ -748,19 +748,38 @@ export class FloatingBiblePreviewWindow {
     }
 
     private renderBiblePreview(): void {
-        if (this.previewText.length === 0) {
-            this.hide();
+        if (this.hidePreviewWhenEmpty()) {
             return;
         }
 
         if (this.isPreviewCollapsed) {
-            this.previewPanelEl.style.display = "none";
-            this.collapsedButtonEl.style.display = "block";
+            this.renderCollapsedPreviewState();
         } else {
-            this.collapsedButtonEl.style.display = "none";
-            this.previewPanelEl.style.display = "flex";
+            this.renderExpandedPreviewState();
         }
 
+        this.scheduleBiblePreviewPositionUpdate();
+    }
+
+    private hidePreviewWhenEmpty(): boolean {
+        if (this.previewText.length > 0) {
+            return false;
+        }
+        this.hide();
+        return true;
+    }
+
+    private renderCollapsedPreviewState(): void {
+        this.previewPanelEl.style.display = "none";
+        this.collapsedButtonEl.style.display = "block";
+    }
+
+    private renderExpandedPreviewState(): void {
+        this.collapsedButtonEl.style.display = "none";
+        this.previewPanelEl.style.display = "flex";
+    }
+
+    private scheduleBiblePreviewPositionUpdate(): void {
         window.requestAnimationFrame(() => this.updateBiblePreviewPosition());
     }
 
@@ -881,8 +900,7 @@ export class FloatingBiblePreviewWindow {
             this.previewPanelEl.offsetHeight,
         );
         this.customPreviewPosition = clamped;
-        this.previewPanelEl.style.left = `${clamped.left}px`;
-        this.previewPanelEl.style.top = `${clamped.top}px`;
+        this.applyPreviewPosition(clamped);
         event.preventDefault();
     }
 
@@ -937,8 +955,7 @@ export class FloatingBiblePreviewWindow {
         this.customPreviewPosition = { left: nextLeft, top: nextTop };
         this.customPreviewSize = { width, height };
         this.applyPreviewSize(width, height);
-        this.previewPanelEl.style.left = `${nextLeft}px`;
-        this.previewPanelEl.style.top = `${nextTop}px`;
+        this.applyPreviewPosition({ left: nextLeft, top: nextTop });
         event.preventDefault();
         event.stopPropagation();
     }
@@ -975,8 +992,7 @@ export class FloatingBiblePreviewWindow {
             COLLAPSED_BUTTON_SIZE,
         );
         this.collapsedButtonPosition = clamped;
-        this.collapsedButtonEl.style.left = `${clamped.left}px`;
-        this.collapsedButtonEl.style.top = `${clamped.top}px`;
+        this.applyCollapsedButtonPosition(clamped);
         event.preventDefault();
         event.stopPropagation();
     }
@@ -1079,7 +1095,7 @@ export class FloatingBiblePreviewWindow {
 
     private updateBiblePreviewPosition(): void {
         const visibleEl = this.isPreviewCollapsed ? this.collapsedButtonEl : this.previewPanelEl;
-        if (this.previewText.length === 0 || visibleEl.style.display === "none") {
+        if (this.isPreviewPositionUpdateSkipped(visibleEl)) {
             return;
         }
         const viewport = this.getBiblePreviewViewport();
@@ -1090,42 +1106,83 @@ export class FloatingBiblePreviewWindow {
             return;
         }
 
+        this.updateExpandedPreviewPosition(viewport, safeMargins);
+    }
+
+    private isPreviewPositionUpdateSkipped(visibleEl: HTMLElement): boolean {
+        return this.previewText.length === 0 || visibleEl.style.display === "none";
+    }
+
+    private updateExpandedPreviewPosition(
+        viewport: { left: number; top: number; width: number; height: number },
+        safeMargins: { top: number; right: number; bottom: number; left: number },
+    ): void {
         const panelSize = this.getPreviewPanelSize(viewport.width, viewport.height);
         this.applyPreviewSize(panelSize.width, panelSize.height);
 
-        if (this.customPreviewPosition !== null) {
-            const clamped = this.clampBiblePreviewPosition(
-                this.customPreviewPosition.left,
-                this.customPreviewPosition.top,
-                panelSize.width,
-                panelSize.height,
-            );
-            this.customPreviewPosition = clamped;
-            this.previewPanelEl.style.left = `${clamped.left}px`;
-            this.previewPanelEl.style.top = `${clamped.top}px`;
+        if (this.updateCustomPreviewPosition(panelSize)) {
             return;
         }
 
         if (this.isMobilePreviewLayout(viewport.width)) {
-            const clamped = this.clampBiblePreviewPosition(
-                viewport.left + safeMargins.left,
-                viewport.top + safeMargins.top,
-                panelSize.width,
-                panelSize.height,
-            );
-            this.previewPanelEl.style.left = `${clamped.left}px`;
-            this.previewPanelEl.style.top = `${clamped.top}px`;
+            this.updateMobilePreviewPosition(viewport, safeMargins, panelSize);
             return;
         }
 
+        this.updateDefaultDesktopPreviewPosition(viewport, safeMargins, panelSize);
+    }
+
+    private updateCustomPreviewPosition(panelSize: { width: number; height: number }): boolean {
+        if (this.customPreviewPosition === null) {
+            return false;
+        }
+        const clamped = this.clampBiblePreviewPosition(
+            this.customPreviewPosition.left,
+            this.customPreviewPosition.top,
+            panelSize.width,
+            panelSize.height,
+        );
+        this.customPreviewPosition = clamped;
+        this.applyPreviewPosition(clamped);
+        return true;
+    }
+
+    private updateMobilePreviewPosition(
+        viewport: { left: number; top: number; width: number; height: number },
+        safeMargins: { top: number; right: number; bottom: number; left: number },
+        panelSize: { width: number; height: number },
+    ): void {
+        const clamped = this.clampBiblePreviewPosition(
+            viewport.left + safeMargins.left,
+            viewport.top + safeMargins.top,
+            panelSize.width,
+            panelSize.height,
+        );
+        this.applyPreviewPosition(clamped);
+    }
+
+    private updateDefaultDesktopPreviewPosition(
+        viewport: { left: number; top: number; width: number; height: number },
+        safeMargins: { top: number; right: number; bottom: number; left: number },
+        panelSize: { width: number; height: number },
+    ): void {
         const clamped = this.clampBiblePreviewPosition(
             viewport.left + viewport.width - panelSize.width - safeMargins.right,
             viewport.top + viewport.height - panelSize.height - safeMargins.bottom,
             panelSize.width,
             panelSize.height,
         );
-        this.previewPanelEl.style.left = `${clamped.left}px`;
-        this.previewPanelEl.style.top = `${clamped.top}px`;
+        this.applyPreviewPosition(clamped);
+    }
+
+    private applyPreviewPosition(position: { left: number; top: number }): void {
+        this.previewPanelEl.style.left = `${position.left}px`;
+        this.previewPanelEl.style.top = `${position.top}px`;
+    }
+
+    private applyCollapsedButtonPosition(position: { left: number; top: number }): void {
+        this.collapsedButtonEl.style.left = `${position.left}px`;
+        this.collapsedButtonEl.style.top = `${position.top}px`;
     }
 
     private rememberCollapsedExpandAnchorOffset(anchorEl: HTMLElement): void {
@@ -1159,30 +1216,49 @@ export class FloatingBiblePreviewWindow {
         viewport: { left: number; top: number; width: number; height: number },
         safeMargins: { top: number; right: number; bottom: number; left: number },
     ): void {
-        if (this.collapsedButtonPosition !== null) {
-            const clamped = this.clampBiblePreviewPosition(
-                this.collapsedButtonPosition.left,
-                this.collapsedButtonPosition.top,
-                COLLAPSED_BUTTON_SIZE,
-                COLLAPSED_BUTTON_SIZE,
-            );
-            this.collapsedButtonPosition = clamped;
-            this.collapsedButtonEl.style.left = `${clamped.left}px`;
-            this.collapsedButtonEl.style.top = `${clamped.top}px`;
+        if (this.updateStoredCollapsedButtonPosition()) {
             return;
         }
-        if (this.customPreviewPosition !== null) {
-            const panelWidth = this.getCurrentPreviewPanelWidth();
-            const clamped = this.clampBiblePreviewPosition(
-                this.customPreviewPosition.left + Math.max(0, panelWidth - COLLAPSED_BUTTON_SIZE),
-                this.customPreviewPosition.top,
-                COLLAPSED_BUTTON_SIZE,
-                COLLAPSED_BUTTON_SIZE,
-            );
-            this.collapsedButtonEl.style.left = `${clamped.left}px`;
-            this.collapsedButtonEl.style.top = `${clamped.top}px`;
+        if (this.updateCollapsedButtonPositionFromCustomPreview()) {
             return;
         }
+        this.updateDefaultCollapsedButtonPosition(viewport, safeMargins);
+    }
+
+    private updateStoredCollapsedButtonPosition(): boolean {
+        if (this.collapsedButtonPosition === null) {
+            return false;
+        }
+        const clamped = this.clampBiblePreviewPosition(
+            this.collapsedButtonPosition.left,
+            this.collapsedButtonPosition.top,
+            COLLAPSED_BUTTON_SIZE,
+            COLLAPSED_BUTTON_SIZE,
+        );
+        this.collapsedButtonPosition = clamped;
+        this.applyCollapsedButtonPosition(clamped);
+        return true;
+    }
+
+    private updateCollapsedButtonPositionFromCustomPreview(): boolean {
+        if (this.customPreviewPosition === null) {
+            return false;
+        }
+        const panelWidth = this.getCurrentPreviewPanelWidth();
+        const clamped = this.clampBiblePreviewPosition(
+            this.customPreviewPosition.left + Math.max(0, panelWidth - COLLAPSED_BUTTON_SIZE),
+            this.customPreviewPosition.top,
+            COLLAPSED_BUTTON_SIZE,
+            COLLAPSED_BUTTON_SIZE,
+        );
+        this.applyCollapsedButtonPosition(clamped);
+        return true;
+    }
+
+    private updateDefaultCollapsedButtonPosition(
+        viewport: { left: number; top: number; width: number; height: number },
+        safeMargins: { top: number; right: number; bottom: number; left: number },
+    ): void {
         const clamped = this.clampBiblePreviewPosition(
             viewport.left + viewport.width - COLLAPSED_BUTTON_SIZE - safeMargins.right,
             this.isMobilePreviewLayout(viewport.width)
@@ -1191,8 +1267,7 @@ export class FloatingBiblePreviewWindow {
             COLLAPSED_BUTTON_SIZE,
             COLLAPSED_BUTTON_SIZE,
         );
-        this.collapsedButtonEl.style.left = `${clamped.left}px`;
-        this.collapsedButtonEl.style.top = `${clamped.top}px`;
+        this.applyCollapsedButtonPosition(clamped);
     }
 
     private getPreviewPanelSize(viewportWidth: number, viewportHeight: number): { width: number; height: number } {
