@@ -30,6 +30,7 @@ import { BiblePreviewAnalyzer, type BiblePreviewAnalyzerInput } from "./src/appl
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
 import { executePreparedEpubImport, prepareEpubImportSettings } from "./src/import/EpubImportFlow";
 import { formatBibleIndexV2StatsNotice, formatEpubImportSuccessNotice, formatLastImportReportNotice, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
+import { ensureVaultDirectoryExists } from "./src/infrastructure/VaultPathUtils";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -300,8 +301,6 @@ export default class BiblePlugin extends Plugin {
             new Notice(formatEpubImportSuccessNotice(
                 result,
                 (key, params) => this.t(key, params),
-                formatKilobytes,
-                formatMegabytes,
             ), 15000);
         } catch (error) {
             if (isEpubImportAbortError(error)) {
@@ -2089,7 +2088,7 @@ export default class BiblePlugin extends Plugin {
 
     async openBibleIndexFolder(): Promise<void> {
         const directoryPath = this.getBibleIndexDataDirectoryPath();
-        await this.ensureVaultDirectoryExists(directoryPath);
+        await ensureVaultDirectoryExists(this.app.vault.adapter, directoryPath);
 
         if (Platform.isMobileApp) {
             new Notice([
@@ -2108,14 +2107,6 @@ export default class BiblePlugin extends Plugin {
         new Notice(this.t("notice.indexFolder", { directoryPath }), 10000);
     }
 
-    private async ensureVaultDirectoryExists(path: string): Promise<void> {
-        const normalizedPath = normalizePath(path);
-        if (normalizedPath.length === 0 || await this.app.vault.adapter.exists(normalizedPath)) return;
-        const parentPath = getDirectoryPath(normalizedPath);
-        if (parentPath.length > 0 && parentPath !== normalizedPath) await this.ensureVaultDirectoryExists(parentPath);
-        if (!(await this.app.vault.adapter.exists(normalizedPath))) await this.app.vault.adapter.mkdir(normalizedPath);
-    }
-
     async showBibleIndexStats(): Promise<void> {
         const repository = this.createObsidianBibleIndexRepository();
         await repository.load();
@@ -2125,8 +2116,6 @@ export default class BiblePlugin extends Plugin {
             new Notice(formatLastImportReportNotice(
                 report,
                 (key, params) => this.t(key, params),
-                formatKilobytes,
-                formatMegabytes,
             ), 15000);
             return;
         }
@@ -2186,7 +2175,3 @@ function areStringArraysEqual(left: string[], right: string[]): boolean {
 }
 
 
-function formatKilobytes(bytes: number): string { return `${(bytes / 1024).toFixed(1)} KB`; }
-function formatMegabytes(bytes: number): string { return `${(bytes / 1024 / 1024).toFixed(2)} MB`; }
-function normalizePath(path: string): string { return path.split("\\").join("/").replace(/\/+/g, "/"); }
-function getDirectoryPath(path: string): string { const normalizedPath = normalizePath(path); const slashIndex = normalizedPath.lastIndexOf("/"); return slashIndex < 0 ? "" : normalizedPath.slice(0, slashIndex); }

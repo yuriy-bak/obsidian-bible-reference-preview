@@ -2,7 +2,6 @@ import type { EpubBibleImportProgress, EpubBibleImportReport, EpubBibleImportRes
 import type { I18nKey } from "../i18n/I18n";
 
 export type EpubImportTranslate = (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
-export type EpubImportSizeFormatter = (bytes: number) => string;
 
 export function formatEpubImportProgress(progress: EpubBibleImportProgress, translate: EpubImportTranslate): string {
     return translate("notice.importProgress", {
@@ -15,8 +14,6 @@ export function formatEpubImportProgress(progress: EpubBibleImportProgress, tran
 export function formatEpubImportSuccessNotice(
     result: EpubBibleImportResult,
     translate: EpubImportTranslate,
-    formatKilobytes: EpubImportSizeFormatter,
-    formatMegabytes: EpubImportSizeFormatter,
 ): string {
     const warningsText = result.warnings.length === 0 ? "" : `\n${translate("notice.importWarnings", { count: result.warnings.length })}`;
     return [
@@ -35,8 +32,6 @@ export function formatEpubImportSuccessNotice(
 export function formatLastImportReportNotice(
     report: EpubBibleImportReport,
     translate: EpubImportTranslate,
-    formatKilobytes: EpubImportSizeFormatter,
-    formatMegabytes: EpubImportSizeFormatter,
 ): string {
     return [
         translate("notice.lastImport"),
@@ -86,4 +81,12 @@ export function localizeImportErrorMessage(error: unknown, translate: EpubImport
 
 function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+function formatKilobytes(bytes: number): string {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+}
+
+function formatMegabytes(bytes: number): string {
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
