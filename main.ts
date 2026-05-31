@@ -25,13 +25,13 @@ import { createBiblePreviewPaneViewInput as createBiblePreviewPaneViewInputFlow,
 import type { BiblePluginSettingTab } from "./src/ui/BiblePluginSettingTab";
 
 import type { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
-import { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageController";
+import type { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageController";
 import { findReferenceUsagesUnderCursor as findReferenceUsagesUnderCursorFlow, openReferenceUsagesPanelUnderCursor as openReferenceUsagesPanelUnderCursorFlow } from "./src/reference-usage/ReferenceUsageUnderCursorFlow";
-import { showReferenceUsageResultsInPanel as showReferenceUsageResultsInPanelFlow } from "./src/reference-usage/ReferenceUsagePaneFlow";
+import type { ReferenceUsagePaneFlowInput } from "./src/reference-usage/ReferenceUsagePaneFlow";
 import { showReferenceUsagesForPreviewBlock as showReferenceUsagesForPreviewBlockFlow } from "./src/reference-usage/ReferenceUsagePreviewBlockFlow";
-import { createReferenceUsageUnderCursorFlowInput as createReferenceUsageUnderCursorFlowInputFlow } from "./src/reference-usage/ReferenceUsageUnderCursorFlowInputFactory";
-import { createReferenceUsagePaneFlowInput as createReferenceUsagePaneFlowInputFlow } from "./src/reference-usage/ReferenceUsagePaneFlowInputFactory";
-import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, type ReferenceUsageIndexServiceOptions, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
+import { createReferenceUsageController as createReferenceUsageControllerFlow, createReferenceUsageIndexService as createReferenceUsageIndexServiceFlow, createReferenceUsagePaneFlowInput as createReferenceUsagePaneFlowInputFlow, createReferenceUsagePreviewBlockFlowInput as createReferenceUsagePreviewBlockFlowInputFlow, createReferenceUsageUnderCursorFlowInput as createReferenceUsageUnderCursorFlowInputFlow, loadReferenceUsageIndexService as loadReferenceUsageIndexServiceFlow, type ReferenceUsagePluginFlowInput } from "./src/reference-usage/ReferenceUsagePluginFlow";
+import { buildReferenceUsageIndex as buildReferenceUsageIndexFlow, clearReferenceUsageIndex as clearReferenceUsageIndexFlow, getReferenceUsageExcludedFoldersText as getReferenceUsageExcludedFoldersTextFlow, isReferenceUsageIndexingEnabled as isReferenceUsageIndexingEnabledFlow, rebuildReferenceUsageIndex as rebuildReferenceUsageIndexFlow, setReferenceUsageAutoUpdate as setReferenceUsageAutoUpdateFlow, setReferenceUsageExcludedFoldersText as setReferenceUsageExcludedFoldersTextFlow, setReferenceUsageIndexingEnabled as setReferenceUsageIndexingEnabledFlow, shouldAutoUpdateReferenceUsageIndex as shouldAutoUpdateReferenceUsageIndexFlow, showReferenceUsageIndexStats as showReferenceUsageIndexStatsFlow, type ReferenceUsageSettingsFlowInput } from "./src/reference-usage/ReferenceUsageSettingsFlow";
+import type { ReferenceUsageIndexService } from "./src/reference-usage/ReferenceUsageIndexService";
 import { TranslationController, type TranslationControllerState } from "./src/translations/TranslationController";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
@@ -274,42 +274,39 @@ export default class BiblePlugin extends Plugin {
         await this.saveData(this.settings);
     }
 
-    private getReferenceUsageIndexServiceOptions(): ReferenceUsageIndexServiceOptions {
-        return Platform.isMobileApp
-            ? {
-                maxMarkdownFileSizeBytes: REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
-                buildYieldEveryFiles: REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES,
-            }
-            : {};
-    }
-
     private async loadReferenceUsageIndex(): Promise<void> {
-        this.referenceUsageIndexService = new ReferenceUsageIndexService(
-            this.app,
-            () => this.getBibleIndexDataDirectoryPath(),
-            (text) => this.bibleReferenceParser.parseMatches(text),
-            () => this.settings.referenceUsageExcludedFolders,
-            this.getReferenceUsageIndexServiceOptions(),
-        );
-        try {
-            await this.referenceUsageIndexService.load();
-        } catch (error) {
-            console.warn("Bible reference usage index load failed", error);
-            new Notice(this.t("notice.referenceUsageIndexLoadFailed"), 5000);
-        }
+        this.referenceUsageIndexService = await loadReferenceUsageIndexServiceFlow(this.createReferenceUsagePluginFlowInput());
     }
 
     private getReferenceUsageIndexService(): ReferenceUsageIndexService {
         if (this.referenceUsageIndexService === null) {
-            this.referenceUsageIndexService = new ReferenceUsageIndexService(
-                this.app,
-                () => this.getBibleIndexDataDirectoryPath(),
-                (text) => this.bibleReferenceParser.parseMatches(text),
-                () => this.settings.referenceUsageExcludedFolders,
-                this.getReferenceUsageIndexServiceOptions(),
-            );
+            this.referenceUsageIndexService = createReferenceUsageIndexServiceFlow(this.createReferenceUsagePluginFlowInput());
         }
         return this.referenceUsageIndexService;
+    }
+
+    private createReferenceUsagePluginFlowInput(): ReferenceUsagePluginFlowInput {
+        return {
+            app: this.app,
+            interfaceLanguage: this.settings.interfaceLanguage,
+            previewViewType: BIBLE_PREVIEW_VIEW_TYPE,
+            previewPanelSide: this.settings.previewPanelSide,
+            isMobile: Platform.isMobileApp,
+            getBibleIndexDataDirectoryPath: () => this.getBibleIndexDataDirectoryPath(),
+            parseMatches: (text) => this.bibleReferenceParser.parseMatches(text),
+            getReferenceUsageExcludedFolders: () => this.settings.referenceUsageExcludedFolders,
+            isIndexingEnabled: () => this.settings.referenceUsageIndexingEnabled,
+            shouldAutoProcessEvents: () => this.shouldAutoProcessReferenceUsageIndexEvents(),
+            hasImportedTranslations: () => this.hasImportedTranslations(),
+            getReferenceUnderCursor: () => getBibleReferenceMatchUnderCursorFromActiveEditor(this.createEditorReferenceUnderCursorInput(true)),
+            getReferenceUsageIndexService: () => this.getReferenceUsageIndexService(),
+            translate: (key, params) => this.t(key, params),
+            refreshSettings: () => this.refreshSettingsTab(),
+            waitForNextAnimationFrame: () => this.waitForNextAnimationFrame(),
+            setSuppressPreviewActiveLeafChange: (value) => {
+                this.suppressPreviewActiveLeafChange = value;
+            },
+        };
     }
 
     private updateBookMapping(v2Data: BibleIndexV2Data | null): void {
@@ -612,54 +609,64 @@ export default class BiblePlugin extends Plugin {
         this.refreshSettingsTab();
     }
 
+    private createReferenceUsageSettingsFlowInput(): ReferenceUsageSettingsFlowInput {
+        return {
+            referenceUsageIndexingEnabled: this.settings.referenceUsageIndexingEnabled,
+            referenceUsageAutoUpdate: this.settings.referenceUsageAutoUpdate,
+            referenceUsageExcludedFolders: this.settings.referenceUsageExcludedFolders,
+            setReferenceUsageIndexingEnabled: (referenceUsageIndexingEnabled) => {
+                this.settings = { ...this.settings, referenceUsageIndexingEnabled };
+            },
+            setReferenceUsageAutoUpdate: (referenceUsageAutoUpdate) => {
+                this.settings = { ...this.settings, referenceUsageAutoUpdate };
+            },
+            setReferenceUsageExcludedFolders: (referenceUsageExcludedFolders) => {
+                this.settings = { ...this.settings, referenceUsageExcludedFolders };
+            },
+            saveSettings: () => this.savePluginSettings(),
+            refreshSettings: () => this.refreshSettingsTab(),
+            getReferenceUsageController: () => this.getReferenceUsageController(),
+        };
+    }
+
     public isReferenceUsageIndexingEnabled(): boolean {
-        return this.settings.referenceUsageIndexingEnabled;
+        return isReferenceUsageIndexingEnabledFlow(this.createReferenceUsageSettingsFlowInput());
     }
 
     public shouldAutoUpdateReferenceUsageIndex(): boolean {
-        return this.settings.referenceUsageAutoUpdate;
+        return shouldAutoUpdateReferenceUsageIndexFlow(this.createReferenceUsageSettingsFlowInput());
     }
 
     public getReferenceUsageExcludedFoldersText(): string {
-        return this.settings.referenceUsageExcludedFolders.join("\n");
+        return getReferenceUsageExcludedFoldersTextFlow(this.createReferenceUsageSettingsFlowInput());
     }
 
     public async setReferenceUsageIndexingEnabled(referenceUsageIndexingEnabled: boolean): Promise<void> {
-        if (this.settings.referenceUsageIndexingEnabled === referenceUsageIndexingEnabled) return;
-        this.settings = { ...this.settings, referenceUsageIndexingEnabled };
-        await this.savePluginSettings();
-        this.refreshSettingsTab();
+        await setReferenceUsageIndexingEnabledFlow(this.createReferenceUsageSettingsFlowInput(), referenceUsageIndexingEnabled);
     }
 
     public async setReferenceUsageAutoUpdate(referenceUsageAutoUpdate: boolean): Promise<void> {
-        if (this.settings.referenceUsageAutoUpdate === referenceUsageAutoUpdate) return;
-        this.settings = { ...this.settings, referenceUsageAutoUpdate };
-        await this.savePluginSettings();
-        this.refreshSettingsTab();
+        await setReferenceUsageAutoUpdateFlow(this.createReferenceUsageSettingsFlowInput(), referenceUsageAutoUpdate);
     }
 
     public async setReferenceUsageExcludedFoldersText(value: string): Promise<void> {
-        const referenceUsageExcludedFolders = normalizeReferenceUsageExcludedFolders(value);
-        if (areStringArraysEqual(this.settings.referenceUsageExcludedFolders, referenceUsageExcludedFolders)) return;
-        this.settings = { ...this.settings, referenceUsageExcludedFolders };
-        await this.savePluginSettings();
-        this.refreshSettingsTab();
+        await setReferenceUsageExcludedFoldersTextFlow(this.createReferenceUsageSettingsFlowInput(), value);
     }
 
     public async buildReferenceUsageIndex(): Promise<void> {
-        await this.getReferenceUsageController().buildIndex(false);
+        await buildReferenceUsageIndexFlow(this.createReferenceUsageSettingsFlowInput());
     }
 
     public async rebuildReferenceUsageIndex(): Promise<void> {
-        await this.getReferenceUsageController().buildIndex(true);
+        await rebuildReferenceUsageIndexFlow(this.createReferenceUsageSettingsFlowInput());
     }
 
     public async clearReferenceUsageIndex(): Promise<void> {
-        await this.getReferenceUsageController().clearIndex();
+        await clearReferenceUsageIndexFlow(this.createReferenceUsageSettingsFlowInput());
     }
 
     public async showReferenceUsageIndexStats(): Promise<void> {
-        this.getReferenceUsageController().showStats();
+        showReferenceUsageIndexStatsFlow(this.createReferenceUsageSettingsFlowInput());
     }
 
     public async findReferenceUsagesUnderCursor(): Promise<void> {
@@ -671,39 +678,18 @@ export default class BiblePlugin extends Plugin {
     }
 
     private createReferenceUsageUnderCursorFlowInput() {
-        return createReferenceUsageUnderCursorFlowInputFlow({
-            app: this.app,
-            interfaceLanguage: this.settings.interfaceLanguage,
-            isIndexingEnabled: () => this.settings.referenceUsageIndexingEnabled,
-            getReferenceUnderCursor: () => getBibleReferenceMatchUnderCursorFromActiveEditor(this.createEditorReferenceUnderCursorInput(true)),
-            findUsages: (references) => this.getReferenceUsageIndexService().findUsages(references),
-            showResultsInPanel: (titleText, results) => showReferenceUsageResultsInPanelFlow(this.createReferenceUsagePaneFlowInput(), titleText, results),
-            waitForNextAnimationFrame: () => this.waitForNextAnimationFrame(),
-        });
+        return createReferenceUsageUnderCursorFlowInputFlow(this.createReferenceUsagePluginFlowInput());
     }
 
     private async showReferenceUsagesForPreviewBlock(block: BiblePreviewReferenceBlock): Promise<void> {
-        await showReferenceUsagesForPreviewBlockFlow({
-            isIndexingEnabled: () => this.settings.referenceUsageIndexingEnabled,
-            getIndexDisabledText: () => this.t("notice.referenceUsageIndexDisabled"),
-            findUsages: (references) => this.getReferenceUsageIndexService().findUsages(references),
-            formatTitle: (referenceText) => this.t("modal.referenceUsages.title", { reference: referenceText }),
-            createReferenceUsagePaneFlowInput: () => this.createReferenceUsagePaneFlowInput(),
-        }, block);
+        await showReferenceUsagesForPreviewBlockFlow(
+            createReferenceUsagePreviewBlockFlowInputFlow(this.createReferenceUsagePluginFlowInput()),
+            block,
+        );
     }
 
-    private createReferenceUsagePaneFlowInput(): Parameters<typeof showReferenceUsageResultsInPanelFlow>[0] {
-        return createReferenceUsagePaneFlowInputFlow({
-            app: this.app,
-            interfaceLanguage: this.settings.interfaceLanguage,
-            previewViewType: BIBLE_PREVIEW_VIEW_TYPE,
-            previewPanelSide: this.settings.previewPanelSide,
-            isMobile: Platform.isMobileApp,
-            waitForNextAnimationFrame: () => this.waitForNextAnimationFrame(),
-            setSuppressPreviewActiveLeafChange: (value) => {
-                this.suppressPreviewActiveLeafChange = value;
-            },
-        });
+    private createReferenceUsagePaneFlowInput(): ReferenceUsagePaneFlowInput {
+        return createReferenceUsagePaneFlowInputFlow(this.createReferenceUsagePluginFlowInput());
     }
 
     private waitForNextAnimationFrame(): Promise<void> {
@@ -734,15 +720,7 @@ export default class BiblePlugin extends Plugin {
 
     private getReferenceUsageController(): ReferenceUsageController {
         if (this.referenceUsageController === null) {
-            this.referenceUsageController = new ReferenceUsageController({
-                app: this.app,
-                getService: () => this.getReferenceUsageIndexService(),
-                isIndexingEnabled: () => this.settings.referenceUsageIndexingEnabled,
-                shouldAutoProcessEvents: () => this.shouldAutoProcessReferenceUsageIndexEvents(),
-                hasImportedTranslations: () => this.hasImportedTranslations(),
-                translate: (key, params) => this.t(key, params),
-                refreshSettings: () => this.refreshSettingsTab(),
-            });
+            this.referenceUsageController = createReferenceUsageControllerFlow(this.createReferenceUsagePluginFlowInput());
         }
         return this.referenceUsageController;
     }
