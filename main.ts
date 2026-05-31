@@ -38,6 +38,7 @@ import { analyzeParagraph as analyzeParagraphFlow, analyzeReferenceText as analy
 import { createEditorRuntimeState } from "./src/editor/EditorRuntimeState";
 import { dispatchEditorViewNoopUpdate } from "./src/editor/EditorViewFocus";
 import { handleLinkOpenShortcutKeydown as handleLinkOpenShortcutKeydownFlow, openBibleReferenceUnderCursorFromActiveEditor as openBibleReferenceUnderCursorFromActiveEditorFlow, type EditorLinkOpenShortcutFlowInput } from "./src/editor/EditorLinkOpenShortcutFlow";
+import { waitForNextAnimationFrame as waitForNextAnimationFrameFlow } from "./src/utils/AnimationFrame";
 
 
 const EMPTY_BIBLE_INDEX: BibleIndex = {
@@ -580,9 +581,7 @@ export default class BiblePlugin extends Plugin {
     }
 
     private waitForNextAnimationFrame(): Promise<void> {
-        return new Promise((resolve) => {
-            window.requestAnimationFrame(() => resolve());
-        });
+        return waitForNextAnimationFrameFlow();
     }
 
     private createEditorReferenceUnderCursorInput(showNotice: boolean): EditorReferenceUnderCursorInput {
@@ -788,7 +787,7 @@ export default class BiblePlugin extends Plugin {
         handleBiblePreviewActiveLeafChangeFlow(this.createBiblePreviewPaneStateFlowInput(), activeLeaf);
     }
     private waitForNextFrame(): Promise<void> {
-        return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+        return waitForNextAnimationFrameFlow();
     }
     public hideFloatingBiblePreview(resetPosition = false): void {
         hideFloatingBiblePreviewFlow(this.createBiblePreviewPluginFlowInput(), resetPosition);
