@@ -10,7 +10,6 @@ import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/Obsidian
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BiblePluginLocale, I18nKey, t } from "./src/i18n/I18n";
 import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
-import { normalizeBibleReferenceLinkColor } from "./src/ui/cssColorValidation";
 import type { CssColorDialogInput } from "./src/ui/CssColorDialog";
 import { BIBLE_PREVIEW_VIEW_TYPE, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
 import { refreshBiblePreviewLocalizedLabels as refreshBiblePreviewLocalizedLabelsFlow } from "./src/ui/BiblePreviewLocalizedRefreshFlow";
@@ -26,22 +25,19 @@ import { showReferenceUsagesForPreviewBlock as showReferenceUsagesForPreviewBloc
 import { createReferenceUsageController as createReferenceUsageControllerFlow, createReferenceUsageIndexService as createReferenceUsageIndexServiceFlow, createReferenceUsagePaneFlowInput as createReferenceUsagePaneFlowInputFlow, createReferenceUsagePreviewBlockFlowInput as createReferenceUsagePreviewBlockFlowInputFlow, createReferenceUsageUnderCursorFlowInput as createReferenceUsageUnderCursorFlowInputFlow, loadReferenceUsageIndexService as loadReferenceUsageIndexServiceFlow, registerReferenceUsageIndexEvents as registerReferenceUsageIndexEventsFlow, type ReferenceUsagePluginFlowInput } from "./src/reference-usage/ReferenceUsagePluginFlow";
 import { buildReferenceUsageIndex as buildReferenceUsageIndexFlow, clearReferenceUsageIndex as clearReferenceUsageIndexFlow, getReferenceUsageExcludedFoldersText as getReferenceUsageExcludedFoldersTextFlow, isReferenceUsageIndexingEnabled as isReferenceUsageIndexingEnabledFlow, rebuildReferenceUsageIndex as rebuildReferenceUsageIndexFlow, setReferenceUsageAutoUpdate as setReferenceUsageAutoUpdateFlow, setReferenceUsageExcludedFoldersText as setReferenceUsageExcludedFoldersTextFlow, setReferenceUsageIndexingEnabled as setReferenceUsageIndexingEnabledFlow, shouldAutoUpdateReferenceUsageIndex as shouldAutoUpdateReferenceUsageIndexFlow, showReferenceUsageIndexStats as showReferenceUsageIndexStatsFlow, type ReferenceUsageSettingsFlowInput } from "./src/reference-usage/ReferenceUsageSettingsFlow";
 import type { ReferenceUsageIndexService } from "./src/reference-usage/ReferenceUsageIndexService";
-import type { TranslationControllerState } from "./src/translations/TranslationController";
-import { createTranslationControllerState as createTranslationControllerStateFlow, getPreviewComparisonTranslationOptions as getPreviewComparisonTranslationOptionsFlow, getTranslationSettingsItems as getTranslationSettingsItemsFlow, moveTranslation as moveTranslationFlow, promoteTranslationToTop as promoteTranslationToTopFlow, selectActiveTranslationId as selectActiveTranslationIdFlow, setComparisonTranslationEnabled as setComparisonTranslationEnabledFlow, setTranslationOrder as setTranslationOrderFlow, syncTranslationOrder as syncTranslationOrderFlow, type TranslationSettingsFlowInput } from "./src/translations/TranslationSettingsFlow";
-import { getActiveTranslationDisplayName as getActiveTranslationDisplayNameFlow, getActiveTranslationPreviewTitle as getActiveTranslationPreviewTitleFlow, type TranslationDisplayFlowInput } from "./src/translations/TranslationDisplayFlow";
-import { deleteImportedTranslation as deleteImportedTranslationFlow, type TranslationDeleteFlowInput } from "./src/translations/TranslationDeleteFlow";
-import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
+import { createTranslationControllerState as createTranslationControllerStateFlow, deleteImportedTranslation as deleteImportedTranslationFlow, getActiveTranslationDisplayName as getActiveTranslationDisplayNameFlow, getActiveTranslationPreviewTitle as getActiveTranslationPreviewTitleFlow, getPreviewComparisonTranslationOptions as getPreviewComparisonTranslationOptionsFlow, getTranslationSettingsItems as getTranslationSettingsItemsFlow, moveTranslation as moveTranslationFlow, promoteTranslationToTop as promoteTranslationToTopFlow, selectActiveTranslationId as selectActiveTranslationIdFlow, setComparisonTranslationEnabled as setComparisonTranslationEnabledFlow, setTranslationOrder as setTranslationOrderFlow, syncTranslationOrder as syncTranslationOrderFlow, type PreviewComparisonTranslationOption, type TranslationControllerState, type TranslationPluginFlowInput, type TranslationSettingsItem } from "./src/translations/TranslationPluginFlow";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
-import { getBibleLinkOpenShortcut as getBibleLinkOpenShortcutFlow, getBiblePreviewDisplayMode as getBiblePreviewDisplayModeFlow, getBiblePreviewPanelSide as getBiblePreviewPanelSideFlow, getBiblePreviewTriggerMode as getBiblePreviewTriggerModeFlow, getBibleReferenceLinkColorPickerValue as getBibleReferenceLinkColorPickerValueFlow, getFloatingPreviewBackgroundColor as getFloatingPreviewBackgroundColorFlow, getFloatingPreviewBackgroundColorPickerValue as getFloatingPreviewBackgroundColorPickerValueFlow, getPluginActiveRibbonTitle as getPluginActiveRibbonTitleFlow, isBibleReferenceLinkColorDefault as isBibleReferenceLinkColorDefaultFlow, isFloatingPreviewBackgroundColorDefault as isFloatingPreviewBackgroundColorDefaultFlow, isPluginActive as isPluginActiveFlow, isPreviewComparisonEnabled as isPreviewComparisonEnabledFlow, openCssColorDialog as openCssColorDialogFlow, openFloatingPreviewBackgroundColorDialog as openFloatingPreviewBackgroundColorDialogFlow, resetBibleReferenceLinkColor as resetBibleReferenceLinkColorFlow, resetFloatingPreviewBackgroundColor as resetFloatingPreviewBackgroundColorFlow, setAutoOpenPreviewOnVerseChange as setAutoOpenPreviewOnVerseChangeFlow, setBibleLinkOpenShortcut as setBibleLinkOpenShortcutFlow, setBiblePreviewDisplayMode as setBiblePreviewDisplayModeFlow, setBiblePreviewPanelSide as setBiblePreviewPanelSideFlow, setBiblePreviewTriggerMode as setBiblePreviewTriggerModeFlow, setBibleReferenceLinkColor as setBibleReferenceLinkColorFlow, setClosePreviewOnActiveLeafChange as setClosePreviewOnActiveLeafChangeFlow, setFloatingPreviewBackgroundColor as setFloatingPreviewBackgroundColorFlow, setInterceptLinkOpenShortcut as setInterceptLinkOpenShortcutFlow, setPluginActive as setPluginActiveFlow, setPreviewComparisonEnabled as setPreviewComparisonEnabledFlow, shouldAutoOpenPreviewOnVerseChange as shouldAutoOpenPreviewOnVerseChangeFlow, shouldClosePreviewOnActiveLeafChange as shouldClosePreviewOnActiveLeafChangeFlow, shouldInterceptLinkOpenShortcut as shouldInterceptLinkOpenShortcutFlow, togglePluginActive as togglePluginActiveFlow, type PluginSettingsFlowInput } from "./src/settings/PluginSettingsFlow";
+import { getBibleLinkOpenShortcut as getBibleLinkOpenShortcutFlow, getBiblePreviewDisplayMode as getBiblePreviewDisplayModeFlow, getBiblePreviewPanelSide as getBiblePreviewPanelSideFlow, getBiblePreviewTriggerMode as getBiblePreviewTriggerModeFlow, getBibleReferenceLinkColor as getBibleReferenceLinkColorFlow, getBibleReferenceLinkColorPickerValue as getBibleReferenceLinkColorPickerValueFlow, getFloatingPreviewBackgroundColor as getFloatingPreviewBackgroundColorFlow, getFloatingPreviewBackgroundColorPickerValue as getFloatingPreviewBackgroundColorPickerValueFlow, getInterfaceLanguage as getInterfaceLanguageFlow, getPluginActiveRibbonTitle as getPluginActiveRibbonTitleFlow, isBibleReferenceLinkColorDefault as isBibleReferenceLinkColorDefaultFlow, isFloatingPreviewBackgroundColorDefault as isFloatingPreviewBackgroundColorDefaultFlow, isPluginActive as isPluginActiveFlow, isPreviewComparisonEnabled as isPreviewComparisonEnabledFlow, openCssColorDialog as openCssColorDialogFlow, openFloatingPreviewBackgroundColorDialog as openFloatingPreviewBackgroundColorDialogFlow, resetBibleReferenceLinkColor as resetBibleReferenceLinkColorFlow, resetFloatingPreviewBackgroundColor as resetFloatingPreviewBackgroundColorFlow, setAutoOpenPreviewOnVerseChange as setAutoOpenPreviewOnVerseChangeFlow, setBibleLinkOpenShortcut as setBibleLinkOpenShortcutFlow, setBiblePreviewDisplayMode as setBiblePreviewDisplayModeFlow, setBiblePreviewPanelSide as setBiblePreviewPanelSideFlow, setBiblePreviewTriggerMode as setBiblePreviewTriggerModeFlow, setBibleReferenceLinkColor as setBibleReferenceLinkColorFlow, setClosePreviewOnActiveLeafChange as setClosePreviewOnActiveLeafChangeFlow, setFloatingPreviewBackgroundColor as setFloatingPreviewBackgroundColorFlow, setInterceptLinkOpenShortcut as setInterceptLinkOpenShortcutFlow, setInterfaceLanguage as setInterfaceLanguageFlow, setPluginActive as setPluginActiveFlow, setPreviewComparisonEnabled as setPreviewComparisonEnabledFlow, shouldAutoOpenPreviewOnVerseChange as shouldAutoOpenPreviewOnVerseChangeFlow, shouldClosePreviewOnActiveLeafChange as shouldClosePreviewOnActiveLeafChangeFlow, shouldInterceptLinkOpenShortcut as shouldInterceptLinkOpenShortcutFlow, togglePluginActive as togglePluginActiveFlow, type PluginSettingsFlowInput } from "./src/settings/PluginSettingsFlow";
 import { importEpubFile as importEpubFileFlow, loadBibleIndex as loadBibleIndexFlow, openBibleIndexFolder as openBibleIndexFolderFlow, openEpubFilePicker as openEpubFilePickerFlow, reloadBibleIndex as reloadBibleIndexFlow, showBibleIndexStats as showBibleIndexStatsFlow, type BibleIndexPluginFlowInput } from "./src/import/BibleIndexPluginFlow";
 import { initializePluginLifecycle as initializePluginLifecycleFlow, type PluginLifecycleFlowInput } from "./src/lifecycle/PluginLifecycleFlow";
 import { initializePluginStartup as initializePluginStartupFlow, type PluginStartupFlowInput } from "./src/lifecycle/PluginStartupFlow";
-import { processReadingModeBibleReferences as processReadingModeBibleReferenceLinks } from "./src/reading-mode/ReadingModeBibleReferenceProcessor";
+import { processReadingModeBibleReferences as processReadingModeBibleReferenceLinks, type ReadingModePluginFlowInput } from "./src/reading-mode/ReadingModePluginFlow";
 import { findBibleReferenceMatchAtPosition as findEditorBibleReferenceMatchAtPosition, getCurrentParagraph as getCurrentEditorParagraph } from "./src/editor/EditorTextAnalysis";
 import { getBibleReferenceMatchUnderCursorFromActiveEditor, type EditorReferenceUnderCursorInput } from "./src/editor/EditorReferenceUnderCursor";
 import { analyzeParagraph as analyzeParagraphFlow, analyzeReferenceText as analyzeReferenceTextFlow, clearBibleReferenceLinks as clearBibleReferenceLinksFlow, createCursorExtension as createCursorExtensionFlow, rebuildBiblePreviewContent as rebuildBiblePreviewContentFlow, refreshBibleReferenceLinks as refreshBibleReferenceLinksFlow, toggleBiblePreviewComparison as toggleBiblePreviewComparisonFlow, type EditorPluginFlowInput } from "./src/editor/EditorPluginFlow";
 import { createEditorRuntimeState } from "./src/editor/EditorRuntimeState";
-import { dispatchEditorViewNoopUpdate, findFocusedEditorPreviewController } from "./src/editor/EditorViewFocus";
+import { dispatchEditorViewNoopUpdate } from "./src/editor/EditorViewFocus";
+import { handleLinkOpenShortcutKeydown as handleLinkOpenShortcutKeydownFlow, openBibleReferenceUnderCursorFromActiveEditor as openBibleReferenceUnderCursorFromActiveEditorFlow, type EditorLinkOpenShortcutFlowInput } from "./src/editor/EditorLinkOpenShortcutFlow";
 
 
 const EMPTY_BIBLE_INDEX: BibleIndex = {
@@ -249,7 +245,7 @@ export default class BiblePlugin extends Plugin {
         this.refreshBibleReferenceLinks();
     }
 
-    private createTranslationSettingsFlowInput(): TranslationSettingsFlowInput {
+    private createTranslationPluginFlowInput(): TranslationPluginFlowInput {
         return {
             getV2Data: () => this.activeV2Data,
             getActiveTranslationId: () => this.activeTranslationId,
@@ -269,46 +265,63 @@ export default class BiblePlugin extends Plugin {
             showCurrentTranslationNotice: () => new Notice(this.t("notice.currentTranslation", { translationName: this.getActiveTranslationDisplayName() }), 4000),
             refreshSettings: () => this.refreshSettingsTab(),
             refreshVisibleBiblePreviewContent: () => this.refreshVisibleBiblePreviewContent(),
+            getBibleIndexV2Data: () => this.activeV2Data,
+            createRepository: () => this.createObsidianBibleIndexRepository(),
+            confirmDeleteTranslation: (translationName) => window.confirm([
+                this.t("confirm.deleteTranslation.title", { translationName }),
+                "",
+                this.t("confirm.deleteTranslation.filesWillBeDeleted"),
+                this.t("confirm.deleteTranslation.reimportHint"),
+            ].join("\n")),
+            setBibleIndex: (bibleIndex) => {
+                this.bibleIndex = bibleIndex;
+            },
+            setBibleIndexV2Data: (v2Data) => {
+                this.activeV2Data = v2Data;
+            },
+            showTranslationDeletedNotice: (translationName) => new Notice(this.t("notice.translationDeleted", { translationName }), 5000),
+            getNoImportedTranslationText: () => this.t("translation.noImported"),
+            getPreviewTitleFallbackText: () => this.t("preview.titleFallback"),
         };
     }
 
     private createTranslationControllerState(v2Data: BibleIndexV2Data | null = this.activeV2Data): TranslationControllerState {
-        return createTranslationControllerStateFlow(this.createTranslationSettingsFlowInput(), v2Data);
+        return createTranslationControllerStateFlow(this.createTranslationPluginFlowInput(), v2Data);
     }
 
     private selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string | null {
-        return selectActiveTranslationIdFlow(this.createTranslationSettingsFlowInput(), v2Data);
+        return selectActiveTranslationIdFlow(this.createTranslationPluginFlowInput(), v2Data);
     }
 
     private async syncTranslationOrder(
         v2Data: BibleIndexV2Data | null,
         preferredTranslationId?: string,
     ): Promise<void> {
-        await syncTranslationOrderFlow(this.createTranslationSettingsFlowInput(), v2Data, preferredTranslationId);
+        await syncTranslationOrderFlow(this.createTranslationPluginFlowInput(), v2Data, preferredTranslationId);
     }
 
     private async promoteTranslationToTop(translationId: string): Promise<void> {
-        await promoteTranslationToTopFlow(this.createTranslationSettingsFlowInput(), translationId);
+        await promoteTranslationToTopFlow(this.createTranslationPluginFlowInput(), translationId);
     }
 
     public getTranslationSettingsItems(): TranslationSettingsItem[] {
-        return getTranslationSettingsItemsFlow(this.createTranslationSettingsFlowInput());
+        return getTranslationSettingsItemsFlow(this.createTranslationPluginFlowInput());
     }
 
     public async moveTranslation(translationId: string, direction: -1 | 1): Promise<void> {
-        await moveTranslationFlow(this.createTranslationSettingsFlowInput(), translationId, direction);
+        await moveTranslationFlow(this.createTranslationPluginFlowInput(), translationId, direction);
     }
 
     public async setTranslationOrder(nextOrder: string[]): Promise<void> {
-        await setTranslationOrderFlow(this.createTranslationSettingsFlowInput(), nextOrder);
+        await setTranslationOrderFlow(this.createTranslationPluginFlowInput(), nextOrder);
     }
 
     public async setComparisonTranslationEnabled(translationId: string, enabled: boolean): Promise<void> {
-        await setComparisonTranslationEnabledFlow(this.createTranslationSettingsFlowInput(), translationId, enabled);
+        await setComparisonTranslationEnabledFlow(this.createTranslationPluginFlowInput(), translationId, enabled);
     }
 
     public getPreviewComparisonTranslationOptions(): PreviewComparisonTranslationOption[] {
-        return getPreviewComparisonTranslationOptionsFlow(this.createTranslationSettingsFlowInput());
+        return getPreviewComparisonTranslationOptionsFlow(this.createTranslationPluginFlowInput());
     }
 
     private async refreshVisibleBiblePreviewContent(): Promise<void> {
@@ -341,6 +354,13 @@ export default class BiblePlugin extends Plugin {
             refreshSettings: () => this.refreshSettingsTab(),
             refreshBibleReferenceLinks: () => this.refreshBibleReferenceLinks(),
             refreshFloatingPreviewLabels: () => this.refreshFloatingPreviewLabels(),
+            refreshBiblePreviewLocalizedLabels: () => refreshBiblePreviewLocalizedLabelsFlow({
+                app: this.app,
+                previewControllers: this.editorRuntimeState.previewControllers.values(),
+                readingModePreviewController: this.readingModePreviewController,
+                refreshFloatingPreviewLabels: () => this.refreshFloatingPreviewLabels(),
+                createBiblePreviewPaneViewInput: () => this.createBiblePreviewPaneViewInput(),
+            }),
             updatePluginActiveRibbonIcon: () => this.updatePluginActiveRibbonIcon(),
             hideFloatingBiblePreview: (resetPosition) => this.hideFloatingBiblePreview(resetPosition),
             closeBiblePreviewPane: (options) => this.closeBiblePreviewPane(options),
@@ -604,19 +624,20 @@ export default class BiblePlugin extends Plugin {
     }
 
     public getBibleReferenceLinkColor(): string {
-        return normalizeBibleReferenceLinkColor(this.settings.bibleReferenceLinkColor);
+        return getBibleReferenceLinkColorFlow(this.createPluginSettingsFlowInput());
     }
 
-
-
-    private processReadingModeBibleReferences(element: HTMLElement, _context: MarkdownPostProcessorContext): void {
-        processReadingModeBibleReferenceLinks({
-            element,
+    private createReadingModePluginFlowInput(): ReadingModePluginFlowInput {
+        return {
             hasImportedTranslations: () => this.hasImportedTranslations(),
             parseMatches: (text) => this.bibleReferenceParser.parseMatches(text),
             getBibleReferenceLinkColor: () => this.getBibleReferenceLinkColor(),
             openBibleReference: (anchorEl, referenceText) => this.readingModePreviewController?.open(anchorEl, referenceText),
-        });
+        };
+    }
+
+    private processReadingModeBibleReferences(element: HTMLElement, _context: MarkdownPostProcessorContext): void {
+        processReadingModeBibleReferenceLinks(this.createReadingModePluginFlowInput(), element);
     }
 
     private registerGlobalLinkOpenShortcutHandler(): void {
@@ -624,96 +645,34 @@ export default class BiblePlugin extends Plugin {
         this.register(() => window.removeEventListener("keydown", this.linkOpenShortcutKeydownHandler, true));
     }
 
-    private handleLinkOpenShortcutKeydown(event: KeyboardEvent): void {
-        if (!this.isPluginActive()) {
-            return;
-        }
-        if (!this.shouldInterceptLinkOpenShortcut() || !this.isConfiguredBibleLinkOpenShortcut(event)) {
-            return;
-        }
-
-        if (!this.openBibleReferenceUnderCursorFromActiveEditor(false)) {
-            return;
-        }
-
-        event.preventDefault();
-        event.stopImmediatePropagation();
+    private createEditorLinkOpenShortcutFlowInput(): EditorLinkOpenShortcutFlowInput {
+        return {
+            editorRuntimeState: this.editorRuntimeState,
+            isPluginActive: () => this.isPluginActive(),
+            shouldInterceptLinkOpenShortcut: () => this.shouldInterceptLinkOpenShortcut(),
+            getBibleLinkOpenShortcut: () => this.getBibleLinkOpenShortcut(),
+            translate: (key) => this.t(key),
+        };
     }
 
-    private isConfiguredBibleLinkOpenShortcut(event: KeyboardEvent): boolean {
-        if (event.key !== "Enter" || event.shiftKey || event.metaKey) {
-            return false;
-        }
-
-        switch (this.settings.linkOpenShortcut) {
-            case "alt-enter":
-                return event.altKey && !event.ctrlKey;
-            case "ctrl-enter":
-                return event.ctrlKey && !event.altKey;
-            case "ctrl-alt-enter":
-                return event.ctrlKey && event.altKey;
-        }
+    private handleLinkOpenShortcutKeydown(event: KeyboardEvent): void {
+        handleLinkOpenShortcutKeydownFlow(this.createEditorLinkOpenShortcutFlowInput(), event);
     }
 
     private openBibleReferenceUnderCursorFromActiveEditor(showNotice: boolean): boolean {
-        if (!this.isPluginActive()) {
-            if (showNotice) {
-                new Notice(this.t("notice.pluginInactive"), 2500);
-            }
-            return false;
-        }
-        const controller = findFocusedEditorPreviewController(this.editorRuntimeState.previewControllers.entries());
-        if (controller !== null) {
-            return controller.openBibleReferenceUnderCursor(showNotice);
-        }
-
-        if (showNotice) {
-            new Notice(this.t("notice.activeEditorNotFound"), 2500);
-        }
-
-        return false;
-    }
-
-    private createTranslationDisplayFlowInput(): TranslationDisplayFlowInput {
-        return {
-            activeV2Data: this.activeV2Data,
-            activeTranslationId: this.activeTranslationId,
-            getNoImportedTranslationText: () => this.t("translation.noImported"),
-            getPreviewTitleFallbackText: () => this.t("preview.titleFallback"),
-        };
-    }
-
-    private createTranslationDeleteFlowInput(): TranslationDeleteFlowInput {
-        return {
-            ...this.createTranslationSettingsFlowInput(),
-            getBibleIndexV2Data: () => this.activeV2Data,
-            createRepository: () => this.createObsidianBibleIndexRepository(),
-            confirmDeleteTranslation: (translationName) => window.confirm([
-                this.t("confirm.deleteTranslation.title", { translationName }),
-                "",
-                this.t("confirm.deleteTranslation.filesWillBeDeleted"),
-                this.t("confirm.deleteTranslation.reimportHint"),
-            ].join("\n")),
-            setBibleIndex: (bibleIndex) => {
-                this.bibleIndex = bibleIndex;
-            },
-            setBibleIndexV2Data: (v2Data) => {
-                this.activeV2Data = v2Data;
-            },
-            showTranslationDeletedNotice: (translationName) => new Notice(this.t("notice.translationDeleted", { translationName }), 5000),
-        };
+        return openBibleReferenceUnderCursorFromActiveEditorFlow(this.createEditorLinkOpenShortcutFlowInput(), showNotice);
     }
 
     public async deleteImportedTranslation(translationId: string): Promise<void> {
-        await deleteImportedTranslationFlow(this.createTranslationDeleteFlowInput(), translationId);
+        await deleteImportedTranslationFlow(this.createTranslationPluginFlowInput(), translationId);
     }
 
     public getActiveTranslationDisplayName(): string {
-        return getActiveTranslationDisplayNameFlow(this.createTranslationDisplayFlowInput());
+        return getActiveTranslationDisplayNameFlow(this.createTranslationPluginFlowInput());
     }
 
     public getActiveTranslationPreviewTitle(): string {
-        return getActiveTranslationPreviewTitleFlow(this.createTranslationDisplayFlowInput());
+        return getActiveTranslationPreviewTitleFlow(this.createTranslationPluginFlowInput());
     }
 
     private refreshSettingsTab(): void {
@@ -919,24 +878,11 @@ export default class BiblePlugin extends Plugin {
     }
 
     public getInterfaceLanguage(): BiblePluginLocale {
-        return this.settings.interfaceLanguage;
+        return getInterfaceLanguageFlow(this.createPluginSettingsFlowInput());
     }
 
     public async setInterfaceLanguage(interfaceLanguage: BiblePluginLocale): Promise<void> {
-        if (this.settings.interfaceLanguage === interfaceLanguage) {
-            return;
-        }
-        this.settings = { ...this.settings, interfaceLanguage };
-        await this.savePluginSettings();
-        this.refreshSettingsTab();
-        refreshBiblePreviewLocalizedLabelsFlow({
-            app: this.app,
-            previewControllers: this.editorRuntimeState.previewControllers.values(),
-            readingModePreviewController: this.readingModePreviewController,
-            refreshFloatingPreviewLabels: () => this.refreshFloatingPreviewLabels(),
-            createBiblePreviewPaneViewInput: () => this.createBiblePreviewPaneViewInput(),
-        });
-        new Notice(this.t("notice.restartPluginForCommandNames"), 6000);
+        await setInterfaceLanguageFlow(this.createPluginSettingsFlowInput(), interfaceLanguage);
     }
 
 

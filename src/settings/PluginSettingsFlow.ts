@@ -1,5 +1,5 @@
 import { Notice, type App } from "obsidian";
-import type { I18nKey } from "../i18n/I18n";
+import type { BiblePluginLocale, I18nKey } from "../i18n/I18n";
 import type { CssColorDialogInput } from "../ui/CssColorDialog";
 import {
     getBibleReferenceLinkColorPickerValue as getBibleReferenceLinkColorPickerValueFlow,
@@ -23,6 +23,7 @@ export type PluginSettingsFlowInput = {
     refreshSettings(): void;
     refreshBibleReferenceLinks(): void;
     refreshFloatingPreviewLabels(): void;
+    refreshBiblePreviewLocalizedLabels(): void;
     updatePluginActiveRibbonIcon(): void;
     hideFloatingBiblePreview(resetPosition?: boolean): void;
     closeBiblePreviewPane(options: { collapseSideDock?: boolean; requireActivePreview?: boolean }): Promise<void>;
@@ -31,6 +32,10 @@ export type PluginSettingsFlowInput = {
     getFloatingPreviewBackgroundColor(): string;
     translate(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string;
 };
+
+export function getBibleReferenceLinkColor(input: PluginSettingsFlowInput): string {
+    return normalizeBibleReferenceLinkColor(input.getSettings().bibleReferenceLinkColor);
+}
 
 export function getBibleReferenceLinkColorPickerValue(input: PluginSettingsFlowInput): string {
     return getBibleReferenceLinkColorPickerValueFlow(input.getSettings().bibleReferenceLinkColor);
@@ -60,6 +65,23 @@ export async function resetBibleReferenceLinkColor(input: PluginSettingsFlowInpu
 
 export function isPluginActive(input: PluginSettingsFlowInput): boolean {
     return input.getSettings().isPluginActive;
+}
+
+export function getInterfaceLanguage(input: PluginSettingsFlowInput): BiblePluginLocale {
+    return input.getSettings().interfaceLanguage;
+}
+
+export async function setInterfaceLanguage(input: PluginSettingsFlowInput, interfaceLanguage: BiblePluginLocale): Promise<void> {
+    const settings = input.getSettings();
+    if (settings.interfaceLanguage === interfaceLanguage) {
+        return;
+    }
+
+    input.setSettings({ ...settings, interfaceLanguage });
+    await input.saveSettings();
+    input.refreshSettings();
+    input.refreshBiblePreviewLocalizedLabels();
+    new Notice(input.translate("notice.restartPluginForCommandNames"), 6000);
 }
 
 export async function togglePluginActive(input: PluginSettingsFlowInput): Promise<void> {
