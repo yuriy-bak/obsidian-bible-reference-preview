@@ -1,3 +1,5 @@
+import type { TranslationSettingsItem } from "../translations/TranslationModels";
+
 type TranslationSettingsListI18nKey =
     | "settings.translations.title"
     | "settings.translations.desc"
@@ -10,19 +12,9 @@ type TranslationSettingsListI18nKey =
 
 type TranslationSettingsListI18nParams = Record<string, string | number>;
 
-export type TranslationSettingsListItem = {
-    id: string;
-    name: string;
-    language: string;
-    sourceFileName: string;
-    bookCount: number;
-    isActive: boolean;
-    isComparisonEnabled: boolean;
-};
-
 export type TranslationSettingsSectionInput = {
     containerEl: HTMLElement;
-    translations: TranslationSettingsListItem[];
+    translations: TranslationSettingsItem[];
     translate(key: TranslationSettingsListI18nKey, params?: TranslationSettingsListI18nParams): string;
     onDelete(translationId: string): Promise<void>;
     onToggleComparison(translationId: string, enabled: boolean): Promise<void>;

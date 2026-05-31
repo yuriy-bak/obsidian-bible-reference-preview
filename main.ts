@@ -30,6 +30,7 @@ import { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageCo
 import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, type ReferenceUsageIndexServiceOptions, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 import { TranslationController, type TranslationControllerState } from "./src/translations/TranslationController";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
+import { BiblePreviewAnalyzer, type BiblePreviewAnalyzerInput } from "./src/application/BiblePreviewAnalyzer";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -177,7 +178,6 @@ export default class BiblePlugin extends Plugin {
     private settings: BiblePluginSettings = { ...DEFAULT_SETTINGS };
     private settingsTab: BiblePluginSettingTab | null = null;
     private readingModePreviewController: BibleReadingModePreviewController | null = null;
-    private readingModePreviewRequestId = 0;
     private floatingPreviewWindow: FloatingBiblePreviewWindow | null = null;
     private lastPanePreviewContent: BiblePreviewContent | null = null;
     private lastPanelEscapeTime = 0;
@@ -259,6 +259,9 @@ export default class BiblePlugin extends Plugin {
         this.readingModePreviewController = new BibleReadingModePreviewController({
             showBiblePreviewContent: (content, anchor, options) => this.showBiblePreviewContent(content, anchor, options),
             shouldAutoOpenPreviewOnVerseChange: () => this.shouldAutoOpenPreviewOnVerseChange(),
+            hasImportedTranslations: () => this.hasImportedTranslations(),
+            analyzeReferenceText: (referenceText) => this.analyzeReferenceTextAsync(referenceText),
+            showNoImportedTranslationsNotice: () => new Notice(this.t("notice.noImportedTranslations"), 2500),
             refreshFloatingPreviewLabels: () => this.refreshFloatingPreviewLabels(),
             isFloatingPreviewTarget: (target) => this.isFloatingPreviewTarget(target),
             hideFloatingBiblePreview: () => this.hideFloatingBiblePreview(),
@@ -1108,14 +1111,7 @@ export default class BiblePlugin extends Plugin {
     }
 
     private async openReadingModeBibleReference(anchorEl: HTMLElement, referenceText: string): Promise<void> {
-        if (!this.hasImportedTranslations()) {
-            new Notice(this.t("notice.noImportedTranslations"), 2500);
-            return;
-        }
-        const requestId = ++this.readingModePreviewRequestId;
-        const content = await this.analyzeReferenceTextAsync(referenceText);
-        if (requestId !== this.readingModePreviewRequestId || content === null || content.plainText.length === 0) return;
-        this.readingModePreviewController?.show(content, anchorEl);
+        await this.readingModePreviewController?.open(anchorEl, referenceText);
     }
 
     private registerGlobalLinkOpenShortcutHandler(): void {
@@ -2068,31 +2064,25 @@ export default class BiblePlugin extends Plugin {
         }
     }
 
+    private createBiblePreviewAnalyzerInput(): BiblePreviewAnalyzerInput {
+        return {
+            hasImportedTranslations: () => this.hasImportedTranslations(),
+            getActiveTranslationId: () => this.activeTranslationId,
+            isPreviewComparisonEnabled: () => this.settings.previewComparisonEnabled,
+            parseMatches: (text) => this.bibleReferenceParser.parseMatches(text),
+            getBibleTextBlocks: (references, translationId, sourceText) => getBibleTextBlocks(references, this.bibleIndex, translationId, sourceText),
+            formatBibleTextBlocks: (blocks) => formatBibleTextBlocks(blocks, this.bookMapping, this.t("preview.missingVerse")),
+            formatBibleComparisonTextBlocks: (inputs) => formatBibleComparisonTextBlocks(inputs, this.bookMapping, this.t("preview.missingVerse")),
+            getComparisonTranslationIds: () => this.getComparisonTranslationIds(),
+            getTranslationPreviewTitle: (translationId) => this.getTranslationPreviewTitle(translationId),
+            getComparisonMapping: (translationId) => this.activeV2Data === null
+                ? this.bookMapping
+                : createBookMappingFromBibleIndexV2Data(this.activeV2Data, translationId),
+        };
+    }
+
     async analyzeParagraphAsync(text: string): Promise<BiblePreviewContent | null> {
-        try {
-            if (!this.hasImportedTranslations() || this.activeTranslationId === null) {
-                return null;
-            }
-
-            const matches = this.bibleReferenceParser.parseMatches(text);
-            if (matches.length === 0) return null;
-            if (this.settings.previewComparisonEnabled) {
-                const comparisonInputs = await Promise.all(matches.map(async (match): Promise<BiblePreviewComparisonInput> => ({
-                    title: match.text,
-                    references: match.references,
-                    translations: await this.getComparisonTranslationInputs(match.references, match.text),
-                })));
-                const content = formatBibleComparisonTextBlocks(comparisonInputs, this.bookMapping, this.t("preview.missingVerse"));
-                return content.plainText.length === 0 ? null : content;
-            }
-
-            const bibleTextBlocks = (await Promise.all(matches.map((match) =>
-                getBibleTextBlocks(match.references, this.bibleIndex, this.activeTranslationId!, match.text),
-            ))).flat();
-            if (bibleTextBlocks.length === 0) return null;
-            const content = formatBibleTextBlocks(bibleTextBlocks, this.bookMapping, this.t("preview.missingVerse"));
-            return content.plainText.length === 0 ? null : content;
-        } catch { return null; }
+        return new BiblePreviewAnalyzer(this.createBiblePreviewAnalyzerInput()).analyzeParagraph(text);
     }
 
     async analyzeReferenceTextAsync(text: string): Promise<BiblePreviewContent | null> {
@@ -2108,44 +2098,7 @@ export default class BiblePlugin extends Plugin {
     }
 
     private async rebuildBiblePreviewContent(content: BiblePreviewContent): Promise<BiblePreviewContent | null> {
-        if (this.activeTranslationId === null) {
-            return null;
-        }
-
-        const previewReferenceBlocks = content.blocks.filter((block): block is BiblePreviewReferenceBlock | BiblePreviewComparisonBlock =>
-            block.type === "reference" || block.type === "comparison",
-        );
-        if (previewReferenceBlocks.length === 0) {
-            return null;
-        }
-
-        if (this.settings.previewComparisonEnabled) {
-            const comparisonInputs = await Promise.all(previewReferenceBlocks.map(async (block): Promise<BiblePreviewComparisonInput> => ({
-                title: block.title,
-                references: block.references,
-                translations: await this.getComparisonTranslationInputs(block.references, block.title),
-            })));
-            const comparisonContent = formatBibleComparisonTextBlocks(comparisonInputs, this.bookMapping, this.t("preview.missingVerse"));
-            return comparisonContent.plainText.length === 0 ? null : comparisonContent;
-        }
-
-        const bibleTextBlocks = (await Promise.all(previewReferenceBlocks.map((block) =>
-            getBibleTextBlocks(block.references, this.bibleIndex, this.activeTranslationId!, block.title),
-        ))).flat();
-        if (bibleTextBlocks.length === 0) return null;
-        const standardContent = formatBibleTextBlocks(bibleTextBlocks, this.bookMapping, this.t("preview.missingVerse"));
-        return standardContent.plainText.length === 0 ? null : standardContent;
-    }
-
-    private async getComparisonTranslationInputs(references: BiblePreviewReferenceBlock["references"], sourceText: string): Promise<BiblePreviewComparisonInput["translations"]> {
-        const translationIds = this.getComparisonTranslationIds();
-        return Promise.all(translationIds.map(async (translationId) => ({
-            translationName: this.getTranslationPreviewTitle(translationId),
-            blocks: await getBibleTextBlocks(references, this.bibleIndex, translationId, sourceText),
-            mapping: this.activeV2Data === null
-                ? this.bookMapping
-                : createBookMappingFromBibleIndexV2Data(this.activeV2Data, translationId),
-        })));
+        return new BiblePreviewAnalyzer(this.createBiblePreviewAnalyzerInput()).rebuildContent(content);
     }
 
     private getComparisonTranslationIds(): string[] {

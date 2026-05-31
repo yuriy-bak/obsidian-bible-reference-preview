@@ -76,8 +76,6 @@ export class TranslationController {
                 bookCount: Object.keys(translation.books).length,
                 isActive: translationId === state.activeTranslationId,
                 isComparisonEnabled: comparisonTranslationIds.has(translationId),
-                canMoveUp: index > 0,
-                canMoveDown: index < order.length - 1,
             };
         });
     }

@@ -6,8 +6,6 @@ export type TranslationSettingsItem = {
     bookCount: number;
     isActive: boolean;
     isComparisonEnabled: boolean;
-    canMoveUp: boolean;
-    canMoveDown: boolean;
 };
 
 export type PreviewComparisonTranslationOption = {
