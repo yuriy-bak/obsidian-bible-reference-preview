@@ -29,7 +29,7 @@ import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from
 import { BiblePreviewAnalyzer, type BiblePreviewAnalyzerInput } from "./src/application/BiblePreviewAnalyzer";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
 import { executePreparedEpubImport, prepareEpubImportSettings } from "./src/import/EpubImportFlow";
-import { formatEpubImportSuccessNotice, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
+import { formatBibleIndexV2StatsNotice, formatEpubImportSuccessNotice, formatLastImportReportNotice, localizeImportErrorMessage } from "./src/import/EpubImportMessages";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -2122,27 +2122,22 @@ export default class BiblePlugin extends Plugin {
         const report = await repository.readLastImportReport();
 
         if (report !== null) {
-            new Notice([
-                this.t("notice.lastImport"),
-                this.t("import.summary.translation", { translationName: report.translationName }),
-                this.t("import.summary.language", { language: report.language }),
-                this.t("import.summary.books", { count: report.books }),
-                this.t("import.summary.chapters", { count: report.chapters }),
-                this.t("import.summary.verses", { count: report.verses }),
-                this.t("import.summary.footnotes", { count: report.footnotes }),
-                this.t("import.summary.metadataSize", { size: formatKilobytes(report.metadataBytes) }),
-                this.t("import.summary.booksSize", { size: formatMegabytes(report.booksBytes) }),
-            ].join("\n"), 15000);
+            new Notice(formatLastImportReportNotice(
+                report,
+                (key, params) => this.t(key, params),
+                formatKilobytes,
+                formatMegabytes,
+            ), 15000);
             return;
         }
 
         if (this.activeV2Data !== null) {
             const translationCount = Object.keys(this.activeV2Data.translations).length;
-            new Notice([
-                this.t("notice.bibleIndexV2"),
-                this.t("notice.translationCount", { count: translationCount }),
-                this.t("notice.activeTranslationId", { translationId: this.activeTranslationId ?? this.t("notice.none") }),
-            ].join("\n"), 10000);
+            new Notice(formatBibleIndexV2StatsNotice(
+                translationCount,
+                this.activeTranslationId ?? this.t("notice.none"),
+                (key, params) => this.t(key, params),
+            ), 10000);
             return;
         }
 
@@ -2191,7 +2186,6 @@ function areStringArraysEqual(left: string[], right: string[]): boolean {
 }
 
 
-function getErrorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 function formatKilobytes(bytes: number): string { return `${(bytes / 1024).toFixed(1)} KB`; }
 function formatMegabytes(bytes: number): string { return `${(bytes / 1024 / 1024).toFixed(2)} MB`; }
 function normalizePath(path: string): string { return path.split("\\").join("/").replace(/\/+/g, "/"); }

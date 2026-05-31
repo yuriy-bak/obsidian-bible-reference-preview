@@ -1,4 +1,4 @@
-import type { EpubBibleImportProgress, EpubBibleImportResult } from "../infrastructure/EpubBibleImporter";
+import type { EpubBibleImportProgress, EpubBibleImportReport, EpubBibleImportResult } from "../infrastructure/EpubBibleImporter";
 import type { I18nKey } from "../i18n/I18n";
 
 export type EpubImportTranslate = (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
@@ -30,6 +30,37 @@ export function formatEpubImportSuccessNotice(
         translate("import.summary.metadataSize", { size: formatKilobytes(result.report.metadataBytes) }),
         translate("import.summary.booksSize", { size: formatMegabytes(result.report.booksBytes) }),
     ].join("\n") + warningsText;
+}
+
+export function formatLastImportReportNotice(
+    report: EpubBibleImportReport,
+    translate: EpubImportTranslate,
+    formatKilobytes: EpubImportSizeFormatter,
+    formatMegabytes: EpubImportSizeFormatter,
+): string {
+    return [
+        translate("notice.lastImport"),
+        translate("import.summary.translation", { translationName: report.translationName }),
+        translate("import.summary.language", { language: report.language }),
+        translate("import.summary.books", { count: report.books }),
+        translate("import.summary.chapters", { count: report.chapters }),
+        translate("import.summary.verses", { count: report.verses }),
+        translate("import.summary.footnotes", { count: report.footnotes }),
+        translate("import.summary.metadataSize", { size: formatKilobytes(report.metadataBytes) }),
+        translate("import.summary.booksSize", { size: formatMegabytes(report.booksBytes) }),
+    ].join("\n");
+}
+
+export function formatBibleIndexV2StatsNotice(
+    translationCount: number,
+    activeTranslationIdText: string,
+    translate: EpubImportTranslate,
+): string {
+    return [
+        translate("notice.bibleIndexV2"),
+        translate("notice.translationCount", { count: translationCount }),
+        translate("notice.activeTranslationId", { translationId: activeTranslationIdText }),
+    ].join("\n");
 }
 
 export function localizeImportErrorMessage(error: unknown, translate: EpubImportTranslate): string {
