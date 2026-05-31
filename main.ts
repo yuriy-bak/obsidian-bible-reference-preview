@@ -16,7 +16,7 @@ import { EPUB_IMPORT_LIMITS } from "./src/infrastructure/epub/EpubContainerReade
 import { JsZipEpubBibleImporter, isEpubImportAbortError } from "./src/infrastructure/epub/JsZipEpubBibleImporter";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
-import { BiblePluginLocale, I18nKey, normalizeBiblePluginLocale, t } from "./src/i18n/I18n";
+import { BiblePluginLocale, I18nKey, t } from "./src/i18n/I18n";
 import { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./src/ui/FloatingBiblePreviewWindow";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "./src/ui/cssColorValidation";
 import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput } from "./src/ui/CssColorDialog";
@@ -31,6 +31,7 @@ import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FI
 import { TranslationController, type TranslationControllerState } from "./src/translations/TranslationController";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
 import { BiblePreviewAnalyzer, type BiblePreviewAnalyzerInput } from "./src/application/BiblePreviewAnalyzer";
+import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -81,9 +82,6 @@ const EMPTY_BIBLE_INDEX: BibleIndex = {
     },
 };
 
-type BiblePreviewTriggerMode = "current-paragraph" | "clicked-reference";
-type BiblePreviewDisplayMode = "floating" | "side-panel";
-type BiblePreviewPanelSide = "right" | "left";
 type BiblePreviewSideDock = {
     collapsed?: boolean;
     collapse?(): void;
@@ -101,31 +99,10 @@ type BiblePreviewWorkspaceFocus = {
 type BiblePreviewWorkspaceLeafIterator = {
     iterateAllLeaves?(callback: (leaf: WorkspaceLeaf) => void): void;
 };
-type BibleLinkOpenShortcut = "alt-enter" | "ctrl-enter" | "ctrl-alt-enter";
 
 type BiblePreviewController = {
     openBibleReferenceUnderCursor(showNotice?: boolean): boolean;
     refreshLocalizedLabels(): void;
-};
-
-type BiblePluginSettings = {
-    isPluginActive: boolean;
-    interfaceLanguage: BiblePluginLocale;
-    translationOrder: string[];
-    comparisonTranslationIds: string[];
-    bibleReferenceLinkColor: string;
-    floatingPreviewBackgroundColor: string;
-    previewTriggerMode: BiblePreviewTriggerMode;
-    previewDisplayMode: BiblePreviewDisplayMode;
-    previewPanelSide: BiblePreviewPanelSide;
-    closePreviewOnActiveLeafChange: boolean;
-    autoOpenPreviewOnVerseChange: boolean;
-    previewComparisonEnabled: boolean;
-    interceptLinkOpenShortcut: boolean;
-    linkOpenShortcut: BibleLinkOpenShortcut;
-    referenceUsageIndexingEnabled: boolean;
-    referenceUsageAutoUpdate: boolean;
-    referenceUsageExcludedFolders: string[];
 };
 
 const DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR = "#7c3aed";
@@ -135,28 +112,6 @@ const MAX_ANALYZED_PARAGRAPH_LINES = 40;
 const MAX_ANALYZED_PARAGRAPH_CHARACTERS = 2000;
 const MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS = 20000;
 const MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS = 50000;
-const DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS = ["Attachments/", "Templates/", "Archive/", "Bible/"];
-
-
-const DEFAULT_SETTINGS: BiblePluginSettings = {
-    isPluginActive: true,
-    interfaceLanguage: "ru",
-    translationOrder: [],
-    comparisonTranslationIds: [],
-    bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
-    floatingPreviewBackgroundColor: DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
-    previewTriggerMode: "current-paragraph",
-    previewDisplayMode: "floating",
-    previewPanelSide: "right",
-    closePreviewOnActiveLeafChange: true,
-    autoOpenPreviewOnVerseChange: !Platform.isMobileApp,
-    previewComparisonEnabled: false,
-    interceptLinkOpenShortcut: true,
-    linkOpenShortcut: "alt-enter",
-    referenceUsageIndexingEnabled: false,
-    referenceUsageAutoUpdate: !Platform.isMobileApp,
-    referenceUsageExcludedFolders: DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS,
-};
 
 
 type BibleReferenceLinkDecorationVisibleRangeInput = {
@@ -1510,13 +1465,14 @@ export default class BiblePlugin extends Plugin {
         let parent: unknown = leaf;
         const visitedParents = new Set<unknown>();
 
-        while (isRecord(parent) && !visitedParents.has(parent)) {
+        while (typeof parent === "object" && parent !== null && !Array.isArray(parent) && !visitedParents.has(parent)) {
             visitedParents.add(parent);
-            const setActiveLeaf = parent["setActiveLeaf"];
+            const parentRecord = parent as Record<string, unknown>;
+            const setActiveLeaf = parentRecord["setActiveLeaf"];
             if (typeof setActiveLeaf === "function") {
                 setActiveLeaf.call(parent, leaf);
             }
-            parent = parent["parent"];
+            parent = parentRecord["parent"];
         }
     }
 
@@ -2333,85 +2289,6 @@ export default class BiblePlugin extends Plugin {
 }
 
 
-function normalizePluginSettings(value: unknown): BiblePluginSettings {
-    if (!isRecord(value)) {
-        return { ...DEFAULT_SETTINGS };
-    }
-
-    const translationOrder = Array.isArray(value.translationOrder)
-        ? value.translationOrder.filter((translationId): translationId is string => typeof translationId === "string")
-        : [];
-    const comparisonTranslationIds = Array.isArray(value.comparisonTranslationIds)
-        ? value.comparisonTranslationIds.filter((translationId): translationId is string => typeof translationId === "string").slice(0, 4)
-        : [];
-
-    return {
-        isPluginActive: typeof value.isPluginActive === "boolean" ? value.isPluginActive : DEFAULT_SETTINGS.isPluginActive,
-        interfaceLanguage: normalizeBiblePluginLocale(value.interfaceLanguage),
-        translationOrder: [...new Set(translationOrder)],
-        comparisonTranslationIds: [...new Set(comparisonTranslationIds)],
-        bibleReferenceLinkColor: typeof value.bibleReferenceLinkColor === "string"
-            ? normalizeBibleReferenceLinkColor(value.bibleReferenceLinkColor)
-            : DEFAULT_SETTINGS.bibleReferenceLinkColor,
-        floatingPreviewBackgroundColor: typeof value.floatingPreviewBackgroundColor === "string"
-            ? normalizeFloatingPreviewBackgroundColor(value.floatingPreviewBackgroundColor)
-            : DEFAULT_SETTINGS.floatingPreviewBackgroundColor,
-        previewTriggerMode: typeof value.previewTriggerMode === "string" && isBiblePreviewTriggerMode(value.previewTriggerMode)
-            ? value.previewTriggerMode
-            : DEFAULT_SETTINGS.previewTriggerMode,
-        previewDisplayMode: typeof value.previewDisplayMode === "string" && isBiblePreviewDisplayMode(value.previewDisplayMode)
-            ? value.previewDisplayMode
-            : DEFAULT_SETTINGS.previewDisplayMode,
-        previewPanelSide: typeof value.previewPanelSide === "string" && isBiblePreviewPanelSide(value.previewPanelSide)
-            ? value.previewPanelSide
-            : DEFAULT_SETTINGS.previewPanelSide,
-        closePreviewOnActiveLeafChange: typeof value.closePreviewOnActiveLeafChange === "boolean"
-            ? value.closePreviewOnActiveLeafChange
-            : DEFAULT_SETTINGS.closePreviewOnActiveLeafChange,
-        autoOpenPreviewOnVerseChange: typeof value.autoOpenPreviewOnVerseChange === "boolean"
-            ? value.autoOpenPreviewOnVerseChange
-            : DEFAULT_SETTINGS.autoOpenPreviewOnVerseChange,
-        previewComparisonEnabled: typeof value.previewComparisonEnabled === "boolean"
-            ? value.previewComparisonEnabled
-            : DEFAULT_SETTINGS.previewComparisonEnabled,
-        interceptLinkOpenShortcut: typeof value.interceptLinkOpenShortcut === "boolean"
-            ? value.interceptLinkOpenShortcut
-            : DEFAULT_SETTINGS.interceptLinkOpenShortcut,
-        linkOpenShortcut: typeof value.linkOpenShortcut === "string" && isBibleLinkOpenShortcut(value.linkOpenShortcut)
-            ? value.linkOpenShortcut
-            : DEFAULT_SETTINGS.linkOpenShortcut,
-        referenceUsageIndexingEnabled: typeof value.referenceUsageIndexingEnabled === "boolean"
-            ? value.referenceUsageIndexingEnabled
-            : DEFAULT_SETTINGS.referenceUsageIndexingEnabled,
-        referenceUsageAutoUpdate: typeof value.referenceUsageAutoUpdate === "boolean"
-            ? value.referenceUsageAutoUpdate
-            : DEFAULT_SETTINGS.referenceUsageAutoUpdate,
-        referenceUsageExcludedFolders: Array.isArray(value.referenceUsageExcludedFolders)
-            ? normalizeReferenceUsageExcludedFolders(
-                value.referenceUsageExcludedFolders
-                    .filter((folder): folder is string => typeof folder === "string")
-                    .join("\n"),
-            )
-            : DEFAULT_SETTINGS.referenceUsageExcludedFolders,
-
-    };
-}
-
-function isBiblePreviewTriggerMode(value: string): value is BiblePreviewTriggerMode {
-    return value === "current-paragraph" || value === "clicked-reference";
-}
-
-function isBiblePreviewDisplayMode(value: string): value is BiblePreviewDisplayMode {
-    return value === "floating" || value === "side-panel";
-}
-
-function isBiblePreviewPanelSide(value: string): value is BiblePreviewPanelSide {
-    return value === "right" || value === "left";
-}
-
-function isBibleLinkOpenShortcut(value: string): value is BibleLinkOpenShortcut {
-    return value === "alt-enter" || value === "ctrl-enter" || value === "ctrl-alt-enter";
-}
 
 function isHexColor(value: string): boolean {
     return /^#[0-9a-f]{6}$/i.test(value.trim());
@@ -2421,9 +2298,6 @@ function areStringArraysEqual(left: string[], right: string[]): boolean {
     return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function getErrorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 function formatKilobytes(bytes: number): string { return `${(bytes / 1024).toFixed(1)} KB`; }
