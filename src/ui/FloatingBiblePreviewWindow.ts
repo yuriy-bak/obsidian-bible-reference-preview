@@ -41,6 +41,33 @@ type PreviewResizeEdge =
     | "bottom-right"
     | "bottom-left";
 
+type PreviewPosition = { left: number; top: number };
+type PreviewSize = { width: number; height: number };
+type PreviewViewport = { left: number; top: number; width: number; height: number };
+type PreviewSafeMargins = { top: number; right: number; bottom: number; left: number };
+type PreviewBounds = { left: number; top: number; right: number; bottom: number };
+type PreviewPointerDelta = { x: number; y: number };
+type PreviewResizeStartEdges = { right: number; bottom: number };
+type PreviewResizeResult = PreviewPosition & PreviewSize;
+type PreviewDragState = {
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startLeft: number;
+    startTop: number;
+};
+type CollapsedButtonDragState = PreviewDragState & { moved: boolean };
+type PreviewResizeState = {
+    pointerId: number;
+    edge: PreviewResizeEdge;
+    startClientX: number;
+    startClientY: number;
+    startLeft: number;
+    startTop: number;
+    startWidth: number;
+    startHeight: number;
+};
+
 const COLLAPSED_BUTTON_SIZE = 42;
 const HEADER_HEIGHT = 34;
 const MIN_WIDTH = 260;
@@ -85,35 +112,13 @@ export class FloatingBiblePreviewWindow {
     private previewContent: BiblePreviewContent | null = null;
     private previewText = "";
     private isPreviewCollapsed = false;
-    private customPreviewSize: { width: number; height: number } | null = null;
-    private customPreviewPosition: { left: number; top: number } | null = null;
-    private collapsedButtonPosition: { left: number; top: number } | null = null;
+    private customPreviewSize: PreviewSize | null = null;
+    private customPreviewPosition: PreviewPosition | null = null;
+    private collapsedButtonPosition: PreviewPosition | null = null;
     private collapsedExpandAnchorOffset: { right: number; top: number } | null = null;
-    private collapsedButtonDragState: {
-        pointerId: number;
-        startClientX: number;
-        startClientY: number;
-        startLeft: number;
-        startTop: number;
-        moved: boolean;
-    } | null = null;
-    private previewDragState: {
-        pointerId: number;
-        startClientX: number;
-        startClientY: number;
-        startLeft: number;
-        startTop: number;
-    } | null = null;
-    private previewResizeState: {
-        pointerId: number;
-        edge: PreviewResizeEdge;
-        startClientX: number;
-        startClientY: number;
-        startLeft: number;
-        startTop: number;
-        startWidth: number;
-        startHeight: number;
-    } | null = null;
+    private collapsedButtonDragState: CollapsedButtonDragState | null = null;
+    private previewDragState: PreviewDragState | null = null;
+    private previewResizeState: PreviewResizeState | null = null;
     private suppressCollapsedButtonClick = false;
     private readonly disposables: Disposable[] = [];
 
@@ -801,6 +806,14 @@ export class FloatingBiblePreviewWindow {
         this.previewDragState = null;
         this.previewResizeState = null;
         this.collapsedButtonEl.style.cursor = "grab";
+        this.endPreviewPointerInteraction();
+    }
+
+    private beginPreviewPointerInteraction(): void {
+        document.body.style.userSelect = "none";
+    }
+
+    private endPreviewPointerInteraction(): void {
         document.body.style.userSelect = "";
     }
 
@@ -818,45 +831,52 @@ export class FloatingBiblePreviewWindow {
     }
 
     private startBiblePreviewDrag(event: PointerEvent): void {
-        if (event.button !== 0 || this.previewText.length === 0 || this.isPreviewCollapsed) {
+        if (!this.canStartExpandedPreviewPointerInteraction(event)) {
             return;
         }
-        const rect = this.previewPanelEl.getBoundingClientRect();
-        this.customPreviewPosition = this.clampBiblePreviewPosition(rect.left, rect.top, rect.width, rect.height);
+        const start = this.getCurrentExpandedPreviewInteractionStart();
         this.previewDragState = {
             pointerId: event.pointerId,
             startClientX: event.clientX,
             startClientY: event.clientY,
-            startLeft: this.customPreviewPosition.left,
-            startTop: this.customPreviewPosition.top,
+            startLeft: start.position.left,
+            startTop: start.position.top,
         };
-        document.body.style.userSelect = "none";
-        event.preventDefault();
+        this.beginPreviewPointerInteraction();
+        this.preventPreviewPointerDefault(event);
     }
 
     private startBiblePreviewResize(event: PointerEvent, edge: PreviewResizeEdge): void {
-        if (event.button !== 0 || this.previewText.length === 0 || this.isPreviewCollapsed) {
+        if (!this.canStartExpandedPreviewPointerInteraction(event)) {
             return;
         }
-        const rect = this.previewPanelEl.getBoundingClientRect();
-        this.customPreviewPosition = this.clampBiblePreviewPosition(rect.left, rect.top, rect.width, rect.height);
+        const start = this.getCurrentExpandedPreviewInteractionStart();
         this.previewResizeState = {
             pointerId: event.pointerId,
             edge,
             startClientX: event.clientX,
             startClientY: event.clientY,
-            startLeft: this.customPreviewPosition.left,
-            startTop: this.customPreviewPosition.top,
-            startWidth: rect.width,
-            startHeight: rect.height,
+            startLeft: start.position.left,
+            startTop: start.position.top,
+            startWidth: start.rect.width,
+            startHeight: start.rect.height,
         };
-        document.body.style.userSelect = "none";
-        event.preventDefault();
-        event.stopPropagation();
+        this.beginPreviewPointerInteraction();
+        this.stopPreviewPointerEvent(event);
+    }
+
+    private getCurrentExpandedPreviewInteractionStart(): {
+        rect: DOMRect;
+        position: PreviewPosition;
+    } {
+        const rect = this.previewPanelEl.getBoundingClientRect();
+        const position = this.clampBiblePreviewPosition(rect.left, rect.top, rect.width, rect.height);
+        this.customPreviewPosition = position;
+        return { rect, position };
     }
 
     private startCollapsedButtonDrag(event: PointerEvent): void {
-        if (event.button !== 0 || this.previewText.length === 0 || !this.isPreviewCollapsed) {
+        if (!this.canStartCollapsedButtonPointerInteraction(event)) {
             return;
         }
         const rect = this.collapsedButtonEl.getBoundingClientRect();
@@ -870,7 +890,27 @@ export class FloatingBiblePreviewWindow {
         };
         this.suppressCollapsedButtonClick = false;
         this.collapsedButtonEl.style.cursor = "grabbing";
-        document.body.style.userSelect = "none";
+        this.beginPreviewPointerInteraction();
+        this.stopPreviewPointerEvent(event);
+    }
+
+    private canStartExpandedPreviewPointerInteraction(event: PointerEvent): boolean {
+        return event.button === 0
+            && this.previewText.length > 0
+            && !this.isPreviewCollapsed;
+    }
+
+    private canStartCollapsedButtonPointerInteraction(event: PointerEvent): boolean {
+        return event.button === 0
+            && this.previewText.length > 0
+            && this.isPreviewCollapsed;
+    }
+
+    private preventPreviewPointerDefault(event: PointerEvent): void {
+        event.preventDefault();
+    }
+
+    private stopPreviewPointerEvent(event: PointerEvent): void {
         event.preventDefault();
         event.stopPropagation();
     }
@@ -891,17 +931,23 @@ export class FloatingBiblePreviewWindow {
         if (this.previewDragState === null || event.pointerId !== this.previewDragState.pointerId) {
             return;
         }
-        const nextLeft = this.previewDragState.startLeft + event.clientX - this.previewDragState.startClientX;
-        const nextTop = this.previewDragState.startTop + event.clientY - this.previewDragState.startClientY;
-        const clamped = this.clampBiblePreviewPosition(
-            nextLeft,
-            nextTop,
+        const position = this.getDraggedPreviewPosition(event, this.previewDragState);
+        this.applyPreviewDragPosition(position);
+        this.preventPreviewPointerDefault(event);
+    }
+
+    private getDraggedPreviewPosition(event: PointerEvent, state: PreviewDragState): PreviewPosition {
+        return this.clampBiblePreviewPosition(
+            state.startLeft + event.clientX - state.startClientX,
+            state.startTop + event.clientY - state.startClientY,
             this.previewPanelEl.offsetWidth,
             this.previewPanelEl.offsetHeight,
         );
-        this.customPreviewPosition = clamped;
-        this.applyPreviewPosition(clamped);
-        event.preventDefault();
+    }
+
+    private applyPreviewDragPosition(position: PreviewPosition): void {
+        this.customPreviewPosition = position;
+        this.applyPreviewPosition(position);
     }
 
     private resizeBiblePreview(event: PointerEvent): void {
@@ -912,35 +958,39 @@ export class FloatingBiblePreviewWindow {
         const state = this.previewResizeState;
         const viewport = this.getBiblePreviewViewport();
         const safeMargins = this.getBiblePreviewSafeMargins(viewport.width);
-        const bounds = {
-            left: viewport.left + safeMargins.left,
-            top: viewport.top + safeMargins.top,
-            right: viewport.left + viewport.width - safeMargins.right,
-            bottom: viewport.top + viewport.height - safeMargins.bottom,
-        };
-        const deltaX = event.clientX - state.startClientX;
-        const deltaY = event.clientY - state.startClientY;
-        const startRight = state.startLeft + state.startWidth;
-        const startBottom = state.startTop + state.startHeight;
+        const resizeResult = this.getPreviewResizeResult(event, state, viewport, safeMargins);
+        this.applyPreviewResizeResult(resizeResult);
+        this.stopPreviewPointerEvent(event);
+    }
+
+    private getPreviewResizeResult(
+        event: PointerEvent,
+        state: PreviewResizeState,
+        viewport: PreviewViewport,
+        safeMargins: PreviewSafeMargins,
+    ): PreviewResizeResult {
+        const bounds = this.getPreviewResizeBounds(viewport, safeMargins);
+        const delta = this.getPreviewPointerDelta(event, state);
+        const startEdges = this.getPreviewResizeStartEdges(state);
         let nextLeft = state.startLeft;
         let nextTop = state.startTop;
-        let nextRight = startRight;
-        let nextBottom = startBottom;
+        let nextRight = startEdges.right;
+        let nextBottom = startEdges.bottom;
 
         if (!this.isMobilePreviewLayout(viewport.width)) {
             if (this.resizesLeft(state.edge)) {
-                nextLeft = this.clampNumber(state.startLeft + deltaX, bounds.left, startRight - MIN_WIDTH);
+                nextLeft = this.clampNumber(state.startLeft + delta.x, bounds.left, startEdges.right - MIN_WIDTH);
             }
             if (this.resizesRight(state.edge)) {
-                nextRight = this.clampNumber(startRight + deltaX, state.startLeft + MIN_WIDTH, bounds.right);
+                nextRight = this.clampNumber(startEdges.right + delta.x, state.startLeft + MIN_WIDTH, bounds.right);
             }
             if (this.resizesTop(state.edge)) {
-                nextTop = this.clampNumber(state.startTop + deltaY, bounds.top, startBottom - MIN_HEIGHT);
+                nextTop = this.clampNumber(state.startTop + delta.y, bounds.top, startEdges.bottom - MIN_HEIGHT);
             }
         }
 
         if (this.resizesBottom(state.edge) || this.isMobilePreviewLayout(viewport.width)) {
-            nextBottom = this.clampNumber(startBottom + deltaY, state.startTop + MIN_HEIGHT, bounds.bottom);
+            nextBottom = this.clampNumber(startEdges.bottom + delta.y, state.startTop + MIN_HEIGHT, bounds.bottom);
         }
 
         if (this.isMobilePreviewLayout(viewport.width)) {
@@ -950,14 +1000,42 @@ export class FloatingBiblePreviewWindow {
             nextTop = state.startTop;
         }
 
-        const width = Math.max(nextRight - nextLeft, MIN_WIDTH);
-        const height = Math.max(nextBottom - nextTop, MIN_HEIGHT);
-        this.customPreviewPosition = { left: nextLeft, top: nextTop };
-        this.customPreviewSize = { width, height };
-        this.applyPreviewSize(width, height);
-        this.applyPreviewPosition({ left: nextLeft, top: nextTop });
-        event.preventDefault();
-        event.stopPropagation();
+        return {
+            left: nextLeft,
+            top: nextTop,
+            width: Math.max(nextRight - nextLeft, MIN_WIDTH),
+            height: Math.max(nextBottom - nextTop, MIN_HEIGHT),
+        };
+    }
+
+    private applyPreviewResizeResult(result: PreviewResizeResult): void {
+        this.customPreviewPosition = { left: result.left, top: result.top };
+        this.customPreviewSize = { width: result.width, height: result.height };
+        this.applyPreviewSize(result.width, result.height);
+        this.applyPreviewPosition({ left: result.left, top: result.top });
+    }
+
+    private getPreviewResizeBounds(viewport: PreviewViewport, safeMargins: PreviewSafeMargins): PreviewBounds {
+        return {
+            left: viewport.left + safeMargins.left,
+            top: viewport.top + safeMargins.top,
+            right: viewport.left + viewport.width - safeMargins.right,
+            bottom: viewport.top + viewport.height - safeMargins.bottom,
+        };
+    }
+
+    private getPreviewPointerDelta(event: PointerEvent, state: PreviewResizeState): PreviewPointerDelta {
+        return {
+            x: event.clientX - state.startClientX,
+            y: event.clientY - state.startClientY,
+        };
+    }
+
+    private getPreviewResizeStartEdges(state: PreviewResizeState): PreviewResizeStartEdges {
+        return {
+            right: state.startLeft + state.startWidth,
+            bottom: state.startTop + state.startHeight,
+        };
     }
 
     private resizesLeft(edge: PreviewResizeEdge): boolean {
@@ -980,21 +1058,38 @@ export class FloatingBiblePreviewWindow {
         if (this.collapsedButtonDragState === null || event.pointerId !== this.collapsedButtonDragState.pointerId) {
             return;
         }
-        const deltaX = event.clientX - this.collapsedButtonDragState.startClientX;
-        const deltaY = event.clientY - this.collapsedButtonDragState.startClientY;
-        if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+        const delta = this.getCollapsedButtonDragDelta(event, this.collapsedButtonDragState);
+        if (this.hasCollapsedButtonDragMoved(delta)) {
             this.collapsedButtonDragState.moved = true;
         }
-        const clamped = this.clampBiblePreviewPosition(
-            this.collapsedButtonDragState.startLeft + deltaX,
-            this.collapsedButtonDragState.startTop + deltaY,
+        const position = this.getDraggedCollapsedButtonPosition(delta, this.collapsedButtonDragState);
+        this.applyCollapsedButtonDragPosition(position);
+        this.stopPreviewPointerEvent(event);
+    }
+
+    private getCollapsedButtonDragDelta(event: PointerEvent, state: CollapsedButtonDragState): PreviewPointerDelta {
+        return {
+            x: event.clientX - state.startClientX,
+            y: event.clientY - state.startClientY,
+        };
+    }
+
+    private hasCollapsedButtonDragMoved(delta: PreviewPointerDelta): boolean {
+        return Math.abs(delta.x) > 3 || Math.abs(delta.y) > 3;
+    }
+
+    private getDraggedCollapsedButtonPosition(delta: PreviewPointerDelta, state: CollapsedButtonDragState): PreviewPosition {
+        return this.clampBiblePreviewPosition(
+            state.startLeft + delta.x,
+            state.startTop + delta.y,
             COLLAPSED_BUTTON_SIZE,
             COLLAPSED_BUTTON_SIZE,
         );
-        this.collapsedButtonPosition = clamped;
-        this.applyCollapsedButtonPosition(clamped);
-        event.preventDefault();
-        event.stopPropagation();
+    }
+
+    private applyCollapsedButtonDragPosition(position: PreviewPosition): void {
+        this.collapsedButtonPosition = position;
+        this.applyCollapsedButtonPosition(position);
     }
 
     private handlePointerUp(event: PointerEvent): void {
@@ -1005,39 +1100,63 @@ export class FloatingBiblePreviewWindow {
     }
 
     private finishBiblePreviewResize(event: PointerEvent): boolean {
-        if (this.previewResizeState === null || event.pointerId !== this.previewResizeState.pointerId) {
+        if (!this.isActivePreviewResizePointer(event)) {
             return false;
         }
-        this.previewResizeState = null;
-        document.body.style.userSelect = "";
-        event.preventDefault();
-        event.stopPropagation();
+        this.clearPreviewResizeInteraction();
+        this.stopPreviewPointerEvent(event);
         return true;
+    }
+
+    private isActivePreviewResizePointer(event: PointerEvent): boolean {
+        return this.previewResizeState !== null && event.pointerId === this.previewResizeState.pointerId;
+    }
+
+    private clearPreviewResizeInteraction(): void {
+        this.previewResizeState = null;
+        this.endPreviewPointerInteraction();
     }
 
     private finishBiblePreviewDrag(event: PointerEvent): void {
         if (this.finishCollapsedButtonDrag(event)) {
             return;
         }
-        if (this.previewDragState === null || event.pointerId !== this.previewDragState.pointerId) {
+        if (!this.isActivePreviewDragPointer(event)) {
             return;
         }
+        this.clearPreviewDragInteraction();
+        this.preventPreviewPointerDefault(event);
+    }
+
+    private isActivePreviewDragPointer(event: PointerEvent): boolean {
+        return this.previewDragState !== null && event.pointerId === this.previewDragState.pointerId;
+    }
+
+    private clearPreviewDragInteraction(): void {
         this.previewDragState = null;
-        document.body.style.userSelect = "";
-        event.preventDefault();
+        this.endPreviewPointerInteraction();
     }
 
     private finishCollapsedButtonDrag(event: PointerEvent): boolean {
-        if (this.collapsedButtonDragState === null || event.pointerId !== this.collapsedButtonDragState.pointerId) {
+        if (!this.isActiveCollapsedButtonDragPointer(event)) {
             return false;
         }
-        this.suppressCollapsedButtonClick = this.collapsedButtonDragState.moved;
+        this.clearCollapsedButtonDragInteraction();
+        this.stopPreviewPointerEvent(event);
+        return true;
+    }
+
+    private isActiveCollapsedButtonDragPointer(event: PointerEvent): boolean {
+        return this.collapsedButtonDragState !== null && event.pointerId === this.collapsedButtonDragState.pointerId;
+    }
+
+    private clearCollapsedButtonDragInteraction(): void {
+        if (this.collapsedButtonDragState !== null) {
+            this.suppressCollapsedButtonClick = this.collapsedButtonDragState.moved;
+        }
         this.collapsedButtonDragState = null;
         this.collapsedButtonEl.style.cursor = "grab";
-        document.body.style.userSelect = "";
-        event.preventDefault();
-        event.stopPropagation();
-        return true;
+        this.endPreviewPointerInteraction();
     }
 
     private collapseBiblePreview(anchorEl: HTMLElement): void {
@@ -1114,8 +1233,8 @@ export class FloatingBiblePreviewWindow {
     }
 
     private updateExpandedPreviewPosition(
-        viewport: { left: number; top: number; width: number; height: number },
-        safeMargins: { top: number; right: number; bottom: number; left: number },
+        viewport: PreviewViewport,
+        safeMargins: PreviewSafeMargins,
     ): void {
         const panelSize = this.getPreviewPanelSize(viewport.width, viewport.height);
         this.applyPreviewSize(panelSize.width, panelSize.height);
@@ -1132,7 +1251,7 @@ export class FloatingBiblePreviewWindow {
         this.updateDefaultDesktopPreviewPosition(viewport, safeMargins, panelSize);
     }
 
-    private updateCustomPreviewPosition(panelSize: { width: number; height: number }): boolean {
+    private updateCustomPreviewPosition(panelSize: PreviewSize): boolean {
         if (this.customPreviewPosition === null) {
             return false;
         }
@@ -1148,9 +1267,9 @@ export class FloatingBiblePreviewWindow {
     }
 
     private updateMobilePreviewPosition(
-        viewport: { left: number; top: number; width: number; height: number },
-        safeMargins: { top: number; right: number; bottom: number; left: number },
-        panelSize: { width: number; height: number },
+        viewport: PreviewViewport,
+        safeMargins: PreviewSafeMargins,
+        panelSize: PreviewSize,
     ): void {
         const clamped = this.clampBiblePreviewPosition(
             viewport.left + safeMargins.left,
@@ -1162,9 +1281,9 @@ export class FloatingBiblePreviewWindow {
     }
 
     private updateDefaultDesktopPreviewPosition(
-        viewport: { left: number; top: number; width: number; height: number },
-        safeMargins: { top: number; right: number; bottom: number; left: number },
-        panelSize: { width: number; height: number },
+        viewport: PreviewViewport,
+        safeMargins: PreviewSafeMargins,
+        panelSize: PreviewSize,
     ): void {
         const clamped = this.clampBiblePreviewPosition(
             viewport.left + viewport.width - panelSize.width - safeMargins.right,
@@ -1175,12 +1294,12 @@ export class FloatingBiblePreviewWindow {
         this.applyPreviewPosition(clamped);
     }
 
-    private applyPreviewPosition(position: { left: number; top: number }): void {
+    private applyPreviewPosition(position: PreviewPosition): void {
         this.previewPanelEl.style.left = `${position.left}px`;
         this.previewPanelEl.style.top = `${position.top}px`;
     }
 
-    private applyCollapsedButtonPosition(position: { left: number; top: number }): void {
+    private applyCollapsedButtonPosition(position: PreviewPosition): void {
         this.collapsedButtonEl.style.left = `${position.left}px`;
         this.collapsedButtonEl.style.top = `${position.top}px`;
     }
@@ -1213,8 +1332,8 @@ export class FloatingBiblePreviewWindow {
     }
 
     private updateCollapsedButtonPosition(
-        viewport: { left: number; top: number; width: number; height: number },
-        safeMargins: { top: number; right: number; bottom: number; left: number },
+        viewport: PreviewViewport,
+        safeMargins: PreviewSafeMargins,
     ): void {
         if (this.updateStoredCollapsedButtonPosition()) {
             return;
@@ -1256,8 +1375,8 @@ export class FloatingBiblePreviewWindow {
     }
 
     private updateDefaultCollapsedButtonPosition(
-        viewport: { left: number; top: number; width: number; height: number },
-        safeMargins: { top: number; right: number; bottom: number; left: number },
+        viewport: PreviewViewport,
+        safeMargins: PreviewSafeMargins,
     ): void {
         const clamped = this.clampBiblePreviewPosition(
             viewport.left + viewport.width - COLLAPSED_BUTTON_SIZE - safeMargins.right,
@@ -1270,7 +1389,7 @@ export class FloatingBiblePreviewWindow {
         this.applyCollapsedButtonPosition(clamped);
     }
 
-    private getPreviewPanelSize(viewportWidth: number, viewportHeight: number): { width: number; height: number } {
+    private getPreviewPanelSize(viewportWidth: number, viewportHeight: number): PreviewSize {
         if (this.isMobilePreviewLayout(viewportWidth)) {
             const height = this.customPreviewSize?.height ?? DEFAULT_MOBILE_HEIGHT;
             const size = this.clampPreviewSize(this.getMobilePreviewWidth(viewportWidth), height, viewportWidth, viewportHeight);
@@ -1303,7 +1422,7 @@ export class FloatingBiblePreviewWindow {
         this.updateResizeHandleStyles(viewport.width);
     }
 
-    private getExpandedPreviewPositionForAnchor(anchorEl: HTMLElement): { left: number; top: number } {
+    private getExpandedPreviewPositionForAnchor(anchorEl: HTMLElement): PreviewPosition {
         const viewport = this.getBiblePreviewViewport();
         const rect = anchorEl.getBoundingClientRect();
         const panelSize = this.getPreviewPanelSize(viewport.width, viewport.height);
@@ -1321,7 +1440,7 @@ export class FloatingBiblePreviewWindow {
         return Math.max(MIN_WIDTH, viewportWidth - 16);
     }
 
-    private clampPreviewSize(width: number, height: number, viewportWidth: number, viewportHeight: number): { width: number; height: number } {
+    private clampPreviewSize(width: number, height: number, viewportWidth: number, viewportHeight: number): PreviewSize {
         const safeMargins = this.getBiblePreviewSafeMargins(viewportWidth);
         const maxWidth = Math.max(MIN_WIDTH, viewportWidth - safeMargins.left - safeMargins.right);
         const maxHeight = Math.max(MIN_HEIGHT, viewportHeight - safeMargins.top - safeMargins.bottom);
@@ -1331,7 +1450,7 @@ export class FloatingBiblePreviewWindow {
         };
     }
 
-    private clampBiblePreviewPosition(left: number, top: number, width: number, height: number): { left: number; top: number } {
+    private clampBiblePreviewPosition(left: number, top: number, width: number, height: number): PreviewPosition {
         const viewport = this.getBiblePreviewViewport();
         const safeMargins = this.getBiblePreviewSafeMargins(viewport.width);
         const minLeft = viewport.left + safeMargins.left;
@@ -1348,7 +1467,7 @@ export class FloatingBiblePreviewWindow {
         return Math.min(Math.max(value, min), Math.max(min, max));
     }
 
-    private getBiblePreviewViewport(): { left: number; top: number; width: number; height: number } {
+    private getBiblePreviewViewport(): PreviewViewport {
         const rootWorkspaceEl = document.querySelector(".workspace-split.mod-root");
         if (rootWorkspaceEl instanceof HTMLElement) {
             const rect = rootWorkspaceEl.getBoundingClientRect();
@@ -1371,7 +1490,7 @@ export class FloatingBiblePreviewWindow {
         };
     }
 
-    private getBiblePreviewSafeMargins(viewportWidth: number): { top: number; right: number; bottom: number; left: number } {
+    private getBiblePreviewSafeMargins(viewportWidth: number): PreviewSafeMargins {
         if (this.isMobilePreviewLayout(viewportWidth)) {
             return {
                 top: Platform.isAndroidApp ? 72 : 56,
