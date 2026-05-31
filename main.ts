@@ -150,8 +150,24 @@ export default class BiblePlugin extends Plugin {
         await this.loadPluginSettings();
         await this.loadBibleIndex();
         await this.loadReferenceUsageIndex();
+        this.initializeFloatingPreviewWindow();
+        this.registerPluginViews();
+        this.registerPluginCommands();
+        this.registerPluginActiveRibbonIcon();
+        this.initializeReadingModePreviewController();
+        this.initializeSettingsTab();
+        this.registerWorkspaceAndKeyboardHandlers();
+        this.registerContentProcessingExtensions();
+    }
+
+    onunload() { }
+
+    private initializeFloatingPreviewWindow(): void {
         this.floatingPreviewWindow = new FloatingBiblePreviewWindow(this.createFloatingPreviewWindowInput());
         this.register(() => this.floatingPreviewWindow?.destroy());
+    }
+
+    private registerPluginViews(): void {
         this.registerView(BIBLE_PREVIEW_VIEW_TYPE, (leaf) => {
             const view = new BiblePreviewPaneView(leaf, this.createBiblePreviewPaneViewInput());
             if (this.lastPanePreviewContent !== null) {
@@ -160,6 +176,9 @@ export default class BiblePlugin extends Plugin {
             return view;
         });
         this.registerView(REFERENCE_USAGE_VIEW_TYPE, (leaf) => new ReferenceUsagePaneView(leaf, this.createReferenceUsagePaneViewInput()));
+    }
+
+    private registerPluginCommands(): void {
         this.addCommand({ id: "import-epub-bible", name: this.t("command.importEpubBible"), callback: () => this.openEpubFilePicker() });
         this.addCommand({ id: "reload-bible-index", name: this.t("command.reloadBibleIndex"), callback: () => void this.reloadBibleIndex() });
         this.addCommand({ id: "open-bible-index-folder", name: this.t("command.openBibleIndexFolder"), callback: () => void this.openBibleIndexFolder() });
@@ -199,17 +218,23 @@ export default class BiblePlugin extends Plugin {
             name: this.t("command.togglePluginActive"),
             callback: () => void this.togglePluginActive(),
         });
+        this.addCommand({
+            id: "open-bible-reference-under-cursor",
+            name: this.t("command.openBibleReferenceUnderCursor"),
+            callback: () => this.openBibleReferenceUnderCursorFromActiveEditor(true),
+        });
+    }
+
+    private registerPluginActiveRibbonIcon(): void {
         this.pluginActiveRibbonIconEl = this.addRibbonIcon(
             "book-open",
             this.getPluginActiveRibbonTitle(),
             () => void this.togglePluginActive(),
         );
         this.updatePluginActiveRibbonIcon();
-        this.addCommand({
-            id: "open-bible-reference-under-cursor",
-            name: this.t("command.openBibleReferenceUnderCursor"),
-            callback: () => this.openBibleReferenceUnderCursorFromActiveEditor(true),
-        });
+    }
+
+    private initializeReadingModePreviewController(): void {
         this.readingModePreviewController = new BibleReadingModePreviewController({
             showBiblePreviewContent: (content, anchor, options) => this.showBiblePreviewContent(content, anchor, options),
             shouldAutoOpenPreviewOnVerseChange: () => this.shouldAutoOpenPreviewOnVerseChange(),
@@ -221,18 +246,25 @@ export default class BiblePlugin extends Plugin {
             hideFloatingBiblePreview: () => this.hideFloatingBiblePreview(),
         });
         this.register(() => this.readingModePreviewController?.destroy());
+    }
+
+    private initializeSettingsTab(): void {
         this.settingsTab = new BiblePluginSettingTab(this.app, this);
         this.addSettingTab(this.settingsTab);
+    }
+
+    private registerWorkspaceAndKeyboardHandlers(): void {
         this.registerEvent(this.app.workspace.on("active-leaf-change", (activeLeaf) => this.handlePreviewActiveLeafChange(activeLeaf)));
         document.addEventListener("keydown", this.panelEscapeKeydownHandler, true);
         this.register(() => document.removeEventListener("keydown", this.panelEscapeKeydownHandler, true));
         this.registerGlobalLinkOpenShortcutHandler();
+    }
+
+    private registerContentProcessingExtensions(): void {
         this.registerReadingModeBibleReferenceLinks();
         this.registerEditorExtension(this.createCursorExtension());
         this.registerReferenceUsageIndexEvents();
     }
-
-    onunload() { }
 
     private async loadBibleIndex(): Promise<void> {
         try {
