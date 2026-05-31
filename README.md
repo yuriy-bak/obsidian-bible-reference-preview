@@ -148,7 +148,7 @@ Build and repository hygiene notes:
 - `.test-build/` is test output and should not be committed.
 - Generated `src/**/*.js` files should not be committed; source files live in `src/**/*.ts`.
 - `main.js` is the Obsidian plugin build artifact used for manual installation and releases.
-- Do not change the `main.js` release/build policy without a separate project decision.
+- `npm run build` creates the production `main.js` by default; use `npm run build:dev` only when you need an inline source map for debugging.
 
 Import and indexing notes:
 
