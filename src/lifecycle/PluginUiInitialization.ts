@@ -1,14 +1,15 @@
-import type { App, WorkspaceLeaf } from "obsidian";
-import { BiblePluginSettingTab } from "../ui/BiblePluginSettingTab";
+import type { App, Plugin, WorkspaceLeaf } from "obsidian";
+import { BiblePluginSettingTab, type BiblePluginSettingTabInput } from "../ui/BiblePluginSettingTab";
 
 export type SettingsTabInitializationInput = {
     app: App;
-    plugin: ConstructorParameters<typeof BiblePluginSettingTab>[1];
+    ownerPlugin: Plugin;
+    settingsInput: BiblePluginSettingTabInput;
     addSettingTab(tab: BiblePluginSettingTab): void;
 };
 
 export function initializeSettingsTab(input: SettingsTabInitializationInput): BiblePluginSettingTab {
-    const settingsTab = new BiblePluginSettingTab(input.app, input.plugin);
+    const settingsTab = new BiblePluginSettingTab(input.app, input.ownerPlugin, input.settingsInput);
     input.addSettingTab(settingsTab);
     return settingsTab;
 }

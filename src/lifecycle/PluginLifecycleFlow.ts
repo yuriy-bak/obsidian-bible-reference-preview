@@ -1,15 +1,15 @@
-import type { MarkdownPostProcessorContext, Plugin, WorkspaceLeaf } from "obsidian";
+import type { App, MarkdownPostProcessorContext, Plugin, WorkspaceLeaf } from "obsidian";
 import type { BiblePreviewContent } from "../application/formatBibleTexts";
 import type { I18nKey } from "../i18n/I18n";
 import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "../ui/FloatingBiblePreviewWindow";
 import type { BibleReadingModePreviewController } from "../ui/BibleReadingModePreviewController";
 import type { BiblePreviewPaneViewInput } from "../ui/BiblePreviewPaneView";
 import type { ReferenceUsagePaneViewInput } from "../ui/ReferenceUsagePaneView";
-import type { BiblePluginSettingTab } from "../ui/BiblePluginSettingTab";
+import type { BiblePluginSettingTab, BiblePluginSettingTabInput } from "../ui/BiblePluginSettingTab";
 import { registerContentProcessingExtensions } from "./PluginContentRegistration";
 import { registerPluginActiveRibbonIcon, registerPluginCommands } from "./PluginCommandRegistration";
 import { initializeFloatingPreviewWindow, initializeReadingModePreviewController } from "./PluginPreviewInitialization";
-import { initializeSettingsTab, registerWorkspaceAndKeyboardHandlers, type SettingsTabInitializationInput } from "./PluginUiInitialization";
+import { initializeSettingsTab, registerWorkspaceAndKeyboardHandlers } from "./PluginUiInitialization";
 import { registerPluginViews } from "./PluginViewRegistration";
 
 type PluginCommand = Parameters<Plugin["addCommand"]>[0];
@@ -42,13 +42,14 @@ export type PluginLifecycleFlowInput = {
     openEpubFilePicker(): void;
     openReferenceUsagesPanelUnderCursor(): Promise<void>;
     panelEscapeKeydownHandler(event: KeyboardEvent): void;
-    plugin: SettingsTabInitializationInput["plugin"];
+    ownerPlugin: Plugin;
+    settingsTabInput: BiblePluginSettingTabInput;
     processReadingModeBibleReferences(element: HTMLElement, context: MarkdownPostProcessorContext): void;
     refreshFloatingPreviewLabels(): void;
     rebuildReferenceUsageIndex(): Promise<void>;
     registerDisposer(disposer: () => void): void;
     registerEditorExtension: RegisterEditorExtension;
-    registerEvent(eventRef: ReturnType<SettingsTabInitializationInput["app"]["workspace"]["on"]>): void;
+    registerEvent(eventRef: ReturnType<App["workspace"]["on"]>): void;
     registerGlobalLinkOpenShortcutHandler(): void;
     registerMarkdownPostProcessor: RegisterMarkdownPostProcessor;
     registerReferenceUsageIndexEvents(): void;
@@ -119,13 +120,14 @@ export function initializePluginLifecycle(input: PluginLifecycleFlowInput): void
     }, input.registerDisposer));
 
     input.setSettingsTab(initializeSettingsTab({
-        app: input.plugin.app,
-        plugin: input.plugin,
+        app: input.ownerPlugin.app,
+        ownerPlugin: input.ownerPlugin,
+        settingsInput: input.settingsTabInput,
         addSettingTab: input.addSettingTab,
     }));
 
     registerWorkspaceAndKeyboardHandlers({
-        app: input.plugin.app,
+        app: input.ownerPlugin.app,
         registerEvent: input.registerEvent,
         registerDisposer: input.registerDisposer,
         onActiveLeafChange: input.onActiveLeafChange,

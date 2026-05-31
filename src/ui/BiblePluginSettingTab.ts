@@ -1,5 +1,7 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
-import type BiblePlugin from "../../main";
+import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
+import type { I18nKey } from "../i18n/I18n";
+import type { TranslationSettingsItem } from "../translations/TranslationModels";
+import type { CssColorDialogInput } from "./CssColorDialog";
 import { renderColorSettingsSection } from "./ColorSettingsSection";
 import { renderReferenceUsageIndexSettingsSection } from "./ReferenceUsageIndexSettingsSection";
 import { renderTranslationSettingsSection } from "./TranslationSettingsList";
@@ -10,8 +12,57 @@ type BiblePreviewDisplayMode = "floating" | "side-panel";
 type BiblePreviewPanelSide = "right" | "left";
 type BibleLinkOpenShortcut = "alt-enter" | "ctrl-enter" | "ctrl-alt-enter";
 
+export type BiblePluginSettingTabInput = {
+    t(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string;
+    isPluginActive(): boolean;
+    setPluginActive(isPluginActive: boolean): Promise<void>;
+    getInterfaceLanguage(): BiblePluginLocale;
+    setInterfaceLanguage(interfaceLanguage: BiblePluginLocale): Promise<void>;
+    openEpubFilePicker(): void;
+    getBiblePreviewTriggerMode(): BiblePreviewTriggerMode;
+    setBiblePreviewTriggerMode(previewTriggerMode: BiblePreviewTriggerMode): Promise<void>;
+    getBiblePreviewDisplayMode(): BiblePreviewDisplayMode;
+    setBiblePreviewDisplayMode(previewDisplayMode: BiblePreviewDisplayMode): Promise<void>;
+    shouldAutoOpenPreviewOnVerseChange(): boolean;
+    setAutoOpenPreviewOnVerseChange(autoOpenPreviewOnVerseChange: boolean): Promise<void>;
+    getBiblePreviewPanelSide(): BiblePreviewPanelSide;
+    setBiblePreviewPanelSide(previewPanelSide: BiblePreviewPanelSide): Promise<void>;
+    shouldClosePreviewOnActiveLeafChange(): boolean;
+    setClosePreviewOnActiveLeafChange(closePreviewOnActiveLeafChange: boolean): Promise<void>;
+    shouldInterceptLinkOpenShortcut(): boolean;
+    setInterceptLinkOpenShortcut(interceptLinkOpenShortcut: boolean): Promise<void>;
+    getBibleLinkOpenShortcut(): BibleLinkOpenShortcut;
+    setBibleLinkOpenShortcut(linkOpenShortcut: BibleLinkOpenShortcut): Promise<void>;
+    openCssColorDialog(input: CssColorDialogInput): void;
+    openFloatingPreviewBackgroundColorDialog(): void;
+    getBibleReferenceLinkColor(): string;
+    getBibleReferenceLinkColorPickerValue(): string;
+    isBibleReferenceLinkColorDefault(): boolean;
+    setBibleReferenceLinkColor(color: string): Promise<void>;
+    resetBibleReferenceLinkColor(): Promise<void>;
+    getFloatingPreviewBackgroundColor(): string;
+    isFloatingPreviewBackgroundColorDefault(): boolean;
+    resetFloatingPreviewBackgroundColor(): Promise<void>;
+    openBibleIndexFolder(): Promise<void>;
+    showBibleIndexStats(): Promise<void>;
+    isReferenceUsageIndexingEnabled(): boolean;
+    setReferenceUsageIndexingEnabled(referenceUsageIndexingEnabled: boolean): Promise<void>;
+    shouldAutoUpdateReferenceUsageIndex(): boolean;
+    setReferenceUsageAutoUpdate(referenceUsageAutoUpdate: boolean): Promise<void>;
+    getReferenceUsageExcludedFoldersText(): string;
+    setReferenceUsageExcludedFoldersText(value: string): Promise<void>;
+    buildReferenceUsageIndex(): Promise<void>;
+    rebuildReferenceUsageIndex(): Promise<void>;
+    showReferenceUsageIndexStats(): Promise<void>;
+    clearReferenceUsageIndex(): Promise<void>;
+    getTranslationSettingsItems(): TranslationSettingsItem[];
+    deleteImportedTranslation(translationId: string): Promise<void>;
+    setComparisonTranslationEnabled(translationId: string, enabled: boolean): Promise<void>;
+    setTranslationOrder(nextOrder: string[]): Promise<void>;
+};
+
 export class BiblePluginSettingTab extends PluginSettingTab {
-    constructor(app: App, private readonly plugin: BiblePlugin) { super(app, plugin); }
+    constructor(app: App, ownerPlugin: Plugin, private readonly plugin: BiblePluginSettingTabInput) { super(app, ownerPlugin); }
 
     display(): void {
         const { containerEl } = this;
