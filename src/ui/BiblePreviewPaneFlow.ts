@@ -55,7 +55,7 @@ export async function scrollBiblePreviewPane(
     leaf.view.scrollPreview(input.command);
 }
 
-export function refreshBiblePreviewPaneViewInputs(input: Pick<BiblePreviewPaneFlowInput, "getFirstWorkspaceLeafOfType" | "createBiblePreviewPaneViewInput"> & {
+export function refreshBiblePreviewPaneViewInputs(input: Pick<BiblePreviewPaneFlowInput, "createBiblePreviewPaneViewInput"> & {
     getWorkspaceLeavesOfType(viewType: string): WorkspaceLeaf[];
 }): void {
     for (const leaf of input.getWorkspaceLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE)) {
