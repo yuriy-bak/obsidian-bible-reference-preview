@@ -3,17 +3,35 @@ import type { BiblePluginLocale, I18nKey } from "../i18n/I18n";
 import type { BibleLinkOpenShortcut, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode } from "../settings/PluginSettings";
 import type { TranslationSettingsItem } from "../translations/TranslationModels";
 import type { CssColorDialogInput } from "./CssColorDialog";
-import { renderColorSettingsSection, type ColorSettingsSectionInput } from "./ColorSettingsSection";
+import { renderColorSettingsSection as renderColorSettingsSectionView, type ColorSettingsSectionInput } from "./ColorSettingsSection";
 import { renderReferenceUsageIndexSettingsSection, type ReferenceUsageIndexSettingsSectionInput } from "./ReferenceUsageIndexSettingsSection";
 import { renderTranslationSettingsSection, type TranslationSettingsSectionInput } from "./TranslationSettingsList";
 
 export type BiblePluginSettingTabInput = {
     t(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string;
+
     isPluginActive(): boolean;
     setPluginActive(isPluginActive: boolean): Promise<void>;
     getInterfaceLanguage(): BiblePluginLocale;
     setInterfaceLanguage(interfaceLanguage: BiblePluginLocale): Promise<void>;
     openEpubFilePicker(): void;
+
+    getTranslationSettingsItems(): TranslationSettingsItem[];
+    deleteImportedTranslation(translationId: string): Promise<void>;
+    setComparisonTranslationEnabled(translationId: string, enabled: boolean): Promise<void>;
+    setTranslationOrder(nextOrder: string[]): Promise<void>;
+
+    isReferenceUsageIndexingEnabled(): boolean;
+    setReferenceUsageIndexingEnabled(referenceUsageIndexingEnabled: boolean): Promise<void>;
+    shouldAutoUpdateReferenceUsageIndex(): boolean;
+    setReferenceUsageAutoUpdate(referenceUsageAutoUpdate: boolean): Promise<void>;
+    getReferenceUsageExcludedFoldersText(): string;
+    setReferenceUsageExcludedFoldersText(value: string): Promise<void>;
+    buildReferenceUsageIndex(): Promise<void>;
+    rebuildReferenceUsageIndex(): Promise<void>;
+    showReferenceUsageIndexStats(): Promise<void>;
+    clearReferenceUsageIndex(): Promise<void>;
+
     getBiblePreviewTriggerMode(): BiblePreviewTriggerMode;
     setBiblePreviewTriggerMode(previewTriggerMode: BiblePreviewTriggerMode): Promise<void>;
     getBiblePreviewDisplayMode(): BiblePreviewDisplayMode;
@@ -28,6 +46,7 @@ export type BiblePluginSettingTabInput = {
     setInterceptLinkOpenShortcut(interceptLinkOpenShortcut: boolean): Promise<void>;
     getBibleLinkOpenShortcut(): BibleLinkOpenShortcut;
     setBibleLinkOpenShortcut(linkOpenShortcut: BibleLinkOpenShortcut): Promise<void>;
+
     openCssColorDialog(input: CssColorDialogInput): void;
     openFloatingPreviewBackgroundColorDialog(): void;
     getBibleReferenceLinkColor(): string;
@@ -38,22 +57,9 @@ export type BiblePluginSettingTabInput = {
     getFloatingPreviewBackgroundColor(): string;
     isFloatingPreviewBackgroundColorDefault(): boolean;
     resetFloatingPreviewBackgroundColor(): Promise<void>;
+
     openBibleIndexFolder(): Promise<void>;
     showBibleIndexStats(): Promise<void>;
-    isReferenceUsageIndexingEnabled(): boolean;
-    setReferenceUsageIndexingEnabled(referenceUsageIndexingEnabled: boolean): Promise<void>;
-    shouldAutoUpdateReferenceUsageIndex(): boolean;
-    setReferenceUsageAutoUpdate(referenceUsageAutoUpdate: boolean): Promise<void>;
-    getReferenceUsageExcludedFoldersText(): string;
-    setReferenceUsageExcludedFoldersText(value: string): Promise<void>;
-    buildReferenceUsageIndex(): Promise<void>;
-    rebuildReferenceUsageIndex(): Promise<void>;
-    showReferenceUsageIndexStats(): Promise<void>;
-    clearReferenceUsageIndex(): Promise<void>;
-    getTranslationSettingsItems(): TranslationSettingsItem[];
-    deleteImportedTranslation(translationId: string): Promise<void>;
-    setComparisonTranslationEnabled(translationId: string, enabled: boolean): Promise<void>;
-    setTranslationOrder(nextOrder: string[]): Promise<void>;
 };
 
 export class BiblePluginSettingTab extends PluginSettingTab {
@@ -71,38 +77,73 @@ export class BiblePluginSettingTab extends PluginSettingTab {
 
         this.renderPreviewSettings(containerEl);
 
-        renderColorSettingsSection(this.createColorSettingsSectionInput(containerEl));
+        this.renderColorSettingsSection(containerEl);
         this.renderBibleIndexSettings(containerEl);
     }
 
-    private createColorSettingsSectionInput(containerEl: HTMLElement): ColorSettingsSectionInput {
+    private renderGeneralSettings(containerEl: HTMLElement): void {
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.pluginActive.name"))
+            .setDesc(this.plugin.t("settings.pluginActive.desc"))
+            .addToggle((toggle) => toggle
+                .setValue(this.plugin.isPluginActive())
+                .onChange(async (value) => {
+                    await this.plugin.setPluginActive(value);
+                }));
+
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.interfaceLanguage.name"))
+            .setDesc(this.plugin.t("settings.interfaceLanguage.desc"))
+            .addDropdown((dropdown) => {
+                dropdown
+                    .addOption("ru", this.plugin.t("settings.interfaceLanguage.ru"))
+                    .addOption("en", this.plugin.t("settings.interfaceLanguage.en"))
+                    .setValue(this.plugin.getInterfaceLanguage())
+                    .onChange((value) => void this.plugin.setInterfaceLanguage(value as BiblePluginLocale));
+            });
+
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.import.name"))
+            .setDesc(this.plugin.t("settings.import.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.import.button")).setCta().onClick(() => this.plugin.openEpubFilePicker()));
+    }
+
+    private renderTranslationsSection(containerEl: HTMLElement): void {
+        renderTranslationSettingsSection(this.createTranslationSettingsSectionInput(containerEl));
+    }
+
+    private createTranslationSettingsSectionInput(containerEl: HTMLElement): TranslationSettingsSectionInput {
         return {
             containerEl,
-            translate: (key) => this.plugin.t(key),
-            openCssColorDialog: (input) => this.plugin.openCssColorDialog(input),
-            openFloatingPreviewBackgroundColorDialog: () => this.plugin.openFloatingPreviewBackgroundColorDialog(),
-            getBibleReferenceLinkColor: () => this.plugin.getBibleReferenceLinkColor(),
-            getBibleReferenceLinkColorPickerValue: () => this.plugin.getBibleReferenceLinkColorPickerValue(),
-            isBibleReferenceLinkColorDefault: () => this.plugin.isBibleReferenceLinkColorDefault(),
-            setBibleReferenceLinkColor: (color) => this.plugin.setBibleReferenceLinkColor(color),
-            resetBibleReferenceLinkColor: () => this.plugin.resetBibleReferenceLinkColor(),
-            getFloatingPreviewBackgroundColor: () => this.plugin.getFloatingPreviewBackgroundColor(),
-            isFloatingPreviewBackgroundColorDefault: () => this.plugin.isFloatingPreviewBackgroundColorDefault(),
-            resetFloatingPreviewBackgroundColor: () => this.plugin.resetFloatingPreviewBackgroundColor(),
+            translations: this.plugin.getTranslationSettingsItems(),
+            translate: (key, params) => this.plugin.t(key, params),
+            onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
+            onToggleComparison: (translationId, enabled) => this.plugin.setComparisonTranslationEnabled(translationId, enabled),
+            getCurrentOrder: () => this.plugin.getTranslationSettingsItems().map((item) => item.id),
+            onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
             refresh: () => this.display(),
         };
     }
 
-    private renderBibleIndexSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.openIndexFolder.name"))
-            .setDesc(this.plugin.t("settings.openIndexFolder.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.openIndexFolder.button")).onClick(() => void this.plugin.openBibleIndexFolder()));
+    private renderReferenceUsageIndexSection(containerEl: HTMLElement): void {
+        renderReferenceUsageIndexSettingsSection(this.createReferenceUsageIndexSettingsSectionInput(containerEl));
+    }
 
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.showStats.name"))
-            .setDesc(this.plugin.t("settings.showStats.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.showStats.button")).onClick(() => void this.plugin.showBibleIndexStats()));
+    private createReferenceUsageIndexSettingsSectionInput(containerEl: HTMLElement): ReferenceUsageIndexSettingsSectionInput {
+        return {
+            containerEl,
+            translate: (key) => this.plugin.t(key),
+            isEnabled: () => this.plugin.isReferenceUsageIndexingEnabled(),
+            setEnabled: (value) => this.plugin.setReferenceUsageIndexingEnabled(value),
+            isAutoUpdateEnabled: () => this.plugin.shouldAutoUpdateReferenceUsageIndex(),
+            setAutoUpdateEnabled: (value) => this.plugin.setReferenceUsageAutoUpdate(value),
+            getExcludedFoldersText: () => this.plugin.getReferenceUsageExcludedFoldersText(),
+            setExcludedFoldersText: (value) => this.plugin.setReferenceUsageExcludedFoldersText(value),
+            buildIndex: () => this.plugin.buildReferenceUsageIndex(),
+            rebuildIndex: () => this.plugin.rebuildReferenceUsageIndex(),
+            showStats: () => this.plugin.showReferenceUsageIndexStats(),
+            clearIndex: () => this.plugin.clearReferenceUsageIndex(),
+        };
     }
 
     private renderPreviewSettings(containerEl: HTMLElement): void {
@@ -171,68 +212,37 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             });
     }
 
-    private renderGeneralSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.pluginActive.name"))
-            .setDesc(this.plugin.t("settings.pluginActive.desc"))
-            .addToggle((toggle) => toggle
-                .setValue(this.plugin.isPluginActive())
-                .onChange(async (value) => {
-                    await this.plugin.setPluginActive(value);
-                }));
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.interfaceLanguage.name"))
-            .setDesc(this.plugin.t("settings.interfaceLanguage.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("ru", this.plugin.t("settings.interfaceLanguage.ru"))
-                    .addOption("en", this.plugin.t("settings.interfaceLanguage.en"))
-                    .setValue(this.plugin.getInterfaceLanguage())
-                    .onChange((value) => void this.plugin.setInterfaceLanguage(value as BiblePluginLocale));
-            });
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.import.name"))
-            .setDesc(this.plugin.t("settings.import.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.import.button")).setCta().onClick(() => this.plugin.openEpubFilePicker()));
+    private renderColorSettingsSection(containerEl: HTMLElement): void {
+        renderColorSettingsSectionView(this.createColorSettingsSectionInput(containerEl));
     }
 
-    private renderReferenceUsageIndexSection(containerEl: HTMLElement): void {
-        renderReferenceUsageIndexSettingsSection(this.createReferenceUsageIndexSettingsSectionInput(containerEl));
-    }
-
-    private createReferenceUsageIndexSettingsSectionInput(containerEl: HTMLElement): ReferenceUsageIndexSettingsSectionInput {
+    private createColorSettingsSectionInput(containerEl: HTMLElement): ColorSettingsSectionInput {
         return {
             containerEl,
             translate: (key) => this.plugin.t(key),
-            isEnabled: () => this.plugin.isReferenceUsageIndexingEnabled(),
-            setEnabled: (value) => this.plugin.setReferenceUsageIndexingEnabled(value),
-            isAutoUpdateEnabled: () => this.plugin.shouldAutoUpdateReferenceUsageIndex(),
-            setAutoUpdateEnabled: (value) => this.plugin.setReferenceUsageAutoUpdate(value),
-            getExcludedFoldersText: () => this.plugin.getReferenceUsageExcludedFoldersText(),
-            setExcludedFoldersText: (value) => this.plugin.setReferenceUsageExcludedFoldersText(value),
-            buildIndex: () => this.plugin.buildReferenceUsageIndex(),
-            rebuildIndex: () => this.plugin.rebuildReferenceUsageIndex(),
-            showStats: () => this.plugin.showReferenceUsageIndexStats(),
-            clearIndex: () => this.plugin.clearReferenceUsageIndex(),
-        };
-    }
-
-    private renderTranslationsSection(containerEl: HTMLElement): void {
-        renderTranslationSettingsSection(this.createTranslationSettingsSectionInput(containerEl));
-    }
-
-    private createTranslationSettingsSectionInput(containerEl: HTMLElement): TranslationSettingsSectionInput {
-        return {
-            containerEl,
-            translations: this.plugin.getTranslationSettingsItems(),
-            translate: (key, params) => this.plugin.t(key, params),
-            onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
-            onToggleComparison: (translationId, enabled) => this.plugin.setComparisonTranslationEnabled(translationId, enabled),
-            getCurrentOrder: () => this.plugin.getTranslationSettingsItems().map((item) => item.id),
-            onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
+            openCssColorDialog: (input) => this.plugin.openCssColorDialog(input),
+            openFloatingPreviewBackgroundColorDialog: () => this.plugin.openFloatingPreviewBackgroundColorDialog(),
+            getBibleReferenceLinkColor: () => this.plugin.getBibleReferenceLinkColor(),
+            getBibleReferenceLinkColorPickerValue: () => this.plugin.getBibleReferenceLinkColorPickerValue(),
+            isBibleReferenceLinkColorDefault: () => this.plugin.isBibleReferenceLinkColorDefault(),
+            setBibleReferenceLinkColor: (color) => this.plugin.setBibleReferenceLinkColor(color),
+            resetBibleReferenceLinkColor: () => this.plugin.resetBibleReferenceLinkColor(),
+            getFloatingPreviewBackgroundColor: () => this.plugin.getFloatingPreviewBackgroundColor(),
+            isFloatingPreviewBackgroundColorDefault: () => this.plugin.isFloatingPreviewBackgroundColorDefault(),
+            resetFloatingPreviewBackgroundColor: () => this.plugin.resetFloatingPreviewBackgroundColor(),
             refresh: () => this.display(),
         };
+    }
+
+    private renderBibleIndexSettings(containerEl: HTMLElement): void {
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.openIndexFolder.name"))
+            .setDesc(this.plugin.t("settings.openIndexFolder.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.openIndexFolder.button")).onClick(() => void this.plugin.openBibleIndexFolder()));
+
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.showStats.name"))
+            .setDesc(this.plugin.t("settings.showStats.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.showStats.button")).onClick(() => void this.plugin.showBibleIndexStats()));
     }
 }
