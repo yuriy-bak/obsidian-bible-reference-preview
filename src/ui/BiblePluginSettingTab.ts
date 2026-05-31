@@ -3,9 +3,9 @@ import type { BiblePluginLocale, I18nKey } from "../i18n/I18n";
 import type { BibleLinkOpenShortcut, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode } from "../settings/PluginSettings";
 import type { TranslationSettingsItem } from "../translations/TranslationModels";
 import type { CssColorDialogInput } from "./CssColorDialog";
-import { renderColorSettingsSection } from "./ColorSettingsSection";
-import { renderReferenceUsageIndexSettingsSection } from "./ReferenceUsageIndexSettingsSection";
-import { renderTranslationSettingsSection } from "./TranslationSettingsList";
+import { renderColorSettingsSection, type ColorSettingsSectionInput } from "./ColorSettingsSection";
+import { renderReferenceUsageIndexSettingsSection, type ReferenceUsageIndexSettingsSectionInput } from "./ReferenceUsageIndexSettingsSection";
+import { renderTranslationSettingsSection, type TranslationSettingsSectionInput } from "./TranslationSettingsList";
 
 export type BiblePluginSettingTabInput = {
     t(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string;
@@ -71,7 +71,12 @@ export class BiblePluginSettingTab extends PluginSettingTab {
 
         this.renderPreviewSettings(containerEl);
 
-        renderColorSettingsSection({
+        renderColorSettingsSection(this.createColorSettingsSectionInput(containerEl));
+        this.renderBibleIndexSettings(containerEl);
+    }
+
+    private createColorSettingsSectionInput(containerEl: HTMLElement): ColorSettingsSectionInput {
+        return {
             containerEl,
             translate: (key) => this.plugin.t(key),
             openCssColorDialog: (input) => this.plugin.openCssColorDialog(input),
@@ -85,8 +90,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             isFloatingPreviewBackgroundColorDefault: () => this.plugin.isFloatingPreviewBackgroundColorDefault(),
             resetFloatingPreviewBackgroundColor: () => this.plugin.resetFloatingPreviewBackgroundColor(),
             refresh: () => this.display(),
-        });
-        this.renderBibleIndexSettings(containerEl);
+        };
     }
 
     private renderBibleIndexSettings(containerEl: HTMLElement): void {
@@ -195,7 +199,11 @@ export class BiblePluginSettingTab extends PluginSettingTab {
     }
 
     private renderReferenceUsageIndexSection(containerEl: HTMLElement): void {
-        renderReferenceUsageIndexSettingsSection({
+        renderReferenceUsageIndexSettingsSection(this.createReferenceUsageIndexSettingsSectionInput(containerEl));
+    }
+
+    private createReferenceUsageIndexSettingsSectionInput(containerEl: HTMLElement): ReferenceUsageIndexSettingsSectionInput {
+        return {
             containerEl,
             translate: (key) => this.plugin.t(key),
             isEnabled: () => this.plugin.isReferenceUsageIndexingEnabled(),
@@ -208,11 +216,15 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             rebuildIndex: () => this.plugin.rebuildReferenceUsageIndex(),
             showStats: () => this.plugin.showReferenceUsageIndexStats(),
             clearIndex: () => this.plugin.clearReferenceUsageIndex(),
-        });
+        };
     }
 
     private renderTranslationsSection(containerEl: HTMLElement): void {
-        renderTranslationSettingsSection({
+        renderTranslationSettingsSection(this.createTranslationSettingsSectionInput(containerEl));
+    }
+
+    private createTranslationSettingsSectionInput(containerEl: HTMLElement): TranslationSettingsSectionInput {
+        return {
             containerEl,
             translations: this.plugin.getTranslationSettingsItems(),
             translate: (key, params) => this.plugin.t(key, params),
@@ -221,6 +233,6 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             getCurrentOrder: () => this.plugin.getTranslationSettingsItems().map((item) => item.id),
             onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
             refresh: () => this.display(),
-        });
+        };
     }
 }
