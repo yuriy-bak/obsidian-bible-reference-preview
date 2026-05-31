@@ -249,6 +249,14 @@ export class FloatingBiblePreviewWindow {
 
     private createPreviewPanelElement(): HTMLDivElement {
         const panelEl = document.createElement("div");
+        this.stylePreviewPanel(panelEl);
+
+        this.buildPreviewHeader(panelEl);
+
+        return panelEl;
+    }
+
+    private stylePreviewPanel(panelEl: HTMLElement): void {
         this.setStyles(panelEl, {
             position: "fixed",
             display: "none",
@@ -265,8 +273,23 @@ export class FloatingBiblePreviewWindow {
             minHeight: `${MIN_HEIGHT}px`,
             pointerEvents: "auto",
         });
+    }
 
+    private buildPreviewHeader(panelEl: HTMLElement): void {
         const headerEl = panelEl.createDiv();
+        this.stylePreviewHeader(headerEl);
+        headerEl.addEventListener("pointerdown", (event) => this.startBiblePreviewDrag(event));
+
+        this.buildPreviewTitle(headerEl);
+        this.buildComparisonSelectorHost(headerEl);
+        this.buildCopyPreviewButton(headerEl);
+        this.buildComparisonPreviewButton(headerEl);
+        this.buildOpenInPanelButton(headerEl);
+        this.buildCollapsePreviewButton(headerEl);
+        this.buildClosePreviewButton(headerEl);
+    }
+
+    private stylePreviewHeader(headerEl: HTMLElement): void {
         this.setStyles(headerEl, {
             display: "flex",
             alignItems: "center",
@@ -279,10 +302,15 @@ export class FloatingBiblePreviewWindow {
             cursor: "move",
             touchAction: "none",
         });
-        headerEl.addEventListener("pointerdown", (event) => this.startBiblePreviewDrag(event));
+    }
 
+    private buildPreviewTitle(headerEl: HTMLElement): void {
         const titleEl = headerEl.createDiv({ text: this.labels.getTitle() });
         this.previewTitleEl = titleEl;
+        this.stylePreviewTitle(titleEl);
+    }
+
+    private stylePreviewTitle(titleEl: HTMLElement): void {
         this.setStyles(titleEl, {
             flex: "1",
             minWidth: "0",
@@ -293,30 +321,40 @@ export class FloatingBiblePreviewWindow {
             overflow: "hidden",
             textOverflow: "ellipsis",
         });
+    }
 
+    private buildComparisonSelectorHost(headerEl: HTMLElement): void {
         const comparisonSelectorEl = headerEl.createDiv();
         this.comparisonSelectorEl = comparisonSelectorEl;
+        this.styleComparisonSelectorHost(comparisonSelectorEl);
+        comparisonSelectorEl.addEventListener("pointerdown", (event) => event.stopPropagation());
+        comparisonSelectorEl.addEventListener("click", (event) => event.stopPropagation());
+    }
+
+    private styleComparisonSelectorHost(comparisonSelectorEl: HTMLElement): void {
         this.setStyles(comparisonSelectorEl, {
             flex: "1 1 auto",
             minWidth: "0",
         });
-        comparisonSelectorEl.addEventListener("pointerdown", (event) => event.stopPropagation());
-        comparisonSelectorEl.addEventListener("click", (event) => event.stopPropagation());
+    }
 
+    private buildCopyPreviewButton(headerEl: HTMLElement): void {
         const copyButton = this.createPreviewIconButton("📋", this.labels.getCopyAria());
         this.copyPreviewButtonEl = copyButton;
-        copyButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+        this.stopHeaderButtonDrag(copyButton);
         copyButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
             void this.copyBiblePreviewText();
         });
         headerEl.appendChild(copyButton);
+    }
 
+    private buildComparisonPreviewButton(headerEl: HTMLElement): void {
         const comparisonButton = this.createPreviewIconButton("⇄", this.getComparisonAriaLabel());
         this.comparisonPreviewButtonEl = comparisonButton;
         this.updateComparisonButtonText();
-        comparisonButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+        this.stopHeaderButtonDrag(comparisonButton);
         comparisonButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -325,11 +363,13 @@ export class FloatingBiblePreviewWindow {
             }
         });
         headerEl.appendChild(comparisonButton);
+    }
 
+    private buildOpenInPanelButton(headerEl: HTMLElement): void {
         const openInPanelButton = this.createPreviewIconButton("◨", this.getOpenInPanelAriaLabel());
         this.openInPanelButtonEl = openInPanelButton;
         this.updateOpenInPanelButtonText();
-        openInPanelButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+        this.stopHeaderButtonDrag(openInPanelButton);
         openInPanelButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -339,30 +379,40 @@ export class FloatingBiblePreviewWindow {
             }
         });
         headerEl.appendChild(openInPanelButton);
+    }
 
+    private buildCollapsePreviewButton(headerEl: HTMLElement): void {
         const collapseButton = this.createPreviewIconButton("▾", this.labels.getCollapseAria());
         this.collapsePreviewButtonEl = collapseButton;
-        collapseButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+        this.stopHeaderButtonDrag(collapseButton);
         collapseButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
             this.collapseBiblePreview(collapseButton);
         });
         headerEl.appendChild(collapseButton);
+    }
 
+    private buildClosePreviewButton(headerEl: HTMLElement): void {
         const closeButton = this.createPreviewIconButton("×", this.getCloseAriaLabel());
         this.closePreviewButtonEl = closeButton;
-        closeButton.style.fontSize = "18px";
-        closeButton.style.fontWeight = "700";
-        closeButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+        this.styleClosePreviewButton(closeButton);
+        this.stopHeaderButtonDrag(closeButton);
         closeButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
             this.hide();
         });
         headerEl.appendChild(closeButton);
+    }
 
-        return panelEl;
+    private styleClosePreviewButton(closeButton: HTMLButtonElement): void {
+        closeButton.style.fontSize = "18px";
+        closeButton.style.fontWeight = "700";
+    }
+
+    private stopHeaderButtonDrag(buttonEl: HTMLElement): void {
+        buttonEl.addEventListener("pointerdown", (event) => event.stopPropagation());
     }
 
     private configurePreviewContentElement(): void {
@@ -421,6 +471,11 @@ export class FloatingBiblePreviewWindow {
         buttonEl.textContent = text;
         buttonEl.setAttribute("aria-label", label);
         buttonEl.title = label;
+        this.stylePreviewIconButton(buttonEl);
+        return buttonEl;
+    }
+
+    private stylePreviewIconButton(buttonEl: HTMLButtonElement): void {
         this.setStyles(buttonEl, {
             width: "24px",
             height: "24px",
@@ -436,7 +491,6 @@ export class FloatingBiblePreviewWindow {
             lineHeight: "1",
             padding: "0",
         });
-        return buttonEl;
     }
 
     private createResizeHandleElements(): HTMLDivElement[] {
