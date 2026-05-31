@@ -1,4 +1,4 @@
-import type { App } from "obsidian";
+import type { App, WorkspaceLeaf } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewReferenceBlock } from "../application/formatBibleTexts";
 import type { I18nKey } from "../i18n/I18n";
 import type { BiblePreviewDisplayMode, BiblePreviewPanelSide } from "../settings/PluginSettings";
@@ -16,6 +16,8 @@ import {
 } from "./BiblePreviewPaneFlowInputFactory";
 import {
     closeBiblePreviewPaneFromState as closeBiblePreviewPaneFromStateFlow,
+    handleBiblePreviewActiveLeafChange as handleBiblePreviewActiveLeafChangeFromStateFlow,
+    handleBiblePreviewPanelEscapeKeydown as handleBiblePreviewPanelEscapeKeydownFromStateFlow,
     type BiblePreviewPaneStateFlowInput,
     type CloseBiblePreviewPaneStateFlowOptions,
 } from "./BiblePreviewPaneStateFlow";
@@ -191,6 +193,21 @@ export async function closeBiblePreviewPane(
     options: CloseBiblePreviewPaneStateFlowOptions = {},
 ): Promise<void> {
     await closeBiblePreviewPaneFromStateFlow(createBiblePreviewPaneStateFlowInput(input), options);
+}
+
+export function handleBiblePreviewPanelEscapeKeydown(input: BiblePreviewPluginFlowInput, event: KeyboardEvent): void {
+    handleBiblePreviewPanelEscapeKeydownFromStateFlow(createBiblePreviewPaneStateFlowInput(input), event);
+}
+
+export function handleBiblePreviewActiveLeafChange(
+    input: BiblePreviewPluginFlowInput,
+    activeLeaf: WorkspaceLeaf | null,
+    options: { suppressPreviewActiveLeafChange?: boolean } = {},
+): void {
+    if (options.suppressPreviewActiveLeafChange === true) {
+        return;
+    }
+    handleBiblePreviewActiveLeafChangeFromStateFlow(createBiblePreviewPaneStateFlowInput(input), activeLeaf);
 }
 
 export function hideFloatingBiblePreview(input: BiblePreviewPluginFlowInput, resetPosition = false): void {

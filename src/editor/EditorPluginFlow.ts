@@ -117,10 +117,9 @@ export async function analyzeReferenceText(input: EditorPluginFlowInput, text: s
 export async function toggleBiblePreviewComparison(
     input: EditorPluginFlowInput,
     content: BiblePreviewContent,
-    isPreviewComparisonEnabled: () => boolean,
 ): Promise<void> {
     await toggleBiblePreviewComparisonFlow({
-        ...createBiblePreviewAnalyzerFlowInputWithComparison(input, isPreviewComparisonEnabled),
+        ...createBiblePreviewAnalyzerFlowInputWithComparison(input, input.isPreviewComparisonEnabled),
         setPreviewComparisonEnabled: input.setPreviewComparisonEnabled,
         showBiblePreviewContent: (nextContent) => input.showBiblePreviewContent(nextContent, { reveal: true }),
     }, content);
@@ -129,7 +128,6 @@ export async function toggleBiblePreviewComparison(
 export async function rebuildBiblePreviewContent(
     input: EditorPluginFlowInput,
     content: BiblePreviewContent,
-    isPreviewComparisonEnabled: () => boolean,
 ): Promise<BiblePreviewContent | null> {
-    return rebuildBiblePreviewContentFlow(createBiblePreviewAnalyzerFlowInputWithComparison(input, isPreviewComparisonEnabled), content);
+    return rebuildBiblePreviewContentFlow(createBiblePreviewAnalyzerFlowInputWithComparison(input, input.isPreviewComparisonEnabled), content);
 }

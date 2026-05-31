@@ -141,4 +141,12 @@ export function getActiveTranslationPreviewTitle(input: TranslationPluginFlowInp
     return getActiveTranslationPreviewTitleFlow(createTranslationDisplayFlowInput(input));
 }
 
+export function hasImportedTranslations(input: TranslationPluginFlowInput): boolean {
+    const activeV2Data = input.getV2Data();
+    const activeTranslationId = input.getActiveTranslationId();
+    return activeV2Data !== null
+        && activeTranslationId !== null
+        && activeV2Data.translations[activeTranslationId] !== undefined;
+}
+
 export type { PreviewComparisonTranslationOption, TranslationControllerState, TranslationSettingsItem };

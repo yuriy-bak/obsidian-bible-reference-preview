@@ -29,7 +29,7 @@ export type ReferenceUsagePluginFlowInput = {
     parseMatches(text: string): BibleReferenceMatch[];
     getReferenceUsageExcludedFolders(): string[];
     isIndexingEnabled(): boolean;
-    shouldAutoProcessEvents(): boolean;
+    isAutoUpdateEnabled(): boolean;
     hasImportedTranslations(): boolean;
     getReferenceUnderCursor: ReferenceUsageUnderCursorFlowInput["getReferenceUnderCursor"];
     getReferenceUsageIndexService(): ReferenceUsageIndexService;
@@ -72,12 +72,16 @@ export async function loadReferenceUsageIndexService(input: ReferenceUsagePlugin
     return service;
 }
 
+export function shouldAutoProcessReferenceUsageIndexEvents(input: ReferenceUsagePluginFlowInput): boolean {
+    return input.isIndexingEnabled() && input.isAutoUpdateEnabled() && input.hasImportedTranslations();
+}
+
 export function createReferenceUsageController(input: ReferenceUsagePluginFlowInput): ReferenceUsageController {
     return new ReferenceUsageController({
         app: input.app,
         getService: input.getReferenceUsageIndexService,
         isIndexingEnabled: input.isIndexingEnabled,
-        shouldAutoProcessEvents: input.shouldAutoProcessEvents,
+        shouldAutoProcessEvents: () => shouldAutoProcessReferenceUsageIndexEvents(input),
         hasImportedTranslations: input.hasImportedTranslations,
         translate: input.translate,
         refreshSettings: input.refreshSettings,
