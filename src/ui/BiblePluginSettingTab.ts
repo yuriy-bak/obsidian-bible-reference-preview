@@ -1,16 +1,11 @@
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
-import type { I18nKey } from "../i18n/I18n";
+import type { BiblePluginLocale, I18nKey } from "../i18n/I18n";
+import type { BibleLinkOpenShortcut, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode } from "../settings/PluginSettings";
 import type { TranslationSettingsItem } from "../translations/TranslationModels";
 import type { CssColorDialogInput } from "./CssColorDialog";
 import { renderColorSettingsSection } from "./ColorSettingsSection";
 import { renderReferenceUsageIndexSettingsSection } from "./ReferenceUsageIndexSettingsSection";
 import { renderTranslationSettingsSection } from "./TranslationSettingsList";
-
-type BiblePluginLocale = "ru" | "en";
-type BiblePreviewTriggerMode = "current-paragraph" | "clicked-reference";
-type BiblePreviewDisplayMode = "floating" | "side-panel";
-type BiblePreviewPanelSide = "right" | "left";
-type BibleLinkOpenShortcut = "alt-enter" | "ctrl-enter" | "ctrl-alt-enter";
 
 export type BiblePluginSettingTabInput = {
     t(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string;
@@ -69,34 +64,44 @@ export class BiblePluginSettingTab extends PluginSettingTab {
         containerEl.empty();
         containerEl.createEl("h2", { text: this.plugin.t("settings.title") });
 
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.pluginActive.name"))
-            .setDesc(this.plugin.t("settings.pluginActive.desc"))
-            .addToggle((toggle) => toggle
-                .setValue(this.plugin.isPluginActive())
-                .onChange(async (value) => {
-                    await this.plugin.setPluginActive(value);
-                }));
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.interfaceLanguage.name"))
-            .setDesc(this.plugin.t("settings.interfaceLanguage.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("ru", this.plugin.t("settings.interfaceLanguage.ru"))
-                    .addOption("en", this.plugin.t("settings.interfaceLanguage.en"))
-                    .setValue(this.plugin.getInterfaceLanguage())
-                    .onChange((value) => void this.plugin.setInterfaceLanguage(value as BiblePluginLocale));
-            });
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.import.name"))
-            .setDesc(this.plugin.t("settings.import.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.import.button")).setCta().onClick(() => this.plugin.openEpubFilePicker()));
+        this.renderGeneralSettings(containerEl);
 
         this.renderTranslationsSection(containerEl);
         this.renderReferenceUsageIndexSection(containerEl);
 
+        this.renderPreviewSettings(containerEl);
+
+        renderColorSettingsSection({
+            containerEl,
+            translate: (key) => this.plugin.t(key),
+            openCssColorDialog: (input) => this.plugin.openCssColorDialog(input),
+            openFloatingPreviewBackgroundColorDialog: () => this.plugin.openFloatingPreviewBackgroundColorDialog(),
+            getBibleReferenceLinkColor: () => this.plugin.getBibleReferenceLinkColor(),
+            getBibleReferenceLinkColorPickerValue: () => this.plugin.getBibleReferenceLinkColorPickerValue(),
+            isBibleReferenceLinkColorDefault: () => this.plugin.isBibleReferenceLinkColorDefault(),
+            setBibleReferenceLinkColor: (color) => this.plugin.setBibleReferenceLinkColor(color),
+            resetBibleReferenceLinkColor: () => this.plugin.resetBibleReferenceLinkColor(),
+            getFloatingPreviewBackgroundColor: () => this.plugin.getFloatingPreviewBackgroundColor(),
+            isFloatingPreviewBackgroundColorDefault: () => this.plugin.isFloatingPreviewBackgroundColorDefault(),
+            resetFloatingPreviewBackgroundColor: () => this.plugin.resetFloatingPreviewBackgroundColor(),
+            refresh: () => this.display(),
+        });
+        this.renderBibleIndexSettings(containerEl);
+    }
+
+    private renderBibleIndexSettings(containerEl: HTMLElement): void {
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.openIndexFolder.name"))
+            .setDesc(this.plugin.t("settings.openIndexFolder.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.openIndexFolder.button")).onClick(() => void this.plugin.openBibleIndexFolder()));
+
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.showStats.name"))
+            .setDesc(this.plugin.t("settings.showStats.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.showStats.button")).onClick(() => void this.plugin.showBibleIndexStats()));
+    }
+
+    private renderPreviewSettings(containerEl: HTMLElement): void {
         new Setting(containerEl)
             .setName(this.plugin.t("settings.previewMode.name"))
             .setDesc(this.plugin.t("settings.previewMode.desc"))
@@ -160,31 +165,33 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     .setValue(this.plugin.getBibleLinkOpenShortcut())
                     .onChange((value) => void this.plugin.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut));
             });
+    }
 
-        renderColorSettingsSection({
-            containerEl,
-            translate: (key) => this.plugin.t(key),
-            openCssColorDialog: (input) => this.plugin.openCssColorDialog(input),
-            openFloatingPreviewBackgroundColorDialog: () => this.plugin.openFloatingPreviewBackgroundColorDialog(),
-            getBibleReferenceLinkColor: () => this.plugin.getBibleReferenceLinkColor(),
-            getBibleReferenceLinkColorPickerValue: () => this.plugin.getBibleReferenceLinkColorPickerValue(),
-            isBibleReferenceLinkColorDefault: () => this.plugin.isBibleReferenceLinkColorDefault(),
-            setBibleReferenceLinkColor: (color) => this.plugin.setBibleReferenceLinkColor(color),
-            resetBibleReferenceLinkColor: () => this.plugin.resetBibleReferenceLinkColor(),
-            getFloatingPreviewBackgroundColor: () => this.plugin.getFloatingPreviewBackgroundColor(),
-            isFloatingPreviewBackgroundColorDefault: () => this.plugin.isFloatingPreviewBackgroundColorDefault(),
-            resetFloatingPreviewBackgroundColor: () => this.plugin.resetFloatingPreviewBackgroundColor(),
-            refresh: () => this.display(),
-        });
+    private renderGeneralSettings(containerEl: HTMLElement): void {
         new Setting(containerEl)
-            .setName(this.plugin.t("settings.openIndexFolder.name"))
-            .setDesc(this.plugin.t("settings.openIndexFolder.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.openIndexFolder.button")).onClick(() => void this.plugin.openBibleIndexFolder()));
+            .setName(this.plugin.t("settings.pluginActive.name"))
+            .setDesc(this.plugin.t("settings.pluginActive.desc"))
+            .addToggle((toggle) => toggle
+                .setValue(this.plugin.isPluginActive())
+                .onChange(async (value) => {
+                    await this.plugin.setPluginActive(value);
+                }));
 
         new Setting(containerEl)
-            .setName(this.plugin.t("settings.showStats.name"))
-            .setDesc(this.plugin.t("settings.showStats.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.showStats.button")).onClick(() => void this.plugin.showBibleIndexStats()));
+            .setName(this.plugin.t("settings.interfaceLanguage.name"))
+            .setDesc(this.plugin.t("settings.interfaceLanguage.desc"))
+            .addDropdown((dropdown) => {
+                dropdown
+                    .addOption("ru", this.plugin.t("settings.interfaceLanguage.ru"))
+                    .addOption("en", this.plugin.t("settings.interfaceLanguage.en"))
+                    .setValue(this.plugin.getInterfaceLanguage())
+                    .onChange((value) => void this.plugin.setInterfaceLanguage(value as BiblePluginLocale));
+            });
+
+        new Setting(containerEl)
+            .setName(this.plugin.t("settings.import.name"))
+            .setDesc(this.plugin.t("settings.import.desc"))
+            .addButton((button) => button.setButtonText(this.plugin.t("settings.import.button")).setCta().onClick(() => this.plugin.openEpubFilePicker()));
     }
 
     private renderReferenceUsageIndexSection(containerEl: HTMLElement): void {
