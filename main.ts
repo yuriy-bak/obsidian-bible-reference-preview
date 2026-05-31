@@ -4,7 +4,6 @@ import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import type { BibleReference } from "./src/domain/BibleReference";
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
-import { areStringArraysEqual } from "./src/utils/ArrayEquality";
 import { createBookMapping } from "./src/parsing/BookMapping";
 import type { BiblePreviewContent, BiblePreviewReferenceBlock } from "./src/application/formatBibleTexts";
 import { analyzeBiblePreviewParagraph as analyzeBiblePreviewParagraphFlow, rebuildBiblePreviewContent as rebuildBiblePreviewContentFlow, toggleBiblePreviewComparison as toggleBiblePreviewComparisonFlow, type BiblePreviewAnalyzerFlowInput } from "./src/application/BiblePreviewAnalyzerFlow";
@@ -32,7 +31,10 @@ import { showReferenceUsagesForPreviewBlock as showReferenceUsagesForPreviewBloc
 import { createReferenceUsageController as createReferenceUsageControllerFlow, createReferenceUsageIndexService as createReferenceUsageIndexServiceFlow, createReferenceUsagePaneFlowInput as createReferenceUsagePaneFlowInputFlow, createReferenceUsagePreviewBlockFlowInput as createReferenceUsagePreviewBlockFlowInputFlow, createReferenceUsageUnderCursorFlowInput as createReferenceUsageUnderCursorFlowInputFlow, loadReferenceUsageIndexService as loadReferenceUsageIndexServiceFlow, type ReferenceUsagePluginFlowInput } from "./src/reference-usage/ReferenceUsagePluginFlow";
 import { buildReferenceUsageIndex as buildReferenceUsageIndexFlow, clearReferenceUsageIndex as clearReferenceUsageIndexFlow, getReferenceUsageExcludedFoldersText as getReferenceUsageExcludedFoldersTextFlow, isReferenceUsageIndexingEnabled as isReferenceUsageIndexingEnabledFlow, rebuildReferenceUsageIndex as rebuildReferenceUsageIndexFlow, setReferenceUsageAutoUpdate as setReferenceUsageAutoUpdateFlow, setReferenceUsageExcludedFoldersText as setReferenceUsageExcludedFoldersTextFlow, setReferenceUsageIndexingEnabled as setReferenceUsageIndexingEnabledFlow, shouldAutoUpdateReferenceUsageIndex as shouldAutoUpdateReferenceUsageIndexFlow, showReferenceUsageIndexStats as showReferenceUsageIndexStatsFlow, type ReferenceUsageSettingsFlowInput } from "./src/reference-usage/ReferenceUsageSettingsFlow";
 import type { ReferenceUsageIndexService } from "./src/reference-usage/ReferenceUsageIndexService";
-import { TranslationController, type TranslationControllerState } from "./src/translations/TranslationController";
+import type { TranslationControllerState } from "./src/translations/TranslationController";
+import { createTranslationControllerState as createTranslationControllerStateFlow, getPreviewComparisonTranslationOptions as getPreviewComparisonTranslationOptionsFlow, getTranslationSettingsItems as getTranslationSettingsItemsFlow, moveTranslation as moveTranslationFlow, promoteTranslationToTop as promoteTranslationToTopFlow, selectActiveTranslationId as selectActiveTranslationIdFlow, setComparisonTranslationEnabled as setComparisonTranslationEnabledFlow, setTranslationOrder as setTranslationOrderFlow, syncTranslationOrder as syncTranslationOrderFlow, type TranslationSettingsFlowInput } from "./src/translations/TranslationSettingsFlow";
+import { getActiveTranslationDisplayName as getActiveTranslationDisplayNameFlow, getActiveTranslationPreviewTitle as getActiveTranslationPreviewTitleFlow, type TranslationDisplayFlowInput } from "./src/translations/TranslationDisplayFlow";
+import { deleteImportedTranslation as deleteImportedTranslationFlow, type TranslationDeleteFlowInput } from "./src/translations/TranslationDeleteFlow";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./src/translations/TranslationModels";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode } from "./src/settings/PluginSettings";
 import { executePreparedEpubImport, prepareEpubImportSettings } from "./src/import/EpubImportFlow";
@@ -317,82 +319,66 @@ export default class BiblePlugin extends Plugin {
         this.refreshBibleReferenceLinks();
     }
 
-    private createTranslationControllerState(v2Data: BibleIndexV2Data | null = this.activeV2Data): TranslationControllerState {
+    private createTranslationSettingsFlowInput(): TranslationSettingsFlowInput {
         return {
-            v2Data,
-            activeTranslationId: this.activeTranslationId,
-            translationOrder: this.settings.translationOrder,
-            comparisonTranslationIds: this.settings.comparisonTranslationIds,
+            getV2Data: () => this.activeV2Data,
+            getActiveTranslationId: () => this.activeTranslationId,
+            getTranslationOrder: () => this.settings.translationOrder,
+            getComparisonTranslationIds: () => this.settings.comparisonTranslationIds,
+            setTranslationOrder: (translationOrder) => {
+                this.settings = { ...this.settings, translationOrder };
+            },
+            setComparisonTranslationIds: (comparisonTranslationIds) => {
+                this.settings = { ...this.settings, comparisonTranslationIds };
+            },
+            setActiveTranslationId: (activeTranslationId) => {
+                this.activeTranslationId = activeTranslationId;
+            },
+            saveSettings: () => this.savePluginSettings(),
+            updateBookMapping: (v2Data) => this.updateBookMapping(v2Data),
+            showCurrentTranslationNotice: () => new Notice(this.t("notice.currentTranslation", { translationName: this.getActiveTranslationDisplayName() }), 4000),
+            refreshSettings: () => this.refreshSettingsTab(),
+            refreshVisibleBiblePreviewContent: () => this.refreshVisibleBiblePreviewContent(),
         };
     }
 
+    private createTranslationControllerState(v2Data: BibleIndexV2Data | null = this.activeV2Data): TranslationControllerState {
+        return createTranslationControllerStateFlow(this.createTranslationSettingsFlowInput(), v2Data);
+    }
+
     private selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string | null {
-        return TranslationController.selectActiveTranslationId(this.createTranslationControllerState(v2Data));
+        return selectActiveTranslationIdFlow(this.createTranslationSettingsFlowInput(), v2Data);
     }
 
     private async syncTranslationOrder(
         v2Data: BibleIndexV2Data | null,
         preferredTranslationId?: string,
     ): Promise<void> {
-        const nextOrder = TranslationController.syncTranslationOrder(this.createTranslationControllerState(v2Data), preferredTranslationId);
-        if (nextOrder === null) {
-            return;
-        }
-        this.settings = { ...this.settings, translationOrder: nextOrder };
-        await this.savePluginSettings();
+        await syncTranslationOrderFlow(this.createTranslationSettingsFlowInput(), v2Data, preferredTranslationId);
     }
 
     private async promoteTranslationToTop(translationId: string): Promise<void> {
-        this.settings = { ...this.settings, translationOrder: TranslationController.promoteTranslationToTop(this.createTranslationControllerState(), translationId) };
-        await this.savePluginSettings();
-        await this.syncTranslationOrder(this.activeV2Data, translationId);
+        await promoteTranslationToTopFlow(this.createTranslationSettingsFlowInput(), translationId);
     }
 
     public getTranslationSettingsItems(): TranslationSettingsItem[] {
-        return TranslationController.getTranslationSettingsItems(this.createTranslationControllerState());
+        return getTranslationSettingsItemsFlow(this.createTranslationSettingsFlowInput());
     }
 
     public async moveTranslation(translationId: string, direction: -1 | 1): Promise<void> {
-        const nextOrder = TranslationController.moveTranslation(this.createTranslationControllerState(), translationId, direction);
-        if (nextOrder === null) {
-            return;
-        }
-        this.settings = { ...this.settings, translationOrder: nextOrder };
-        await this.savePluginSettings();
-        await this.syncTranslationOrder(this.activeV2Data);
-        this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
-        this.updateBookMapping(this.activeV2Data);
-        new Notice(this.t("notice.currentTranslation", { translationName: this.getActiveTranslationDisplayName() }), 4000);
+        await moveTranslationFlow(this.createTranslationSettingsFlowInput(), translationId, direction);
     }
 
     public async setTranslationOrder(nextOrder: string[]): Promise<void> {
-        const normalizedOrder = TranslationController.normalizeTranslationOrder(this.createTranslationControllerState(), nextOrder);
-        if (areStringArraysEqual(this.settings.translationOrder, normalizedOrder)) {
-            return;
-        }
-
-        this.settings = { ...this.settings, translationOrder: normalizedOrder };
-        await this.savePluginSettings();
-        await this.syncTranslationOrder(this.activeV2Data);
-        this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
-        this.updateBookMapping(this.activeV2Data);
-        new Notice(this.t("notice.currentTranslation", { translationName: this.getActiveTranslationDisplayName() }), 4000);
+        await setTranslationOrderFlow(this.createTranslationSettingsFlowInput(), nextOrder);
     }
 
     public async setComparisonTranslationEnabled(translationId: string, enabled: boolean): Promise<void> {
-        const normalized = TranslationController.normalizeComparisonTranslationIds(this.createTranslationControllerState(), translationId, enabled);
-        if (normalized === null || areStringArraysEqual(this.settings.comparisonTranslationIds, normalized)) {
-            return;
-        }
-
-        this.settings = { ...this.settings, comparisonTranslationIds: normalized };
-        await this.savePluginSettings();
-        this.refreshSettingsTab();
-        await this.refreshVisibleBiblePreviewContent();
+        await setComparisonTranslationEnabledFlow(this.createTranslationSettingsFlowInput(), translationId, enabled);
     }
 
     public getPreviewComparisonTranslationOptions(): PreviewComparisonTranslationOption[] {
-        return TranslationController.getPreviewComparisonTranslationOptions(this.createTranslationControllerState());
+        return getPreviewComparisonTranslationOptionsFlow(this.createTranslationSettingsFlowInput());
     }
 
     private async refreshVisibleBiblePreviewContent(): Promise<void> {
@@ -833,55 +819,46 @@ export default class BiblePlugin extends Plugin {
         return false;
     }
 
-    public async deleteImportedTranslation(translationId: string): Promise<void> {
-        if (this.activeV2Data?.translations[translationId] === undefined) {
-            return;
-        }
-
-        const translationName = this.activeV2Data.translations[translationId].name || translationId;
-        const confirmed = window.confirm([
-            this.t("confirm.deleteTranslation.title", { translationName }),
-            "",
-            this.t("confirm.deleteTranslation.filesWillBeDeleted"),
-            this.t("confirm.deleteTranslation.reimportHint"),
-        ].join("\n"));
-
-        if (!confirmed) {
-            return;
-        }
-
-        const repository = this.createObsidianBibleIndexRepository();
-        await repository.load();
-        await repository.deleteTranslation(translationId);
-
-        this.bibleIndex = repository.getIndex();
-        this.activeV2Data = repository.getV2Data();
-        this.settings = {
-            ...this.settings,
-            translationOrder: this.settings.translationOrder.filter((existingTranslationId) => existingTranslationId !== translationId),
+    private createTranslationDisplayFlowInput(): TranslationDisplayFlowInput {
+        return {
+            activeV2Data: this.activeV2Data,
+            activeTranslationId: this.activeTranslationId,
+            getNoImportedTranslationText: () => this.t("translation.noImported"),
+            getPreviewTitleFallbackText: () => this.t("preview.titleFallback"),
         };
-        await this.savePluginSettings();
-        await this.syncTranslationOrder(this.activeV2Data);
-        this.activeTranslationId = this.selectActiveTranslationId(this.activeV2Data);
-        this.updateBookMapping(this.activeV2Data);
-        new Notice(this.t("notice.translationDeleted", { translationName }), 5000);
+    }
+
+    private createTranslationDeleteFlowInput(): TranslationDeleteFlowInput {
+        return {
+            ...this.createTranslationSettingsFlowInput(),
+            getBibleIndexV2Data: () => this.activeV2Data,
+            createRepository: () => this.createObsidianBibleIndexRepository(),
+            confirmDeleteTranslation: (translationName) => window.confirm([
+                this.t("confirm.deleteTranslation.title", { translationName }),
+                "",
+                this.t("confirm.deleteTranslation.filesWillBeDeleted"),
+                this.t("confirm.deleteTranslation.reimportHint"),
+            ].join("\n")),
+            setBibleIndex: (bibleIndex) => {
+                this.bibleIndex = bibleIndex;
+            },
+            setBibleIndexV2Data: (v2Data) => {
+                this.activeV2Data = v2Data;
+            },
+            showTranslationDeletedNotice: (translationName) => new Notice(this.t("notice.translationDeleted", { translationName }), 5000),
+        };
+    }
+
+    public async deleteImportedTranslation(translationId: string): Promise<void> {
+        await deleteImportedTranslationFlow(this.createTranslationDeleteFlowInput(), translationId);
     }
 
     public getActiveTranslationDisplayName(): string {
-        if (this.activeTranslationId === null) {
-            return this.t("translation.noImported");
-        }
-
-        const translation = this.activeV2Data?.translations[this.activeTranslationId];
-        return translation === undefined ? this.activeTranslationId : `${translation.name} (${translation.language})`;
+        return getActiveTranslationDisplayNameFlow(this.createTranslationDisplayFlowInput());
     }
 
     public getActiveTranslationPreviewTitle(): string {
-        if (this.activeTranslationId === null) {
-            return this.t("preview.titleFallback");
-        }
-
-        return this.activeV2Data?.translations[this.activeTranslationId]?.name ?? this.activeTranslationId;
+        return getActiveTranslationPreviewTitleFlow(this.createTranslationDisplayFlowInput());
     }
 
     private refreshSettingsTab(): void {
