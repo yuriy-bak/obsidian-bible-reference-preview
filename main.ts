@@ -1,5 +1,5 @@
 
-import { App, MarkdownView, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, type TAbstractFile, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
+import { App, MarkdownView, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
 import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import type { BibleReference } from "./src/domain/BibleReference";
@@ -25,7 +25,10 @@ import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, ReferenceUsagePaneVi
 import { renderTranslationSettingsSection } from "./src/ui/TranslationSettingsList";
 import { renderReferenceUsageIndexSettingsSection } from "./src/ui/ReferenceUsageIndexSettingsSection";
 import { renderColorSettingsSection } from "./src/ui/ColorSettingsSection";
-import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, isReferenceUsageIndexBuildAbortError, type ReferenceUsageIndexBuildProgress, type ReferenceUsageIndexServiceOptions, type ReferenceUsageIndexStats, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
+import { ProgressCancelModal } from "./src/ui/ProgressCancelModal";
+import { ReferenceUsageResultsModal } from "./src/ui/ReferenceUsageResultsModal";
+import { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageController";
+import { ReferenceUsageIndexService, REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES, REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES, type ReferenceUsageIndexServiceOptions, type ReferenceUsageSearchResult, normalizeReferenceUsageExcludedFolders } from "./src/reference-usage/ReferenceUsageIndexService";
 
 
 const setBibleReferenceLinkDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -131,7 +134,6 @@ const MAX_ANALYZED_PARAGRAPH_CHARACTERS = 2000;
 const MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS = 20000;
 const MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS = 50000;
 const DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS = ["Attachments/", "Templates/", "Archive/", "Bible/"];
-const REFERENCE_USAGE_FILE_UPDATE_DELAY_MS = 1500;
 
 
 const DEFAULT_SETTINGS: BiblePluginSettings = {
@@ -200,8 +202,7 @@ export default class BiblePlugin extends Plugin {
     private biblePreviewPaneIsActiveInSideDock = false;
     private pluginActiveRibbonIconEl: HTMLElement | null = null;
     private referenceUsageIndexService: ReferenceUsageIndexService | null = null;
-    private referenceUsageIndexingInProgress = false;
-    private readonly referenceUsageFileUpdateTimeouts = new Map<string, number>();
+    private referenceUsageController: ReferenceUsageController | null = null;
     private readonly editorViews = new Set<EditorView>();
     private readonly bibleReferenceLinkDecorationCache = new WeakMap<EditorView, BibleReferenceLinkDecorationCacheEntry>();
     private readonly previewControllers = new Map<EditorView, BiblePreviewController>();
@@ -933,105 +934,19 @@ export default class BiblePlugin extends Plugin {
     }
 
     public async buildReferenceUsageIndex(): Promise<void> {
-        await this.buildReferenceUsageIndexInternal(false);
+        await this.getReferenceUsageController().buildIndex(false);
     }
 
     public async rebuildReferenceUsageIndex(): Promise<void> {
-        await this.buildReferenceUsageIndexInternal(true);
-    }
-
-    private async buildReferenceUsageIndexInternal(forceRebuild: boolean): Promise<void> {
-        if (!this.settings.referenceUsageIndexingEnabled) {
-            new Notice(this.t("notice.referenceUsageIndexDisabled"), 4000);
-            return;
-        }
-        if (!this.hasImportedTranslations()) {
-            new Notice(this.t("notice.noImportedTranslations"), 4000);
-            return;
-        }
-        if (this.referenceUsageIndexingInProgress) {
-            new Notice(this.t("notice.referenceUsageIndexAlreadyRunning"), 4000);
-            return;
-        }
-        this.referenceUsageIndexingInProgress = true;
-        const abortController = new AbortController();
-        const files = this.app.vault.getMarkdownFiles();
-        const progressModal = new ProgressCancelModal(
-            this.app,
-            this.t("notice.referenceUsageIndexBuildStarted"),
-            this.formatReferenceUsageIndexBuildProgress({
-                totalFileCount: files.length,
-                processedFileCount: 0,
-                updatedFileCount: 0,
-                skippedLargeFileCount: 0,
-            }),
-            this.t("common.cancel"),
-            () => abortController.abort(),
-        );
-        progressModal.open();
-        try {
-            const result = await this.getReferenceUsageIndexService().build(files, forceRebuild, {
-                signal: abortController.signal,
-                onProgress: (progress) => progressModal.updateMessage(this.formatReferenceUsageIndexBuildProgress(progress)),
-            });
-            new Notice(this.t("notice.referenceUsageIndexBuildCompleted", {
-                fileCount: result.fileCount,
-                updatedFileCount: result.updatedFileCount,
-                referenceCount: result.referenceCount,
-            }), 8000);
-            if (result.skippedLargeFileCount > 0) {
-                new Notice(this.t("notice.referenceUsageIndexSkippedLargeFiles", {
-                    count: result.skippedLargeFileCount,
-                    maxSize: formatMegabytes(result.maxFileSizeBytes),
-                }), 8000);
-            }
-        } catch (error) {
-            if (isReferenceUsageIndexBuildAbortError(error)) {
-                new Notice(this.t("notice.referenceUsageIndexBuildCancelled"), 5000);
-            } else {
-                console.warn("Bible reference usage index build failed", error);
-                new Notice(this.t("notice.referenceUsageIndexSaveFailed"), 5000);
-            }
-        } finally {
-            progressModal.finish();
-            this.referenceUsageIndexingInProgress = false;
-            this.refreshSettingsTab();
-        }
-    }
-
-    private formatReferenceUsageIndexBuildProgress(progress: ReferenceUsageIndexBuildProgress): string {
-        return this.t("notice.referenceUsageIndexBuildProgress", {
-            processed: progress.processedFileCount,
-            total: progress.totalFileCount,
-            updated: progress.updatedFileCount,
-            skipped: progress.skippedLargeFileCount,
-        });
+        await this.getReferenceUsageController().buildIndex(true);
     }
 
     public async clearReferenceUsageIndex(): Promise<void> {
-        try {
-            await this.getReferenceUsageIndexService().clear();
-            this.refreshSettingsTab();
-            new Notice(this.t("notice.referenceUsageIndexCleared"), 4000);
-        } catch (error) {
-            console.warn("Bible reference usage index clear failed", error);
-            new Notice(this.t("notice.referenceUsageIndexSaveFailed"), 5000);
-        }
+        await this.getReferenceUsageController().clearIndex();
     }
 
     public async showReferenceUsageIndexStats(): Promise<void> {
-        const stats = this.getReferenceUsageIndexService().getStats();
-        new Notice(this.formatReferenceUsageIndexStats(stats), 12000);
-    }
-
-    private formatReferenceUsageIndexStats(stats: ReferenceUsageIndexStats): string {
-        return [
-            this.t("notice.referenceUsageIndexStats"),
-            this.t("notice.referenceUsageIndexStatsFiles", { count: stats.fileCount }),
-            this.t("notice.referenceUsageIndexStatsReferences", { count: stats.referenceCount }),
-            this.t("notice.referenceUsageIndexStatsUpdated", { date: stats.updatedAt <= 0 ? this.t("notice.none") : new Date(stats.updatedAt).toLocaleString() }),
-            this.t("notice.referenceUsageIndexStatsPath", { path: stats.indexPath }),
-        ].join("\n");
+        this.getReferenceUsageController().showStats();
     }
 
     public async findReferenceUsagesUnderCursor(): Promise<void> {
@@ -1174,52 +1089,31 @@ export default class BiblePlugin extends Plugin {
     }
 
     private registerReferenceUsageIndexEvents(): void {
-        this.registerEvent(this.app.vault.on("create", (file) => this.handleReferenceUsageFileCreateOrModify(file)));
-        this.registerEvent(this.app.vault.on("modify", (file) => this.handleReferenceUsageFileCreateOrModify(file)));
-        this.registerEvent(this.app.vault.on("delete", (file) => this.handleReferenceUsageFileDelete(file)));
-        this.registerEvent(this.app.vault.on("rename", (file, oldPath) => this.handleReferenceUsageFileRename(file, oldPath)));
-        this.register(() => this.clearReferenceUsagePendingFileUpdates());
+        const controller = this.getReferenceUsageController();
+        this.registerEvent(this.app.vault.on("create", (file) => controller.handleFileCreateOrModify(file)));
+        this.registerEvent(this.app.vault.on("modify", (file) => controller.handleFileCreateOrModify(file)));
+        this.registerEvent(this.app.vault.on("delete", (file) => controller.handleFileDelete(file)));
+        this.registerEvent(this.app.vault.on("rename", (file, oldPath) => controller.handleFileRename(file, oldPath)));
+        this.register(() => controller.clearPendingUpdates());
     }
 
-    private handleReferenceUsageFileCreateOrModify(file: TAbstractFile): void {
-        if (!(file instanceof TFile) || !this.shouldAutoProcessReferenceUsageIndexEvents()) return;
-        const service = this.getReferenceUsageIndexService();
-        if (!service.shouldIndexFile(file)) {
-            service.removeFile(file.path);
-            return;
+    private getReferenceUsageController(): ReferenceUsageController {
+        if (this.referenceUsageController === null) {
+            this.referenceUsageController = new ReferenceUsageController({
+                app: this.app,
+                getService: () => this.getReferenceUsageIndexService(),
+                isIndexingEnabled: () => this.settings.referenceUsageIndexingEnabled,
+                shouldAutoProcessEvents: () => this.shouldAutoProcessReferenceUsageIndexEvents(),
+                hasImportedTranslations: () => this.hasImportedTranslations(),
+                translate: (key, params) => this.t(key, params),
+                refreshSettings: () => this.refreshSettingsTab(),
+            });
         }
-        this.scheduleReferenceUsageFileUpdate(file);
-    }
-
-    private handleReferenceUsageFileDelete(file: TAbstractFile): void {
-        if (!this.shouldAutoProcessReferenceUsageIndexEvents()) return;
-        this.getReferenceUsageIndexService().removeFile(file.path);
-    }
-
-    private handleReferenceUsageFileRename(file: TAbstractFile, oldPath: string): void {
-        if (!this.shouldAutoProcessReferenceUsageIndexEvents()) return;
-        this.getReferenceUsageIndexService().removeFile(oldPath);
-        this.handleReferenceUsageFileCreateOrModify(file);
+        return this.referenceUsageController;
     }
 
     private shouldAutoProcessReferenceUsageIndexEvents(): boolean {
         return this.settings.referenceUsageIndexingEnabled && this.settings.referenceUsageAutoUpdate && this.hasImportedTranslations();
-    }
-
-    private scheduleReferenceUsageFileUpdate(file: TFile): void {
-        const existingTimeout = this.referenceUsageFileUpdateTimeouts.get(file.path);
-        if (existingTimeout !== undefined) window.clearTimeout(existingTimeout);
-        const timeout = window.setTimeout(() => {
-            this.referenceUsageFileUpdateTimeouts.delete(file.path);
-            void this.getReferenceUsageIndexService().updateFile(file);
-        }, REFERENCE_USAGE_FILE_UPDATE_DELAY_MS);
-        this.referenceUsageFileUpdateTimeouts.set(file.path, timeout);
-    }
-
-    private clearReferenceUsagePendingFileUpdates(): void {
-        for (const timeout of this.referenceUsageFileUpdateTimeouts.values()) window.clearTimeout(timeout);
-        this.referenceUsageFileUpdateTimeouts.clear();
-        this.referenceUsageIndexService?.clearPendingSave();
     }
 
     public async setBiblePreviewDisplayMode(previewDisplayMode: BiblePreviewDisplayMode): Promise<void> {
@@ -2613,105 +2507,6 @@ export default class BiblePlugin extends Plugin {
 
 }
 
-
-
-
-class ProgressCancelModal extends Modal {
-    private messageEl: HTMLDivElement | null = null;
-    private completed = false;
-
-    constructor(
-        app: App,
-        private readonly titleText: string,
-        private messageText: string,
-        private readonly cancelText: string,
-        private readonly onCancel: () => void,
-    ) {
-        super(app);
-    }
-
-    onOpen(): void {
-        const { contentEl } = this;
-        contentEl.empty();
-        contentEl.createEl("h2", { text: this.titleText });
-        this.messageEl = contentEl.createDiv({ text: this.messageText });
-        this.messageEl.style.whiteSpace = "pre-wrap";
-        new Setting(contentEl)
-            .addButton((button) => button
-                .setButtonText(this.cancelText)
-                .onClick(() => {
-                    this.onCancel();
-                    this.close();
-                }));
-    }
-
-    onClose(): void {
-        this.contentEl.empty();
-        this.messageEl = null;
-        if (!this.completed) {
-            this.onCancel();
-        }
-    }
-
-    public updateMessage(messageText: string): void {
-        this.messageText = messageText;
-        if (this.messageEl !== null) {
-            this.messageEl.textContent = messageText;
-        }
-    }
-
-    public finish(): void {
-        this.completed = true;
-        this.close();
-    }
-}
-
-class ReferenceUsageResultsModal extends Modal {
-    constructor(
-        app: App,
-        private readonly locale: BiblePluginLocale,
-        private readonly titleText: string,
-        private readonly results: ReferenceUsageSearchResult[],
-        private readonly openResult: (result: ReferenceUsageSearchResult) => void,
-    ) {
-        super(app);
-    }
-    onOpen(): void {
-        const { contentEl } = this;
-        contentEl.empty();
-        contentEl.createEl("h2", { text: this.titleText });
-        if (this.results.length === 0) {
-            contentEl.createEl("p", { text: t(this.locale, "modal.referenceUsages.empty") });
-            return;
-        }
-        contentEl.createEl("p", { text: t(this.locale, "modal.referenceUsages.count", { count: this.results.length }) });
-        const listEl = contentEl.createDiv();
-        listEl.style.display = "flex";
-        listEl.style.flexDirection = "column";
-        listEl.style.gap = "8px";
-        for (const result of this.results) {
-            const rowEl = listEl.createDiv();
-            rowEl.style.border = "1px solid var(--background-modifier-border)";
-            rowEl.style.borderRadius = "6px";
-            rowEl.style.padding = "8px";
-            const buttonEl = rowEl.createEl("button", { text: `${result.filePath}:${result.line}` });
-            buttonEl.style.marginBottom = "6px";
-            buttonEl.addEventListener("click", (event) => {
-                event.preventDefault();
-                this.openResult(result);
-                this.close();
-            });
-            rowEl.createDiv({ text: result.sourceText }).style.fontWeight = "600";
-            const excerptEl = rowEl.createDiv({ text: result.excerpt });
-            excerptEl.style.fontSize = "12px";
-            excerptEl.style.color = "var(--text-muted)";
-            excerptEl.style.marginTop = "4px";
-        }
-    }
-    onClose(): void {
-        this.contentEl.empty();
-    }
-}
 
 class BibleReadingModePreviewController {
     private readonly outsideInteractionHandler = (event: Event) => this.hideBiblePreviewIfEventIsOutside(event);
