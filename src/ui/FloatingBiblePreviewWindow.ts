@@ -511,7 +511,11 @@ export class FloatingBiblePreviewWindow {
     }
 
     private createResizeHandleElements(): HTMLDivElement[] {
-        const edges: PreviewResizeEdge[] = [
+        return this.getResizeHandleEdges().map((edge) => this.createResizeHandleElement(edge));
+    }
+
+    private getResizeHandleEdges(): PreviewResizeEdge[] {
+        return [
             "top",
             "right",
             "bottom",
@@ -521,13 +525,23 @@ export class FloatingBiblePreviewWindow {
             "bottom-right",
             "bottom-left",
         ];
-        return edges.map((edge) => this.createResizeHandleElement(edge));
     }
 
     private createResizeHandleElement(edge: PreviewResizeEdge): HTMLDivElement {
         const handleEl = document.createElement("div");
+        this.setResizeHandleMetadata(handleEl, edge);
+        this.styleResizeHandleBase(handleEl, edge);
+        this.applyDesktopResizeHandleStyle(handleEl, edge);
+        this.registerResizeHandleListeners(handleEl, edge);
+        return handleEl;
+    }
+
+    private setResizeHandleMetadata(handleEl: HTMLDivElement, edge: PreviewResizeEdge): void {
         handleEl.dataset.resizeEdge = edge;
         handleEl.setAttribute("aria-hidden", "true");
+    }
+
+    private styleResizeHandleBase(handleEl: HTMLDivElement, edge: PreviewResizeEdge): void {
         this.setStyles(handleEl, {
             position: "absolute",
             boxSizing: "border-box",
@@ -535,9 +549,10 @@ export class FloatingBiblePreviewWindow {
             touchAction: "none",
             background: "transparent",
         });
-        this.applyDesktopResizeHandleStyle(handleEl, edge);
+    }
+
+    private registerResizeHandleListeners(handleEl: HTMLDivElement, edge: PreviewResizeEdge): void {
         handleEl.addEventListener("pointerdown", (event) => this.startBiblePreviewResize(event, edge));
-        return handleEl;
     }
 
     private applyDesktopResizeHandleStyle(handleEl: HTMLDivElement, edge: PreviewResizeEdge): void {
