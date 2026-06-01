@@ -1,5 +1,6 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type { ReferenceUsageSearchResult } from "../reference-usage/ReferenceUsageIndexService";
+import { renderReferenceUsageExcerpt } from "./ReferenceUsageExcerpt";
 
 export const REFERENCE_USAGE_VIEW_TYPE = "bible-reference-usage-results";
 
@@ -124,9 +125,6 @@ export class ReferenceUsagePaneView extends ItemView {
         const sourceEl = rowEl.createDiv({ text: result.sourceText });
         sourceEl.style.fontWeight = "600";
 
-        const excerptEl = rowEl.createDiv({ text: result.excerpt });
-        excerptEl.style.fontSize = "12px";
-        excerptEl.style.color = "var(--text-muted)";
-        excerptEl.style.marginTop = "4px";
+        renderReferenceUsageExcerpt(rowEl, result);
     }
 }

@@ -1,6 +1,7 @@
 import { App, Modal } from "obsidian";
 import { BiblePluginLocale, t } from "../i18n/I18n";
 import type { ReferenceUsageSearchResult } from "../reference-usage/ReferenceUsageIndexService";
+import { renderReferenceUsageExcerpt } from "./ReferenceUsageExcerpt";
 
 export class ReferenceUsageResultsModal extends Modal {
     constructor(
@@ -39,10 +40,7 @@ export class ReferenceUsageResultsModal extends Modal {
                 this.close();
             });
             rowEl.createDiv({ text: result.sourceText }).style.fontWeight = "600";
-            const excerptEl = rowEl.createDiv({ text: result.excerpt });
-            excerptEl.style.fontSize = "12px";
-            excerptEl.style.color = "var(--text-muted)";
-            excerptEl.style.marginTop = "4px";
+            renderReferenceUsageExcerpt(rowEl, result);
         }
     }
 
