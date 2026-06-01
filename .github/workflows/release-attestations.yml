@@ -7,25 +7,37 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Release tag or ref to attest
+        description: Release tag or ref to build, attest, and upload
         required: true
         type: string
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
   attestations: write
 
 jobs:
   attest:
-    name: Build and attest release assets
+    name: Build, attest, and upload release assets
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
+      - name: Resolve release ref
+        id: release-ref
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "ref=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name || inputs.ref }}
+          ref: ${{ steps.release-ref.outputs.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -39,10 +51,29 @@ jobs:
       - name: Build release assets
         run: npm run build
 
-      - name: Generate artifact attestations
-        uses: actions/attest@v4
+      - name: Generate main.js artifact attestation
+        uses: actions/attest-build-provenance@v3
         with:
-          subject-path: |
-            main.js
-            styles.css
-            manifest.json
+          subject-path: main.js
+
+      - name: Generate manifest.json artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: manifest.json
+
+      - name: Generate styles.css artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: styles.css
+
+      - name: Upload attested release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release upload "${{ steps.release-ref.outputs.ref }}" \
+            main.js \
+            manifest.json \
+            styles.css \
+            --repo "${{ github.repository }}" \
+            --clobber
