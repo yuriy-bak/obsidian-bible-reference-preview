@@ -337,8 +337,8 @@ export class FloatingBiblePreviewWindow {
         const comparisonSelectorEl = headerEl.createDiv();
         this.comparisonSelectorEl = comparisonSelectorEl;
         this.styleComparisonSelectorHost(comparisonSelectorEl);
-        comparisonSelectorEl.addEventListener("pointerdown", (event) => event.stopPropagation());
-        comparisonSelectorEl.addEventListener("click", (event) => event.stopPropagation());
+        comparisonSelectorEl.addEventListener("pointerdown", (event) => this.stopEventPropagation(event));
+        comparisonSelectorEl.addEventListener("click", (event) => this.stopEventPropagation(event));
     }
 
     private styleComparisonSelectorHost(comparisonSelectorEl: HTMLElement): void {
@@ -351,44 +351,44 @@ export class FloatingBiblePreviewWindow {
     private buildCopyPreviewButton(headerEl: HTMLElement): void {
         const copyButton = this.createPreviewIconButton("📋", this.labels.getCopyAria());
         this.copyPreviewButtonEl = copyButton;
-        this.stopHeaderButtonDrag(copyButton);
-        copyButton.addEventListener("click", (event) => this.handleCopyPreviewButtonClick(event));
-        headerEl.appendChild(copyButton);
+        this.appendPreviewHeaderButton(headerEl, copyButton, (event) => this.handleCopyPreviewButtonClick(event));
     }
 
     private buildComparisonPreviewButton(headerEl: HTMLElement): void {
         const comparisonButton = this.createPreviewIconButton("⇄", this.getComparisonAriaLabel());
         this.comparisonPreviewButtonEl = comparisonButton;
         this.updateComparisonButtonText();
-        this.stopHeaderButtonDrag(comparisonButton);
-        comparisonButton.addEventListener("click", (event) => this.handleComparisonPreviewButtonClick(event));
-        headerEl.appendChild(comparisonButton);
+        this.appendPreviewHeaderButton(headerEl, comparisonButton, (event) => this.handleComparisonPreviewButtonClick(event));
     }
 
     private buildOpenInPanelButton(headerEl: HTMLElement): void {
         const openInPanelButton = this.createPreviewIconButton("◨", this.getOpenInPanelAriaLabel());
         this.openInPanelButtonEl = openInPanelButton;
         this.updateOpenInPanelButtonText();
-        this.stopHeaderButtonDrag(openInPanelButton);
-        openInPanelButton.addEventListener("click", (event) => this.handleOpenInPanelButtonClick(event));
-        headerEl.appendChild(openInPanelButton);
+        this.appendPreviewHeaderButton(headerEl, openInPanelButton, (event) => this.handleOpenInPanelButtonClick(event));
     }
 
     private buildCollapsePreviewButton(headerEl: HTMLElement): void {
         const collapseButton = this.createPreviewIconButton("▾", this.labels.getCollapseAria());
         this.collapsePreviewButtonEl = collapseButton;
-        this.stopHeaderButtonDrag(collapseButton);
-        collapseButton.addEventListener("click", (event) => this.handleCollapsePreviewButtonClick(event, collapseButton));
-        headerEl.appendChild(collapseButton);
+        this.appendPreviewHeaderButton(headerEl, collapseButton, (event) => this.handleCollapsePreviewButtonClick(event, collapseButton));
     }
 
     private buildClosePreviewButton(headerEl: HTMLElement): void {
         const closeButton = this.createPreviewIconButton("×", this.getCloseAriaLabel());
         this.closePreviewButtonEl = closeButton;
         this.styleClosePreviewButton(closeButton);
-        this.stopHeaderButtonDrag(closeButton);
-        closeButton.addEventListener("click", (event) => this.handleClosePreviewButtonClick(event));
-        headerEl.appendChild(closeButton);
+        this.appendPreviewHeaderButton(headerEl, closeButton, (event) => this.handleClosePreviewButtonClick(event));
+    }
+
+    private appendPreviewHeaderButton(
+        headerEl: HTMLElement,
+        buttonEl: HTMLButtonElement,
+        onClick: (event: MouseEvent) => void,
+    ): void {
+        this.stopHeaderButtonDrag(buttonEl);
+        buttonEl.addEventListener("click", onClick);
+        headerEl.appendChild(buttonEl);
     }
 
     private handleCopyPreviewButtonClick(event: MouseEvent): void {
@@ -421,9 +421,13 @@ export class FloatingBiblePreviewWindow {
         this.hide();
     }
 
+    private stopEventPropagation(event: Event): void {
+        event.stopPropagation();
+    }
+
     private stopHeaderButtonClick(event: MouseEvent): void {
         event.preventDefault();
-        event.stopPropagation();
+        this.stopEventPropagation(event);
     }
 
     private styleClosePreviewButton(closeButton: HTMLButtonElement): void {
@@ -432,7 +436,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     private stopHeaderButtonDrag(buttonEl: HTMLElement): void {
-        buttonEl.addEventListener("pointerdown", (event) => event.stopPropagation());
+        buttonEl.addEventListener("pointerdown", (event) => this.stopEventPropagation(event));
     }
 
     private configurePreviewContentElement(): void {
@@ -494,8 +498,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     private handleCollapsedButtonClick(event: MouseEvent): void {
-        event.preventDefault();
-        event.stopPropagation();
+        this.stopHeaderButtonClick(event);
         if (this.suppressCollapsedButtonClick) {
             this.suppressCollapsedButtonClick = false;
             return;
@@ -1584,24 +1587,37 @@ export class FloatingBiblePreviewWindow {
             } else {
                 this.copyBiblePreviewTextFallback();
             }
-            new Notice(this.labels.getCopyNoticeText(), 2500);
+            this.showCopyNotice();
         } catch {
             this.copyBiblePreviewTextFallback();
-            new Notice(this.labels.getCopyNoticeText(), 2500);
+            this.showCopyNotice();
         }
     }
 
+    private showCopyNotice(): void {
+        new Notice(this.labels.getCopyNoticeText(), 2500);
+    }
+
     private copyBiblePreviewTextFallback(): void {
+        const textareaEl = this.createCopyFallbackTextarea();
+        document.body.appendChild(textareaEl);
+        this.copyTextFromFallbackTextarea(textareaEl);
+        textareaEl.remove();
+    }
+
+    private createCopyFallbackTextarea(): HTMLTextAreaElement {
         const textareaEl = document.createElement("textarea");
         textareaEl.value = this.previewText;
         textareaEl.style.position = "fixed";
         textareaEl.style.left = "-9999px";
         textareaEl.style.top = "0";
-        document.body.appendChild(textareaEl);
+        return textareaEl;
+    }
+
+    private copyTextFromFallbackTextarea(textareaEl: HTMLTextAreaElement): void {
         textareaEl.focus();
         textareaEl.select();
         document.execCommand("copy");
-        textareaEl.remove();
     }
 
     private setStyles(element: HTMLElement, styles: Record<string, string>): void {

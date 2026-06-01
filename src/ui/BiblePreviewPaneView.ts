@@ -185,7 +185,7 @@ export class BiblePreviewPaneView extends ItemView {
     private buildComparisonSelectorHost(headerEl: HTMLElement): void {
         this.comparisonSelectorEl = headerEl.createDiv();
         this.styleComparisonSelectorHost(this.comparisonSelectorEl);
-        this.comparisonSelectorEl.addEventListener("click", (event) => event.stopPropagation());
+        this.comparisonSelectorEl.addEventListener("click", (event) => this.stopEventPropagation(event));
     }
 
     private styleComparisonSelectorHost(hostEl: HTMLElement): void {
@@ -195,21 +195,27 @@ export class BiblePreviewPaneView extends ItemView {
 
     private buildCopyButton(headerEl: HTMLElement): void {
         this.copyButtonEl = this.createIconButton(this.input.getCopyIcon(), this.input.getCopyAria());
-        this.copyButtonEl.addEventListener("click", (event) => this.handleCopyButtonClick(event));
-        headerEl.appendChild(this.copyButtonEl);
+        this.appendHeaderButton(headerEl, this.copyButtonEl, (event) => this.handleCopyButtonClick(event));
     }
 
     private buildComparisonButton(headerEl: HTMLElement): void {
         this.comparisonButtonEl = this.createIconButton(this.input.getComparisonButtonText?.() ?? "⇄", this.input.getComparisonButtonAria?.() ?? this.input.getComparisonButtonText?.() ?? "Compare translations");
         this.updateComparisonButton();
-        this.comparisonButtonEl.addEventListener("click", (event) => this.handleComparisonButtonClick(event));
-        headerEl.appendChild(this.comparisonButtonEl);
+        this.appendHeaderButton(headerEl, this.comparisonButtonEl, (event) => this.handleComparisonButtonClick(event));
     }
 
     private buildOpenFloatingButton(headerEl: HTMLElement): void {
         this.openFloatingButtonEl = this.createIconButton(this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria());
-        this.openFloatingButtonEl.addEventListener("click", (event) => this.handleOpenFloatingButtonClick(event));
-        headerEl.appendChild(this.openFloatingButtonEl);
+        this.appendHeaderButton(headerEl, this.openFloatingButtonEl, (event) => this.handleOpenFloatingButtonClick(event));
+    }
+
+    private appendHeaderButton(
+        headerEl: HTMLElement,
+        buttonEl: HTMLButtonElement,
+        onClick: (event: MouseEvent) => void,
+    ): void {
+        buttonEl.addEventListener("click", onClick);
+        headerEl.appendChild(buttonEl);
     }
 
     private handleCopyButtonClick(event: MouseEvent): void {
@@ -227,9 +233,13 @@ export class BiblePreviewPaneView extends ItemView {
         if (this.currentContent !== null) this.input.onOpenFloating(this.currentContent);
     }
 
+    private stopEventPropagation(event: Event): void {
+        event.stopPropagation();
+    }
+
     private stopHeaderButtonClick(event: MouseEvent): void {
         event.preventDefault();
-        event.stopPropagation();
+        this.stopEventPropagation(event);
     }
 
     private buildContentContainer(): void {
@@ -381,23 +391,36 @@ export class BiblePreviewPaneView extends ItemView {
         try {
             if (navigator.clipboard !== undefined) await navigator.clipboard.writeText(this.currentContent.plainText);
             else this.copyTextFallback(this.currentContent.plainText);
-            new Notice(this.input.getCopyNoticeText(), 2500);
+            this.showCopyNotice();
         } catch {
             this.copyTextFallback(this.currentContent.plainText);
-            new Notice(this.input.getCopyNoticeText(), 2500);
+            this.showCopyNotice();
         }
     }
 
+    private showCopyNotice(): void {
+        new Notice(this.input.getCopyNoticeText(), 2500);
+    }
+
     private copyTextFallback(text: string): void {
+        const textareaEl = this.createCopyFallbackTextarea(text);
+        document.body.appendChild(textareaEl);
+        this.copyTextFromFallbackTextarea(textareaEl);
+        textareaEl.remove();
+    }
+
+    private createCopyFallbackTextarea(text: string): HTMLTextAreaElement {
         const textareaEl = document.createElement("textarea");
         textareaEl.value = text;
         textareaEl.style.position = "fixed";
         textareaEl.style.left = "-9999px";
         textareaEl.style.top = "0";
-        document.body.appendChild(textareaEl);
+        return textareaEl;
+    }
+
+    private copyTextFromFallbackTextarea(textareaEl: HTMLTextAreaElement): void {
         textareaEl.focus();
         textareaEl.select();
         document.execCommand("copy");
-        textareaEl.remove();
     }
 }

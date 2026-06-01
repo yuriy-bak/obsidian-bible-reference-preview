@@ -263,24 +263,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         titleRowEl.appendChild(titleEl);
 
         if (options.onFindUsages !== undefined && block.references.length > 0) {
-            const findUsagesButtonEl = document.createElement("button");
-            findUsagesButtonEl.type = "button";
-            findUsagesButtonEl.className = "bible-preview-reference-usages-button";
-            findUsagesButtonEl.textContent = options.getFindUsagesButtonText?.() ?? "🔎";
-            const ariaLabel = options.getFindUsagesButtonAria?.(block) ?? block.title;
-            findUsagesButtonEl.setAttribute("aria-label", ariaLabel);
-            findUsagesButtonEl.setAttribute("title", ariaLabel);
-            findUsagesButtonEl.style.flex = "0 0 auto";
-            findUsagesButtonEl.style.padding = "1px 6px";
-            findUsagesButtonEl.style.minWidth = "24px";
-            findUsagesButtonEl.style.height = "24px";
-            findUsagesButtonEl.style.lineHeight = "1";
-            findUsagesButtonEl.addEventListener("click", (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                options.onFindUsages?.(block);
-            });
-            titleRowEl.appendChild(findUsagesButtonEl);
+            titleRowEl.appendChild(createFindUsagesButton(block, options));
         }
 
         referenceEl.appendChild(titleRowEl);
@@ -300,6 +283,29 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
     }
 
     containerEl.replaceChildren(fragment);
+}
+
+function createFindUsagesButton(block: BiblePreviewReferenceBlock, options: BiblePreviewRenderOptions): HTMLButtonElement {
+    const buttonEl = document.createElement("button");
+    buttonEl.type = "button";
+    buttonEl.className = "bible-preview-reference-usages-button";
+    buttonEl.textContent = options.getFindUsagesButtonText?.() ?? "🔎";
+    const ariaLabel = options.getFindUsagesButtonAria?.(block) ?? block.title;
+    buttonEl.setAttribute("aria-label", ariaLabel);
+    buttonEl.setAttribute("title", ariaLabel);
+    buttonEl.style.flex = "0 0 auto";
+    buttonEl.style.padding = "1px 6px";
+    buttonEl.style.minWidth = "24px";
+    buttonEl.style.height = "24px";
+    buttonEl.style.lineHeight = "1";
+    buttonEl.addEventListener("click", (event) => handleFindUsagesButtonClick(event, block, options));
+    return buttonEl;
+}
+
+function handleFindUsagesButtonClick(event: MouseEvent, block: BiblePreviewReferenceBlock, options: BiblePreviewRenderOptions): void {
+    event.preventDefault();
+    event.stopPropagation();
+    options.onFindUsages?.(block);
 }
 
 function groupSourceTextBlocks(blocks: BibleTextBlock[]): BibleTextBlock[][] {
