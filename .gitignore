@@ -59,3 +59,4 @@ tmp/
 .release-check/
 agent_output.json
 zip_project.*
+RELEASE_NOTES_*
