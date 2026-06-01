@@ -1,0 +1,22 @@
+.bible-reference-preview-color-sample {
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    box-shadow: var(--input-shadow);
+    margin-left: 8px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.bible-reference-preview-link-color-sample {
+    border-bottom: 1px dotted currentColor;
+    background: var(--interactive-normal);
+}
+
+.bible-reference-preview-background-color-sample {
+    color: var(--text-normal);
+}
+
+.bible-reference-preview-setting-inline-button {
+    margin-left: 8px;
+}
