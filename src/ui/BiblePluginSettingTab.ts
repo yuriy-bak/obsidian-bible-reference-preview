@@ -18,7 +18,6 @@ export type BiblePluginSettingTabInput = {
 
     getTranslationSettingsItems(): TranslationSettingsItem[];
     deleteImportedTranslation(translationId: string): Promise<void>;
-    setComparisonTranslationEnabled(translationId: string, enabled: boolean): Promise<void>;
     setTranslationOrder(nextOrder: string[]): Promise<void>;
 
     isReferenceUsageIndexingEnabled(): boolean;
@@ -118,7 +117,6 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             translations: this.plugin.getTranslationSettingsItems(),
             translate: (key, params) => this.plugin.t(key, params),
             onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
-            onToggleComparison: (translationId, enabled) => this.plugin.setComparisonTranslationEnabled(translationId, enabled),
             getCurrentOrder: () => this.plugin.getTranslationSettingsItems().map((item) => item.id),
             onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
             refresh: () => this.display(),

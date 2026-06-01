@@ -8,7 +8,7 @@ Bible Reference Preview finds Bible references in notes and shows verse previews
 - Store multiple imported translations.
 - Reorder translations and use the top translation as the active one.
 - Compare up to four imported translations in the Bible preview.
-- Select comparison translations in plugin settings or directly from the preview header.
+- Select comparison translations directly from the preview header.
 - Recognize Bible references in editor text and Reading view.
 - Highlight recognized references in the editor and turn Reading view references into clickable preview links.
 - Show a floating Bible preview.
@@ -57,9 +57,8 @@ Bible Reference Preview can show the same Bible reference in several imported tr
 
 1. Import at least two translations.
 2. Open Settings → Bible Reference Preview.
-3. In the translation list, enable **Compare** for the translations you want to use.
-4. Open a Bible preview and click the comparison toggle (`⇄`).
-5. Use the **Translations 2/4** dropdown in the preview header to quickly adjust the selected translations.
+3. Open a Bible preview and click the comparison toggle (`⇄`).
+4. Use the **Translations 2/4** dropdown in the preview header to choose the translations you want to compare.
 
 Notes:
 
@@ -114,7 +113,7 @@ You can change these shortcuts in Settings → Hotkeys.
 3. Открой настройки Bible Reference Preview.
 4. Импортируй EPUB.
 5. Используй ссылки вроде `Ин3:16` или `Авд2-4`.
-6. Для сравнения переводов включи `Сравнивать` у нужных переводов в настройках или выбери переводы через выпадающий список `Переводы 2/4` в заголовке предпросмотра.
+6. Для сравнения переводов включи режим сравнения в предпросмотре и выбери переводы через выпадающий список `Переводы 2/4` в заголовке предпросмотра.
 7. При необходимости назначь hotkey для команды открытия ссылки под курсором.
 8. Используй Reference Usage Index, чтобы находить места использования библейских ссылок в Markdown-заметках; результаты показывают короткий контекст и подсвечивают найденную ссылку.
 

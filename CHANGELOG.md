@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.4 - Comparison settings cleanup
+
+- Removed comparison checkboxes from the translation settings list.
+- Kept comparison translation selection in the preview header selector.
+- Updated README comparison instructions to describe selecting translations from the preview header.
+
 ## 0.1.3 - Reference usage snippets
 
 - Added contextual Reference Usage result snippets around matched Bible references.
