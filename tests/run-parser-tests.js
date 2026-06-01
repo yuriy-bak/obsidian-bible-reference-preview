@@ -826,16 +826,36 @@ const {
   assert.strictEqual(referenceUsageResults[0].line, 2);
   assert.strictEqual(referenceUsageResults[0].excerpt, "Ин 3:16 and Рим 8:28");
 
+  const referenceUsageExcerptPrefix = "012345678901234567890123456789abcdef";
+  const referenceUsageExcerptSuffix = "0123456789".repeat(16);
+  referenceUsageApp.vault.cachedRead = async (file) => {
+    referenceUsageApp.readPaths.push(file.path);
+    if (file.path === "notes/excerpt.md") {
+      return `${referenceUsageExcerptPrefix} Ин 3:16 ${referenceUsageExcerptSuffix}`;
+    }
+    return "Ин 3:17";
+  };
+  await referenceUsageService.updateFile(createReferenceUsageTestFile("notes/excerpt.md", 100, 9));
+  const referenceUsageExcerptResults = referenceUsageService.findUsages([
+    { book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 16 },
+  ]);
+  const referenceUsageExcerptResult = referenceUsageExcerptResults.find((result) => result.filePath === "notes/excerpt.md");
+  assert(referenceUsageExcerptResult !== undefined);
+  assert.strictEqual(
+    referenceUsageExcerptResult.excerpt,
+    `…78901234567890123456789abcdef Ин 3:16 ${referenceUsageExcerptSuffix.slice(0, 139)}…`
+  );
+
   const referenceUsageUpdateFile = createReferenceUsageTestFile("notes/update.md", 100, 6);
   referenceUsageApp.vault.cachedRead = async (file) => {
     referenceUsageApp.readPaths.push(file.path);
     return "Ин 3:17";
   };
   await referenceUsageService.updateFile(referenceUsageUpdateFile);
-  assert.strictEqual(referenceUsageService.getStats().fileCount, 2);
+  assert.strictEqual(referenceUsageService.getStats().fileCount, 3);
   referenceUsageUpdateFile.stat.size = REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES + 1;
   await referenceUsageService.updateFile(referenceUsageUpdateFile);
-  assert.strictEqual(referenceUsageService.getStats().fileCount, 1);
+  assert.strictEqual(referenceUsageService.getStats().fileCount, 2);
   assert.strictEqual(
     referenceUsageService.findUsages([
       { book: 43, chapterStart: 3, verseStart: 17, chapterEnd: 3, verseEnd: 17 },

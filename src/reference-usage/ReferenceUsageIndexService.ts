@@ -7,6 +7,9 @@ export const REFERENCE_USAGE_INDEX_FILE_NAME = "reference-usage-index.json";
 export const REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES = 1024 * 1024;
 export const REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES = 512 * 1024;
 const REFERENCE_USAGE_INDEX_SAVE_DELAY_MS = 1000;
+const REFERENCE_USAGE_EXCERPT_BEFORE_CHARS = 30;
+const REFERENCE_USAGE_EXCERPT_AFTER_CHARS = 140;
+const REFERENCE_USAGE_EXCERPT_ELLIPSIS = "…";
 const REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES = 25;
 export const REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES = 10;
 const REFERENCE_USAGE_BUILD_ABORT_ERROR_NAME = "AbortError";
@@ -269,7 +272,7 @@ export class ReferenceUsageIndexService {
                         line: lineIndex + 1,
                         chStart: match.from,
                         chEnd: match.to,
-                        excerpt: line.trim(),
+                        excerpt: createReferenceUsageExcerpt(line, match.from, match.to),
                     });
                 }
             }
@@ -299,6 +302,14 @@ export function normalizeReferenceUsageExcludedFolder(value: string): string {
 
 function createEmptyReferenceUsageIndex(): ReferenceUsageIndex {
     return { version: REFERENCE_USAGE_INDEX_VERSION, updatedAt: 0, files: {} };
+}
+
+function createReferenceUsageExcerpt(line: string, from: number, to: number): string {
+    const excerptStart = Math.max(0, from - REFERENCE_USAGE_EXCERPT_BEFORE_CHARS);
+    const excerptEnd = Math.min(line.length, to + REFERENCE_USAGE_EXCERPT_AFTER_CHARS);
+    const prefix = excerptStart > 0 ? REFERENCE_USAGE_EXCERPT_ELLIPSIS : "";
+    const suffix = excerptEnd < line.length ? REFERENCE_USAGE_EXCERPT_ELLIPSIS : "";
+    return `${prefix}${line.slice(excerptStart, excerptEnd).trim()}${suffix}`;
 }
 
 function normalizeReferenceUsageIndex(value: unknown): ReferenceUsageIndex {
