@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.1.3 - Reference usage snippets
+
+- Added contextual Reference Usage result snippets around matched Bible references.
+- Limited snippets to 30 characters before and 140 characters after the matched reference.
+- Added ellipses when Reference Usage snippets are truncated.
+- Highlighted matched references inside Reference Usage results in both the side pane and modal results view.
+- Documented Reference Usage Index snippets in README.
+
+## 0.1.2 - Release validation follow-up
+
+- Removed dynamic code execution and dynamic script element findings from the production bundle by replacing legacy JSZip/browser polyfill fallbacks with safe esbuild shims.
+- Added GitHub artifact attestations for release assets.
+- Hardened future release asset publishing so the GitHub Actions workflow builds, attests, and uploads the same assets.
+
 ## 0.1.1 - Mobile performance and release bundle update
 
 - Changed the default `npm run build` script to create a production plugin bundle.

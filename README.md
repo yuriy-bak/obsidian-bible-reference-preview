@@ -16,6 +16,7 @@ Bible Reference Preview finds Bible references in notes and shows verse previews
 - Open previews automatically for the current paragraph or only by clicking a reference.
 - Open the Bible reference under the cursor with a command or configured shortcut.
 - Copy preview text to the clipboard.
+- Find where Bible references are used across Markdown notes with contextual snippets and highlighted matched references.
 - Collapse, expand, and drag the preview panel.
 - Copy comparison output with per-translation references and footnotes.
 - Dynamically detect one-chapter books from imported metadata (`chapterCount`).
@@ -67,6 +68,19 @@ Notes:
 - Footnotes are shown directly after the text of the corresponding translation.
 - The comparison selector works in both the floating preview and the side panel.
 
+## Reference Usage Index
+
+Bible Reference Preview can build a local Reference Usage Index for Markdown files in your vault. Use it to find where a selected Bible reference is used across notes.
+
+Result snippets show a short context around the matched reference:
+
+- 30 characters before the matched reference;
+- the matched reference itself, highlighted in the result;
+- 140 characters after the matched reference;
+- `…` when the snippet is truncated.
+
+The index is stored locally in the plugin data directory. Large Markdown files may be skipped according to the configured size limits to keep indexing responsive.
+
 ## Hotkeys
 
 The plugin includes the command **Open Bible reference under cursor**. Use the built-in shortcut option in plugin settings or assign any Obsidian hotkey in Settings → Hotkeys.
@@ -102,6 +116,11 @@ You can change these shortcuts in Settings → Hotkeys.
 5. Используй ссылки вроде `Ин3:16` или `Авд2-4`.
 6. Для сравнения переводов включи `Сравнивать` у нужных переводов в настройках или выбери переводы через выпадающий список `Переводы 2/4` в заголовке предпросмотра.
 7. При необходимости назначь hotkey для команды открытия ссылки под курсором.
+8. Используй Reference Usage Index, чтобы находить места использования библейских ссылок в Markdown-заметках; результаты показывают короткий контекст и подсвечивают найденную ссылку.
+
+### Поиск использований ссылок
+
+Reference Usage Index строит локальный индекс Markdown-файлов vault и позволяет находить, где используется выбранная библейская ссылка. В результатах показывается короткий фрагмент: 30 символов до ссылки, сама ссылка с подсветкой и 140 символов после ссылки. При обрезке добавляется `…`.
 
 ### Сравнение переводов
 
