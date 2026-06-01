@@ -56,5 +56,6 @@ tmp/
 /.agent*
 .agent_backups/
 .ai/
+.release-check/
 agent_output.json
 zip_project.*
