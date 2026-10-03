@@ -2,6 +2,8 @@
 
 Bible Reference Preview finds Bible references in notes and shows verse previews from EPUB Bible translations that you import into the plugin.
 
+!For now plugin work only for EPUB from jw.org
+
 ## Features
 
 - Import Bible translations from EPUB files.
