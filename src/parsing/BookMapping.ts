@@ -60,7 +60,7 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
         addAuthoritativeAlias(bookName, book.id);
         addAuthoritativeAlias(bookAbbreviation, book.id);
 
-        for (const alias of book.aliases ?? []) {
+        for (const alias of removeChapterNumberAliases([bookName, bookAbbreviation, ...(book.aliases ?? [])])) {
             addAuthoritativeAlias(alias, book.id);
         }
 
@@ -101,6 +101,23 @@ export function normalizeBookAlias(value: string): string {
         .replace(/\./g, "")
         .trim()
         .replace(/\s+/g, " ");
+}
+
+// EPUB navigation links like "Иов 1" (book + chapter) must not become book aliases,
+// otherwise "Иов 14:1" is parsed as "Иов 1" + "4:1".
+export function removeChapterNumberAliases(aliases: string[]): string[] {
+    const aliasKeys = new Set(aliases.map(createAliasKey));
+
+    return aliases.filter((alias) => {
+        const key = createAliasKey(alias);
+        const keyWithoutNumber = key.replace(/\d+$/, "");
+
+        return keyWithoutNumber === key || keyWithoutNumber.length === 0 || !aliasKeys.has(keyWithoutNumber);
+    });
+}
+
+function createAliasKey(value: string): string {
+    return normalizeBookAlias(value).replace(/\s+/g, "");
 }
 
 function normalizeSearchText(value: string): string {

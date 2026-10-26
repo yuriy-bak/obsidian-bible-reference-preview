@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { normalizeBookAlias } from "../../parsing/BookMapping";
+import { normalizeBookAlias, removeChapterNumberAliases } from "../../parsing/BookMapping";
 import { EpubBibleImporter, EpubBibleImportInput, EpubBibleImportOptions, EpubBibleImportResult, EpubBibleSourceMetadata } from "../EpubBibleImporter";
 import { BibleIndexV2Data } from "../v2/BibleIndexV2Data";
 import { CompactBibleBookData, CompactVerseData } from "../v2/CompactBibleBookData";
@@ -88,11 +88,11 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
 
         for (const book of bookTable.books) {
             const path = `${booksDirectory}/${book.id}.json`;
-            const aliases = createCleanAliases([
+            const aliases = removeChapterNumberAliases(createCleanAliases([
                 book.name,
                 book.abbreviation,
                 ...(navigationAliasesByBookId[book.id] ?? []),
-            ]);
+            ]));
 
             translation.books[String(book.id)] = {
                 name: book.name,
