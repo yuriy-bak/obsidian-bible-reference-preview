@@ -4,7 +4,7 @@ const {
 } = require("../.test-build/src/parsing/BibleReferenceParser.js");
 const {
   createBookMapping,
-  removeChapterNumberAliases,
+  removeChapterNumberFromAlias,
 } = require("../.test-build/src/parsing/BookMapping.js");
 const DEFAULT_TRANSLATION_ID = "newworld";
 const { getBibleTextBlocks } = require("../.test-build/src/application/getBibleTexts.js");
@@ -235,16 +235,15 @@ const {
 
   // Navigation links "<book> <chapter>" must not become aliases: "Иов 14:1" != "Иов 1" + "4:1".
   assert.deepStrictEqual(
-    removeChapterNumberAliases(["Иов", "Иов 1", "Иов 2", "1 Цар", "1 Цар 1", "1Цар1", "Eyüp", "Eyüp 1", "1 Ин"]),
-    ["Иов", "1 Цар", "Eyüp", "1 Ин"]
+    ["Иов", "Иов 1", "Иов12", "1 Цар", "1 Цар 1", "Eyüp 1", "أيوب ١"].map(removeChapterNumberFromAlias),
+    ["Иов", "Иов", "Иов", "1 Цар", "1 Цар", "Eyüp", "أيوب"]
   );
   const chapterAliasParser = new BibleReferenceParser(
     createBookMapping([
       { id: 18, name: "Иов", abbreviation: "Иов", aliases: ["Иов", "Иов 1", "Иов 2"], chapterCount: 42 },
       { id: 9, name: "1 Царств", abbreviation: "1Цар", aliases: ["1 Царств", "1Цар", "1 Цар 1"], chapterCount: 31 },
       { id: 65, name: "Иуды", abbreviation: "Иуд", aliases: ["Иуды", "Иуд", "Иуд 1"], chapterCount: 1 },
-      // Base of "Iyov 1" is not a known alias, so only the parser guard protects it.
-      { id: 19, name: "Псалмы", abbreviation: "Пс", aliases: ["Пс", "Iyov 1"], chapterCount: 150 },
+      { id: 19, name: "Псалмы", abbreviation: "Пс", aliases: ["Пс", "Psalm 1"], chapterCount: 150 },
     ])
   );
   const singleVerse = (book, chapter, verse) => [
@@ -256,7 +255,7 @@ const {
   assert.deepStrictEqual(chapterAliasParser.parse("Иов 21:3"), singleVerse(18, 21, 3));
   assert.deepStrictEqual(chapterAliasParser.parse("1 Цар 15:22"), singleVerse(9, 15, 22));
   assert.deepStrictEqual(chapterAliasParser.parse("Иуд 14"), singleVerse(65, 1, 14));
-  assert.deepStrictEqual(chapterAliasParser.parse("Iyov 14:1"), []);
+  assert.deepStrictEqual(chapterAliasParser.parse("Psalm 14:1"), singleVerse(19, 14, 1));
 
   let loadCount = 0;
   const lazy = new LazyBibleIndexV2(metadata, {

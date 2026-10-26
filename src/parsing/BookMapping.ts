@@ -60,8 +60,8 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
         addAuthoritativeAlias(bookName, book.id);
         addAuthoritativeAlias(bookAbbreviation, book.id);
 
-        for (const alias of removeChapterNumberAliases([bookName, bookAbbreviation, ...(book.aliases ?? [])])) {
-            addAuthoritativeAlias(alias, book.id);
+        for (const alias of book.aliases ?? []) {
+            addAuthoritativeAlias(removeChapterNumberFromAlias(alias), book.id);
         }
 
         for (let j = 3; j <= 8; j += 1) {
@@ -103,21 +103,10 @@ export function normalizeBookAlias(value: string): string {
         .replace(/\s+/g, " ");
 }
 
-// EPUB navigation links like "Иов 1" (book + chapter) must not become book aliases,
-// otherwise "Иов 14:1" is parsed as "Иов 1" + "4:1".
-export function removeChapterNumberAliases(aliases: string[]): string[] {
-    const aliasKeys = new Set(aliases.map(createAliasKey));
-
-    return aliases.filter((alias) => {
-        const key = createAliasKey(alias);
-        const keyWithoutNumber = key.replace(/\d+$/, "");
-
-        return keyWithoutNumber === key || keyWithoutNumber.length === 0 || !aliasKeys.has(keyWithoutNumber);
-    });
-}
-
-function createAliasKey(value: string): string {
-    return normalizeBookAlias(value).replace(/\s+/g, "");
+// Book names never end with a number, so a trailing number in an alias is a chapter
+// from EPUB navigation ("Иов 1"). Kept as is, it breaks "Иов 14:1" into "Иов 1" + "4:1".
+export function removeChapterNumberFromAlias(alias: string): string {
+    return alias.replace(/\s*[0-9٠-٩۰-۹]+$/, "");
 }
 
 function normalizeSearchText(value: string): string {

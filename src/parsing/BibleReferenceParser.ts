@@ -238,11 +238,6 @@ export class BibleReferenceParser {
                 continue;
             }
 
-            // An alias ending with a digit must not cut a number in half ("иов 1" in "иов 14:1").
-            if (/\d$/.test(aliasCandidate.alias) && /\d/.test(text[index + aliasCandidate.alias.length] ?? "")) {
-                continue;
-            }
-
             const afterAliasIndex = this.skipOptionalDotAndSpaces(
                 text,
                 index + aliasCandidate.alias.length,
