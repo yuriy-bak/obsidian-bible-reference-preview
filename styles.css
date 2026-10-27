@@ -197,12 +197,6 @@ button.bible-preview-pane-icon-button {
     padding: 0;
 }
 
-textarea.bible-preview-copy-fallback-textarea {
-    position: fixed;
-    left: -9999px;
-    top: 0;
-}
-
 /* Comparison translation selector */
 .bible-preview-comparison-selector {
     position: relative;

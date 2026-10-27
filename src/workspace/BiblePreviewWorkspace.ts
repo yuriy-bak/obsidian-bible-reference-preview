@@ -10,13 +10,6 @@ export type BiblePreviewSideDock = {
     setActiveLeaf?: (leaf: WorkspaceLeaf) => void;
 };
 
-type BiblePreviewWorkspaceReveal = {
-    revealLeaf?: (leaf: WorkspaceLeaf) => Promise<void> | void;
-};
-
-type BiblePreviewWorkspaceFocus = {
-    setActiveLeaf?: (leaf: WorkspaceLeaf, params?: { focus?: boolean }) => void;
-};
 
 type BiblePreviewWorkspaceLeafIterator = {
     iterateAllLeaves?: (callback: (leaf: WorkspaceLeaf) => void) => void;
@@ -61,7 +54,7 @@ export async function detachDuplicateWorkspaceLeavesOfType(app: App, viewType: s
 }
 
 export async function revealLeafWithoutStealingEditorFocus(input: RevealLeafWithoutStealingEditorFocusInput): Promise<void> {
-    const workspace = input.app.workspace as typeof input.app.workspace & BiblePreviewWorkspaceFocus & BiblePreviewWorkspaceReveal;
+    const workspace = input.app.workspace;
     const shouldSuppressPreviewLeafChange = input.leaf.view.getViewType() === input.previewViewType;
     const restoreActiveLeaf = input.restoreActiveLeaf ?? null;
     const focus = input.focus === true;
@@ -74,16 +67,12 @@ export async function revealLeafWithoutStealingEditorFocus(input: RevealLeafWith
         expandSideDockForLeaf(input.app, input.leaf, input.previewPanelSide, input.previewViewType);
         activateLeafInSideDock(input.app, input.leaf, input.previewPanelSide, input.previewViewType);
 
-        if (typeof workspace.revealLeaf === "function") {
-            await workspace.revealLeaf(input.leaf);
-        }
+        await workspace.revealLeaf(input.leaf);
 
         expandSideDockForLeaf(input.app, input.leaf, input.previewPanelSide, input.previewViewType);
         activateLeafInSideDock(input.app, input.leaf, input.previewPanelSide, input.previewViewType);
 
-        if (typeof workspace.setActiveLeaf === "function") {
-            workspace.setActiveLeaf(input.leaf, { focus });
-        }
+        workspace.setActiveLeaf(input.leaf, { focus });
 
         expandSideDockForLeaf(input.app, input.leaf, input.previewPanelSide, input.previewViewType);
         activateLeafInSideDock(input.app, input.leaf, input.previewPanelSide, input.previewViewType);
@@ -178,11 +167,7 @@ export function restoreActiveLeafAfterPreviewOpen(app: App, activeLeaf: Workspac
     if (activeLeaf === null || activeLeaf.view.getViewType() === previewViewType) {
         return;
     }
-    const workspaceWithFocus = app.workspace as typeof app.workspace & BiblePreviewWorkspaceFocus;
-    if (typeof workspaceWithFocus.setActiveLeaf !== "function") {
-        return;
-    }
-    workspaceWithFocus.setActiveLeaf(activeLeaf, { focus: true });
+    app.workspace.setActiveLeaf(activeLeaf, { focus: true });
 }
 
 export function getBiblePreviewSideDock(app: App, previewPanelSide: BiblePreviewPanelSide): BiblePreviewSideDock | undefined {
