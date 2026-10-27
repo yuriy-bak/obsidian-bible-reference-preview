@@ -1,0 +1,173 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - manifest.json
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag or ref to build. Creates the release if it does not exist, otherwise re-attests and re-uploads its assets.
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, attest, and publish release assets
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Resolve ref
+        id: ref
+        shell: bash
+        run: |
+          case "${{ github.event_name }}" in
+            push) echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT" ;;
+            release) echo "ref=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT" ;;
+            *) echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+
+      - name: Resolve version and release state
+        id: plan
+        shell: bash
+        run: |
+          version="$(node -p "require('./manifest.json').version")"
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            tag="${{ github.event.release.tag_name }}"
+          else
+            tag="$version"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+          if gh release view "$tag" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            release_exists=true
+          else
+            release_exists=false
+          fi
+
+          if [[ "${{ github.event_name }}" == "push" ]] && git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "Tag $tag already exists, nothing to release."
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+          elif [[ "$release_exists" == "true" ]]; then
+            echo "action=upload" >> "$GITHUB_OUTPUT"
+          else
+            echo "action=create" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate version files
+        if: steps.plan.outputs.action == 'create'
+        shell: bash
+        run: |
+          version="${{ steps.plan.outputs.version }}"
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "$package_version" != "$version" ]]; then
+            echo "::error::package.json version $package_version does not match manifest.json version $version"
+            exit 1
+          fi
+          if ! node -e "process.exit(require('./versions.json')['$version'] ? 0 : 1)"; then
+            echo "::error::versions.json has no entry for $version"
+            exit 1
+          fi
+
+      - name: Extract release notes from CHANGELOG
+        if: steps.plan.outputs.action == 'create'
+        shell: bash
+        run: |
+          version="${{ steps.plan.outputs.version }}"
+          awk -v v="$version" '
+            /^## / { if (found) exit; if ($2 == v) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' > release-notes.md
+          if [[ ! -s release-notes.md ]]; then
+            echo "::error::CHANGELOG.md has no non-empty section for $version"
+            exit 1
+          fi
+          cat release-notes.md
+
+      - name: Setup Node.js
+        if: steps.plan.outputs.action != 'skip'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.plan.outputs.action != 'skip'
+        run: npm ci
+
+      - name: Lint and test
+        if: steps.plan.outputs.action == 'create'
+        run: |
+          npm run lint
+          npm test
+
+      - name: Build release assets
+        if: steps.plan.outputs.action != 'skip'
+        run: npm run build
+
+      - name: Generate main.js artifact attestation
+        if: steps.plan.outputs.action != 'skip'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: main.js
+
+      - name: Generate manifest.json artifact attestation
+        if: steps.plan.outputs.action != 'skip'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: manifest.json
+
+      - name: Generate styles.css artifact attestation
+        if: steps.plan.outputs.action != 'skip'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: styles.css
+
+      - name: Create release
+        if: steps.plan.outputs.action == 'create'
+        shell: bash
+        run: |
+          gh release create "${{ steps.plan.outputs.tag }}" \
+            main.js \
+            manifest.json \
+            styles.css \
+            --repo "${{ github.repository }}" \
+            --target "${{ steps.plan.outputs.sha }}" \
+            --title "${{ steps.plan.outputs.tag }}" \
+            --notes-file release-notes.md
+
+      - name: Upload assets to existing release
+        if: steps.plan.outputs.action == 'upload'
+        shell: bash
+        run: |
+          gh release upload "${{ steps.plan.outputs.tag }}" \
+            main.js \
+            manifest.json \
+            styles.css \
+            --repo "${{ github.repository }}" \
+            --clobber
