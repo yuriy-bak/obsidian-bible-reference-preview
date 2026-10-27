@@ -95,8 +95,8 @@ export class JsZipEpubBibleImporter implements EpubBibleImporter {
             ].map(removeChapterNumberFromAlias));
 
             translation.books[String(book.id)] = {
-                name: book.name,
-                abbreviation: cleanAliasForMetadata(book.abbreviation) ?? book.abbreviation,
+                name: removeChapterNumberFromAlias(book.name),
+                abbreviation: removeChapterNumberFromAlias(cleanAliasForMetadata(book.abbreviation) ?? book.abbreviation),
                 aliases,
                 path,
             };

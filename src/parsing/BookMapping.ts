@@ -52,8 +52,8 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
             oneChapterBooks.add(book.id);
         }
 
-        const bookName = normalizeBookAlias(book.name);
-        const bookAbbreviation = normalizeBookAlias(book.abbreviation);
+        const bookName = normalizeBookAlias(removeChapterNumberFromAlias(book.name));
+        const bookAbbreviation = normalizeBookAlias(removeChapterNumberFromAlias(book.abbreviation));
 
         idToDisplayName.set(book.id, createDisplayName(bookAbbreviation || bookName));
 
