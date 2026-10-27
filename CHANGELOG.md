@@ -2,9 +2,13 @@
 
 ## Unreleased
 
+## 0.1.6 - Book name parsing fix
+
+- Fixed references like "Иов 14:1" still being parsed as "Иов 4:1" in 0.1.5: the trailing chapter number is now also stripped from the book name and abbreviation, not only from aliases (some EPUBs store the book name as "Иов 1"). Existing imported translations are fixed without re-import.
+
 ## 0.1.5 - Reference parsing and comparison fixes
 
-- Fixed references like "Иов 14:1" being parsed as "Иов 1" + "4:1": trailing chapter numbers from EPUB navigation links are no longer kept as book aliases. Existing imported translations are fixed without re-import.
+- Fixed references like "Иов 14:1" being parsed as "Иов 1" + "4:1": trailing chapter numbers from EPUB navigation links are no longer kept as book aliases. Existing imported translations are fixed without re-import. (Incomplete: book names ending with a chapter number were still affected, fixed in 0.1.6.)
 - Fixed comparison preview for references spanning several chapters (e.g. "Суд 7:22;8:23", "Суд 7:24-8:1"): verses are split by chapter on first open, not only after toggling the mode.
 
 ## 0.1.4 - Comparison settings cleanup
