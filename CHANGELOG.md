@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Fixed: "Import EPUB" and the `+` button in settings did not open the file picker on Obsidian 1.13. The file input is now created in the document of the clicked element and stays attached until the dialog closes.
+## 0.2.2 - Open whole chapter, EPUB import fix
+
+- Open the whole chapter from a preview passage: click the 📖 icon in a passage title to show the full chapter in the same preview (side panel or floating window). The referenced verses are highlighted and scrolled into view.
+- Chapter navigation bar: `↩ Back` returns to the original reference and its scroll position; `←` / `→` go to the previous / next chapter, across book boundaries (disabled at Genesis 1 / Revelation 22).
+- In comparison mode the chapter is shown in all compared translations. While a chapter is open, automatic preview updates from cursor movement are paused; clicking another reference leaves chapter mode.
+- Fixed: the "Import EPUB" button in settings did not open the file picker on Obsidian 1.13.
 - Removed the duplicate `+` import button from the translation order list; import stays as its own settings row (found by settings search).
 
 ## 0.2.0 - Declarative settings (requires Obsidian 1.13)
