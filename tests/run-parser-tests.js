@@ -249,6 +249,15 @@ const {
       { id: 19, name: "Псалмы", abbreviation: "Пс", aliases: ["Пс", "Psalm 1"], chapterCount: 150 },
     ])
   );
+  // Real index entry: the chapter number also ended up in the book name.
+  const chapterNameParser = new BibleReferenceParser(
+    createBookMapping([
+      { id: 18, name: "Иов 1", abbreviation: "Иов", aliases: ["Иов 1", "Иов"], chapterCount: 42 },
+    ])
+  );
+  assert.deepStrictEqual(chapterNameParser.parse("Иов 14:1"), [
+    { book: 18, chapterStart: 14, verseStart: 1, chapterEnd: 14, verseEnd: 1 },
+  ]);
   const singleVerse = (book, chapter, verse) => [
     { book, chapterStart: chapter, verseStart: verse, chapterEnd: chapter, verseEnd: verse },
   ];
