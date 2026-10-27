@@ -1,5 +1,5 @@
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
-import { BiblePreviewContent, BiblePreviewReferenceBlock, renderBiblePreviewContent } from "../application/formatBibleTexts";
+import { applyBiblePreviewScroll, BiblePreviewChapterViewInput, BiblePreviewContent, BiblePreviewReferenceBlock, createChapterRenderOptions, renderBiblePreviewContent } from "../application/formatBibleTexts";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
 import { renderComparisonTranslationSelector as renderComparisonTranslationSelectorView } from "./ComparisonTranslationSelector";
 
@@ -7,7 +7,7 @@ export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
 export type BiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
 
-export type BiblePreviewPaneViewInput = {
+export type BiblePreviewPaneViewInput = BiblePreviewChapterViewInput & {
     getTitle: () => string;
     getOpenFloatingAria: () => string;
     getOpenFloatingIcon: () => string;
@@ -36,6 +36,7 @@ export class BiblePreviewPaneView extends ItemView {
     private comparisonButtonEl: HTMLButtonElement | null = null;
     private openFloatingButtonEl: HTMLButtonElement | null = null;
     private currentContent: BiblePreviewContent | null = null;
+    private lastScrolledContent: BiblePreviewContent | null = null;
     private renderAnimationFrameId: number | null = null;
     private renderRetryTimeoutId: number | null = null;
     private renderGenerationId = 0;
@@ -311,15 +312,25 @@ export class BiblePreviewPaneView extends ItemView {
     private renderCurrentContent(): void {
         if (this.contentContainerEl === null) return;
         if (this.currentContent !== null) {
-            renderBiblePreviewContent(this.contentContainerEl, this.currentContent, {
+            const contentContainerEl = this.contentContainerEl;
+            renderBiblePreviewContent(contentContainerEl, this.currentContent, {
+                ...createChapterRenderOptions(this.input, this.currentContent, () => contentContainerEl.scrollTop),
                 getFindUsagesButtonText: this.input.getFindUsagesButtonText,
                 getFindUsagesButtonAria: this.input.getFindUsagesButtonAria,
                 onFindUsages: this.input.onFindUsages,
             });
+            this.applyScrollOnce(contentContainerEl, this.currentContent);
             this.renderComparisonTranslationSelector();
         } else {
             this.contentContainerEl.replaceChildren();
         }
+    }
+
+    // Re-renders (e.g. label refresh) must not jump the scroll position again.
+    private applyScrollOnce(contentContainerEl: HTMLElement, content: BiblePreviewContent): void {
+        if (content === this.lastScrolledContent || contentContainerEl.clientHeight <= 0) return;
+        this.lastScrolledContent = content;
+        applyBiblePreviewScroll(contentContainerEl, content);
     }
 
     private renderComparisonTranslationSelector(): void {

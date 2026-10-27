@@ -2,10 +2,12 @@ import type { EditorView, ViewUpdate } from "@codemirror/view";
 import type { App } from "obsidian";
 import {
     analyzeBiblePreviewParagraph as analyzeBiblePreviewParagraphFlow,
+    buildBibleChapterPreviewContent as buildBibleChapterPreviewContentFlow,
     rebuildBiblePreviewContent as rebuildBiblePreviewContentFlow,
     toggleBiblePreviewComparison as toggleBiblePreviewComparisonFlow,
     type BiblePreviewAnalyzerFlowInput,
 } from "../application/BiblePreviewAnalyzerFlow";
+import type { BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContent } from "../application/formatBibleTexts";
 import type { BibleIndex } from "../infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
@@ -46,6 +48,7 @@ export type EditorPluginFlowInput = {
     showBiblePreviewContent: (content: BiblePreviewContent, options?: { reveal?: boolean }) => void;
     refreshFloatingPreviewLabels: () => void;
     hideFloatingBiblePreview: () => void;
+    isBiblePreviewChapterModeActive: () => boolean;
     getMissingVerseText: () => string;
     translate: (key: "notice.pluginInactive" | "notice.noImportedTranslations" | "notice.referenceUnderCursorNotFound") => string;
 };
@@ -66,9 +69,17 @@ export function createEditorPluginInputFactoryInput(input: EditorPluginFlowInput
         getCurrentParagraph: input.getCurrentParagraph,
         analyzeParagraph: (paragraph) => analyzeParagraph(input, paragraph),
         analyzeReferenceText: (text) => analyzeReferenceText(input, text),
-        showBiblePreviewContent: (content) => input.showBiblePreviewContent(content, { reveal: input.shouldAutoOpenPreviewOnVerseChange() }),
+        // While a whole chapter is open, automatic updates from cursor movement must not replace or hide it.
+        showBiblePreviewContent: (content) => {
+            if (input.isBiblePreviewChapterModeActive()) return;
+            input.showBiblePreviewContent(content, { reveal: input.shouldAutoOpenPreviewOnVerseChange() });
+        },
+        showClickedBiblePreviewContent: (content) => input.showBiblePreviewContent(content, { reveal: input.shouldAutoOpenPreviewOnVerseChange() }),
         refreshFloatingPreviewLabels: input.refreshFloatingPreviewLabels,
-        hideFloatingBiblePreview: input.hideFloatingBiblePreview,
+        hideFloatingBiblePreview: () => {
+            if (input.isBiblePreviewChapterModeActive()) return;
+            input.hideFloatingBiblePreview();
+        },
         translate: input.translate,
     };
 }
@@ -123,6 +134,10 @@ export async function toggleBiblePreviewComparison(
         setPreviewComparisonEnabled: input.setPreviewComparisonEnabled,
         showBiblePreviewContent: (nextContent) => input.showBiblePreviewContent(nextContent, { reveal: true }),
     }, content);
+}
+
+export async function buildBibleChapterContent(input: EditorPluginFlowInput, target: BibleChapterTarget): Promise<BiblePreviewContent | null> {
+    return buildBibleChapterPreviewContentFlow(createBiblePreviewAnalyzerFlowInput(input), target);
 }
 
 export async function rebuildBiblePreviewContent(

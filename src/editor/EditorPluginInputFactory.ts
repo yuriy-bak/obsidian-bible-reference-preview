@@ -24,6 +24,7 @@ export type EditorPluginInputFactoryInput = {
     analyzeParagraph: (paragraph: string) => Promise<BiblePreviewContent | null>;
     analyzeReferenceText: (text: string) => Promise<BiblePreviewContent | null>;
     showBiblePreviewContent: (content: BiblePreviewContent) => void;
+    showClickedBiblePreviewContent: (content: BiblePreviewContent) => void;
     refreshFloatingPreviewLabels: () => void;
     hideFloatingBiblePreview: () => void;
     translate: (key: "notice.pluginInactive" | "notice.noImportedTranslations" | "notice.referenceUnderCursorNotFound") => string;
@@ -56,6 +57,7 @@ export function createEditorCursorExtensionInput(input: EditorPluginInputFactory
         analyzeParagraph: input.analyzeParagraph,
         analyzeReferenceText: input.analyzeReferenceText,
         showBiblePreviewContent: input.showBiblePreviewContent,
+        showClickedBiblePreviewContent: input.showClickedBiblePreviewContent,
         refreshFloatingPreviewLabels: input.refreshFloatingPreviewLabels,
         hideFloatingBiblePreview: input.hideFloatingBiblePreview,
         createBibleReferenceLinkDecorations: (view) => createEditorReferenceLinkDecorations(createEditorReferenceLinkDecorationFlowInput(input), view),

@@ -1,4 +1,5 @@
 import type { App, WorkspaceLeaf } from "obsidian";
+import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContent, BiblePreviewReferenceBlock } from "../application/formatBibleTexts";
 import type { I18nKey } from "../i18n/I18n";
 import type { BiblePreviewDisplayMode, BiblePreviewPanelSide } from "../settings/PluginSettings";
@@ -44,6 +45,9 @@ export type BiblePreviewPluginFlowInput = {
     showReferenceUsagesForPreviewBlock: (block: BiblePreviewReferenceBlock) => void;
     setComparisonTranslationEnabled: (translationId: string, enabled: boolean) => void;
     toggleBiblePreviewComparison: (content: BiblePreviewContent) => void;
+    openBiblePreviewChapter: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) => void;
+    navigateBiblePreviewChapter: (location: BibleChapterLocation) => void;
+    backFromBiblePreviewChapter: () => void;
     showFloatingBiblePreview: (content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor, options: { reveal?: boolean }) => void;
     scrollFloatingBiblePreview: (command: BiblePreviewScrollCommand) => void;
     waitForNextFrame: () => Promise<void>;
@@ -71,6 +75,9 @@ export function createPreviewViewInputFactoryInput(input: BiblePreviewPluginFlow
         showReferenceUsagesForPreviewBlock: input.showReferenceUsagesForPreviewBlock,
         setComparisonTranslationEnabled: input.setComparisonTranslationEnabled,
         toggleBiblePreviewComparison: input.toggleBiblePreviewComparison,
+        openBiblePreviewChapter: input.openBiblePreviewChapter,
+        navigateBiblePreviewChapter: input.navigateBiblePreviewChapter,
+        backFromBiblePreviewChapter: input.backFromBiblePreviewChapter,
         switchBiblePreviewToPanel: (content) => void switchBiblePreviewToPanel(input, content),
         switchBiblePreviewToFloating: (content) => void switchBiblePreviewToFloating(input, content),
     };

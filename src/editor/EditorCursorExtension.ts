@@ -29,6 +29,7 @@ export type EditorCursorExtensionInput = {
     analyzeParagraph: (paragraph: string) => Promise<BiblePreviewContent | null>;
     analyzeReferenceText: (text: string) => Promise<BiblePreviewContent | null>;
     showBiblePreviewContent: (content: BiblePreviewContent) => void;
+    showClickedBiblePreviewContent: (content: BiblePreviewContent) => void;
     refreshFloatingPreviewLabels: () => void;
     hideFloatingBiblePreview: () => void;
     createBibleReferenceLinkDecorations: (view: EditorView) => DecorationSet;
@@ -137,7 +138,7 @@ export function createEditorCursorExtension(input: EditorCursorExtensionInput): 
                 getClickedReferenceText: () => this.clickedReference?.text ?? null,
                 analyzeReferenceText: input.analyzeReferenceText,
                 hideBiblePreview: (resetParagraphCache) => this.hideBiblePreview(resetParagraphCache),
-                showBiblePreviewContent: input.showBiblePreviewContent,
+                showBiblePreviewContent: input.showClickedBiblePreviewContent,
             });
         }
 
