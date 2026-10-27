@@ -170,6 +170,12 @@ Build and repository hygiene notes:
 - `main.js` is the Obsidian plugin build artifact used for manual installation and releases.
 - `npm run build` creates the production `main.js` by default; use `npm run build:dev` only when you need an inline source map for debugging.
 
+Releasing:
+
+- Bump the version in `manifest.json`, `package.json`, `package-lock.json`, and `versions.json`, and add a `## <version> - <title>` section to `CHANGELOG.md`.
+- When that change lands on `main`, the `Release` workflow creates the `<version>` tag and GitHub Release with the CHANGELOG section as notes, and attaches attested `main.js`, `manifest.json`, and `styles.css`.
+- Releases published manually are picked up by the same workflow, which builds, attests, and uploads the assets. To redo the assets of an existing release, run the workflow manually with its tag.
+
 Import and indexing notes:
 
 - The supported import flow is EPUB-only: translations are imported through the plugin settings with **Import EPUB**.
