@@ -1,0 +1,125 @@
+name: Beta release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Pre-release version, e.g. 0.2.0-beta.1. Used as the tag and as the version in the released manifest.json.
+        required: true
+        type: string
+      ref:
+        description: Branch, tag, or commit to build. Empty means the branch selected above.
+        required: false
+        default: ""
+        type: string
+      notes:
+        description: Optional text placed before the auto-generated release notes.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  beta-release:
+    name: Build, attest, and publish a pre-release for BRAT
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+      REF: ${{ inputs.ref || github.sha }}
+      NOTES: ${{ inputs.notes }}
+
+    steps:
+      - name: Validate version
+        shell: bash
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*$ ]]; then
+            echo "::error::Version '$VERSION' must be a pre-release like 0.2.0-beta.1"
+            exit 1
+          fi
+          if gh release view "$VERSION" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            echo "::error::Release $VERSION already exists"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.REF }}
+
+      - name: Check tag
+        id: plan
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" > /dev/null; then
+            echo "::error::Tag $VERSION already exists"
+            exit 1
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set pre-release version in manifest.json
+        shell: bash
+        run: |
+          node -e '
+            const fs = require("fs");
+            const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+            manifest.version = process.env.VERSION;
+            fs.writeFileSync("manifest.json", JSON.stringify(manifest, null, 2) + "\n");
+          '
+          cat manifest.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint and test
+        run: |
+          npm run lint
+          npm test
+
+      - name: Build release assets
+        run: npm run build
+
+      - name: Generate main.js artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: main.js
+
+      - name: Generate manifest.json artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: manifest.json
+
+      - name: Generate styles.css artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: styles.css
+
+      - name: Create pre-release
+        shell: bash
+        run: |
+          gh release create "$VERSION" \
+            main.js \
+            manifest.json \
+            styles.css \
+            --repo "${{ github.repository }}" \
+            --target "${{ steps.plan.outputs.sha }}" \
+            --title "$VERSION" \
+            --prerelease \
+            --latest=false \
+            --notes "$NOTES" \
+            --generate-notes

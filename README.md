@@ -43,6 +43,17 @@ Bible Reference Preview finds Bible references in notes and shows verse previews
 
 4. Open Obsidian → Settings → Community plugins and enable **Bible Reference Preview**.
 
+## Beta testing with BRAT
+
+Beta versions are published as GitHub pre-releases (for example `0.2.0-beta.1`). The Obsidian community catalog does not offer them, so install them with [BRAT](https://github.com/TfTHacker/obsidian42-brat):
+
+1. Install and enable **BRAT** from Community plugins.
+2. Run the command **BRAT: Add a beta plugin for testing** (or Settings → BRAT → **Add beta plugin**).
+3. Enter `https://github.com/yuriy-bak/obsidian-bible-reference-preview` and pick a beta version (or the latest one).
+4. Enable **Bible Reference Preview** in Community plugins.
+
+BRAT checks for newer versions on startup or with **BRAT: Check for updates to all beta plugins**. To return to the stable version, remove the plugin from BRAT and reinstall it from Community plugins.
+
 ## Importing a translation
 
 1. Open Settings → Bible Reference Preview.
@@ -170,6 +181,7 @@ Releasing:
 
 - Bump the version in `manifest.json`, `package.json`, `package-lock.json`, and `versions.json`, and add a `## <version> - <title>` section to `CHANGELOG.md`.
 - When that change lands on `main`, the `Release` workflow creates the `<version>` tag and GitHub Release with the CHANGELOG section as notes, and attaches attested `main.js`, `manifest.json`, and `styles.css`.
+- To publish a beta for BRAT, run the `Beta release` workflow manually (Actions → Beta release → Run workflow) with a pre-release version such as `0.2.0-beta.1` and the branch to build. It creates a pre-release with that tag and attested assets; the version is set only in the released `manifest.json`, nothing is committed, so `main` and the community catalog are unaffected.
 - Releases published manually are picked up by the same workflow, which builds, attests, and uploads the assets. To redo the assets of an existing release, run the workflow manually with its tag.
 
 Import and indexing notes:
