@@ -5,7 +5,8 @@ import type { BookMapping } from "../parsing/BookMapping";
 import type { TranslationControllerState } from "../translations/TranslationController";
 import { TranslationController } from "../translations/TranslationController";
 import { BiblePreviewAnalyzer, type BiblePreviewAnalyzerInput } from "./BiblePreviewAnalyzer";
-import { getBibleTextBlocks } from "./getBibleTexts";
+import type { BibleChapterTarget } from "./BibleChapterNavigation";
+import { getBibleChapterTextBlock, getBibleTextBlocks } from "./getBibleTexts";
 import {
     type BiblePreviewContent,
     formatBibleComparisonTextBlocks,
@@ -43,11 +44,23 @@ export function createBiblePreviewAnalyzerInput(input: BiblePreviewAnalyzerFlowI
         getComparisonMapping: (translationId) => input.activeV2Data === null
             ? input.bookMapping
             : createBookMappingFromBibleIndexV2Data(input.activeV2Data, translationId),
+        getBibleChapterTextBlock: (book, chapter, translationId) => getBibleChapterTextBlock(book, chapter, input.bibleIndex, translationId),
+        getBookIds: () => [...input.bookMapping.idToDisplayName.keys()].sort((left, right) => left - right),
+        getChapterCount: (book) => {
+            const activeTranslationId = input.getActiveTranslationId();
+            return activeTranslationId === null
+                ? undefined
+                : input.activeV2Data?.translations[activeTranslationId]?.books[String(book)]?.chapterCount;
+        },
     };
 }
 
 export async function analyzeBiblePreviewParagraph(input: BiblePreviewAnalyzerFlowInput, text: string): Promise<BiblePreviewContent | null> {
     return new BiblePreviewAnalyzer(createBiblePreviewAnalyzerInput(input)).analyzeParagraph(text);
+}
+
+export async function buildBibleChapterPreviewContent(input: BiblePreviewAnalyzerFlowInput, target: BibleChapterTarget): Promise<BiblePreviewContent | null> {
+    return new BiblePreviewAnalyzer(createBiblePreviewAnalyzerInput(input)).buildChapterContent(target);
 }
 
 export async function rebuildBiblePreviewContent(input: BiblePreviewAnalyzerFlowInput, content: BiblePreviewContent): Promise<BiblePreviewContent | null> {

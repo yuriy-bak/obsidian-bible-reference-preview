@@ -1,5 +1,5 @@
 import { Notice, Platform } from "obsidian";
-import { BiblePreviewContent, BiblePreviewReferenceBlock, renderBiblePreviewContent } from "../application/formatBibleTexts";
+import { applyBiblePreviewScroll, BiblePreviewChapterViewInput, BiblePreviewContent, BiblePreviewReferenceBlock, createChapterRenderOptions, renderBiblePreviewContent } from "../application/formatBibleTexts";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
 import { renderComparisonTranslationSelector as renderComparisonTranslationSelectorView } from "./ComparisonTranslationSelector";
 
@@ -9,7 +9,7 @@ export type FloatingBiblePreviewAnchor =
 
 export type FloatingBiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
 
-export type FloatingBiblePreviewWindowInput = {
+export type FloatingBiblePreviewWindowInput = BiblePreviewChapterViewInput & {
     getTitle: () => string;
     getCopyNoticeText: () => string;
     getCopyAria: () => string;
@@ -135,7 +135,7 @@ export class FloatingBiblePreviewWindow {
 
     constructor(private labels: FloatingBiblePreviewWindowInput) {
         this.previewPanelEl = this.createPreviewPanelElement();
-        this.previewContentEl = this.previewPanelEl.createDiv();
+        this.previewContentEl = this.previewPanelEl.createDiv({ cls: "bible-preview-floating-content" });
         this.resizeHandleEls = this.createResizeHandleElements();
         this.collapsedButtonEl = this.createCollapsedButtonElement();
 
@@ -158,6 +158,7 @@ export class FloatingBiblePreviewWindow {
         this.previewContent = content;
         this.previewText = content.plainText;
         renderBiblePreviewContent(this.previewContentEl, content, {
+            ...createChapterRenderOptions(this.labels, content, () => this.previewContentEl.scrollTop),
             getFindUsagesButtonText: this.labels.getFindUsagesButtonText,
             getFindUsagesButtonAria: this.labels.getFindUsagesButtonAria,
             onFindUsages: this.labels.onFindUsages,
@@ -177,6 +178,7 @@ export class FloatingBiblePreviewWindow {
         }
 
         this.renderBiblePreview();
+        applyBiblePreviewScroll(this.previewContentEl, content);
     }
 
     public getContent(): BiblePreviewContent | null {

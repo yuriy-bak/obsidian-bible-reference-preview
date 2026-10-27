@@ -1,3 +1,4 @@
+import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContent, BiblePreviewReferenceBlock } from "../application/formatBibleTexts";
 import type { I18nKey } from "../i18n/I18n";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
@@ -17,6 +18,9 @@ export type BiblePreviewViewInputFactoryInput = {
     toggleBiblePreviewComparison: (content: BiblePreviewContent) => void;
     switchBiblePreviewToPanel: (content: BiblePreviewContent) => void;
     switchBiblePreviewToFloating: (content: BiblePreviewContent) => void;
+    openBiblePreviewChapter: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) => void;
+    navigateBiblePreviewChapter: (location: BibleChapterLocation) => void;
+    backFromBiblePreviewChapter: () => void;
 };
 
 function createCommonPreviewInput(input: BiblePreviewViewInputFactoryInput) {
@@ -35,6 +39,17 @@ function createCommonPreviewInput(input: BiblePreviewViewInputFactoryInput) {
         getComparisonTranslations: () => input.isPreviewComparisonEnabled() ? input.getPreviewComparisonTranslationOptions() : [],
         onToggleComparisonTranslation: (translationId: string, enabled: boolean) => input.setComparisonTranslationEnabled(translationId, enabled),
         onToggleComparison: (content: BiblePreviewContent) => input.toggleBiblePreviewComparison(content),
+        getOpenChapterAria: (title: string) => input.translate("preview.openChapterAria", { reference: title }),
+        onOpenChapter: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) =>
+            input.openBiblePreviewChapter(target, returnContent, returnScrollTop),
+        getChapterNavigationLabels: () => ({
+            back: input.translate("preview.chapterBack"),
+            backAria: input.translate("preview.chapterBackAria"),
+            previousAria: input.translate("preview.previousChapterAria"),
+            nextAria: input.translate("preview.nextChapterAria"),
+        }),
+        onNavigateChapter: (location: BibleChapterLocation) => input.navigateBiblePreviewChapter(location),
+        onBackFromChapter: () => input.backFromBiblePreviewChapter(),
     };
 }
 

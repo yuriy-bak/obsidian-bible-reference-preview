@@ -1,11 +1,14 @@
 import type { BibleReference } from "../domain/BibleReference";
 import type { BookMapping } from "../parsing/BookMapping";
+import { findAdjacentChapter, type BibleChapterProbe, type BibleChapterTarget } from "./BibleChapterNavigation";
 import type { BibleTextBlock } from "./BibleTextBlock";
-import type {
-    BiblePreviewComparisonBlock,
-    BiblePreviewComparisonInput,
-    BiblePreviewContent,
-    BiblePreviewReferenceBlock,
+import {
+    formatBibleChapterTitle,
+    toBibleChapterPreviewContent,
+    type BiblePreviewComparisonBlock,
+    type BiblePreviewComparisonInput,
+    type BiblePreviewContent,
+    type BiblePreviewReferenceBlock,
 } from "./formatBibleTexts";
 
 export type BiblePreviewReferenceMatch = {
@@ -24,6 +27,9 @@ export type BiblePreviewAnalyzerInput = {
     getComparisonTranslationIds: () => string[];
     getTranslationPreviewTitle: (translationId: string) => string;
     getComparisonMapping: (translationId: string) => BookMapping;
+    getBibleChapterTextBlock: (book: number, chapter: number, translationId: string) => Promise<BibleTextBlock | null>;
+    getBookIds: () => number[];
+    getChapterCount: (book: number) => number | undefined;
 };
 
 export class BiblePreviewAnalyzer {
@@ -59,7 +65,53 @@ export class BiblePreviewAnalyzer {
         } catch { return null; }
     }
 
+    public async buildChapterContent(target: BibleChapterTarget): Promise<BiblePreviewContent | null> {
+        const activeTranslationId = this.input.getActiveTranslationId();
+        if (activeTranslationId === null) {
+            return null;
+        }
+
+        const activeBlock = await this.input.getBibleChapterTextBlock(target.book, target.chapter, activeTranslationId);
+        if (activeBlock === null) {
+            return null;
+        }
+
+        const location = { book: target.book, chapter: target.chapter };
+        const probe: BibleChapterProbe = {
+            getBookIds: this.input.getBookIds,
+            getChapterCount: this.input.getChapterCount,
+            hasChapter: async (book, chapter) => await this.input.getBibleChapterTextBlock(book, chapter, activeTranslationId) !== null,
+        };
+        const [previous, next] = await Promise.all([
+            findAdjacentChapter(location, -1, probe),
+            findAdjacentChapter(location, 1, probe),
+        ]);
+        const chapterView = {
+            book: target.book,
+            chapter: target.chapter,
+            highlightedRanges: target.highlightedRanges,
+            title: formatBibleChapterTitle(location, this.input.getComparisonMapping(activeTranslationId)),
+            previous,
+            next,
+        };
+
+        const content = this.input.isPreviewComparisonEnabled()
+            ? this.input.formatBibleComparisonTextBlocks([{
+                title: chapterView.title,
+                references: [activeBlock.reference],
+                translations: await this.getComparisonChapterTranslationInputs(target, activeTranslationId),
+                formatReferenceTitle: (mapping) => formatBibleChapterTitle(location, mapping),
+            }])
+            : this.input.formatBibleTextBlocks([activeBlock]);
+
+        return content.plainText.length === 0 ? null : toBibleChapterPreviewContent(content, chapterView);
+    }
+
     public async rebuildContent(content: BiblePreviewContent): Promise<BiblePreviewContent | null> {
+        if (content.chapterView !== undefined) {
+            return this.buildChapterContent(content.chapterView);
+        }
+
         const activeTranslationId = this.input.getActiveTranslationId();
         if (activeTranslationId === null) {
             return null;
@@ -100,10 +152,33 @@ export class BiblePreviewAnalyzer {
 
     private async getComparisonTranslationInputs(references: BiblePreviewReferenceBlock["references"], sourceText: string): Promise<BiblePreviewComparisonInput["translations"]> {
         const translationIds = this.input.getComparisonTranslationIds();
+        const mainTranslationId = this.getMainComparisonTranslationId(translationIds);
         return Promise.all(translationIds.map(async (translationId) => ({
             translationName: this.input.getTranslationPreviewTitle(translationId),
+            isMain: translationId === mainTranslationId,
             blocks: await this.input.getBibleTextBlocks(references, translationId, sourceText),
             mapping: this.input.getComparisonMapping(translationId),
         })));
+    }
+
+    private async getComparisonChapterTranslationInputs(target: BibleChapterTarget, activeTranslationId: string): Promise<BiblePreviewComparisonInput["translations"]> {
+        const translationIds = this.input.getComparisonTranslationIds();
+        return Promise.all(translationIds.map(async (translationId) => {
+            const block = await this.input.getBibleChapterTextBlock(target.book, target.chapter, translationId);
+            return {
+                translationName: this.input.getTranslationPreviewTitle(translationId),
+                isMain: translationId === activeTranslationId,
+                blocks: block === null ? [] : [block],
+                mapping: this.input.getComparisonMapping(translationId),
+            };
+        }));
+    }
+
+    // The active translation is the main one; if it is not compared, the first compared translation is.
+    private getMainComparisonTranslationId(translationIds: string[]): string | undefined {
+        const activeTranslationId = this.input.getActiveTranslationId();
+        return activeTranslationId !== null && translationIds.includes(activeTranslationId)
+            ? activeTranslationId
+            : translationIds[0];
     }
 }
