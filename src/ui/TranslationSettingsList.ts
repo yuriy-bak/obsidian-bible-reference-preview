@@ -16,7 +16,7 @@ export type TranslationSettingsListInput = {
     translate: (key: TranslationSettingsListI18nKey, params?: TranslationSettingsListI18nParams) => string;
     onDelete: (translationId: string) => Promise<void>;
     onReorder: (nextOrder: string[]) => Promise<void>;
-    onImport: () => void;
+    onImport: (hostEl: HTMLElement) => void;
     refresh: () => void;
 };
 
@@ -49,7 +49,7 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
         },
         addItem: {
             name: translate("settings.import.button"),
-            action: () => input.onImport(),
+            action: (el) => input.onImport(el),
         },
     };
 }

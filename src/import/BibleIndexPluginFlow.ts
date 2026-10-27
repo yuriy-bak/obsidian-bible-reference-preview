@@ -55,16 +55,24 @@ export async function reloadBibleIndex(input: BibleIndexPluginFlowInput): Promis
     new Notice(input.translate("notice.bibleIndexReloaded"), 5000);
 }
 
-export function openEpubFilePicker(input: BibleIndexPluginFlowInput): void {
-    const fileInput = createEl("input");
-    fileInput.type = "file";
-    fileInput.accept = ".epub,application/epub+zip";
-    fileInput.onchange = () => {
+export function openEpubFilePicker(input: BibleIndexPluginFlowInput, hostEl?: HTMLElement): void {
+    // Create the input in the document that received the click (the settings window may not be the main one)
+    // and keep it attached until the dialog closes; a detached input can be dropped before `change` fires.
+    const doc = hostEl?.doc ?? activeDocument;
+    const fileInput = doc.body.createEl("input", {
+        type: "file",
+        cls: "bible-reference-preview-hidden-file-input",
+        attr: { accept: ".epub,application/epub+zip" },
+    });
+    const removeFileInput = (): void => fileInput.remove();
+    fileInput.addEventListener("change", () => {
         const file = fileInput.files?.[0];
+        removeFileInput();
         if (file !== undefined) {
             void importEpubFile(input, file);
         }
-    };
+    });
+    fileInput.addEventListener("cancel", removeFileInput);
     fileInput.click();
 }
 
