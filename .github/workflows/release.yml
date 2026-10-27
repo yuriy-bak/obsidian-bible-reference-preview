@@ -29,6 +29,8 @@ concurrency:
 jobs:
   release:
     name: Build, attest, and publish release assets
+    # Pre-releases are built by the Beta release workflow; skip them here so their manifest.json is not overwritten.
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

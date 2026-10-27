@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a manual `Beta release` workflow that publishes pre-releases for testing with BRAT.
+
 ## 0.1.9 - Obsidian plugin review recommendations
 
 - Replaced deprecated `workspace.activeLeaf` with `getActiveViewOfType(MarkdownView)`.
