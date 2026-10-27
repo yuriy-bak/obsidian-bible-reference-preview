@@ -4,10 +4,10 @@ import type { ReferenceUsageSearchResult } from "./ReferenceUsageIndexService";
 
 export type ReferenceUsagePaneFlowInput = {
     app: App;
-    createReferenceUsagePaneViewInput(): ReferenceUsagePaneViewInput;
-    getFirstWorkspaceLeafOfType(viewType: string): WorkspaceLeaf | null;
-    detachDuplicateWorkspaceLeavesOfType(viewType: string, keepLeaf: WorkspaceLeaf): Promise<void>;
-    revealLeafWithoutStealingEditorFocus(leaf: WorkspaceLeaf, options?: { focus?: boolean }): Promise<void>;
+    createReferenceUsagePaneViewInput: () => ReferenceUsagePaneViewInput;
+    getFirstWorkspaceLeafOfType: (viewType: string) => WorkspaceLeaf | null;
+    detachDuplicateWorkspaceLeavesOfType: (viewType: string, keepLeaf: WorkspaceLeaf) => Promise<void>;
+    revealLeafWithoutStealingEditorFocus: (leaf: WorkspaceLeaf, options?: { focus?: boolean }) => Promise<void>;
 };
 
 export async function showReferenceUsageResultsInPanel(

@@ -2,8 +2,8 @@ import { BibleReadingModePreviewController, type BibleReadingModePreviewControll
 import { FloatingBiblePreviewWindow, type FloatingBiblePreviewWindowInput } from "../ui/FloatingBiblePreviewWindow";
 
 export type FloatingPreviewWindowInitializationInput = {
-    createInput(): FloatingBiblePreviewWindowInput;
-    registerDisposer(disposer: () => void): void;
+    createInput: () => FloatingBiblePreviewWindowInput;
+    registerDisposer: (disposer: () => void) => void;
 };
 
 export function initializeFloatingPreviewWindow(input: FloatingPreviewWindowInitializationInput): FloatingBiblePreviewWindow {

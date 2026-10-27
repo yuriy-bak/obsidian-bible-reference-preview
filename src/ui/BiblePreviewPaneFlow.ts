@@ -13,16 +13,16 @@ export type BiblePreviewPaneFlowInput = {
     content: BiblePreviewContent;
     reveal?: boolean;
     isMobile: boolean;
-    getPreviewPanelSide(): BiblePreviewPanelSide;
-    createBiblePreviewPaneViewInput(): BiblePreviewPaneViewInput;
-    getFirstWorkspaceLeafOfType(viewType: string): WorkspaceLeaf | null;
-    detachDuplicateWorkspaceLeavesOfType(viewType: string, keepLeaf: WorkspaceLeaf): Promise<void>;
-    revealLeafWithoutStealingEditorFocus(leaf: WorkspaceLeaf, options?: BiblePreviewPaneRevealOptions): Promise<void>;
-    waitForNextFrame(): Promise<void>;
-    expandBiblePreviewSideDock(): void;
-    setLastPanePreviewContent(content: BiblePreviewContent): void;
-    setSuppressPreviewActiveLeafChange(value: boolean): void;
-    setBiblePreviewPaneIsActiveInSideDock(value: boolean): void;
+    getPreviewPanelSide: () => BiblePreviewPanelSide;
+    createBiblePreviewPaneViewInput: () => BiblePreviewPaneViewInput;
+    getFirstWorkspaceLeafOfType: (viewType: string) => WorkspaceLeaf | null;
+    detachDuplicateWorkspaceLeavesOfType: (viewType: string, keepLeaf: WorkspaceLeaf) => Promise<void>;
+    revealLeafWithoutStealingEditorFocus: (leaf: WorkspaceLeaf, options?: BiblePreviewPaneRevealOptions) => Promise<void>;
+    waitForNextFrame: () => Promise<void>;
+    expandBiblePreviewSideDock: () => void;
+    setLastPanePreviewContent: (content: BiblePreviewContent) => void;
+    setSuppressPreviewActiveLeafChange: (value: boolean) => void;
+    setBiblePreviewPaneIsActiveInSideDock: (value: boolean) => void;
 };
 
 export async function showBiblePreviewInPanel(input: BiblePreviewPaneFlowInput): Promise<void> {

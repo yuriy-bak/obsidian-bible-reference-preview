@@ -15,8 +15,8 @@ export type ReferenceUsagePaneFlowInputFactoryInput = {
     previewViewType: string;
     previewPanelSide: BiblePreviewPanelSide;
     isMobile: boolean;
-    waitForNextAnimationFrame(): Promise<void>;
-    setSuppressPreviewActiveLeafChange(value: boolean): void;
+    waitForNextAnimationFrame: () => Promise<void>;
+    setSuppressPreviewActiveLeafChange: (value: boolean) => void;
 };
 
 export function createReferenceUsagePaneFlowInput(input: ReferenceUsagePaneFlowInputFactoryInput): ReferenceUsagePaneFlowInput {

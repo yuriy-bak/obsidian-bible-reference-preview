@@ -3,14 +3,14 @@ import type { EditorClickedReference } from "./EditorClickedReference";
 
 export type EditorReferencePreviewOpeningInput = {
     match: EditorClickedReference;
-    setClickedReference(reference: EditorClickedReference | null): void;
-    resetLastParagraph(): void;
-    incrementRequestId(): number;
-    getRequestId(): number;
-    getClickedReferenceText(): string | null;
-    analyzeReferenceText(text: string): Promise<BiblePreviewContent | null>;
-    hideBiblePreview(resetParagraphCache?: boolean): void;
-    showBiblePreviewContent(content: BiblePreviewContent): void;
+    setClickedReference: (reference: EditorClickedReference | null) => void;
+    resetLastParagraph: () => void;
+    incrementRequestId: () => number;
+    getRequestId: () => number;
+    getClickedReferenceText: () => string | null;
+    analyzeReferenceText: (text: string) => Promise<BiblePreviewContent | null>;
+    hideBiblePreview: (resetParagraphCache?: boolean) => void;
+    showBiblePreviewContent: (content: BiblePreviewContent) => void;
 };
 
 export function openBibleReferenceMatchPreview(input: EditorReferencePreviewOpeningInput): void {

@@ -26,26 +26,26 @@ import type { TranslationControllerState } from "./TranslationController";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./TranslationModels";
 
 export type TranslationPluginFlowInput = {
-    getV2Data(): BibleIndexV2Data | null;
-    getActiveTranslationId(): string | null;
-    getTranslationOrder(): string[];
-    getComparisonTranslationIds(): string[];
-    setTranslationOrder(translationOrder: string[]): void;
-    setComparisonTranslationIds(comparisonTranslationIds: string[]): void;
-    setActiveTranslationId(activeTranslationId: string | null): void;
-    saveSettings(): Promise<void>;
-    updateBookMapping(v2Data: BibleIndexV2Data | null): void;
-    showCurrentTranslationNotice(): void;
-    refreshSettings(): void;
-    refreshVisibleBiblePreviewContent(): Promise<void>;
-    getBibleIndexV2Data(): BibleIndexV2Data | null;
-    createRepository(): ObsidianBibleIndexV2Repository;
-    confirmDeleteTranslation(translationName: string): boolean;
-    setBibleIndex(bibleIndex: BibleIndex): void;
-    setBibleIndexV2Data(v2Data: BibleIndexV2Data | null): void;
-    showTranslationDeletedNotice(translationName: string): void;
-    getNoImportedTranslationText(): string;
-    getPreviewTitleFallbackText(): string;
+    getV2Data: () => BibleIndexV2Data | null;
+    getActiveTranslationId: () => string | null;
+    getTranslationOrder: () => string[];
+    getComparisonTranslationIds: () => string[];
+    setTranslationOrder: (translationOrder: string[]) => void;
+    setComparisonTranslationIds: (comparisonTranslationIds: string[]) => void;
+    setActiveTranslationId: (activeTranslationId: string | null) => void;
+    saveSettings: () => Promise<void>;
+    updateBookMapping: (v2Data: BibleIndexV2Data | null) => void;
+    showCurrentTranslationNotice: () => void;
+    refreshSettings: () => void;
+    refreshVisibleBiblePreviewContent: () => Promise<void>;
+    getBibleIndexV2Data: () => BibleIndexV2Data | null;
+    createRepository: () => ObsidianBibleIndexV2Repository;
+    confirmDeleteTranslation: (translationName: string) => Promise<boolean>;
+    setBibleIndex: (bibleIndex: BibleIndex) => void;
+    setBibleIndexV2Data: (v2Data: BibleIndexV2Data | null) => void;
+    showTranslationDeletedNotice: (translationName: string) => void;
+    getNoImportedTranslationText: () => string;
+    getPreviewTitleFallbackText: () => string;
 };
 
 function createTranslationSettingsFlowInput(input: TranslationPluginFlowInput): TranslationSettingsFlowInput {

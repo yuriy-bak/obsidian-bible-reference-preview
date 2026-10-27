@@ -7,11 +7,11 @@ import { openReferenceUsageResultsModal } from "./ReferenceUsageResultsModalFlow
 export type ReferenceUsageUnderCursorFlowInputFactoryInput = {
     app: App;
     interfaceLanguage: BiblePluginLocale;
-    isIndexingEnabled(): boolean;
+    isIndexingEnabled: () => boolean;
     getReferenceUnderCursor: ReferenceUsageUnderCursorFlowInput["getReferenceUnderCursor"];
     findUsages: ReferenceUsageUnderCursorFlowInput["findUsages"];
     showResultsInPanel: ReferenceUsageUnderCursorFlowInput["showResultsInPanel"];
-    waitForNextAnimationFrame(): Promise<void>;
+    waitForNextAnimationFrame: () => Promise<void>;
 };
 
 export function createReferenceUsageUnderCursorFlowInput(input: ReferenceUsageUnderCursorFlowInputFactoryInput): ReferenceUsageUnderCursorFlowInput {

@@ -1,14 +1,14 @@
 import type { BiblePreviewContent } from "../application/formatBibleTexts";
 
 export type BibleReadingModePreviewControllerInput = {
-    showBiblePreviewContent(content: BiblePreviewContent, anchor: { type: "element"; element: HTMLElement }, options: { reveal?: boolean }): void;
-    shouldAutoOpenPreviewOnVerseChange(): boolean;
-    hasImportedTranslations(): boolean;
-    analyzeReferenceText(referenceText: string): Promise<BiblePreviewContent | null>;
-    showNoImportedTranslationsNotice(): void;
-    refreshFloatingPreviewLabels(): void;
-    isFloatingPreviewTarget(target: Node): boolean;
-    hideFloatingBiblePreview(): void;
+    showBiblePreviewContent: (content: BiblePreviewContent, anchor: { type: "element"; element: HTMLElement }, options: { reveal?: boolean }) => void;
+    shouldAutoOpenPreviewOnVerseChange: () => boolean;
+    hasImportedTranslations: () => boolean;
+    analyzeReferenceText: (referenceText: string) => Promise<BiblePreviewContent | null>;
+    showNoImportedTranslationsNotice: () => void;
+    refreshFloatingPreviewLabels: () => void;
+    isFloatingPreviewTarget: (target: Node) => boolean;
+    hideFloatingBiblePreview: () => void;
 };
 
 export class BibleReadingModePreviewController {
@@ -56,7 +56,7 @@ export class BibleReadingModePreviewController {
         if (this.input.isFloatingPreviewTarget(target)) {
             return;
         }
-        if (target instanceof HTMLElement && target.closest(".bible-reference-reading-link") !== null) {
+        if (target.instanceOf(HTMLElement) && target.closest(".bible-reference-reading-link") !== null) {
             return;
         }
         this.input.hideFloatingBiblePreview();

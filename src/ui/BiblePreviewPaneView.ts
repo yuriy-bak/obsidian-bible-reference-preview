@@ -8,22 +8,22 @@ export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 export type BiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
 
 export type BiblePreviewPaneViewInput = {
-    getTitle(): string;
-    getOpenFloatingAria(): string;
-    getOpenFloatingIcon(): string;
-    getCopyAria(): string;
-    getCopyIcon(): string;
-    getCopyNoticeText(): string;
-    getFindUsagesButtonText?(): string;
-    getFindUsagesButtonAria?(block: BiblePreviewReferenceBlock): string;
-    onFindUsages?(block: BiblePreviewReferenceBlock): void;
-    getComparisonButtonText?(): string;
-    getComparisonButtonAria?(): string;
-    getComparisonTranslationsTitle?(): string;
-    getComparisonTranslations?(): PreviewComparisonTranslationOption[];
-    onToggleComparisonTranslation?(translationId: string, enabled: boolean): void;
-    onToggleComparison?(content: BiblePreviewContent): void;
-    onOpenFloating(content: BiblePreviewContent): void;
+    getTitle: () => string;
+    getOpenFloatingAria: () => string;
+    getOpenFloatingIcon: () => string;
+    getCopyAria: () => string;
+    getCopyIcon: () => string;
+    getCopyNoticeText: () => string;
+    getFindUsagesButtonText?: () => string;
+    getFindUsagesButtonAria?: (block: BiblePreviewReferenceBlock) => string;
+    onFindUsages?: (block: BiblePreviewReferenceBlock) => void;
+    getComparisonButtonText?: () => string;
+    getComparisonButtonAria?: () => string;
+    getComparisonTranslationsTitle?: () => string;
+    getComparisonTranslations?: () => PreviewComparisonTranslationOption[];
+    onToggleComparisonTranslation?: (translationId: string, enabled: boolean) => void;
+    onToggleComparison?: (content: BiblePreviewContent) => void;
+    onOpenFloating: (content: BiblePreviewContent) => void;
 };
 
 export class BiblePreviewPaneView extends ItemView {
@@ -236,7 +236,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     private createIconButton(text: string, label: string): HTMLButtonElement {
-        const buttonEl = document.createElement("button");
+        const buttonEl = createEl("button");
         buttonEl.type = "button";
         this.updateIconButton(buttonEl, text, label);
         this.styleIconButton(buttonEl);
@@ -265,7 +265,7 @@ export class BiblePreviewPaneView extends ItemView {
 
     private getContentRootElement(): HTMLElement {
         const viewWithContentEl = this as ItemView & { contentEl?: HTMLElement };
-        if (viewWithContentEl.contentEl instanceof HTMLElement) return viewWithContentEl.contentEl;
+        if (viewWithContentEl.contentEl?.instanceOf(HTMLElement)) return viewWithContentEl.contentEl;
         const secondChild = this.containerEl.children.item(1);
         if (secondChild instanceof HTMLElement) return secondChild;
         return this.containerEl;
@@ -367,7 +367,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     private createCopyFallbackTextarea(text: string): HTMLTextAreaElement {
-        const textareaEl = document.createElement("textarea");
+        const textareaEl = createEl("textarea");
         textareaEl.value = text;
         textareaEl.addClass("bible-preview-copy-fallback-textarea");
         return textareaEl;

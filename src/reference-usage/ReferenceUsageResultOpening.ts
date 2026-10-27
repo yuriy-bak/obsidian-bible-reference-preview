@@ -3,7 +3,7 @@ import type { ReferenceUsageSearchResult } from "./ReferenceUsageIndexService";
 
 export type ReferenceUsageResultOpeningInput = {
     app: App;
-    waitForNextAnimationFrame(): Promise<void>;
+    waitForNextAnimationFrame: () => Promise<void>;
 };
 
 export async function openReferenceUsageResult(

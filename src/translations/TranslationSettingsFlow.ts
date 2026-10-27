@@ -4,18 +4,18 @@ import { TranslationController, type TranslationControllerState } from "./Transl
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./TranslationModels";
 
 export type TranslationSettingsFlowInput = {
-    getV2Data(): BibleIndexV2Data | null;
-    getActiveTranslationId(): string | null;
-    getTranslationOrder(): string[];
-    getComparisonTranslationIds(): string[];
-    setTranslationOrder(translationOrder: string[]): void;
-    setComparisonTranslationIds(comparisonTranslationIds: string[]): void;
-    setActiveTranslationId(activeTranslationId: string | null): void;
-    saveSettings(): Promise<void>;
-    updateBookMapping(v2Data: BibleIndexV2Data | null): void;
-    showCurrentTranslationNotice(): void;
-    refreshSettings(): void;
-    refreshVisibleBiblePreviewContent(): Promise<void>;
+    getV2Data: () => BibleIndexV2Data | null;
+    getActiveTranslationId: () => string | null;
+    getTranslationOrder: () => string[];
+    getComparisonTranslationIds: () => string[];
+    setTranslationOrder: (translationOrder: string[]) => void;
+    setComparisonTranslationIds: (comparisonTranslationIds: string[]) => void;
+    setActiveTranslationId: (activeTranslationId: string | null) => void;
+    saveSettings: () => Promise<void>;
+    updateBookMapping: (v2Data: BibleIndexV2Data | null) => void;
+    showCurrentTranslationNotice: () => void;
+    refreshSettings: () => void;
+    refreshVisibleBiblePreviewContent: () => Promise<void>;
 };
 
 export function createTranslationControllerState(

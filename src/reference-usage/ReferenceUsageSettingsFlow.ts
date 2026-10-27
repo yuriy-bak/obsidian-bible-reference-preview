@@ -6,12 +6,12 @@ export type ReferenceUsageSettingsFlowInput = {
     referenceUsageIndexingEnabled: boolean;
     referenceUsageAutoUpdate: boolean;
     referenceUsageExcludedFolders: string[];
-    setReferenceUsageIndexingEnabled(value: boolean): void;
-    setReferenceUsageAutoUpdate(value: boolean): void;
-    setReferenceUsageExcludedFolders(value: string[]): void;
-    saveSettings(): Promise<void>;
-    refreshSettings(): void;
-    getReferenceUsageController(): ReferenceUsageController;
+    setReferenceUsageIndexingEnabled: (value: boolean) => void;
+    setReferenceUsageAutoUpdate: (value: boolean) => void;
+    setReferenceUsageExcludedFolders: (value: string[]) => void;
+    saveSettings: () => Promise<void>;
+    refreshSettings: () => void;
+    getReferenceUsageController: () => ReferenceUsageController;
 };
 
 export function isReferenceUsageIndexingEnabled(input: ReferenceUsageSettingsFlowInput): boolean {

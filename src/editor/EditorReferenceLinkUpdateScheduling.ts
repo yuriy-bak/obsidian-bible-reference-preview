@@ -4,9 +4,9 @@ import { dispatchBibleReferenceLinkDecorations } from "./BibleReferenceLinkDecor
 export type EditorReferenceLinkUpdateSchedulingInput = {
     view: EditorView;
     currentTimeout: number | null;
-    shouldRunBiblePreviewForEditor(view: EditorView): boolean;
-    createBibleReferenceLinkDecorations(view: EditorView): DecorationSet;
-    setReferenceLinkUpdateTimeout(timeout: number | null): void;
+    shouldRunBiblePreviewForEditor: (view: EditorView) => boolean;
+    createBibleReferenceLinkDecorations: (view: EditorView) => DecorationSet;
+    setReferenceLinkUpdateTimeout: (timeout: number | null) => void;
 };
 
 export function scheduleEditorReferenceLinkUpdate(input: EditorReferenceLinkUpdateSchedulingInput): void {

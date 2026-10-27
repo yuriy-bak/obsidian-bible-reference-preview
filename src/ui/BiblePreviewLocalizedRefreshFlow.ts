@@ -10,8 +10,8 @@ export type BiblePreviewLocalizedRefreshFlowInput = {
     app: App;
     previewControllers: Iterable<BiblePreviewController>;
     readingModePreviewController: BibleReadingModePreviewController | null;
-    refreshFloatingPreviewLabels(): void;
-    createBiblePreviewPaneViewInput(): BiblePreviewPaneViewInput;
+    refreshFloatingPreviewLabels: () => void;
+    createBiblePreviewPaneViewInput: () => BiblePreviewPaneViewInput;
 };
 
 export function refreshBiblePreviewLocalizedLabels(input: BiblePreviewLocalizedRefreshFlowInput): void {

@@ -7,13 +7,13 @@ type ReferenceUsageUnderCursorMatch = {
 };
 
 export type ReferenceUsageUnderCursorFlowInput = {
-    isIndexingEnabled(): boolean;
-    showIndexingDisabledNotice(): void;
-    getReferenceUnderCursor(): ReferenceUsageUnderCursorMatch | null;
-    findUsages(references: BibleReference[]): ReferenceUsageSearchResult[];
-    formatTitle(referenceText: string): string;
-    openResultsModal(titleText: string, results: ReferenceUsageSearchResult[]): void;
-    showResultsInPanel(titleText: string, results: ReferenceUsageSearchResult[]): Promise<void>;
+    isIndexingEnabled: () => boolean;
+    showIndexingDisabledNotice: () => void;
+    getReferenceUnderCursor: () => ReferenceUsageUnderCursorMatch | null;
+    findUsages: (references: BibleReference[]) => ReferenceUsageSearchResult[];
+    formatTitle: (referenceText: string) => string;
+    openResultsModal: (titleText: string, results: ReferenceUsageSearchResult[]) => void;
+    showResultsInPanel: (titleText: string, results: ReferenceUsageSearchResult[]) => Promise<void>;
 };
 
 export async function findReferenceUsagesUnderCursor(input: ReferenceUsageUnderCursorFlowInput): Promise<void> {

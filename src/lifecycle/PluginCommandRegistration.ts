@@ -6,27 +6,27 @@ type PluginCommandTranslate = (key: I18nKey) => string;
 type BiblePreviewScrollCommand = "page-down" | "page-up" | "top" | "bottom";
 
 export type PluginCommandRegistrationInput = {
-    addCommand(command: PluginCommand): void;
+    addCommand: (command: PluginCommand) => void;
     translate: PluginCommandTranslate;
-    openEpubFilePicker(): void;
-    reloadBibleIndex(): Promise<void>;
-    openBibleIndexFolder(): Promise<void>;
-    showBibleIndexStats(): Promise<void>;
-    buildReferenceUsageIndex(): Promise<void>;
-    rebuildReferenceUsageIndex(): Promise<void>;
-    clearReferenceUsageIndex(): Promise<void>;
-    showReferenceUsageIndexStats(): Promise<void>;
-    findReferenceUsagesUnderCursor(): Promise<void>;
-    openReferenceUsagesPanelUnderCursor(): Promise<void>;
-    scrollBiblePreview(command: BiblePreviewScrollCommand): Promise<void>;
-    togglePluginActive(): Promise<void>;
-    openBibleReferenceUnderCursorFromActiveEditor(showNotice: boolean): boolean;
+    openEpubFilePicker: () => void;
+    reloadBibleIndex: () => Promise<void>;
+    openBibleIndexFolder: () => Promise<void>;
+    showBibleIndexStats: () => Promise<void>;
+    buildReferenceUsageIndex: () => Promise<void>;
+    rebuildReferenceUsageIndex: () => Promise<void>;
+    clearReferenceUsageIndex: () => Promise<void>;
+    showReferenceUsageIndexStats: () => Promise<void>;
+    findReferenceUsagesUnderCursor: () => Promise<void>;
+    openReferenceUsagesPanelUnderCursor: () => Promise<void>;
+    scrollBiblePreview: (command: BiblePreviewScrollCommand) => Promise<void>;
+    togglePluginActive: () => Promise<void>;
+    openBibleReferenceUnderCursorFromActiveEditor: (showNotice: boolean) => boolean;
 };
 
 export type PluginActiveRibbonRegistrationInput = {
-    addRibbonIcon(icon: string, title: string, callback: () => void): HTMLElement;
+    addRibbonIcon: (icon: string, title: string, callback: () => void) => HTMLElement;
     title: string;
-    togglePluginActive(): Promise<void>;
+    togglePluginActive: () => Promise<void>;
 };
 
 export function registerPluginCommands(input: PluginCommandRegistrationInput): void {
@@ -43,25 +43,21 @@ export function registerPluginCommands(input: PluginCommandRegistrationInput): v
     input.addCommand({
         id: "scroll-bible-preview-panel-page-down",
         name: input.translate("command.scrollBiblePreviewPanelPageDown"),
-        hotkeys: [{ modifiers: ["Alt"], key: "PageDown" }],
         callback: () => void input.scrollBiblePreview("page-down"),
     });
     input.addCommand({
         id: "scroll-bible-preview-panel-page-up",
         name: input.translate("command.scrollBiblePreviewPanelPageUp"),
-        hotkeys: [{ modifiers: ["Alt"], key: "PageUp" }],
         callback: () => void input.scrollBiblePreview("page-up"),
     });
     input.addCommand({
         id: "scroll-bible-preview-panel-top",
         name: input.translate("command.scrollBiblePreviewPanelTop"),
-        hotkeys: [{ modifiers: ["Alt"], key: "Home" }],
         callback: () => void input.scrollBiblePreview("top"),
     });
     input.addCommand({
         id: "scroll-bible-preview-panel-bottom",
         name: input.translate("command.scrollBiblePreviewPanelBottom"),
-        hotkeys: [{ modifiers: ["Alt"], key: "End" }],
         callback: () => void input.scrollBiblePreview("bottom"),
     });
     input.addCommand({

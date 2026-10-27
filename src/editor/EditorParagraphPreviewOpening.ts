@@ -2,13 +2,13 @@ import type { BiblePreviewContent } from "../application/formatBibleTexts";
 
 export type EditorParagraphPreviewOpeningInput = {
     paragraph: string;
-    getLastParagraph(): string;
-    setLastParagraph(paragraph: string): void;
-    incrementRequestId(): number;
-    getRequestId(): number;
-    analyzeParagraph(text: string): Promise<BiblePreviewContent | null>;
-    hideBiblePreview(): void;
-    showBiblePreviewContent(content: BiblePreviewContent): void;
+    getLastParagraph: () => string;
+    setLastParagraph: (paragraph: string) => void;
+    incrementRequestId: () => number;
+    getRequestId: () => number;
+    analyzeParagraph: (text: string) => Promise<BiblePreviewContent | null>;
+    hideBiblePreview: () => void;
+    showBiblePreviewContent: (content: BiblePreviewContent) => void;
 };
 
 export function openCurrentParagraphPreview(input: EditorParagraphPreviewOpeningInput): void {

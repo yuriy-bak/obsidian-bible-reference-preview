@@ -7,9 +7,9 @@ type EditorExtension = Parameters<RegisterEditorExtension>[0];
 export type ContentProcessingRegistrationInput = {
     registerMarkdownPostProcessor: RegisterMarkdownPostProcessor;
     registerEditorExtension: RegisterEditorExtension;
-    createCursorExtension(): EditorExtension;
-    processReadingModeBibleReferences(element: HTMLElement, context: MarkdownPostProcessorContext): void;
-    registerReferenceUsageIndexEvents(): void;
+    createCursorExtension: () => EditorExtension;
+    processReadingModeBibleReferences: (element: HTMLElement, context: MarkdownPostProcessorContext) => void;
+    registerReferenceUsageIndexEvents: () => void;
 };
 
 export function registerContentProcessingExtensions(input: ContentProcessingRegistrationInput): void {

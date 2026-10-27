@@ -13,12 +13,12 @@ import { BIBLE_PREVIEW_VIEW_TYPE, type BiblePreviewPaneViewInput, type BiblePrev
 export type BiblePreviewPaneFlowInputFactoryInput = {
     app: App;
     isMobile: boolean;
-    getPreviewPanelSide(): BiblePreviewPanelSide;
-    createBiblePreviewPaneViewInput(): BiblePreviewPaneViewInput;
-    waitForNextFrame(): Promise<void>;
-    setLastPanePreviewContent(content: BiblePreviewContent): void;
-    setSuppressPreviewActiveLeafChange(value: boolean): void;
-    setBiblePreviewPaneIsActiveInSideDock(value: boolean): void;
+    getPreviewPanelSide: () => BiblePreviewPanelSide;
+    createBiblePreviewPaneViewInput: () => BiblePreviewPaneViewInput;
+    waitForNextFrame: () => Promise<void>;
+    setLastPanePreviewContent: (content: BiblePreviewContent) => void;
+    setSuppressPreviewActiveLeafChange: (value: boolean) => void;
+    setBiblePreviewPaneIsActiveInSideDock: (value: boolean) => void;
 };
 
 type ScrollBiblePreviewPaneFlowInput = Omit<BiblePreviewPaneFlowInput, "content" | "setLastPanePreviewContent"> & {

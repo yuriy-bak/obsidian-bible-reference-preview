@@ -6,9 +6,9 @@ export type EditorReferenceLinkDecorationFlowInput = {
     editorRuntimeState: EditorRuntimeState;
     activeTranslationId: string | null;
     linkColor: string;
-    shouldRunBiblePreviewForEditor(view: EditorView): boolean;
-    hasImportedTranslations(): boolean;
-    parseMatches(text: string): Array<{ from: number; to: number }>;
+    shouldRunBiblePreviewForEditor: (view: EditorView) => boolean;
+    hasImportedTranslations: () => boolean;
+    parseMatches: (text: string) => Array<{ from: number; to: number }>;
 };
 
 export function createEditorReferenceLinkDecorations(

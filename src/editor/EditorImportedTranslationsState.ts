@@ -1,9 +1,9 @@
 export type EditorImportedTranslationsStateInput = {
     hasImportedTranslations: boolean;
-    setLastParagraph(paragraph: string): void;
-    clearClickedReference(): void;
-    incrementRequestId(): void;
-    hideBiblePreview(): void;
+    setLastParagraph: (paragraph: string) => void;
+    clearClickedReference: () => void;
+    incrementRequestId: () => void;
+    hideBiblePreview: () => void;
 };
 
 export function handleMissingImportedTranslations(input: EditorImportedTranslationsStateInput): boolean {

@@ -89,14 +89,12 @@ The plugin includes the command **Open Bible reference under cursor**. Use the b
 ### Bible preview hotkeys
 
 The Bible preview can be scrolled with Obsidian commands in the side panel and in the floating window.
-Default hotkeys:
+The commands have no default hotkeys. Assign them in Settings → Hotkeys, for example:
 
 - Alt+PageDown — scroll down
 - Alt+PageUp — scroll up
 - Alt+Home — scroll to top
 - Alt+End — scroll to bottom
-
-You can change these shortcuts in Settings → Hotkeys.
 
 ## Known limitations
 
@@ -132,14 +130,12 @@ Reference Usage Index строит локальный индекс Markdown-фа
 ### Горячие клавиши предпросмотра Библии
 
 Предпросмотр Библии можно прокручивать командами Obsidian в боковой панели и в плавающем окне.
-Горячие клавиши по умолчанию:
+Горячих клавиш по умолчанию нет. Назначьте их в Settings → Hotkeys, например:
 
 - Alt+PageDown — прокрутить вниз
 - Alt+PageUp — прокрутить вверх
 - Alt+Home — в начало
 - Alt+End — в конец
-
-Сочетания можно изменить в Settings → Hotkeys.
 
 ## Development
 

@@ -1,9 +1,9 @@
 export type EditorPreviewStateResetInput = {
     resetParagraphCache: boolean;
-    hideFloatingPreview(): void;
-    setLastParagraph(paragraph: string): void;
-    clearClickedReference(): void;
-    incrementRequestId(): void;
+    hideFloatingPreview: () => void;
+    setLastParagraph: (paragraph: string) => void;
+    clearClickedReference: () => void;
+    incrementRequestId: () => void;
 };
 
 export function hideEditorBiblePreview(input: EditorPreviewStateResetInput): void {

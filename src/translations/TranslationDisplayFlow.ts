@@ -3,8 +3,8 @@ import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
 export type TranslationDisplayFlowInput = {
     activeV2Data: BibleIndexV2Data | null;
     activeTranslationId: string | null;
-    getNoImportedTranslationText(): string;
-    getPreviewTitleFallbackText(): string;
+    getNoImportedTranslationText: () => string;
+    getPreviewTitleFallbackText: () => string;
 };
 
 export function getActiveTranslationDisplayName(input: TranslationDisplayFlowInput): string {

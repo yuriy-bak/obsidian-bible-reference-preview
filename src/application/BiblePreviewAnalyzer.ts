@@ -14,16 +14,16 @@ export type BiblePreviewReferenceMatch = {
 };
 
 export type BiblePreviewAnalyzerInput = {
-    hasImportedTranslations(): boolean;
-    getActiveTranslationId(): string | null;
-    isPreviewComparisonEnabled(): boolean;
-    parseMatches(text: string): BiblePreviewReferenceMatch[];
-    getBibleTextBlocks(references: BibleReference[], translationId: string, sourceText: string): Promise<BibleTextBlock[]>;
-    formatBibleTextBlocks(blocks: BibleTextBlock[]): BiblePreviewContent;
-    formatBibleComparisonTextBlocks(inputs: BiblePreviewComparisonInput[]): BiblePreviewContent;
-    getComparisonTranslationIds(): string[];
-    getTranslationPreviewTitle(translationId: string): string;
-    getComparisonMapping(translationId: string): BookMapping;
+    hasImportedTranslations: () => boolean;
+    getActiveTranslationId: () => string | null;
+    isPreviewComparisonEnabled: () => boolean;
+    parseMatches: (text: string) => BiblePreviewReferenceMatch[];
+    getBibleTextBlocks: (references: BibleReference[], translationId: string, sourceText: string) => Promise<BibleTextBlock[]>;
+    formatBibleTextBlocks: (blocks: BibleTextBlock[]) => BiblePreviewContent;
+    formatBibleComparisonTextBlocks: (inputs: BiblePreviewComparisonInput[]) => BiblePreviewContent;
+    getComparisonTranslationIds: () => string[];
+    getTranslationPreviewTitle: (translationId: string) => string;
+    getComparisonMapping: (translationId: string) => BookMapping;
 };
 
 export class BiblePreviewAnalyzer {

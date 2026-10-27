@@ -5,11 +5,11 @@ import type { EditorClickedReference } from "./EditorClickedReference";
 export type EditorReferenceOpeningInput = {
     view: EditorView;
     showNotice: boolean;
-    shouldRunBiblePreviewForEditor(view: EditorView): boolean;
-    hasImportedTranslations(): boolean;
-    findBibleReferenceMatchAtPosition(view: EditorView, position: number): EditorClickedReference | null;
-    openBibleReferenceMatch(match: EditorClickedReference): void;
-    translate(key: "notice.pluginInactive" | "notice.noImportedTranslations" | "notice.referenceUnderCursorNotFound"): string;
+    shouldRunBiblePreviewForEditor: (view: EditorView) => boolean;
+    hasImportedTranslations: () => boolean;
+    findBibleReferenceMatchAtPosition: (view: EditorView, position: number) => EditorClickedReference | null;
+    openBibleReferenceMatch: (match: EditorClickedReference) => void;
+    translate: (key: "notice.pluginInactive" | "notice.noImportedTranslations" | "notice.referenceUnderCursorNotFound") => string;
 };
 
 export function openBibleReferenceUnderCursor(input: EditorReferenceOpeningInput): boolean {

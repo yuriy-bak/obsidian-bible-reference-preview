@@ -29,17 +29,5 @@ export default defineConfig([
         tsconfigRootDir: import.meta.dirname
       }
     }
-  },
-  {
-    // Reported only as warnings by the Obsidian plugin review; kept as warnings until they are fixed.
-    files: ["**/*.ts"],
-    rules: {
-      "@typescript-eslint/unbound-method": "warn",
-      "@typescript-eslint/no-misused-promises": "warn",
-      "@typescript-eslint/no-unsafe-argument": "warn",
-      "@typescript-eslint/await-thenable": "warn",
-      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
-      "no-useless-escape": "warn"
-    }
   }
 ]);

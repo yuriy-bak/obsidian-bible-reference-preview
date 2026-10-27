@@ -17,20 +17,20 @@ import type { BibleLinkOpenShortcut, BiblePluginSettings, BiblePreviewDisplayMod
 
 export type PluginSettingsFlowInput = {
     app: App;
-    getSettings(): BiblePluginSettings;
-    setSettings(settings: BiblePluginSettings): void;
-    saveSettings(): Promise<void>;
-    refreshSettings(): void;
-    refreshBibleReferenceLinks(): void;
-    refreshFloatingPreviewLabels(): void;
-    refreshBiblePreviewLocalizedLabels(): void;
-    updatePluginActiveRibbonIcon(): void;
-    hideFloatingBiblePreview(resetPosition?: boolean): void;
-    closeBiblePreviewPane(options: { collapseSideDock?: boolean; requireActivePreview?: boolean }): Promise<void>;
-    clearBibleReferenceLinks(): void;
-    dispatchEditorViewNoopUpdate(): void;
-    getFloatingPreviewBackgroundColor(): string;
-    translate(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string;
+    getSettings: () => BiblePluginSettings;
+    setSettings: (settings: BiblePluginSettings) => void;
+    saveSettings: () => Promise<void>;
+    refreshSettings: () => void;
+    refreshBibleReferenceLinks: () => void;
+    refreshFloatingPreviewLabels: () => void;
+    refreshBiblePreviewLocalizedLabels: () => void;
+    updatePluginActiveRibbonIcon: () => void;
+    hideFloatingBiblePreview: (resetPosition?: boolean) => void;
+    closeBiblePreviewPane: (options: { collapseSideDock?: boolean; requireActivePreview?: boolean }) => Promise<void>;
+    clearBibleReferenceLinks: () => void;
+    dispatchEditorViewNoopUpdate: () => void;
+    getFloatingPreviewBackgroundColor: () => string;
+    translate: (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
 };
 
 export function getBibleReferenceLinkColor(input: PluginSettingsFlowInput): string {

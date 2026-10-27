@@ -93,9 +93,9 @@ export type BibleReferenceLinkDecorationInput = {
     activeTranslationId: string | null;
     linkColor: string;
     cache: WeakMap<EditorView, BibleReferenceLinkDecorationCacheEntry>;
-    shouldRunBiblePreviewForEditor(view: EditorView): boolean;
-    hasImportedTranslations(): boolean;
-    parseMatches(text: string): Array<{ from: number; to: number }>;
+    shouldRunBiblePreviewForEditor: (view: EditorView) => boolean;
+    hasImportedTranslations: () => boolean;
+    parseMatches: (text: string) => Array<{ from: number; to: number }>;
 };
 
 export function createBibleReferenceLinkDecorations(input: BibleReferenceLinkDecorationInput): DecorationSet {

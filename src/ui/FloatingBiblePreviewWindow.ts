@@ -10,25 +10,25 @@ export type FloatingBiblePreviewAnchor =
 export type FloatingBiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
 
 export type FloatingBiblePreviewWindowInput = {
-    getTitle(): string;
-    getCopyNoticeText(): string;
-    getCopyAria(): string;
-    getCollapseAria(): string;
-    getExpandAria(): string;
-    getBackgroundColor(): string;
-    getFindUsagesButtonText?(): string;
-    getFindUsagesButtonAria?(block: BiblePreviewReferenceBlock): string;
-    onFindUsages?(block: BiblePreviewReferenceBlock): void;
-    getComparisonButtonText?(): string;
-    getComparisonButtonAria?(): string;
-    getComparisonTranslationsTitle?(): string;
-    getComparisonTranslations?(): PreviewComparisonTranslationOption[];
-    onToggleComparisonTranslation?(translationId: string, enabled: boolean): void;
-    onToggleComparison?(content: BiblePreviewContent): void;
-    getCloseAria?(): string;
-    getOpenInPanelAria?(): string;
-    getOpenInPanelIcon?(): string;
-    onOpenInPanel?(content: BiblePreviewContent): void;
+    getTitle: () => string;
+    getCopyNoticeText: () => string;
+    getCopyAria: () => string;
+    getCollapseAria: () => string;
+    getExpandAria: () => string;
+    getBackgroundColor: () => string;
+    getFindUsagesButtonText?: () => string;
+    getFindUsagesButtonAria?: (block: BiblePreviewReferenceBlock) => string;
+    onFindUsages?: (block: BiblePreviewReferenceBlock) => void;
+    getComparisonButtonText?: () => string;
+    getComparisonButtonAria?: () => string;
+    getComparisonTranslationsTitle?: () => string;
+    getComparisonTranslations?: () => PreviewComparisonTranslationOption[];
+    onToggleComparisonTranslation?: (translationId: string, enabled: boolean) => void;
+    onToggleComparison?: (content: BiblePreviewContent) => void;
+    getCloseAria?: () => string;
+    getOpenInPanelAria?: () => string;
+    getOpenInPanelIcon?: () => string;
+    onOpenInPanel?: (content: BiblePreviewContent) => void;
 };
 
 type PreviewResizeEdge =
@@ -258,7 +258,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     private createPreviewPanelElement(): HTMLDivElement {
-        const panelEl = document.createElement("div");
+        const panelEl = createDiv();
         this.stylePreviewPanel(panelEl);
 
         this.buildPreviewHeader(panelEl);
@@ -459,7 +459,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     private createCollapsedButtonElement(): HTMLButtonElement {
-        const buttonEl = document.createElement("button");
+        const buttonEl = createEl("button");
         buttonEl.type = "button";
         buttonEl.textContent = "📖";
         this.setCollapsedButtonLabel(buttonEl);
@@ -509,7 +509,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     private createPreviewIconButton(text: string, label: string): HTMLButtonElement {
-        const buttonEl = document.createElement("button");
+        const buttonEl = createEl("button");
         buttonEl.type = "button";
         buttonEl.textContent = text;
         buttonEl.setAttribute("aria-label", label);
@@ -554,7 +554,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     private createResizeHandleElement(edge: PreviewResizeEdge): HTMLDivElement {
-        const handleEl = document.createElement("div");
+        const handleEl = createDiv();
         this.setResizeHandleMetadata(handleEl, edge);
         this.styleResizeHandleBase(handleEl, edge);
         this.applyDesktopResizeHandleStyle(handleEl, edge);
@@ -1608,7 +1608,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     private createCopyFallbackTextarea(): HTMLTextAreaElement {
-        const textareaEl = document.createElement("textarea");
+        const textareaEl = createEl("textarea");
         textareaEl.value = this.previewText;
         textareaEl.addClass("bible-preview-copy-fallback-textarea");
         return textareaEl;

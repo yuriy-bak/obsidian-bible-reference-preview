@@ -12,18 +12,18 @@ type ColorSettingsI18nKey =
 
 export type ColorSettingsSectionInput = {
     containerEl: HTMLElement;
-    translate(key: ColorSettingsI18nKey): string;
-    openCssColorDialog(input: CssColorDialogInput): void;
-    openFloatingPreviewBackgroundColorDialog(): void;
-    getBibleReferenceLinkColor(): string;
-    getBibleReferenceLinkColorPickerValue(): string;
-    isBibleReferenceLinkColorDefault(): boolean;
-    setBibleReferenceLinkColor(color: string): Promise<void> | void;
-    resetBibleReferenceLinkColor(): Promise<void> | void;
-    getFloatingPreviewBackgroundColor(): string;
-    isFloatingPreviewBackgroundColorDefault(): boolean;
-    resetFloatingPreviewBackgroundColor(): Promise<void> | void;
-    refresh(): void;
+    translate: (key: ColorSettingsI18nKey) => string;
+    openCssColorDialog: (input: CssColorDialogInput) => void;
+    openFloatingPreviewBackgroundColorDialog: () => void;
+    getBibleReferenceLinkColor: () => string;
+    getBibleReferenceLinkColorPickerValue: () => string;
+    isBibleReferenceLinkColorDefault: () => boolean;
+    setBibleReferenceLinkColor: (color: string) => Promise<void> | void;
+    resetBibleReferenceLinkColor: () => Promise<void> | void;
+    getFloatingPreviewBackgroundColor: () => string;
+    isFloatingPreviewBackgroundColorDefault: () => boolean;
+    resetFloatingPreviewBackgroundColor: () => Promise<void> | void;
+    refresh: () => void;
 };
 
 export function renderColorSettingsSection(input: ColorSettingsSectionInput): void {
@@ -64,10 +64,9 @@ export function renderColorSettingsSection(input: ColorSettingsSectionInput): vo
     const resetButton = bibleReferenceLinkColorSetting.controlEl.createEl("button", { text: translate("settings.reset") });
     resetButton.disabled = input.isBibleReferenceLinkColorDefault();
     resetButton.className = "bible-reference-preview-setting-inline-button";
-    resetButton.addEventListener("click", async (event) => {
+    resetButton.addEventListener("click", (event) => {
         event.preventDefault();
-        await input.resetBibleReferenceLinkColor();
-        input.refresh();
+        void Promise.resolve(input.resetBibleReferenceLinkColor()).then(() => input.refresh());
     });
 
     const floatingPreviewBackgroundColorSetting = new Setting(containerEl)
@@ -95,9 +94,8 @@ export function renderColorSettingsSection(input: ColorSettingsSectionInput): vo
     const resetPreviewBackgroundButton = floatingPreviewBackgroundColorSetting.controlEl.createEl("button", { text: translate("settings.reset") });
     resetPreviewBackgroundButton.disabled = input.isFloatingPreviewBackgroundColorDefault();
     resetPreviewBackgroundButton.className = "bible-reference-preview-setting-inline-button";
-    resetPreviewBackgroundButton.addEventListener("click", async (event) => {
+    resetPreviewBackgroundButton.addEventListener("click", (event) => {
         event.preventDefault();
-        await input.resetFloatingPreviewBackgroundColor();
-        input.refresh();
+        void Promise.resolve(input.resetFloatingPreviewBackgroundColor()).then(() => input.refresh());
     });
 }

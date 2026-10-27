@@ -28,7 +28,7 @@ export type ReferenceUsageIndexBuildProgress = {
 
 export type ReferenceUsageIndexBuildOptions = {
     signal?: AbortSignal;
-    onProgress?(progress: ReferenceUsageIndexBuildProgress): void;
+    onProgress?: (progress: ReferenceUsageIndexBuildProgress) => void;
 };
 
 export type ReferenceUsageIndex = {

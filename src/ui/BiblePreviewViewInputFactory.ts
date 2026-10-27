@@ -7,16 +7,16 @@ import type { FloatingBiblePreviewWindowInput } from "./FloatingBiblePreviewWind
 type TranslateParams = Record<string, string | number>;
 
 export type BiblePreviewViewInputFactoryInput = {
-    getActiveTranslationPreviewTitle(): string;
-    translate(key: I18nKey, params?: TranslateParams): string;
-    getFloatingPreviewBackgroundColor(): string;
-    isPreviewComparisonEnabled(): boolean;
-    getPreviewComparisonTranslationOptions(): PreviewComparisonTranslationOption[];
-    showReferenceUsagesForPreviewBlock(block: BiblePreviewReferenceBlock): void;
-    setComparisonTranslationEnabled(translationId: string, enabled: boolean): void;
-    toggleBiblePreviewComparison(content: BiblePreviewContent): void;
-    switchBiblePreviewToPanel(content: BiblePreviewContent): void;
-    switchBiblePreviewToFloating(content: BiblePreviewContent): void;
+    getActiveTranslationPreviewTitle: () => string;
+    translate: (key: I18nKey, params?: TranslateParams) => string;
+    getFloatingPreviewBackgroundColor: () => string;
+    isPreviewComparisonEnabled: () => boolean;
+    getPreviewComparisonTranslationOptions: () => PreviewComparisonTranslationOption[];
+    showReferenceUsagesForPreviewBlock: (block: BiblePreviewReferenceBlock) => void;
+    setComparisonTranslationEnabled: (translationId: string, enabled: boolean) => void;
+    toggleBiblePreviewComparison: (content: BiblePreviewContent) => void;
+    switchBiblePreviewToPanel: (content: BiblePreviewContent) => void;
+    switchBiblePreviewToFloating: (content: BiblePreviewContent) => void;
 };
 
 function createCommonPreviewInput(input: BiblePreviewViewInputFactoryInput) {

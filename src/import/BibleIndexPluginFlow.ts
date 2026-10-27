@@ -14,18 +14,18 @@ export type BibleIndexPluginFlowInput = {
     emptyBibleIndex: BibleIndex;
     interfaceLanguage: BiblePluginLocale;
     isMobile: boolean;
-    getActiveTranslationId(): string | null;
-    getActiveV2Data(): BibleIndexV2Data | null;
-    getBibleIndexDataDirectoryPath(): string;
-    createRepository(): ObsidianBibleIndexV2Repository;
-    setBibleIndex(bibleIndex: BibleIndex): void;
-    setActiveV2Data(v2Data: BibleIndexV2Data | null): void;
-    setActiveTranslationId(activeTranslationId: string | null): void;
-    syncTranslationOrder(v2Data: BibleIndexV2Data | null, preferredTranslationId?: string): Promise<void>;
-    selectActiveTranslationId(v2Data: BibleIndexV2Data | null): string | null;
-    updateBookMapping(v2Data: BibleIndexV2Data | null): void;
-    promoteTranslationToTop(translationId: string): Promise<void>;
-    refreshSettings(): void;
+    getActiveTranslationId: () => string | null;
+    getActiveV2Data: () => BibleIndexV2Data | null;
+    getBibleIndexDataDirectoryPath: () => string;
+    createRepository: () => ObsidianBibleIndexV2Repository;
+    setBibleIndex: (bibleIndex: BibleIndex) => void;
+    setActiveV2Data: (v2Data: BibleIndexV2Data | null) => void;
+    setActiveTranslationId: (activeTranslationId: string | null) => void;
+    syncTranslationOrder: (v2Data: BibleIndexV2Data | null, preferredTranslationId?: string) => Promise<void>;
+    selectActiveTranslationId: (v2Data: BibleIndexV2Data | null) => string | null;
+    updateBookMapping: (v2Data: BibleIndexV2Data | null) => void;
+    promoteTranslationToTop: (translationId: string) => Promise<void>;
+    refreshSettings: () => void;
     translate: EpubImportTranslate & EpubFileValidationTranslate;
 };
 
@@ -56,7 +56,7 @@ export async function reloadBibleIndex(input: BibleIndexPluginFlowInput): Promis
 }
 
 export function openEpubFilePicker(input: BibleIndexPluginFlowInput): void {
-    const fileInput = document.createElement("input");
+    const fileInput = createEl("input");
     fileInput.type = "file";
     fileInput.accept = ".epub,application/epub+zip";
     fileInput.onchange = () => {

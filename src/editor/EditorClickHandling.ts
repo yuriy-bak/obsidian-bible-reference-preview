@@ -7,13 +7,13 @@ export type EditorReferenceClickHandlingInput = {
     event: MouseEvent;
     view: EditorView;
     clickedReference: EditorClickedReference | null;
-    shouldRunBiblePreviewForEditor(view: EditorView): boolean;
-    getBiblePreviewTriggerMode(): BiblePreviewTriggerMode;
-    getBiblePreviewDisplayMode(): BiblePreviewDisplayMode;
-    hasImportedTranslations(): boolean;
-    hasBiblePreviewPane(): boolean;
-    findBibleReferenceMatchAtPosition(view: EditorView, position: number): EditorClickedReference | null;
-    openBibleReferenceMatch(match: EditorClickedReference): void;
+    shouldRunBiblePreviewForEditor: (view: EditorView) => boolean;
+    getBiblePreviewTriggerMode: () => BiblePreviewTriggerMode;
+    getBiblePreviewDisplayMode: () => BiblePreviewDisplayMode;
+    hasImportedTranslations: () => boolean;
+    hasBiblePreviewPane: () => boolean;
+    findBibleReferenceMatchAtPosition: (view: EditorView, position: number) => EditorClickedReference | null;
+    openBibleReferenceMatch: (match: EditorClickedReference) => void;
 };
 
 export function handleEditorReferenceClick(input: EditorReferenceClickHandlingInput): void {

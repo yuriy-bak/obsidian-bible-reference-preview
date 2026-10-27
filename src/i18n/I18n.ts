@@ -194,6 +194,7 @@ export const messages = {
         "confirm.deleteTranslation.title": "Delete translation \"{translationName}\"?",
         "confirm.deleteTranslation.filesWillBeDeleted": "Translation files and the index entry will be deleted.",
         "confirm.deleteTranslation.reimportHint": "If you need this translation again, you will have to import it again.",
+        "confirm.deleteTranslation.confirm": "Delete",
         "defaults.translationNamePlaceholder": "Enter translation name"
     },
     "ru": {
@@ -389,6 +390,7 @@ export const messages = {
         "confirm.deleteTranslation.title": "Удалить перевод \"{translationName}\"?",
         "confirm.deleteTranslation.filesWillBeDeleted": "Будут удалены файлы перевода и запись в индексе.",
         "confirm.deleteTranslation.reimportHint": "Если перевод понадобится снова, его нужно будет импортировать заново.",
+        "confirm.deleteTranslation.confirm": "Удалить",
         "defaults.translationNamePlaceholder": "Введите название перевода"
     }
 } as const;

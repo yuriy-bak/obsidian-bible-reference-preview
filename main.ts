@@ -38,6 +38,7 @@ import { createEditorRuntimeState } from "./src/editor/EditorRuntimeState";
 import { dispatchEditorViewNoopUpdate } from "./src/editor/EditorViewFocus";
 import { handleLinkOpenShortcutKeydown as handleLinkOpenShortcutKeydownFlow, openBibleReferenceUnderCursorFromActiveEditor as openBibleReferenceUnderCursorFromActiveEditorFlow, type EditorLinkOpenShortcutFlowInput } from "./src/editor/EditorLinkOpenShortcutFlow";
 import { waitForNextAnimationFrame as waitForNextAnimationFrameFlow } from "./src/utils/AnimationFrame";
+import { openConfirmModal } from "./src/ui/ConfirmModal";
 
 
 const EMPTY_BIBLE_INDEX: BibleIndex = {
@@ -264,12 +265,15 @@ export default class BiblePlugin extends Plugin {
             refreshVisibleBiblePreviewContent: () => this.refreshVisibleBiblePreviewContent(),
             getBibleIndexV2Data: () => this.activeV2Data,
             createRepository: () => new ObsidianBibleIndexV2Repository(this.app.vault.adapter, getBibleIndexDataDirectoryPathFlow(this.manifest)),
-            confirmDeleteTranslation: (translationName) => window.confirm([
-                this.t("confirm.deleteTranslation.title", { translationName }),
-                "",
-                this.t("confirm.deleteTranslation.filesWillBeDeleted"),
-                this.t("confirm.deleteTranslation.reimportHint"),
-            ].join("\n")),
+            confirmDeleteTranslation: (translationName) => openConfirmModal(this.app, {
+                title: this.t("confirm.deleteTranslation.title", { translationName }),
+                messageLines: [
+                    this.t("confirm.deleteTranslation.filesWillBeDeleted"),
+                    this.t("confirm.deleteTranslation.reimportHint"),
+                ],
+                confirmText: this.t("confirm.deleteTranslation.confirm"),
+                cancelText: this.t("common.cancel"),
+            }),
             setBibleIndex: (bibleIndex) => {
                 this.bibleIndex = bibleIndex;
             },

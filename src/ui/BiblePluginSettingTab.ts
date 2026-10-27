@@ -8,57 +8,57 @@ import { renderReferenceUsageIndexSettingsSection, type ReferenceUsageIndexSetti
 import { renderTranslationSettingsSection, type TranslationSettingsSectionInput } from "./TranslationSettingsList";
 
 export type BiblePluginSettingTabInput = {
-    t(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string;
+    t: (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
 
-    isPluginActive(): boolean;
-    setPluginActive(isPluginActive: boolean): Promise<void>;
-    getInterfaceLanguage(): BiblePluginLocale;
-    setInterfaceLanguage(interfaceLanguage: BiblePluginLocale): Promise<void>;
-    openEpubFilePicker(): void;
+    isPluginActive: () => boolean;
+    setPluginActive: (isPluginActive: boolean) => Promise<void>;
+    getInterfaceLanguage: () => BiblePluginLocale;
+    setInterfaceLanguage: (interfaceLanguage: BiblePluginLocale) => Promise<void>;
+    openEpubFilePicker: () => void;
 
-    getTranslationSettingsItems(): TranslationSettingsItem[];
-    deleteImportedTranslation(translationId: string): Promise<void>;
-    setTranslationOrder(nextOrder: string[]): Promise<void>;
+    getTranslationSettingsItems: () => TranslationSettingsItem[];
+    deleteImportedTranslation: (translationId: string) => Promise<void>;
+    setTranslationOrder: (nextOrder: string[]) => Promise<void>;
 
-    isReferenceUsageIndexingEnabled(): boolean;
-    setReferenceUsageIndexingEnabled(referenceUsageIndexingEnabled: boolean): Promise<void>;
-    shouldAutoUpdateReferenceUsageIndex(): boolean;
-    setReferenceUsageAutoUpdate(referenceUsageAutoUpdate: boolean): Promise<void>;
-    getReferenceUsageExcludedFoldersText(): string;
-    setReferenceUsageExcludedFoldersText(value: string): Promise<void>;
-    buildReferenceUsageIndex(): Promise<void>;
-    rebuildReferenceUsageIndex(): Promise<void>;
-    showReferenceUsageIndexStats(): Promise<void>;
-    clearReferenceUsageIndex(): Promise<void>;
+    isReferenceUsageIndexingEnabled: () => boolean;
+    setReferenceUsageIndexingEnabled: (referenceUsageIndexingEnabled: boolean) => Promise<void>;
+    shouldAutoUpdateReferenceUsageIndex: () => boolean;
+    setReferenceUsageAutoUpdate: (referenceUsageAutoUpdate: boolean) => Promise<void>;
+    getReferenceUsageExcludedFoldersText: () => string;
+    setReferenceUsageExcludedFoldersText: (value: string) => Promise<void>;
+    buildReferenceUsageIndex: () => Promise<void>;
+    rebuildReferenceUsageIndex: () => Promise<void>;
+    showReferenceUsageIndexStats: () => Promise<void>;
+    clearReferenceUsageIndex: () => Promise<void>;
 
-    getBiblePreviewTriggerMode(): BiblePreviewTriggerMode;
-    setBiblePreviewTriggerMode(previewTriggerMode: BiblePreviewTriggerMode): Promise<void>;
-    getBiblePreviewDisplayMode(): BiblePreviewDisplayMode;
-    setBiblePreviewDisplayMode(previewDisplayMode: BiblePreviewDisplayMode): Promise<void>;
-    shouldAutoOpenPreviewOnVerseChange(): boolean;
-    setAutoOpenPreviewOnVerseChange(autoOpenPreviewOnVerseChange: boolean): Promise<void>;
-    getBiblePreviewPanelSide(): BiblePreviewPanelSide;
-    setBiblePreviewPanelSide(previewPanelSide: BiblePreviewPanelSide): Promise<void>;
-    shouldClosePreviewOnActiveLeafChange(): boolean;
-    setClosePreviewOnActiveLeafChange(closePreviewOnActiveLeafChange: boolean): Promise<void>;
-    shouldInterceptLinkOpenShortcut(): boolean;
-    setInterceptLinkOpenShortcut(interceptLinkOpenShortcut: boolean): Promise<void>;
-    getBibleLinkOpenShortcut(): BibleLinkOpenShortcut;
-    setBibleLinkOpenShortcut(linkOpenShortcut: BibleLinkOpenShortcut): Promise<void>;
+    getBiblePreviewTriggerMode: () => BiblePreviewTriggerMode;
+    setBiblePreviewTriggerMode: (previewTriggerMode: BiblePreviewTriggerMode) => Promise<void>;
+    getBiblePreviewDisplayMode: () => BiblePreviewDisplayMode;
+    setBiblePreviewDisplayMode: (previewDisplayMode: BiblePreviewDisplayMode) => Promise<void>;
+    shouldAutoOpenPreviewOnVerseChange: () => boolean;
+    setAutoOpenPreviewOnVerseChange: (autoOpenPreviewOnVerseChange: boolean) => Promise<void>;
+    getBiblePreviewPanelSide: () => BiblePreviewPanelSide;
+    setBiblePreviewPanelSide: (previewPanelSide: BiblePreviewPanelSide) => Promise<void>;
+    shouldClosePreviewOnActiveLeafChange: () => boolean;
+    setClosePreviewOnActiveLeafChange: (closePreviewOnActiveLeafChange: boolean) => Promise<void>;
+    shouldInterceptLinkOpenShortcut: () => boolean;
+    setInterceptLinkOpenShortcut: (interceptLinkOpenShortcut: boolean) => Promise<void>;
+    getBibleLinkOpenShortcut: () => BibleLinkOpenShortcut;
+    setBibleLinkOpenShortcut: (linkOpenShortcut: BibleLinkOpenShortcut) => Promise<void>;
 
-    openCssColorDialog(input: CssColorDialogInput): void;
-    openFloatingPreviewBackgroundColorDialog(): void;
-    getBibleReferenceLinkColor(): string;
-    getBibleReferenceLinkColorPickerValue(): string;
-    isBibleReferenceLinkColorDefault(): boolean;
-    setBibleReferenceLinkColor(color: string): Promise<void>;
-    resetBibleReferenceLinkColor(): Promise<void>;
-    getFloatingPreviewBackgroundColor(): string;
-    isFloatingPreviewBackgroundColorDefault(): boolean;
-    resetFloatingPreviewBackgroundColor(): Promise<void>;
+    openCssColorDialog: (input: CssColorDialogInput) => void;
+    openFloatingPreviewBackgroundColorDialog: () => void;
+    getBibleReferenceLinkColor: () => string;
+    getBibleReferenceLinkColorPickerValue: () => string;
+    isBibleReferenceLinkColorDefault: () => boolean;
+    setBibleReferenceLinkColor: (color: string) => Promise<void>;
+    resetBibleReferenceLinkColor: () => Promise<void>;
+    getFloatingPreviewBackgroundColor: () => string;
+    isFloatingPreviewBackgroundColorDefault: () => boolean;
+    resetFloatingPreviewBackgroundColor: () => Promise<void>;
 
-    openBibleIndexFolder(): Promise<void>;
-    showBibleIndexStats(): Promise<void>;
+    openBibleIndexFolder: () => Promise<void>;
+    showBibleIndexStats: () => Promise<void>;
 };
 
 export class BiblePluginSettingTab extends PluginSettingTab {

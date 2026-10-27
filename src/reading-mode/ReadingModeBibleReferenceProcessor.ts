@@ -6,10 +6,10 @@ type ReadingModeBibleReferenceMatch = {
 
 export type ReadingModeBibleReferenceProcessorInput = {
     element: HTMLElement;
-    hasImportedTranslations(): boolean;
-    parseMatches(text: string): ReadingModeBibleReferenceMatch[];
-    getBibleReferenceLinkColor(): string;
-    openBibleReference(anchorEl: HTMLElement, referenceText: string): Promise<void> | void;
+    hasImportedTranslations: () => boolean;
+    parseMatches: (text: string) => ReadingModeBibleReferenceMatch[];
+    getBibleReferenceLinkColor: () => string;
+    openBibleReference: (anchorEl: HTMLElement, referenceText: string) => Promise<void> | void;
 };
 
 export function processReadingModeBibleReferences(input: ReadingModeBibleReferenceProcessorInput): void {
@@ -19,7 +19,7 @@ export function processReadingModeBibleReferences(input: ReadingModeBibleReferen
 
     const walker = document.createTreeWalker(input.element, NodeFilter.SHOW_TEXT, {
         acceptNode: (node) => {
-            if (!(node instanceof Text) || node.data.trim().length === 0) {
+            if (!node.instanceOf(Text) || node.data.trim().length === 0) {
                 return NodeFilter.FILTER_REJECT;
             }
 
@@ -34,7 +34,7 @@ export function processReadingModeBibleReferences(input: ReadingModeBibleReferen
 
     const textNodes: Text[] = [];
     for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-        if (node instanceof Text) {
+        if (node.instanceOf(Text)) {
             textNodes.push(node);
         }
     }
@@ -51,7 +51,7 @@ function replaceReadingModeBibleReferencesInTextNode(textNode: Text, input: Read
         return;
     }
 
-    const fragment = document.createDocumentFragment();
+    const fragment = createFragment();
     let currentOffset = 0;
 
     for (const match of matches) {
@@ -62,7 +62,7 @@ function replaceReadingModeBibleReferencesInTextNode(textNode: Text, input: Read
             fragment.appendChild(document.createTextNode(sourceText.slice(currentOffset, match.from)));
         }
 
-        const linkEl = document.createElement("a");
+        const linkEl = createEl("a");
         linkEl.href = "#";
         linkEl.textContent = sourceText.slice(match.from, match.to);
         linkEl.className = "bible-reference-link bible-reference-reading-link";

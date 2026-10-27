@@ -5,9 +5,9 @@ import { remapClickedReferenceAfterDocumentChange } from "./EditorClickedReferen
 export type EditorClickedReferenceUpdateInput = {
     update: ViewUpdate;
     clickedReference: EditorClickedReference | null;
-    findReferenceMatchAtPosition(position: number): EditorClickedReference | null;
-    setClickedReference(reference: EditorClickedReference | null): void;
-    hideBiblePreview(resetParagraphCache?: boolean): void;
+    findReferenceMatchAtPosition: (position: number) => EditorClickedReference | null;
+    setClickedReference: (reference: EditorClickedReference | null) => void;
+    hideBiblePreview: (resetParagraphCache?: boolean) => void;
 };
 
 export function updateClickedReferenceAfterDocumentChange(input: EditorClickedReferenceUpdateInput): void {

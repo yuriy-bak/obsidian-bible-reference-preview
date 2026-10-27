@@ -6,7 +6,7 @@ import { selectActiveTranslationId, syncTranslationOrder, type TranslationSettin
 export type TranslationDeleteFlowInput = TranslationSettingsFlowInput & {
     getBibleIndexV2Data(): BibleIndexV2Data | null;
     createRepository(): ObsidianBibleIndexV2Repository;
-    confirmDeleteTranslation(translationName: string): boolean;
+    confirmDeleteTranslation(translationName: string): Promise<boolean>;
     setBibleIndex(bibleIndex: BibleIndex): void;
     setBibleIndexV2Data(v2Data: BibleIndexV2Data | null): void;
     showTranslationDeletedNotice(translationName: string): void;
@@ -19,7 +19,7 @@ export async function deleteImportedTranslation(input: TranslationDeleteFlowInpu
     }
 
     const translationName = currentV2Data.translations[translationId].name || translationId;
-    if (!input.confirmDeleteTranslation(translationName)) {
+    if (!(await input.confirmDeleteTranslation(translationName))) {
         return;
     }
 
