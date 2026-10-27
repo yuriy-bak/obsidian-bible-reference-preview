@@ -25,21 +25,21 @@ export type ReferenceUsagePluginFlowInput = {
     previewViewType: string;
     previewPanelSide: BiblePreviewPanelSide;
     isMobile: boolean;
-    getBibleIndexDataDirectoryPath(): string;
-    parseMatches(text: string): BibleReferenceMatch[];
-    getReferenceUsageExcludedFolders(): string[];
-    isIndexingEnabled(): boolean;
-    isAutoUpdateEnabled(): boolean;
-    hasImportedTranslations(): boolean;
+    getBibleIndexDataDirectoryPath: () => string;
+    parseMatches: (text: string) => BibleReferenceMatch[];
+    getReferenceUsageExcludedFolders: () => string[];
+    isIndexingEnabled: () => boolean;
+    isAutoUpdateEnabled: () => boolean;
+    hasImportedTranslations: () => boolean;
     getReferenceUnderCursor: ReferenceUsageUnderCursorFlowInput["getReferenceUnderCursor"];
-    getReferenceUsageIndexService(): ReferenceUsageIndexService;
-    getReferenceUsageController(): ReferenceUsageController;
-    registerEvent(eventRef: ReturnType<App["vault"]["on"]>): void;
-    registerDisposer(disposer: () => void): void;
+    getReferenceUsageIndexService: () => ReferenceUsageIndexService;
+    getReferenceUsageController: () => ReferenceUsageController;
+    registerEvent: (eventRef: ReturnType<App["vault"]["on"]>) => void;
+    registerDisposer: (disposer: () => void) => void;
     translate: ReferenceUsagePluginTranslate;
-    refreshSettings(): void;
-    waitForNextAnimationFrame(): Promise<void>;
-    setSuppressPreviewActiveLeafChange(value: boolean): void;
+    refreshSettings: () => void;
+    waitForNextAnimationFrame: () => Promise<void>;
+    setSuppressPreviewActiveLeafChange: (value: boolean) => void;
 };
 
 export function getReferenceUsageIndexServiceOptions(isMobile: boolean): ReferenceUsageIndexServiceOptions {

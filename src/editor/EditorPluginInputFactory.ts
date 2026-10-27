@@ -12,21 +12,21 @@ export type EditorPluginInputFactoryInput = {
     app: App;
     previewViewType: string;
     editorRuntimeState: EditorRuntimeState;
-    getActiveTranslationId(): string | null;
-    getBibleReferenceLinkColor(): string;
-    shouldRunBiblePreviewForEditor(view: EditorView): boolean;
-    getBiblePreviewTriggerMode(): BiblePreviewTriggerMode;
-    getBiblePreviewDisplayMode(): BiblePreviewDisplayMode;
-    hasImportedTranslations(): boolean;
-    parseMatches(text: string): Array<{ from: number; to: number }>;
-    findBibleReferenceMatchAtPosition(view: EditorView, position: number): EditorClickedReference | null;
-    getCurrentParagraph(update: ViewUpdate): string;
-    analyzeParagraph(paragraph: string): Promise<BiblePreviewContent | null>;
-    analyzeReferenceText(text: string): Promise<BiblePreviewContent | null>;
-    showBiblePreviewContent(content: BiblePreviewContent): void;
-    refreshFloatingPreviewLabels(): void;
-    hideFloatingBiblePreview(): void;
-    translate(key: "notice.pluginInactive" | "notice.noImportedTranslations" | "notice.referenceUnderCursorNotFound"): string;
+    getActiveTranslationId: () => string | null;
+    getBibleReferenceLinkColor: () => string;
+    shouldRunBiblePreviewForEditor: (view: EditorView) => boolean;
+    getBiblePreviewTriggerMode: () => BiblePreviewTriggerMode;
+    getBiblePreviewDisplayMode: () => BiblePreviewDisplayMode;
+    hasImportedTranslations: () => boolean;
+    parseMatches: (text: string) => Array<{ from: number; to: number }>;
+    findBibleReferenceMatchAtPosition: (view: EditorView, position: number) => EditorClickedReference | null;
+    getCurrentParagraph: (update: ViewUpdate) => string;
+    analyzeParagraph: (paragraph: string) => Promise<BiblePreviewContent | null>;
+    analyzeReferenceText: (text: string) => Promise<BiblePreviewContent | null>;
+    showBiblePreviewContent: (content: BiblePreviewContent) => void;
+    refreshFloatingPreviewLabels: () => void;
+    hideFloatingBiblePreview: () => void;
+    translate: (key: "notice.pluginInactive" | "notice.noImportedTranslations" | "notice.referenceUnderCursorNotFound") => string;
 };
 
 export function createEditorReferenceLinkDecorationFlowInput(input: EditorPluginInputFactoryInput): EditorReferenceLinkDecorationFlowInput {

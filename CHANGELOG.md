@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.8 - Obsidian plugin review warnings
+
+- Removed default hotkeys from the preview scroll commands (Alt+PageUp/PageDown/Home/End) to avoid conflicts. Assign them in Settings → Hotkeys if needed.
+- Translation deletion now asks for confirmation in an Obsidian modal instead of the browser `confirm()` dialog.
+- DOM elements are created with Obsidian helpers (`createEl`, `createDiv`, `createFragment`) and checked with cross-window safe `instanceOf`.
+- Settings button handlers no longer pass promises where a void callback is expected.
+- Removed dead EPUB code that tried to read numeric `data-book-id` attributes (its pattern never matched).
+- Input types use function properties instead of method signatures (no runtime change).
+- Listed `@codemirror/state` and `@codemirror/view` in devDependencies; all review rules are errors again in lint.
+
 ## 0.1.7 - Obsidian plugin review fixes
 
 - Moved static inline styles to `styles.css` classes; dynamic values (link color, floating window state) use `setCssProps` / `setCssStyles`.

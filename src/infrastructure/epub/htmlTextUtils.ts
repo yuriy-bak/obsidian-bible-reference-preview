@@ -42,11 +42,6 @@ export function enrichBookTableFromNavigationHtml(bookTable: ExtractedBookTable,
 }
 
 export function extractBookIdFromHtmlOrPath(html: string, path: string, books: BibleBook[]): number | null {
-    const explicitBookId = extractNumericAttribute(html, ["data-book-id", "data-book", "book-id"]);
-    if (explicitBookId !== null) {
-        return explicitBookId;
-    }
-
     const pathBookId = extractBookIdFromPath(path);
     if (pathBookId !== null && books.some((book) => book.id === pathBookId)) {
         return pathBookId;
@@ -376,19 +371,6 @@ function normalizeBookTableName(value: string): string {
         .trim();
 }
 
-function extractNumericAttribute(html: string, names: string[]): number | null {
-    for (const name of names) {
-        const pattern = new RegExp(`${escapeRegExp(name)}=["'](\d+)["']`, "i");
-        const match = pattern.exec(html);
-
-        if (match !== null) {
-            return Number(match[1]);
-        }
-    }
-
-    return null;
-}
-
 function extractBookIdFromPath(path: string): number | null {
     const fileName = path.split("/").pop() ?? path;
     const match = /(?:^|[^\d])(\d{1,2})(?:[^\d]|$)/.exec(fileName);
@@ -459,7 +441,7 @@ function extractElementTextById(html: string, id: string): string {
 function preserveFootnoteLinkMarkers(html: string): string {
     return html.replace(
         /<a\b[^>]*href=["']#[^"']+["'][^>]*>([\s\S]*?)<\/a>/gi,
-        (_match, label) => stripTags(label),
+        (_match, label: string) => stripTags(label),
     );
 }
 

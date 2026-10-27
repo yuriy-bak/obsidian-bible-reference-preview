@@ -5,8 +5,8 @@ import { ensureVaultDirectoryExists } from "../infrastructure/VaultPathUtils";
 import { formatBibleIndexV2StatsNotice, formatLastImportReportNotice, type EpubImportTranslate } from "./EpubImportMessages";
 
 export type BibleIndexInfoRepository = {
-    load(): Promise<void>;
-    readLastImportReport(): Promise<EpubBibleImportReport | null>;
+    load: () => Promise<void>;
+    readLastImportReport: () => Promise<EpubBibleImportReport | null>;
 };
 
 export type OpenBibleIndexFolderFlowInput = {
@@ -19,7 +19,7 @@ export type OpenBibleIndexFolderFlowInput = {
 export type ShowBibleIndexStatsFlowInput = {
     activeV2Data: BibleIndexV2Data | null;
     activeTranslationIdText: string;
-    createRepository(): BibleIndexInfoRepository;
+    createRepository: () => BibleIndexInfoRepository;
     translate: EpubImportTranslate;
 };
 

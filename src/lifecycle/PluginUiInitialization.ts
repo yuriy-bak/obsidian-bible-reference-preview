@@ -5,7 +5,7 @@ export type SettingsTabInitializationInput = {
     app: App;
     ownerPlugin: Plugin;
     settingsInput: BiblePluginSettingTabInput;
-    addSettingTab(tab: BiblePluginSettingTab): void;
+    addSettingTab: (tab: BiblePluginSettingTab) => void;
 };
 
 export function initializeSettingsTab(input: SettingsTabInitializationInput): BiblePluginSettingTab {
@@ -16,11 +16,11 @@ export function initializeSettingsTab(input: SettingsTabInitializationInput): Bi
 
 export type WorkspaceAndKeyboardHandlersRegistrationInput = {
     app: App;
-    registerEvent(eventRef: ReturnType<App["workspace"]["on"]>): void;
-    registerDisposer(disposer: () => void): void;
-    onActiveLeafChange(activeLeaf: WorkspaceLeaf | null): void;
-    panelEscapeKeydownHandler(event: KeyboardEvent): void;
-    registerGlobalLinkOpenShortcutHandler(): void;
+    registerEvent: (eventRef: ReturnType<App["workspace"]["on"]>) => void;
+    registerDisposer: (disposer: () => void) => void;
+    onActiveLeafChange: (activeLeaf: WorkspaceLeaf | null) => void;
+    panelEscapeKeydownHandler: (event: KeyboardEvent) => void;
+    registerGlobalLinkOpenShortcutHandler: () => void;
 };
 
 export function registerWorkspaceAndKeyboardHandlers(input: WorkspaceAndKeyboardHandlersRegistrationInput): void {

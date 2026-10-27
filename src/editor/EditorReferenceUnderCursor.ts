@@ -12,10 +12,10 @@ export type EditorReferenceUnderCursorMatch = {
 export type EditorReferenceUnderCursorInput = {
     editorRuntimeState: EditorRuntimeState;
     showNotice: boolean;
-    isPluginActive(): boolean;
-    parseMatches(text: string): BibleReferenceTextMatch[];
-    parseReferenceMatches(text: string): Array<{ references: BibleReference[] }>;
-    translate(key: "notice.pluginInactive" | "notice.activeEditorNotFound" | "notice.referenceUnderCursorNotFound"): string;
+    isPluginActive: () => boolean;
+    parseMatches: (text: string) => BibleReferenceTextMatch[];
+    parseReferenceMatches: (text: string) => Array<{ references: BibleReference[] }>;
+    translate: (key: "notice.pluginInactive" | "notice.activeEditorNotFound" | "notice.referenceUnderCursorNotFound") => string;
 };
 
 export function getBibleReferenceMatchUnderCursorFromActiveEditor(

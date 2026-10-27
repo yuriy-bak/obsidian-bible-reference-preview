@@ -5,11 +5,11 @@ import { renderReferenceUsageExcerpt } from "./ReferenceUsageExcerpt";
 export const REFERENCE_USAGE_VIEW_TYPE = "bible-reference-usage-results";
 
 export type ReferenceUsagePaneViewInput = {
-    getTitle(): string;
-    getEmptyText(): string;
-    getCountText(count: number): string;
-    getOpenResultAria(result: ReferenceUsageSearchResult): string;
-    onOpenResult(result: ReferenceUsageSearchResult): void;
+    getTitle: () => string;
+    getEmptyText: () => string;
+    getCountText: (count: number) => string;
+    getOpenResultAria: (result: ReferenceUsageSearchResult) => string;
+    onOpenResult: (result: ReferenceUsageSearchResult) => void;
 };
 
 export class ReferenceUsagePaneView extends ItemView {

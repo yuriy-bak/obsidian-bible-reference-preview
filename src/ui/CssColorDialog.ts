@@ -14,8 +14,8 @@ export type CssColorDialogInput = {
     defaultValue: string;
     previewText: string;
     presets: CssColorPreset[];
-    normalize(value: string): string;
-    onApply(value: string): void;
+    normalize: (value: string) => string;
+    onApply: (value: string) => void;
 };
 
 type HsvColor = {
@@ -54,7 +54,7 @@ export class CssColorDialog extends Modal {
         const inputEl = contentEl.createEl("input", { cls: "bible-color-dialog-input" });
         inputEl.type = "text";
         inputEl.value = this.value;
-        inputEl.placeholder = "#e6e2d8, var(--background-primary), color-mix(...)";
+        inputEl.placeholder = ["#e6e2d8", "var(--background-primary)", "color-mix(...)"].join(", ");
 
         const statusEl = contentEl.createDiv({ cls: "bible-color-dialog-status" });
 

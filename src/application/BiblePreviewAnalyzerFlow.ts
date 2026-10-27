@@ -17,11 +17,11 @@ export type BiblePreviewAnalyzerFlowInput = {
     bookMapping: BookMapping;
     activeV2Data: BibleIndexV2Data | null;
     translationControllerState: TranslationControllerState;
-    hasImportedTranslations(): boolean;
-    getActiveTranslationId(): string | null;
-    isPreviewComparisonEnabled(): boolean;
+    hasImportedTranslations: () => boolean;
+    getActiveTranslationId: () => string | null;
+    isPreviewComparisonEnabled: () => boolean;
     parseMatches: BiblePreviewAnalyzerInput["parseMatches"];
-    getMissingVerseText(): string;
+    getMissingVerseText: () => string;
 };
 
 export type ToggleBiblePreviewComparisonFlowInput = BiblePreviewAnalyzerFlowInput & {

@@ -29,7 +29,7 @@ export type EpubBibleImportProgress = {
 
 export type EpubBibleImportOptions = {
     signal?: AbortSignal;
-    onProgress?(progress: EpubBibleImportProgress): void;
+    onProgress?: (progress: EpubBibleImportProgress) => void;
 };
 
 export type EpubBibleImportReport = {
@@ -59,6 +59,6 @@ export type EpubBibleImportResult = {
 };
 
 export type EpubBibleImporter = {
-    readMetadata?(content: ArrayBuffer): Promise<EpubBibleSourceMetadata>;
-    importEpub(input: EpubBibleImportInput, options?: EpubBibleImportOptions): Promise<EpubBibleImportResult>;
+    readMetadata?: (content: ArrayBuffer) => Promise<EpubBibleSourceMetadata>;
+    importEpub: (input: EpubBibleImportInput, options?: EpubBibleImportOptions) => Promise<EpubBibleImportResult>;
 };

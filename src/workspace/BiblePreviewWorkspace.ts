@@ -3,23 +3,23 @@ import type { BiblePreviewPanelSide } from "../settings/PluginSettings";
 
 export type BiblePreviewSideDock = {
     collapsed?: boolean;
-    collapse?(): void;
-    expand?(): void;
+    collapse?: () => void;
+    expand?: () => void;
     activeLeaf?: WorkspaceLeaf;
     activeTab?: { leaf?: WorkspaceLeaf };
-    setActiveLeaf?(leaf: WorkspaceLeaf): void;
+    setActiveLeaf?: (leaf: WorkspaceLeaf) => void;
 };
 
 type BiblePreviewWorkspaceReveal = {
-    revealLeaf?(leaf: WorkspaceLeaf): Promise<void> | void;
+    revealLeaf?: (leaf: WorkspaceLeaf) => Promise<void> | void;
 };
 
 type BiblePreviewWorkspaceFocus = {
-    setActiveLeaf?(leaf: WorkspaceLeaf, params?: { focus?: boolean }): void;
+    setActiveLeaf?: (leaf: WorkspaceLeaf, params?: { focus?: boolean }) => void;
 };
 
 type BiblePreviewWorkspaceLeafIterator = {
-    iterateAllLeaves?(callback: (leaf: WorkspaceLeaf) => void): void;
+    iterateAllLeaves?: (callback: (leaf: WorkspaceLeaf) => void) => void;
 };
 
 export type RevealLeafWithoutStealingEditorFocusInput = {
@@ -30,7 +30,7 @@ export type RevealLeafWithoutStealingEditorFocusInput = {
     restoreActiveLeaf?: WorkspaceLeaf | null;
     focus?: boolean;
     isMobile: boolean;
-    setSuppressPreviewActiveLeafChange(value: boolean): void;
+    setSuppressPreviewActiveLeafChange: (value: boolean) => void;
 };
 
 export function getWorkspaceLeavesOfType(app: App, viewType: string): WorkspaceLeaf[] {
@@ -57,7 +57,7 @@ export async function detachDuplicateWorkspaceLeavesOfType(app: App, viewType: s
     if (duplicateLeaves.length === 0) {
         return;
     }
-    await Promise.all(duplicateLeaves.map((leaf) => leaf.detach()));
+    duplicateLeaves.forEach((leaf) => leaf.detach());
 }
 
 export async function revealLeafWithoutStealingEditorFocus(input: RevealLeafWithoutStealingEditorFocusInput): Promise<void> {
@@ -262,7 +262,7 @@ export async function closeBiblePreviewPane(input: CloseBiblePreviewPaneInput): 
         input.resetLastPanelEscapeTime();
         return;
     }
-    await Promise.all(previewLeaves.map((leaf) => leaf.detach()));
+    previewLeaves.forEach((leaf) => leaf.detach());
     input.resetLastPanelEscapeTime();
     input.setBiblePreviewPaneIsActiveInSideDock(false);
     if (shouldCollapseSideDock) {

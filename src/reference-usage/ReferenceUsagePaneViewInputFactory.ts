@@ -7,7 +7,7 @@ import { openReferenceUsageResult } from "./ReferenceUsageResultOpening";
 export type ReferenceUsagePaneViewInputFactoryInput = {
     app: App;
     interfaceLanguage: BiblePluginLocale;
-    waitForNextAnimationFrame(): Promise<void>;
+    waitForNextAnimationFrame: () => Promise<void>;
 };
 
 export function createReferenceUsagePaneViewInput(input: ReferenceUsagePaneViewInputFactoryInput): ReferenceUsagePaneViewInput {

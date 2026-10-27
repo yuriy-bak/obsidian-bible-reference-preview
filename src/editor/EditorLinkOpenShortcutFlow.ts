@@ -5,10 +5,10 @@ import { findFocusedEditorPreviewController } from "./EditorViewFocus";
 
 export type EditorLinkOpenShortcutFlowInput = {
     editorRuntimeState: EditorRuntimeState;
-    isPluginActive(): boolean;
-    shouldInterceptLinkOpenShortcut(): boolean;
-    getBibleLinkOpenShortcut(): BibleLinkOpenShortcut;
-    translate(key: "notice.pluginInactive" | "notice.activeEditorNotFound"): string;
+    isPluginActive: () => boolean;
+    shouldInterceptLinkOpenShortcut: () => boolean;
+    getBibleLinkOpenShortcut: () => BibleLinkOpenShortcut;
+    translate: (key: "notice.pluginInactive" | "notice.activeEditorNotFound") => string;
 };
 
 export function handleLinkOpenShortcutKeydown(input: EditorLinkOpenShortcutFlowInput, event: KeyboardEvent): void {

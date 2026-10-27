@@ -18,17 +18,17 @@ type ReferenceUsageIndexSettingsI18nKey =
 
 export type ReferenceUsageIndexSettingsSectionInput = {
     containerEl: HTMLElement;
-    translate(key: ReferenceUsageIndexSettingsI18nKey): string;
-    isEnabled(): boolean;
-    setEnabled(value: boolean): Promise<void> | void;
-    isAutoUpdateEnabled(): boolean;
-    setAutoUpdateEnabled(value: boolean): Promise<void> | void;
-    getExcludedFoldersText(): string;
-    setExcludedFoldersText(value: string): Promise<void> | void;
-    buildIndex(): Promise<void> | void;
-    rebuildIndex(): Promise<void> | void;
-    showStats(): Promise<void> | void;
-    clearIndex(): Promise<void> | void;
+    translate: (key: ReferenceUsageIndexSettingsI18nKey) => string;
+    isEnabled: () => boolean;
+    setEnabled: (value: boolean) => Promise<void> | void;
+    isAutoUpdateEnabled: () => boolean;
+    setAutoUpdateEnabled: (value: boolean) => Promise<void> | void;
+    getExcludedFoldersText: () => string;
+    setExcludedFoldersText: (value: string) => Promise<void> | void;
+    buildIndex: () => Promise<void> | void;
+    rebuildIndex: () => Promise<void> | void;
+    showStats: () => Promise<void> | void;
+    clearIndex: () => Promise<void> | void;
 };
 
 export function renderReferenceUsageIndexSettingsSection(input: ReferenceUsageIndexSettingsSectionInput): void {
@@ -56,7 +56,7 @@ export function renderReferenceUsageIndexSettingsSection(input: ReferenceUsageIn
         .setDesc(translate("settings.referenceUsageIndex.excludedFolders.desc"))
         .addTextArea((textArea) => {
             textArea
-                .setPlaceholder("Attachments/\nTemplates/\nArchive/\nBible/")
+                .setPlaceholder(["Attachments/", "Templates/", "Archive/", "Bible/"].join("\n"))
                 .setValue(input.getExcludedFoldersText())
                 .onChange((value) => void input.setExcludedFoldersText(value));
             textArea.inputEl.rows = 4;

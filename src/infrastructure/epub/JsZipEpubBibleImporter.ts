@@ -340,8 +340,8 @@ function normalizeLanguage(value: string): string {
 
 function decodeXmlEntities(value: string): string {
     return value
-        .replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(Number(code)))
-        .replace(/&#x([\da-f]+);/gi, (_match, code) => String.fromCharCode(parseInt(code, 16)))
+        .replace(/&#(\d+);/g, (_match, code: string) => String.fromCharCode(Number(code)))
+        .replace(/&#x([\da-f]+);/gi, (_match, code: string) => String.fromCharCode(parseInt(code, 16)))
         .replace(/&quot;/g, '"')
         .replace(/&apos;/g, "'")
         .replace(/&lt;/g, "<")

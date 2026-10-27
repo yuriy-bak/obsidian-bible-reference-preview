@@ -15,24 +15,24 @@ import { handleEditorPreviewUpdate } from "./EditorPreviewUpdateHandling";
 import { registerEditorPreviewController, unregisterEditorPreviewController } from "./EditorPreviewControllerRegistration";
 
 export type EditorCursorExtensionInput = {
-    getActiveTranslationId(): string | null;
+    getActiveTranslationId: () => string | null;
     editorViews: Set<EditorView>;
     previewControllers: Map<EditorView, BiblePreviewController>;
     bibleReferenceLinkDecorationCache: WeakMap<EditorView, BibleReferenceLinkDecorationCacheEntry>;
-    shouldRunBiblePreviewForEditor(view: EditorView): boolean;
-    getBiblePreviewTriggerMode(): BiblePreviewTriggerMode;
-    getBiblePreviewDisplayMode(): BiblePreviewDisplayMode;
-    hasImportedTranslations(): boolean;
-    hasBiblePreviewPane(): boolean;
-    findBibleReferenceMatchAtPosition(view: EditorView, position: number): EditorClickedReference | null;
-    getCurrentParagraph(update: ViewUpdate): string;
-    analyzeParagraph(paragraph: string): Promise<BiblePreviewContent | null>;
-    analyzeReferenceText(text: string): Promise<BiblePreviewContent | null>;
-    showBiblePreviewContent(content: BiblePreviewContent): void;
-    refreshFloatingPreviewLabels(): void;
-    hideFloatingBiblePreview(): void;
-    createBibleReferenceLinkDecorations(view: EditorView): DecorationSet;
-    translate(key: "notice.pluginInactive" | "notice.noImportedTranslations" | "notice.referenceUnderCursorNotFound"): string;
+    shouldRunBiblePreviewForEditor: (view: EditorView) => boolean;
+    getBiblePreviewTriggerMode: () => BiblePreviewTriggerMode;
+    getBiblePreviewDisplayMode: () => BiblePreviewDisplayMode;
+    hasImportedTranslations: () => boolean;
+    hasBiblePreviewPane: () => boolean;
+    findBibleReferenceMatchAtPosition: (view: EditorView, position: number) => EditorClickedReference | null;
+    getCurrentParagraph: (update: ViewUpdate) => string;
+    analyzeParagraph: (paragraph: string) => Promise<BiblePreviewContent | null>;
+    analyzeReferenceText: (text: string) => Promise<BiblePreviewContent | null>;
+    showBiblePreviewContent: (content: BiblePreviewContent) => void;
+    refreshFloatingPreviewLabels: () => void;
+    hideFloatingBiblePreview: () => void;
+    createBibleReferenceLinkDecorations: (view: EditorView) => DecorationSet;
+    translate: (key: "notice.pluginInactive" | "notice.noImportedTranslations" | "notice.referenceUnderCursorNotFound") => string;
 };
 
 export function createEditorCursorExtension(input: EditorCursorExtensionInput): Extension[] {

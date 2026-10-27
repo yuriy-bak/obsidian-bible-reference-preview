@@ -11,14 +11,14 @@ export type BiblePreviewPaneStateFlowInput = {
     app: App;
     previewViewType: string;
     previewPanelSide: BiblePreviewPanelSide;
-    getBiblePreviewPaneIsActiveInSideDock(): boolean;
-    setBiblePreviewPaneIsActiveInSideDock(value: boolean): void;
-    getLastPanelEscapeTime(): number;
-    setLastPanelEscapeTime(value: number): void;
-    isFloatingPreviewVisible(): boolean;
-    isClosePreviewOnActiveLeafChangeEnabled(): boolean;
-    hideFloatingBiblePreview(): void;
-    closeActiveBiblePreviewPane(): void;
+    getBiblePreviewPaneIsActiveInSideDock: () => boolean;
+    setBiblePreviewPaneIsActiveInSideDock: (value: boolean) => void;
+    getLastPanelEscapeTime: () => number;
+    setLastPanelEscapeTime: (value: number) => void;
+    isFloatingPreviewVisible: () => boolean;
+    isClosePreviewOnActiveLeafChangeEnabled: () => boolean;
+    hideFloatingBiblePreview: () => void;
+    closeActiveBiblePreviewPane: () => void;
 };
 
 export type CloseBiblePreviewPaneStateFlowOptions = {

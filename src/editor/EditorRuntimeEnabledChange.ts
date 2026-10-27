@@ -7,13 +7,13 @@ export type EditorRuntimeEnabledChangeInput = {
     pluginRuntimeEnabled: boolean;
     lastPluginRuntimeEnabled: boolean;
     referenceLinkUpdateTimeout: number | null;
-    setLastPluginRuntimeEnabled(enabled: boolean): void;
-    setLastParagraph(paragraph: string): void;
-    clearClickedReference(): void;
-    incrementRequestId(): void;
-    setReferenceLinkUpdateTimeout(timeout: number | null): void;
-    hideBiblePreview(resetParagraphCache?: boolean): void;
-    scheduleReferenceLinkUpdate(): void;
+    setLastPluginRuntimeEnabled: (enabled: boolean) => void;
+    setLastParagraph: (paragraph: string) => void;
+    clearClickedReference: () => void;
+    incrementRequestId: () => void;
+    setReferenceLinkUpdateTimeout: (timeout: number | null) => void;
+    hideBiblePreview: (resetParagraphCache?: boolean) => void;
+    scheduleReferenceLinkUpdate: () => void;
 };
 
 export function applyEditorRuntimeEnabledChange(input: EditorRuntimeEnabledChangeInput): void {

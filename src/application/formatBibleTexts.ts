@@ -57,9 +57,9 @@ export type BiblePreviewComparisonInput = {
 };
 
 export type BiblePreviewRenderOptions = {
-    getFindUsagesButtonText?(): string;
-    getFindUsagesButtonAria?(block: BiblePreviewReferenceBlock): string;
-    onFindUsages?(block: BiblePreviewReferenceBlock): void;
+    getFindUsagesButtonText?: () => string;
+    getFindUsagesButtonAria?: (block: BiblePreviewReferenceBlock) => string;
+    onFindUsages?: (block: BiblePreviewReferenceBlock) => void;
 };
 
 export function formatBibleComparisonTextBlocks(
@@ -169,13 +169,13 @@ export function formatBibleTextBlocks(
 }
 
 export function renderBiblePreviewContent(containerEl: HTMLElement, content: BiblePreviewContent, options: BiblePreviewRenderOptions = {}): void {
-    const fragment = document.createDocumentFragment();
+    const fragment = createFragment();
 
     let previousRenderedBlockType: "reference" | "footnote" | "separator" | null = null;
 
     for (const block of content.blocks) {
         if (block.type === "separator") {
-            const separatorEl = document.createElement("div");
+            const separatorEl = createDiv();
             separatorEl.className = "bible-preview-separator";
             separatorEl.textContent = block.text;
             fragment.appendChild(separatorEl);
@@ -185,7 +185,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         }
 
         if (block.type === "footnote") {
-            const footnoteEl = document.createElement("div");
+            const footnoteEl = createDiv();
             footnoteEl.className = "bible-preview-footnote";
 
             if (previousRenderedBlockType === "reference") {
@@ -200,25 +200,25 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         }
 
         if (block.type === "comparison") {
-            const comparisonEl = document.createElement("div");
+            const comparisonEl = createDiv();
             comparisonEl.className = "bible-preview-comparison-block";
             if (previousRenderedBlockType !== null) {
                 comparisonEl.classList.add("bible-preview-comparison-block-spaced");
             }
 
             for (const translation of block.translations) {
-                const translationTitleEl = document.createElement("div");
+                const translationTitleEl = createDiv();
                 translationTitleEl.className = "bible-preview-comparison-translation-title";
                 translationTitleEl.textContent = `[${translation.translationName}]`;
                 comparisonEl.appendChild(translationTitleEl);
 
-                const translationReferenceEl = document.createElement("div");
+                const translationReferenceEl = createDiv();
                 translationReferenceEl.className = "bible-preview-comparison-reference-title";
                 translationReferenceEl.textContent = `${translation.referenceTitle}.`;
                 comparisonEl.appendChild(translationReferenceEl);
 
                 translation.paragraphs.forEach((paragraph) => {
-                    const paragraphEl = document.createElement("div");
+                    const paragraphEl = createDiv();
                     paragraphEl.className = "bible-preview-paragraph";
 
                     appendPreviewVerses(paragraphEl, paragraph.verses);
@@ -226,7 +226,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
                 });
 
                 for (const footnote of translation.footnotes) {
-                    const footnoteEl = document.createElement("div");
+                    const footnoteEl = createDiv();
                     footnoteEl.className = "bible-preview-footnote";
                     appendTextWithLineBreaks(footnoteEl, footnote);
                     comparisonEl.appendChild(footnoteEl);
@@ -238,13 +238,13 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
             continue;
         }
 
-        const referenceEl = document.createElement("div");
+        const referenceEl = createDiv();
         referenceEl.className = "bible-preview-reference-block";
 
-        const titleRowEl = document.createElement("div");
+        const titleRowEl = createDiv();
         titleRowEl.className = "bible-preview-reference-title-row";
 
-        const titleEl = document.createElement("div");
+        const titleEl = createDiv();
         titleEl.className = "bible-preview-reference-title";
         titleEl.textContent = `${block.title}.`;
         titleRowEl.appendChild(titleEl);
@@ -256,7 +256,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         referenceEl.appendChild(titleRowEl);
 
         block.paragraphs.forEach((paragraph) => {
-            const paragraphEl = document.createElement("div");
+            const paragraphEl = createDiv();
             paragraphEl.className = "bible-preview-paragraph";
 
             appendPreviewVerses(paragraphEl, paragraph.verses);
@@ -272,7 +272,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
 }
 
 function createFindUsagesButton(block: BiblePreviewReferenceBlock, options: BiblePreviewRenderOptions): HTMLButtonElement {
-    const buttonEl = document.createElement("button");
+    const buttonEl = createEl("button");
     buttonEl.type = "button";
     buttonEl.className = "bible-preview-reference-usages-button";
     buttonEl.textContent = options.getFindUsagesButtonText?.() ?? "🔎";
@@ -682,7 +682,7 @@ function appendPreviewVerses(containerEl: HTMLElement, verses: BiblePreviewVerse
             containerEl.appendChild(document.createTextNode(" "));
         }
 
-        const numberEl = document.createElement("strong");
+        const numberEl = createEl("strong");
         numberEl.className = "bible-preview-verse-number";
         numberEl.textContent = String(verse.number);
         containerEl.appendChild(numberEl);
@@ -695,7 +695,7 @@ function appendTextWithLineBreaks(containerEl: HTMLElement, text: string): void 
     const lines = text.split("\n");
     lines.forEach((line, index) => {
         if (index > 0) {
-            containerEl.appendChild(document.createElement("br"));
+            containerEl.appendChild(createEl("br"));
         }
         containerEl.appendChild(document.createTextNode(line));
     });

@@ -5,7 +5,7 @@ export type EpubImportTranslate = (key: I18nKey, params?: Record<string, string 
 
 export function formatEpubImportProgress(progress: EpubBibleImportProgress, translate: EpubImportTranslate): string {
     return translate("notice.importProgress", {
-        stage: translate(`notice.importProgress.stage.${progress.stage}` as I18nKey),
+        stage: translate(`notice.importProgress.stage.${progress.stage}`),
         processed: progress.processedCount,
         total: progress.totalCount,
     });

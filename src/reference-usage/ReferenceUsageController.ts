@@ -12,12 +12,12 @@ const REFERENCE_USAGE_FILE_UPDATE_DELAY_MS = 1500;
 
 export type ReferenceUsageControllerInput = {
     app: App;
-    getService(): ReferenceUsageIndexService;
-    isIndexingEnabled(): boolean;
-    shouldAutoProcessEvents(): boolean;
-    hasImportedTranslations(): boolean;
-    translate(key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>): string;
-    refreshSettings(): void;
+    getService: () => ReferenceUsageIndexService;
+    isIndexingEnabled: () => boolean;
+    shouldAutoProcessEvents: () => boolean;
+    hasImportedTranslations: () => boolean;
+    translate: (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
+    refreshSettings: () => void;
 };
 
 export class ReferenceUsageController {

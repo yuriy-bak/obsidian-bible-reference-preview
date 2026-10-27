@@ -1,4 +1,4 @@
 export type BiblePreviewController = {
-    openBibleReferenceUnderCursor(showNotice?: boolean): boolean;
-    refreshLocalizedLabels(): void;
+    openBibleReferenceUnderCursor: (showNotice?: boolean) => boolean;
+    refreshLocalizedLabels: () => void;
 };

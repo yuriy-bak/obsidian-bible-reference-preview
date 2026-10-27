@@ -5,11 +5,11 @@ import { showReferenceUsageResultsInPanel } from "./ReferenceUsagePaneFlow";
 import type { ReferenceUsageSearchResult } from "./ReferenceUsageIndexService";
 
 export type ReferenceUsagePreviewBlockFlowInput = {
-    isIndexingEnabled(): boolean;
-    getIndexDisabledText(): string;
-    findUsages(references: BiblePreviewReferenceBlock["references"]): ReferenceUsageSearchResult[];
-    formatTitle(referenceText: string): string;
-    createReferenceUsagePaneFlowInput(): ReferenceUsagePaneFlowInput;
+    isIndexingEnabled: () => boolean;
+    getIndexDisabledText: () => string;
+    findUsages: (references: BiblePreviewReferenceBlock["references"]) => ReferenceUsageSearchResult[];
+    formatTitle: (referenceText: string) => string;
+    createReferenceUsagePaneFlowInput: () => ReferenceUsagePaneFlowInput;
 };
 
 export async function showReferenceUsagesForPreviewBlock(

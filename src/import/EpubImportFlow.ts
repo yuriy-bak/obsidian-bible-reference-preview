@@ -20,7 +20,7 @@ export type PrepareEpubImportSettingsInput = {
     file: File;
     locale: BiblePluginLocale;
     translate: EpubFileValidationTranslate;
-    createRepository(): ObsidianBibleIndexV2Repository;
+    createRepository: () => ObsidianBibleIndexV2Repository;
 };
 
 export type ExecutePreparedEpubImportInput = {
@@ -28,8 +28,8 @@ export type ExecutePreparedEpubImportInput = {
     fileName: string;
     preparedImport: PreparedEpubImport;
     translate: EpubImportTranslate;
-    createRepository(): ObsidianBibleIndexV2Repository;
-    onImported(repository: ObsidianBibleIndexV2Repository, result: EpubBibleImportResult): Promise<void>;
+    createRepository: () => ObsidianBibleIndexV2Repository;
+    onImported: (repository: ObsidianBibleIndexV2Repository, result: EpubBibleImportResult) => Promise<void>;
 };
 
 export async function prepareEpubImportSettings(input: PrepareEpubImportSettingsInput): Promise<PreparedEpubImport | null> {

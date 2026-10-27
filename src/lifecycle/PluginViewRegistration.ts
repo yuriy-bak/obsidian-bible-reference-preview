@@ -7,9 +7,9 @@ type RegisterView = Plugin["registerView"];
 
 export type PluginViewRegistrationInput = {
     registerView: RegisterView;
-    createBiblePreviewPaneViewInput(): BiblePreviewPaneViewInput;
-    createReferenceUsagePaneViewInput(): ReferenceUsagePaneViewInput;
-    getLastPanePreviewContent(): BiblePreviewContent | null;
+    createBiblePreviewPaneViewInput: () => BiblePreviewPaneViewInput;
+    createReferenceUsagePaneViewInput: () => ReferenceUsagePaneViewInput;
+    getLastPanePreviewContent: () => BiblePreviewContent | null;
 };
 
 export function registerPluginViews(input: PluginViewRegistrationInput): void {

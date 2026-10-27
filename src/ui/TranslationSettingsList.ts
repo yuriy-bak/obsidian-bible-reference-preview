@@ -15,11 +15,11 @@ type TranslationSettingsListI18nParams = Record<string, string | number>;
 export type TranslationSettingsSectionInput = {
     containerEl: HTMLElement;
     translations: TranslationSettingsItem[];
-    translate(key: TranslationSettingsListI18nKey, params?: TranslationSettingsListI18nParams): string;
-    onDelete(translationId: string): Promise<void>;
-    getCurrentOrder(): string[];
-    onReorder(nextOrder: string[]): Promise<void>;
-    refresh(): void;
+    translate: (key: TranslationSettingsListI18nKey, params?: TranslationSettingsListI18nParams) => string;
+    onDelete: (translationId: string) => Promise<void>;
+    getCurrentOrder: () => string[];
+    onReorder: (nextOrder: string[]) => Promise<void>;
+    refresh: () => void;
 };
 
 export function renderTranslationSettingsSection(input: TranslationSettingsSectionInput): void {
@@ -72,11 +72,10 @@ export function renderTranslationSettingsSection(input: TranslationSettingsSecti
 
         const deleteButton = row.createEl("button", { text: "🗑", cls: "bible-translation-settings-delete-button" });
         deleteButton.setAttribute("aria-label", translate("settings.translations.deleteAria", { translationName: translation.name || translation.id }));
-        deleteButton.addEventListener("click", async (event) => {
+        deleteButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
-            await input.onDelete(translation.id);
-            input.refresh();
+            void input.onDelete(translation.id).then(() => input.refresh());
         });
 
         row.addEventListener("dragstart", (event) => {
@@ -117,7 +116,7 @@ export function renderTranslationSettingsSection(input: TranslationSettingsSecti
             row.removeClass("bible-translation-settings-row-drop-before", "bible-translation-settings-row-drop-after");
         });
 
-        row.addEventListener("drop", async (event) => {
+        row.addEventListener("drop", (event) => void (async () => {
             event.preventDefault();
             const sourceTranslationId = event.dataTransfer?.getData("text/plain") || draggedTranslationId;
             clearDropStyles();
@@ -149,6 +148,6 @@ export function renderTranslationSettingsSection(input: TranslationSettingsSecti
             nextOrder.splice(targetIndex, 0, sourceTranslationId);
             await input.onReorder(nextOrder);
             input.refresh();
-        });
+        })());
     }
 }

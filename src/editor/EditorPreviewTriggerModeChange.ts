@@ -3,9 +3,9 @@ import type { BiblePreviewTriggerMode } from "../settings/PluginSettings";
 export type EditorPreviewTriggerModeChangeInput = {
     previewTriggerMode: BiblePreviewTriggerMode;
     lastPreviewTriggerMode: BiblePreviewTriggerMode;
-    setLastPreviewTriggerMode(previewTriggerMode: BiblePreviewTriggerMode): void;
-    clearClickedReference(): void;
-    hideBiblePreview(resetParagraphCache?: boolean): void;
+    setLastPreviewTriggerMode: (previewTriggerMode: BiblePreviewTriggerMode) => void;
+    clearClickedReference: () => void;
+    hideBiblePreview: (resetParagraphCache?: boolean) => void;
 };
 
 export function applyEditorPreviewTriggerModeChange(input: EditorPreviewTriggerModeChangeInput): void {

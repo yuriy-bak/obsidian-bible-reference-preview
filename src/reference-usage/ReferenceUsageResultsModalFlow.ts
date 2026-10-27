@@ -7,7 +7,7 @@ import { openReferenceUsageResult } from "./ReferenceUsageResultOpening";
 export type ReferenceUsageResultsModalFlowInput = {
     app: App;
     interfaceLanguage: BiblePluginLocale;
-    waitForNextAnimationFrame(): Promise<void>;
+    waitForNextAnimationFrame: () => Promise<void>;
 };
 
 export function openReferenceUsageResultsModal(
