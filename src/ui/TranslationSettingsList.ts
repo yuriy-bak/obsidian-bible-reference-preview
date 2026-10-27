@@ -6,8 +6,7 @@ type TranslationSettingsListI18nKey =
     | "settings.translations.empty"
     | "settings.translations.language"
     | "settings.translations.books"
-    | "settings.translations.file"
-    | "settings.import.button";
+    | "settings.translations.file";
 
 type TranslationSettingsListI18nParams = Record<string, string | number>;
 
@@ -16,7 +15,6 @@ export type TranslationSettingsListInput = {
     translate: (key: TranslationSettingsListI18nKey, params?: TranslationSettingsListI18nParams) => string;
     onDelete: (translationId: string) => Promise<void>;
     onReorder: (nextOrder: string[]) => Promise<void>;
-    onImport: (hostEl: HTMLElement) => void;
     refresh: () => void;
 };
 
@@ -46,10 +44,6 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
             }
             // The delete flow asks for confirmation; refresh either way so a cancelled delete keeps the row.
             void input.onDelete(translationId).then(() => input.refresh());
-        },
-        addItem: {
-            name: translate("settings.import.button"),
-            action: (el) => input.onImport(el),
         },
     };
 }

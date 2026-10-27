@@ -94,7 +94,6 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 translate: (key, params) => this.plugin.t(key, params),
                 onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
                 onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
-                onImport: (hostEl) => this.plugin.openEpubFilePicker(hostEl),
                 refresh: () => this.update(),
             }),
             createReferenceUsageIndexSettingsGroup({

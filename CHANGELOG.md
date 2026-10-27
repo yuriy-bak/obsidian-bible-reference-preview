@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Fixed: "Import EPUB" and the `+` button in settings did not open the file picker on Obsidian 1.13. The file input is now created in the document of the clicked element and stays attached until the dialog closes.
+- Removed the duplicate `+` import button from the translation order list; import stays as its own settings row (found by settings search).
 
 ## 0.2.0 - Declarative settings (requires Obsidian 1.13)
 
