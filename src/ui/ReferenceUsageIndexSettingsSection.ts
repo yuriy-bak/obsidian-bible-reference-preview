@@ -1,4 +1,5 @@
-import { Setting } from "obsidian";
+import type { SettingDefinitionGroup } from "obsidian";
+import { t, type BiblePluginLocale } from "../i18n/I18n";
 
 type ReferenceUsageIndexSettingsI18nKey =
     | "settings.referenceUsageIndex.title"
@@ -16,66 +17,77 @@ type ReferenceUsageIndexSettingsI18nKey =
     | "settings.referenceUsageIndex.stats.button"
     | "settings.referenceUsageIndex.clear.button";
 
+export type ReferenceUsageIndexSettingKey =
+    | "referenceUsageIndexingEnabled"
+    | "referenceUsageAutoUpdate"
+    | "referenceUsageExcludedFolders";
+
 export type ReferenceUsageIndexSettingsSectionInput = {
-    containerEl: HTMLElement;
     translate: (key: ReferenceUsageIndexSettingsI18nKey) => string;
-    isEnabled: () => boolean;
-    setEnabled: (value: boolean) => Promise<void> | void;
-    isAutoUpdateEnabled: () => boolean;
-    setAutoUpdateEnabled: (value: boolean) => Promise<void> | void;
-    getExcludedFoldersText: () => string;
-    setExcludedFoldersText: (value: string) => Promise<void> | void;
     buildIndex: () => Promise<void> | void;
     rebuildIndex: () => Promise<void> | void;
     showStats: () => Promise<void> | void;
     clearIndex: () => Promise<void> | void;
 };
 
-export function renderReferenceUsageIndexSettingsSection(input: ReferenceUsageIndexSettingsSectionInput): void {
-    const { containerEl, translate } = input;
+const ACTION_BUTTON_KEYS: ReferenceUsageIndexSettingsI18nKey[] = [
+    "settings.referenceUsageIndex.build.button",
+    "settings.referenceUsageIndex.rebuild.button",
+    "settings.referenceUsageIndex.stats.button",
+    "settings.referenceUsageIndex.clear.button",
+];
 
-    new Setting(containerEl).setName(translate("settings.referenceUsageIndex.title")).setHeading();
-    containerEl.createEl("p", { text: translate("settings.referenceUsageIndex.desc") });
+const ALIAS_LOCALES: BiblePluginLocale[] = ["en", "ru"];
 
-    new Setting(containerEl)
-        .setName(translate("settings.referenceUsageIndex.enabled.name"))
-        .setDesc(translate("settings.referenceUsageIndex.enabled.desc"))
-        .addToggle((toggle) => toggle
-            .setValue(input.isEnabled())
-            .onChange((value) => void input.setEnabled(value)));
+export function createReferenceUsageIndexSettingsGroup(input: ReferenceUsageIndexSettingsSectionInput): SettingDefinitionGroup<ReferenceUsageIndexSettingKey> {
+    const { translate } = input;
 
-    new Setting(containerEl)
-        .setName(translate("settings.referenceUsageIndex.autoUpdate.name"))
-        .setDesc(translate("settings.referenceUsageIndex.autoUpdate.desc"))
-        .addToggle((toggle) => toggle
-            .setValue(input.isAutoUpdateEnabled())
-            .onChange((value) => void input.setAutoUpdateEnabled(value)));
-
-    new Setting(containerEl)
-        .setName(translate("settings.referenceUsageIndex.excludedFolders.name"))
-        .setDesc(translate("settings.referenceUsageIndex.excludedFolders.desc"))
-        .addTextArea((textArea) => {
-            textArea
-                .setPlaceholder(["Attachments/", "Templates/", "Archive/", "Bible/"].join("\n"))
-                .setValue(input.getExcludedFoldersText())
-                .onChange((value) => void input.setExcludedFoldersText(value));
-            textArea.inputEl.rows = 4;
-            textArea.inputEl.addClass("bible-reference-preview-full-width");
-        });
-
-    new Setting(containerEl)
-        .setName(translate("settings.referenceUsageIndex.actions.name"))
-        .setDesc(translate("settings.referenceUsageIndex.actions.desc"))
-        .addButton((button) => button
-            .setButtonText(translate("settings.referenceUsageIndex.build.button"))
-            .onClick(() => void input.buildIndex()))
-        .addButton((button) => button
-            .setButtonText(translate("settings.referenceUsageIndex.rebuild.button"))
-            .onClick(() => void input.rebuildIndex()))
-        .addButton((button) => button
-            .setButtonText(translate("settings.referenceUsageIndex.stats.button"))
-            .onClick(() => void input.showStats()))
-        .addButton((button) => button
-            .setButtonText(translate("settings.referenceUsageIndex.clear.button"))
-            .onClick(() => void input.clearIndex()));
+    return {
+        type: "group",
+        heading: translate("settings.referenceUsageIndex.title"),
+        items: [
+            {
+                name: translate("settings.referenceUsageIndex.enabled.name"),
+                desc: translate("settings.referenceUsageIndex.enabled.desc"),
+                control: { type: "toggle", key: "referenceUsageIndexingEnabled" },
+            },
+            {
+                name: translate("settings.referenceUsageIndex.autoUpdate.name"),
+                desc: translate("settings.referenceUsageIndex.autoUpdate.desc"),
+                control: { type: "toggle", key: "referenceUsageAutoUpdate" },
+            },
+            {
+                name: translate("settings.referenceUsageIndex.excludedFolders.name"),
+                desc: translate("settings.referenceUsageIndex.excludedFolders.desc"),
+                control: {
+                    type: "textarea",
+                    key: "referenceUsageExcludedFolders",
+                    placeholder: ["Attachments/", "Templates/", "Archive/", "Bible/"].join("\n"),
+                    rows: 4,
+                },
+            },
+            {
+                name: translate("settings.referenceUsageIndex.actions.name"),
+                desc: `${translate("settings.referenceUsageIndex.actions.desc")} ${translate("settings.referenceUsageIndex.desc")}`,
+                // Button labels are not indexed by settings search, so expose them as aliases in both languages.
+                aliases: ALIAS_LOCALES.flatMap((locale) => ACTION_BUTTON_KEYS.map((key) => t(locale, key))),
+                render: (setting) => {
+                    setting
+                        .addButton((button) => button
+                            .setButtonText(translate("settings.referenceUsageIndex.build.button"))
+                            .onClick(() => void input.buildIndex()))
+                        .addButton((button) => button
+                            .setButtonText(translate("settings.referenceUsageIndex.rebuild.button"))
+                            .onClick(() => void input.rebuildIndex()))
+                        .addButton((button) => button
+                            .setButtonText(translate("settings.referenceUsageIndex.stats.button"))
+                            .onClick(() => void input.showStats()))
+                        .addButton((button) => button
+                            .setButtonText(translate("settings.referenceUsageIndex.clear.button"))
+                            .setDestructive()
+                            .onClick(() => void input.clearIndex()));
+                },
+            },
+        ],
+    };
 }

@@ -45,7 +45,7 @@ export async function setReferenceUsageExcludedFoldersText(input: ReferenceUsage
     if (areStringArraysEqual(input.referenceUsageExcludedFolders, referenceUsageExcludedFolders)) return;
     input.setReferenceUsageExcludedFolders(referenceUsageExcludedFolders);
     await input.saveSettings();
-    input.refreshSettings();
+    // No settings refresh: the text area owns its value, and re-rendering on each keystroke drops focus.
 }
 
 export async function buildReferenceUsageIndex(input: ReferenceUsageSettingsFlowInput): Promise<void> {

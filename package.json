@@ -1,6 +1,6 @@
 {
   "name": "obsidian-bible-reference-preview",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "description": "Recognize Bible references in notes and show verse previews from imported EPUB Bible translations.",
   "license": "MIT",
   "main": "main.js",
@@ -25,13 +25,13 @@
     "test": "npm run build && npm run build:test-modules && node tests/run-parser-tests.js"
   },
   "devDependencies": {
-    "@codemirror/state": "6.5.0",
-    "@codemirror/view": "6.38.6",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.13",
     "@eslint/js": "^9.39.4",
     "esbuild": "0.28.0",
     "eslint": "^9.39.4",
     "eslint-plugin-obsidianmd": "^0.4.2",
-    "obsidian": "1.12.3",
+    "obsidian": "1.14.4",
     "typescript": "5.9.3",
     "typescript-eslint": "^8.60.0"
   },

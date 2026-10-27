@@ -2,7 +2,16 @@
 
 ## Unreleased
 
-- Added a manual `Beta release` workflow that publishes pre-releases for testing with BRAT.
+## 0.2.0 - Declarative settings (requires Obsidian 1.13)
+
+- **Requires Obsidian 1.13.0 or later** (`minAppVersion` 1.13.0). Users on older Obsidian versions stay on 0.1.9.
+- The settings tab uses the declarative settings API (`getSettingDefinitions()`), so plugin settings now appear in Obsidian settings search.
+- Translation order uses the built-in Obsidian list: drag handle to reorder, delete button (with confirmation), and a `+` button to import an EPUB.
+- Settings are grouped under headings: preview, colors, and Bible index.
+- The Bible reference opening shortcut is split into a toggle and a shortcut dropdown; the dropdown is disabled while the toggle is off.
+- Reference usage index actions stay in one row; search also finds them by button names (Build, Rebuild, Stats, Clear) in both languages.
+- Editing excluded folders no longer re-renders the settings tab on each keystroke.
+- Updated `obsidian` typings to 1.14.4; the delete confirmation button uses `setDestructive()` instead of the deprecated `setWarning()`.
 
 ## 0.1.9 - Obsidian plugin review recommendations
 
