@@ -346,12 +346,10 @@ export class BiblePreviewPaneView extends ItemView {
     private async copyCurrentText(): Promise<void> {
         if (this.currentContent === null || this.currentContent.plainText.length === 0) return;
         try {
-            if (navigator.clipboard !== undefined) await navigator.clipboard.writeText(this.currentContent.plainText);
-            else this.copyTextFallback(this.currentContent.plainText);
+            await navigator.clipboard.writeText(this.currentContent.plainText);
             this.showCopyNotice();
-        } catch {
-            this.copyTextFallback(this.currentContent.plainText);
-            this.showCopyNotice();
+        } catch (error) {
+            console.error("Bible Reference Preview: failed to copy preview text", error);
         }
     }
 
@@ -359,23 +357,4 @@ export class BiblePreviewPaneView extends ItemView {
         new Notice(this.input.getCopyNoticeText(), 2500);
     }
 
-    private copyTextFallback(text: string): void {
-        const textareaEl = this.createCopyFallbackTextarea(text);
-        document.body.appendChild(textareaEl);
-        this.copyTextFromFallbackTextarea(textareaEl);
-        textareaEl.remove();
-    }
-
-    private createCopyFallbackTextarea(text: string): HTMLTextAreaElement {
-        const textareaEl = createEl("textarea");
-        textareaEl.value = text;
-        textareaEl.addClass("bible-preview-copy-fallback-textarea");
-        return textareaEl;
-    }
-
-    private copyTextFromFallbackTextarea(textareaEl: HTMLTextAreaElement): void {
-        textareaEl.focus();
-        textareaEl.select();
-        document.execCommand("copy");
-    }
 }

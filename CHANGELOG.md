@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.9 - Obsidian plugin review recommendations
+
+- Replaced deprecated `workspace.activeLeaf` with `getActiveViewOfType(MarkdownView)`.
+- Use the current `setActiveLeaf(leaf, { focus })` / `revealLeaf` APIs directly (available since `minAppVersion` 1.7.2).
+- Copy uses `navigator.clipboard` only; removed the deprecated `document.execCommand("copy")` fallback.
+- Removed unused imports and helpers.
+
 ## 0.1.8 - Obsidian plugin review warnings
 
 - Removed default hotkeys from the preview scroll commands (Alt+PageUp/PageDown/Home/End) to avoid conflicts. Assign them in Settings → Hotkeys if needed.

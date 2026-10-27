@@ -7,7 +7,6 @@ import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindowInput } from
 import {
     scrollBiblePreviewPane as scrollBiblePreviewPaneFlow,
     showBiblePreviewInPanel as showBiblePreviewInPanelFlow,
-    type BiblePreviewPaneFlowInput,
 } from "./BiblePreviewPaneFlow";
 import {
     createScrollBiblePreviewPaneFlowInput as createScrollBiblePreviewPaneFlowInputFlow,
@@ -21,7 +20,7 @@ import {
     type BiblePreviewPaneStateFlowInput,
     type CloseBiblePreviewPaneStateFlowOptions,
 } from "./BiblePreviewPaneStateFlow";
-import { BIBLE_PREVIEW_VIEW_TYPE, type BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./BiblePreviewPaneView";
+import { type BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./BiblePreviewPaneView";
 import {
     createBiblePreviewPaneViewInput as createBiblePreviewPaneViewInputFromFactory,
     createFloatingBiblePreviewWindowInput as createFloatingBiblePreviewWindowInputFromFactory,

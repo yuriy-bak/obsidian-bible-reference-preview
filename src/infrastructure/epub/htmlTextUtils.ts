@@ -362,15 +362,6 @@ function isCompleteBibleBookTable(books: BibleBook[]): boolean {
     return books.length === 66;
 }
 
-function normalizeBookTableName(value: string): string {
-    return value
-        .toLowerCase()
-        .replace(/ё/g, "е")
-        .replace(/\./g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-}
-
 function extractBookIdFromPath(path: string): number | null {
     const fileName = path.split("/").pop() ?? path;
     const match = /(?:^|[^\d])(\d{1,2})(?:[^\d]|$)/.exec(fileName);

@@ -1,12 +1,11 @@
 
-import { App, Notice, Platform, Plugin, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
+import { Notice, Platform, Plugin, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
 import type { BibleIndex } from "./src/infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "./src/infrastructure/v2/BibleIndexV2Data";
 import { getBibleIndexDataDirectoryPath as getBibleIndexDataDirectoryPathFlow } from "./src/infrastructure/PluginDirectoryPath";
-import type { BibleReference } from "./src/domain/BibleReference";
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createBookMapping } from "./src/parsing/BookMapping";
-import type { BiblePreviewContent, BiblePreviewReferenceBlock } from "./src/application/formatBibleTexts";
+import type { BiblePreviewContent } from "./src/application/formatBibleTexts";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BiblePluginLocale, I18nKey, t } from "./src/i18n/I18n";

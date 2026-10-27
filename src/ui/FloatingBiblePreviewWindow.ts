@@ -1584,15 +1584,10 @@ export class FloatingBiblePreviewWindow {
             return;
         }
         try {
-            if (navigator.clipboard !== undefined) {
-                await navigator.clipboard.writeText(this.previewText);
-            } else {
-                this.copyBiblePreviewTextFallback();
-            }
+            await navigator.clipboard.writeText(this.previewText);
             this.showCopyNotice();
-        } catch {
-            this.copyBiblePreviewTextFallback();
-            this.showCopyNotice();
+        } catch (error) {
+            console.error("Bible Reference Preview: failed to copy preview text", error);
         }
     }
 
@@ -1600,25 +1595,6 @@ export class FloatingBiblePreviewWindow {
         new Notice(this.labels.getCopyNoticeText(), 2500);
     }
 
-    private copyBiblePreviewTextFallback(): void {
-        const textareaEl = this.createCopyFallbackTextarea();
-        document.body.appendChild(textareaEl);
-        this.copyTextFromFallbackTextarea(textareaEl);
-        textareaEl.remove();
-    }
-
-    private createCopyFallbackTextarea(): HTMLTextAreaElement {
-        const textareaEl = createEl("textarea");
-        textareaEl.value = this.previewText;
-        textareaEl.addClass("bible-preview-copy-fallback-textarea");
-        return textareaEl;
-    }
-
-    private copyTextFromFallbackTextarea(textareaEl: HTMLTextAreaElement): void {
-        textareaEl.focus();
-        textareaEl.select();
-        document.execCommand("copy");
-    }
 
     private setStyles(element: HTMLElement, styles: Record<string, string>): void {
         for (const [property, value] of Object.entries(styles)) {

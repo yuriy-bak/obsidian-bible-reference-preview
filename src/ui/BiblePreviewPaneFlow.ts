@@ -28,8 +28,8 @@ export type BiblePreviewPaneFlowInput = {
 export async function showBiblePreviewInPanel(input: BiblePreviewPaneFlowInput): Promise<void> {
     input.setLastPanePreviewContent(input.content);
     const reveal = input.reveal !== false;
-    const activeLeafBeforeOpen = input.app.workspace.activeLeaf;
-    const restoreActiveLeaf = reveal && !input.isMobile && activeLeafBeforeOpen?.view instanceof MarkdownView ? activeLeafBeforeOpen : null;
+    const activeMarkdownLeaf = input.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ?? null;
+    const restoreActiveLeaf = reveal && !input.isMobile ? activeMarkdownLeaf : null;
     const view = await getOrCreateBiblePreviewPaneView(input, { restoreActiveLeaf, reveal });
     if (view === null) {
         return;
@@ -47,9 +47,9 @@ export async function scrollBiblePreviewPane(
         return;
     }
 
-    const activeLeafBeforeScroll = input.app.workspace.activeLeaf;
+    const activeMarkdownLeaf = input.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ?? null;
     await input.revealLeafWithoutStealingEditorFocus(leaf, {
-        restoreActiveLeaf: !input.isMobile && activeLeafBeforeScroll?.view instanceof MarkdownView ? activeLeafBeforeScroll : null,
+        restoreActiveLeaf: !input.isMobile ? activeMarkdownLeaf : null,
         focus: false,
     });
     leaf.view.scrollPreview(input.command);
