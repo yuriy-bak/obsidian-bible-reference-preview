@@ -9,6 +9,9 @@ const {
 const DEFAULT_TRANSLATION_ID = "newworld";
 const { getBibleTextBlocks } = require("../.test-build/src/application/getBibleTexts.js");
 const {
+  BiblePreviewAnalyzer,
+} = require("../.test-build/src/application/BiblePreviewAnalyzer.js");
+const {
   LazyBibleIndexV2,
 } = require("../.test-build/src/infrastructure/v2/LazyBibleIndexV2.js");
 const {
@@ -712,6 +715,70 @@ const {
   assert(comparisonContent.plainText.includes("[Translation A]\n📖 Ин 3:16.\n16 Text A"));
   assert(comparisonContent.plainText.includes("^Ин 3:16 Footnote A"));
   assert(comparisonContent.plainText.includes("[Translation B]\n📖 Yhn 3:16.\n16 Text B"));
+
+  const judgesMapping = createBookMapping([
+    { id: 7, name: "Судей", abbreviation: "Суд" },
+  ]);
+  const judgesParser = new BibleReferenceParser(judgesMapping);
+  const judgesIndex = {
+    async getBibleText(query) {
+      const verseCount = query.chapter === 7 ? 25 : 35;
+      return {
+        translationId: query.translationId,
+        book: query.book,
+        bookName: "Судей",
+        chapter: query.chapter,
+        verses: Array.from({ length: verseCount }, (_, index) => ({
+          number: index + 1,
+          text: `${query.translationId} ${query.chapter}:${index + 1}`,
+          footnotes: [],
+          paragraphStart: true,
+        })),
+      };
+    },
+  };
+  let judgesComparisonEnabled = true;
+  const judgesAnalyzer = new BiblePreviewAnalyzer({
+    hasImportedTranslations: () => true,
+    getActiveTranslationId: () => "a",
+    isPreviewComparisonEnabled: () => judgesComparisonEnabled,
+    parseMatches: (text) => judgesParser.parseMatches(text),
+    getBibleTextBlocks: (references, translationId, sourceText) =>
+      getBibleTextBlocks(references, judgesIndex, translationId, sourceText),
+    formatBibleTextBlocks: (blocks) => formatBibleTextBlocks(blocks, judgesMapping),
+    formatBibleComparisonTextBlocks: (inputs) =>
+      formatBibleComparisonTextBlocks(inputs, judgesMapping),
+    getComparisonTranslationIds: () => ["a", "b"],
+    getTranslationPreviewTitle: (translationId) => translationId.toUpperCase(),
+    getComparisonMapping: () => judgesMapping,
+  });
+
+  for (const [text, expected] of [
+    [
+      "Суд7:22;8:23",
+      "[A]\n📖 Суд 7:22.\n22 a 7:22\n\n[B]\n📖 Суд 7:22.\n22 b 7:22\n\n"
+        + "[A]\n📖 Суд 8:23.\n23 a 8:23\n\n[B]\n📖 Суд 8:23.\n23 b 8:23",
+    ],
+    [
+      "Суд 7:24-8:1",
+      "[A]\n📖 Суд 7:24-25.\n24 a 7:24\n\n25 a 7:25\n\n[B]\n📖 Суд 7:24-25.\n24 b 7:24\n\n25 b 7:25\n\n"
+        + "[A]\n📖 Суд 8:1.\n1 a 8:1\n\n[B]\n📖 Суд 8:1.\n1 b 8:1",
+    ],
+  ]) {
+    judgesComparisonEnabled = true;
+    const openedInComparison = await judgesAnalyzer.analyzeParagraph(text);
+    assert.strictEqual(openedInComparison.plainText, expected);
+    assert.strictEqual(
+      openedInComparison.blocks.filter((block) => block.type === "comparison").length,
+      2
+    );
+
+    judgesComparisonEnabled = false;
+    const openedInStandard = await judgesAnalyzer.analyzeParagraph(text);
+    judgesComparisonEnabled = true;
+    const toggledToComparison = await judgesAnalyzer.rebuildContent(openedInStandard);
+    assert.strictEqual(toggledToComparison.plainText, openedInComparison.plainText);
+  }
 
   global.window = global.window || global;
 

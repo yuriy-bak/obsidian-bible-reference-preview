@@ -38,22 +38,24 @@ export class BiblePreviewAnalyzer {
 
             const matches = this.input.parseMatches(text);
             if (matches.length === 0) return null;
-            if (this.input.isPreviewComparisonEnabled()) {
-                const comparisonInputs = await Promise.all(matches.map(async (match): Promise<BiblePreviewComparisonInput> => ({
-                    title: match.text,
-                    references: match.references,
-                    translations: await this.getComparisonTranslationInputs(match.references, match.text),
-                })));
-                const content = this.input.formatBibleComparisonTextBlocks(comparisonInputs);
-                return content.plainText.length === 0 ? null : content;
-            }
 
             const bibleTextBlocks = (await Promise.all(matches.map((match) =>
                 this.input.getBibleTextBlocks(match.references, activeTranslationId, match.text),
             ))).flat();
-            if (bibleTextBlocks.length === 0) return null;
-            const content = this.input.formatBibleTextBlocks(bibleTextBlocks);
-            return content.plainText.length === 0 ? null : content;
+            const content = bibleTextBlocks.length === 0 ? null : this.input.formatBibleTextBlocks(bibleTextBlocks);
+            const standardContent = content === null || content.plainText.length === 0 ? null : content;
+
+            if (this.input.isPreviewComparisonEnabled()) {
+                // Split by chapters the same way the standard preview does, so a reference like
+                // "Judg 7:22; 8:23" gets a separate comparison block per chapter.
+                const referenceBlocks = standardContent === null ? [] : this.getPreviewReferenceBlocks(standardContent);
+                const comparisonInputs = referenceBlocks.length > 0
+                    ? referenceBlocks.map((block) => ({ title: block.title, references: block.references }))
+                    : matches.map((match) => ({ title: match.text, references: match.references }));
+                return this.buildComparisonContent(comparisonInputs);
+            }
+
+            return standardContent;
         } catch { return null; }
     }
 
@@ -63,21 +65,13 @@ export class BiblePreviewAnalyzer {
             return null;
         }
 
-        const previewReferenceBlocks = content.blocks.filter((block): block is BiblePreviewReferenceBlock | BiblePreviewComparisonBlock =>
-            block.type === "reference" || block.type === "comparison",
-        );
+        const previewReferenceBlocks = this.getPreviewReferenceBlocks(content);
         if (previewReferenceBlocks.length === 0) {
             return null;
         }
 
         if (this.input.isPreviewComparisonEnabled()) {
-            const comparisonInputs = await Promise.all(previewReferenceBlocks.map(async (block): Promise<BiblePreviewComparisonInput> => ({
-                title: block.title,
-                references: block.references,
-                translations: await this.getComparisonTranslationInputs(block.references, block.title),
-            })));
-            const comparisonContent = this.input.formatBibleComparisonTextBlocks(comparisonInputs);
-            return comparisonContent.plainText.length === 0 ? null : comparisonContent;
+            return this.buildComparisonContent(previewReferenceBlocks);
         }
 
         const bibleTextBlocks = (await Promise.all(previewReferenceBlocks.map((block) =>
@@ -86,6 +80,22 @@ export class BiblePreviewAnalyzer {
         if (bibleTextBlocks.length === 0) return null;
         const standardContent = this.input.formatBibleTextBlocks(bibleTextBlocks);
         return standardContent.plainText.length === 0 ? null : standardContent;
+    }
+
+    private getPreviewReferenceBlocks(content: BiblePreviewContent): (BiblePreviewReferenceBlock | BiblePreviewComparisonBlock)[] {
+        return content.blocks.filter((block): block is BiblePreviewReferenceBlock | BiblePreviewComparisonBlock =>
+            block.type === "reference" || block.type === "comparison",
+        );
+    }
+
+    private async buildComparisonContent(blocks: { title: string; references: BibleReference[] }[]): Promise<BiblePreviewContent | null> {
+        const comparisonInputs = await Promise.all(blocks.map(async (block): Promise<BiblePreviewComparisonInput> => ({
+            title: block.title,
+            references: block.references,
+            translations: await this.getComparisonTranslationInputs(block.references, block.title),
+        })));
+        const comparisonContent = this.input.formatBibleComparisonTextBlocks(comparisonInputs);
+        return comparisonContent.plainText.length === 0 ? null : comparisonContent;
     }
 
     private async getComparisonTranslationInputs(references: BiblePreviewReferenceBlock["references"], sourceText: string): Promise<BiblePreviewComparisonInput["translations"]> {
