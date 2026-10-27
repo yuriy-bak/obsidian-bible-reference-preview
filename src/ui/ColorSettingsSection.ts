@@ -1,4 +1,4 @@
-import { Setting } from "obsidian";
+import type { Setting, SettingDefinition } from "obsidian";
 import { createTextColorPresets, type CssColorDialogInput } from "./CssColorDialog";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, normalizeBibleReferenceLinkColor } from "./cssColorValidation";
 
@@ -11,7 +11,6 @@ type ColorSettingsI18nKey =
     | "settings.reset";
 
 export type ColorSettingsSectionInput = {
-    containerEl: HTMLElement;
     translate: (key: ColorSettingsI18nKey) => string;
     openCssColorDialog: (input: CssColorDialogInput) => void;
     openFloatingPreviewBackgroundColorDialog: () => void;
@@ -26,12 +25,25 @@ export type ColorSettingsSectionInput = {
     refresh: () => void;
 };
 
-export function renderColorSettingsSection(input: ColorSettingsSectionInput): void {
-    const { containerEl, translate } = input;
+export function createColorSettingDefinitions(input: ColorSettingsSectionInput): SettingDefinition<never>[] {
+    const { translate } = input;
 
-    const bibleReferenceLinkColorSetting = new Setting(containerEl)
-        .setName(translate("settings.linkColor.name"))
-        .setDesc(translate("settings.linkColor.desc"));
+    return [
+        {
+            name: translate("settings.linkColor.name"),
+            desc: translate("settings.linkColor.desc"),
+            render: (setting) => renderBibleReferenceLinkColorSetting(setting, input),
+        },
+        {
+            name: translate("settings.previewBackgroundColor.name"),
+            desc: translate("settings.previewBackgroundColor.desc"),
+            render: (setting) => renderFloatingPreviewBackgroundColorSetting(setting, input),
+        },
+    ];
+}
+
+function renderBibleReferenceLinkColorSetting(bibleReferenceLinkColorSetting: Setting, input: ColorSettingsSectionInput): void {
+    const { translate } = input;
 
     const openBibleReferenceLinkColorDialog = (): void => input.openCssColorDialog({
         title: translate("settings.linkColor.name"),
@@ -68,10 +80,10 @@ export function renderColorSettingsSection(input: ColorSettingsSectionInput): vo
         event.preventDefault();
         void Promise.resolve(input.resetBibleReferenceLinkColor()).then(() => input.refresh());
     });
+}
 
-    const floatingPreviewBackgroundColorSetting = new Setting(containerEl)
-        .setName(translate("settings.previewBackgroundColor.name"))
-        .setDesc(translate("settings.previewBackgroundColor.desc"));
+function renderFloatingPreviewBackgroundColorSetting(floatingPreviewBackgroundColorSetting: Setting, input: ColorSettingsSectionInput): void {
+    const { translate } = input;
 
     const openFloatingPreviewBackgroundColorDialog = (): void => input.openFloatingPreviewBackgroundColorDialog();
     const previewBackgroundSampleEl = floatingPreviewBackgroundColorSetting.controlEl.createSpan({

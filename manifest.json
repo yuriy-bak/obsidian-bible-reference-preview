@@ -1,8 +1,8 @@
 {
   "id": "bible-reference-preview",
   "name": "Bible Reference Preview",
-  "version": "0.1.9",
-  "minAppVersion": "1.7.2",
+  "version": "0.2.0",
+  "minAppVersion": "1.13.0",
   "description": "Recognize Bible references in notes and show verse previews from imported EPUB Bible translations.",
   "author": "YuBak",
   "authorUrl": "https://github.com/yuriy-bak",

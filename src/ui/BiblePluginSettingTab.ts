@@ -1,11 +1,11 @@
-import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
+import { App, Plugin, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
 import type { BiblePluginLocale, I18nKey } from "../i18n/I18n";
 import type { BibleLinkOpenShortcut, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode } from "../settings/PluginSettings";
 import type { TranslationSettingsItem } from "../translations/TranslationModels";
 import type { CssColorDialogInput } from "./CssColorDialog";
-import { renderColorSettingsSection as renderColorSettingsSectionView, type ColorSettingsSectionInput } from "./ColorSettingsSection";
-import { renderReferenceUsageIndexSettingsSection, type ReferenceUsageIndexSettingsSectionInput } from "./ReferenceUsageIndexSettingsSection";
-import { renderTranslationSettingsSection, type TranslationSettingsSectionInput } from "./TranslationSettingsList";
+import { createColorSettingDefinitions } from "./ColorSettingsSection";
+import { createReferenceUsageIndexSettingsGroup, type ReferenceUsageIndexSettingKey } from "./ReferenceUsageIndexSettingsSection";
+import { createTranslationSettingsList } from "./TranslationSettingsList";
 
 export type BiblePluginSettingTabInput = {
     t: (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
@@ -14,7 +14,7 @@ export type BiblePluginSettingTabInput = {
     setPluginActive: (isPluginActive: boolean) => Promise<void>;
     getInterfaceLanguage: () => BiblePluginLocale;
     setInterfaceLanguage: (interfaceLanguage: BiblePluginLocale) => Promise<void>;
-    openEpubFilePicker: () => void;
+    openEpubFilePicker: (hostEl?: HTMLElement) => void;
 
     getTranslationSettingsItems: () => TranslationSettingsItem[];
     deleteImportedTranslation: (translationId: string) => Promise<void>;
@@ -61,184 +61,240 @@ export type BiblePluginSettingTabInput = {
     showBibleIndexStats: () => Promise<void>;
 };
 
+type SettingControlKey =
+    | ReferenceUsageIndexSettingKey
+    | "isPluginActive"
+    | "interfaceLanguage"
+    | "previewTriggerMode"
+    | "previewDisplayMode"
+    | "autoOpenPreviewOnVerseChange"
+    | "previewPanelSide"
+    | "closePreviewOnActiveLeafChange"
+    | "interceptLinkOpenShortcut"
+    | "linkOpenShortcut";
+
+type SettingControlAccessor = {
+    get: () => unknown;
+    set: (value: unknown) => Promise<void>;
+};
+
 export class BiblePluginSettingTab extends PluginSettingTab {
-    constructor(app: App, ownerPlugin: Plugin, private readonly plugin: BiblePluginSettingTabInput) { super(app, ownerPlugin); }
+    private readonly controlAccessors: Record<SettingControlKey, SettingControlAccessor>;
 
-    display(): void {
-        const { containerEl } = this;
-        containerEl.empty();
-        this.renderGeneralSettings(containerEl);
-
-        this.renderTranslationsSection(containerEl);
-        this.renderReferenceUsageIndexSection(containerEl);
-
-        this.renderPreviewSettings(containerEl);
-
-        this.renderColorSettingsSection(containerEl);
-        this.renderBibleIndexSettings(containerEl);
+    constructor(app: App, ownerPlugin: Plugin, private readonly plugin: BiblePluginSettingTabInput) {
+        super(app, ownerPlugin);
+        this.controlAccessors = this.createControlAccessors();
     }
 
-    private renderGeneralSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.pluginActive.name"))
-            .setDesc(this.plugin.t("settings.pluginActive.desc"))
-            .addToggle((toggle) => toggle
-                .setValue(this.plugin.isPluginActive())
-                .onChange(async (value) => {
-                    await this.plugin.setPluginActive(value);
-                }));
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.interfaceLanguage.name"))
-            .setDesc(this.plugin.t("settings.interfaceLanguage.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("ru", this.plugin.t("settings.interfaceLanguage.ru"))
-                    .addOption("en", this.plugin.t("settings.interfaceLanguage.en"))
-                    .setValue(this.plugin.getInterfaceLanguage())
-                    .onChange((value) => void this.plugin.setInterfaceLanguage(value as BiblePluginLocale));
-            });
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.import.name"))
-            .setDesc(this.plugin.t("settings.import.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.import.button")).setCta().onClick(() => this.plugin.openEpubFilePicker()));
+    getSettingDefinitions(): SettingDefinitionItem<SettingControlKey>[] {
+        return [
+            ...this.createGeneralSettings(),
+            createTranslationSettingsList({
+                translations: this.plugin.getTranslationSettingsItems(),
+                translate: (key, params) => this.plugin.t(key, params),
+                onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
+                onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
+                onImport: (hostEl) => this.plugin.openEpubFilePicker(hostEl),
+                refresh: () => this.update(),
+            }),
+            createReferenceUsageIndexSettingsGroup({
+                translate: (key) => this.plugin.t(key),
+                buildIndex: () => this.plugin.buildReferenceUsageIndex(),
+                rebuildIndex: () => this.plugin.rebuildReferenceUsageIndex(),
+                showStats: () => this.plugin.showReferenceUsageIndexStats(),
+                clearIndex: () => this.plugin.clearReferenceUsageIndex(),
+            }),
+            this.createPreviewSettingsGroup(),
+            {
+                type: "group",
+                heading: this.plugin.t("settings.colors.title"),
+                items: createColorSettingDefinitions({
+                    translate: (key) => this.plugin.t(key),
+                    openCssColorDialog: (input) => this.plugin.openCssColorDialog(input),
+                    openFloatingPreviewBackgroundColorDialog: () => this.plugin.openFloatingPreviewBackgroundColorDialog(),
+                    getBibleReferenceLinkColor: () => this.plugin.getBibleReferenceLinkColor(),
+                    getBibleReferenceLinkColorPickerValue: () => this.plugin.getBibleReferenceLinkColorPickerValue(),
+                    isBibleReferenceLinkColorDefault: () => this.plugin.isBibleReferenceLinkColorDefault(),
+                    setBibleReferenceLinkColor: (color) => this.plugin.setBibleReferenceLinkColor(color),
+                    resetBibleReferenceLinkColor: () => this.plugin.resetBibleReferenceLinkColor(),
+                    getFloatingPreviewBackgroundColor: () => this.plugin.getFloatingPreviewBackgroundColor(),
+                    isFloatingPreviewBackgroundColorDefault: () => this.plugin.isFloatingPreviewBackgroundColorDefault(),
+                    resetFloatingPreviewBackgroundColor: () => this.plugin.resetFloatingPreviewBackgroundColor(),
+                    refresh: () => this.update(),
+                }),
+            },
+            this.createBibleIndexSettingsGroup(),
+        ];
     }
 
-    private renderTranslationsSection(containerEl: HTMLElement): void {
-        renderTranslationSettingsSection(this.createTranslationSettingsSectionInput(containerEl));
+    getControlValue(key: string): unknown {
+        return this.getControlAccessor(key)?.get();
     }
 
-    private createTranslationSettingsSectionInput(containerEl: HTMLElement): TranslationSettingsSectionInput {
+    async setControlValue(key: string, value: unknown): Promise<void> {
+        const accessor = this.getControlAccessor(key);
+        if (accessor === undefined) {
+            return;
+        }
+        await accessor.set(value);
+        // Re-evaluate `disabled` predicates that depend on the changed value.
+        this.refreshDomState();
+    }
+
+    private getControlAccessor(key: string): SettingControlAccessor | undefined {
+        return Object.prototype.hasOwnProperty.call(this.controlAccessors, key)
+            ? this.controlAccessors[key as SettingControlKey]
+            : undefined;
+    }
+
+    private createControlAccessors(): Record<SettingControlKey, SettingControlAccessor> {
+        const { plugin } = this;
         return {
-            containerEl,
-            translations: this.plugin.getTranslationSettingsItems(),
-            translate: (key, params) => this.plugin.t(key, params),
-            onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
-            getCurrentOrder: () => this.plugin.getTranslationSettingsItems().map((item) => item.id),
-            onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
-            refresh: () => this.display(),
+            isPluginActive: { get: () => plugin.isPluginActive(), set: (value) => plugin.setPluginActive(value === true) },
+            interfaceLanguage: { get: () => plugin.getInterfaceLanguage(), set: (value) => plugin.setInterfaceLanguage(value as BiblePluginLocale) },
+            referenceUsageIndexingEnabled: { get: () => plugin.isReferenceUsageIndexingEnabled(), set: (value) => plugin.setReferenceUsageIndexingEnabled(value === true) },
+            referenceUsageAutoUpdate: { get: () => plugin.shouldAutoUpdateReferenceUsageIndex(), set: (value) => plugin.setReferenceUsageAutoUpdate(value === true) },
+            referenceUsageExcludedFolders: { get: () => plugin.getReferenceUsageExcludedFoldersText(), set: (value) => plugin.setReferenceUsageExcludedFoldersText(String(value)) },
+            previewTriggerMode: { get: () => plugin.getBiblePreviewTriggerMode(), set: (value) => plugin.setBiblePreviewTriggerMode(value as BiblePreviewTriggerMode) },
+            previewDisplayMode: { get: () => plugin.getBiblePreviewDisplayMode(), set: (value) => plugin.setBiblePreviewDisplayMode(value as BiblePreviewDisplayMode) },
+            autoOpenPreviewOnVerseChange: { get: () => plugin.shouldAutoOpenPreviewOnVerseChange(), set: (value) => plugin.setAutoOpenPreviewOnVerseChange(value === true) },
+            previewPanelSide: { get: () => plugin.getBiblePreviewPanelSide(), set: (value) => plugin.setBiblePreviewPanelSide(value as BiblePreviewPanelSide) },
+            closePreviewOnActiveLeafChange: { get: () => plugin.shouldClosePreviewOnActiveLeafChange(), set: (value) => plugin.setClosePreviewOnActiveLeafChange(value === true) },
+            interceptLinkOpenShortcut: { get: () => plugin.shouldInterceptLinkOpenShortcut(), set: (value) => plugin.setInterceptLinkOpenShortcut(value === true) },
+            linkOpenShortcut: { get: () => plugin.getBibleLinkOpenShortcut(), set: (value) => plugin.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut) },
         };
     }
 
-    private renderReferenceUsageIndexSection(containerEl: HTMLElement): void {
-        renderReferenceUsageIndexSettingsSection(this.createReferenceUsageIndexSettingsSectionInput(containerEl));
+    private createGeneralSettings(): SettingDefinitionItem<SettingControlKey>[] {
+        return [
+            {
+                name: this.plugin.t("settings.pluginActive.name"),
+                desc: this.plugin.t("settings.pluginActive.desc"),
+                control: { type: "toggle", key: "isPluginActive" },
+            },
+            {
+                name: this.plugin.t("settings.interfaceLanguage.name"),
+                desc: this.plugin.t("settings.interfaceLanguage.desc"),
+                control: {
+                    type: "dropdown",
+                    key: "interfaceLanguage",
+                    options: {
+                        ru: this.plugin.t("settings.interfaceLanguage.ru"),
+                        en: this.plugin.t("settings.interfaceLanguage.en"),
+                    },
+                },
+            },
+            {
+                name: this.plugin.t("settings.import.name"),
+                desc: this.plugin.t("settings.import.desc"),
+                render: (setting) => {
+                    setting.addButton((button) => button
+                        .setButtonText(this.plugin.t("settings.import.button"))
+                        .setCta()
+                        .onClick(() => this.plugin.openEpubFilePicker(setting.settingEl)));
+                },
+            },
+        ];
     }
 
-    private createReferenceUsageIndexSettingsSectionInput(containerEl: HTMLElement): ReferenceUsageIndexSettingsSectionInput {
+    private createPreviewSettingsGroup(): SettingDefinitionItem<SettingControlKey> {
         return {
-            containerEl,
-            translate: (key) => this.plugin.t(key),
-            isEnabled: () => this.plugin.isReferenceUsageIndexingEnabled(),
-            setEnabled: (value) => this.plugin.setReferenceUsageIndexingEnabled(value),
-            isAutoUpdateEnabled: () => this.plugin.shouldAutoUpdateReferenceUsageIndex(),
-            setAutoUpdateEnabled: (value) => this.plugin.setReferenceUsageAutoUpdate(value),
-            getExcludedFoldersText: () => this.plugin.getReferenceUsageExcludedFoldersText(),
-            setExcludedFoldersText: (value) => this.plugin.setReferenceUsageExcludedFoldersText(value),
-            buildIndex: () => this.plugin.buildReferenceUsageIndex(),
-            rebuildIndex: () => this.plugin.rebuildReferenceUsageIndex(),
-            showStats: () => this.plugin.showReferenceUsageIndexStats(),
-            clearIndex: () => this.plugin.clearReferenceUsageIndex(),
+            type: "group",
+            heading: this.plugin.t("settings.preview.title"),
+            items: [
+                {
+                    name: this.plugin.t("settings.previewMode.name"),
+                    desc: this.plugin.t("settings.previewMode.desc"),
+                    control: {
+                        type: "dropdown",
+                        key: "previewTriggerMode",
+                        options: {
+                            "current-paragraph": this.plugin.t("settings.previewMode.currentParagraph"),
+                            "clicked-reference": this.plugin.t("settings.previewMode.clickedReference"),
+                        },
+                    },
+                },
+                {
+                    name: this.plugin.t("settings.previewDisplayMode.name"),
+                    desc: this.plugin.t("settings.previewDisplayMode.desc"),
+                    control: {
+                        type: "dropdown",
+                        key: "previewDisplayMode",
+                        options: {
+                            floating: this.plugin.t("settings.previewDisplayMode.floating"),
+                            "side-panel": this.plugin.t("settings.previewDisplayMode.sidePanel"),
+                        },
+                    },
+                },
+                {
+                    name: this.plugin.t("settings.autoOpenPreviewOnVerseChange.name"),
+                    desc: this.plugin.t("settings.autoOpenPreviewOnVerseChange.desc"),
+                    control: { type: "toggle", key: "autoOpenPreviewOnVerseChange" },
+                },
+                {
+                    name: this.plugin.t("settings.previewPanelSide.name"),
+                    desc: this.plugin.t("settings.previewPanelSide.desc"),
+                    control: {
+                        type: "dropdown",
+                        key: "previewPanelSide",
+                        options: {
+                            right: this.plugin.t("settings.previewPanelSide.right"),
+                            left: this.plugin.t("settings.previewPanelSide.left"),
+                        },
+                    },
+                },
+                {
+                    name: this.plugin.t("settings.closePreviewOnTabChange.name"),
+                    desc: this.plugin.t("settings.closePreviewOnTabChange.desc"),
+                    control: { type: "toggle", key: "closePreviewOnActiveLeafChange" },
+                },
+                {
+                    name: this.plugin.t("settings.hotkey.name"),
+                    desc: this.plugin.t("settings.hotkey.desc"),
+                    control: { type: "toggle", key: "interceptLinkOpenShortcut" },
+                },
+                {
+                    name: this.plugin.t("settings.hotkey.shortcut.name"),
+                    desc: this.plugin.t("settings.hotkey.shortcut.desc"),
+                    control: {
+                        type: "dropdown",
+                        key: "linkOpenShortcut",
+                        options: {
+                            "alt-enter": "Alt+Enter",
+                            "ctrl-enter": "Ctrl+Enter",
+                            "ctrl-alt-enter": "Ctrl+Alt+Enter",
+                        },
+                        disabled: () => !this.plugin.shouldInterceptLinkOpenShortcut(),
+                    },
+                },
+            ],
         };
     }
 
-    private renderPreviewSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.previewMode.name"))
-            .setDesc(this.plugin.t("settings.previewMode.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("current-paragraph", this.plugin.t("settings.previewMode.currentParagraph"))
-                    .addOption("clicked-reference", this.plugin.t("settings.previewMode.clickedReference"))
-                    .setValue(this.plugin.getBiblePreviewTriggerMode())
-                    .onChange((value) => void this.plugin.setBiblePreviewTriggerMode(value as BiblePreviewTriggerMode));
-            });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.previewDisplayMode.name"))
-            .setDesc(this.plugin.t("settings.previewDisplayMode.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("floating", this.plugin.t("settings.previewDisplayMode.floating"))
-                    .addOption("side-panel", this.plugin.t("settings.previewDisplayMode.sidePanel"))
-                    .setValue(this.plugin.getBiblePreviewDisplayMode())
-                    .onChange((value) => void this.plugin.setBiblePreviewDisplayMode(value as BiblePreviewDisplayMode));
-            });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.autoOpenPreviewOnVerseChange.name"))
-            .setDesc(this.plugin.t("settings.autoOpenPreviewOnVerseChange.desc"))
-            .addToggle((toggle) => {
-                toggle
-                    .setValue(this.plugin.shouldAutoOpenPreviewOnVerseChange())
-                    .onChange((value) => void this.plugin.setAutoOpenPreviewOnVerseChange(value));
-            });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.previewPanelSide.name"))
-            .setDesc(this.plugin.t("settings.previewPanelSide.desc"))
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("right", this.plugin.t("settings.previewPanelSide.right"))
-                    .addOption("left", this.plugin.t("settings.previewPanelSide.left"))
-                    .setValue(this.plugin.getBiblePreviewPanelSide())
-                    .onChange((value) => void this.plugin.setBiblePreviewPanelSide(value as BiblePreviewPanelSide));
-            });
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.closePreviewOnTabChange.name"))
-            .setDesc(this.plugin.t("settings.closePreviewOnTabChange.desc"))
-            .addToggle((toggle) => {
-                toggle
-                    .setValue(this.plugin.shouldClosePreviewOnActiveLeafChange())
-                    .onChange((value) => void this.plugin.setClosePreviewOnActiveLeafChange(value));
-            });
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.hotkey.name"))
-            .setDesc(this.plugin.t("settings.hotkey.desc"))
-            .addToggle((toggle) => {
-                toggle
-                    .setValue(this.plugin.shouldInterceptLinkOpenShortcut())
-                    .onChange((value) => void this.plugin.setInterceptLinkOpenShortcut(value));
-            })
-            .addDropdown((dropdown) => {
-                dropdown
-                    .addOption("alt-enter", "Alt+Enter")
-                    .addOption("ctrl-enter", "Ctrl+Enter")
-                    .addOption("ctrl-alt-enter", "Ctrl+Alt+Enter")
-                    .setValue(this.plugin.getBibleLinkOpenShortcut())
-                    .onChange((value) => void this.plugin.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut));
-            });
-    }
-
-    private renderColorSettingsSection(containerEl: HTMLElement): void {
-        renderColorSettingsSectionView(this.createColorSettingsSectionInput(containerEl));
-    }
-
-    private createColorSettingsSectionInput(containerEl: HTMLElement): ColorSettingsSectionInput {
+    private createBibleIndexSettingsGroup(): SettingDefinitionItem<SettingControlKey> {
         return {
-            containerEl,
-            translate: (key) => this.plugin.t(key),
-            openCssColorDialog: (input) => this.plugin.openCssColorDialog(input),
-            openFloatingPreviewBackgroundColorDialog: () => this.plugin.openFloatingPreviewBackgroundColorDialog(),
-            getBibleReferenceLinkColor: () => this.plugin.getBibleReferenceLinkColor(),
-            getBibleReferenceLinkColorPickerValue: () => this.plugin.getBibleReferenceLinkColorPickerValue(),
-            isBibleReferenceLinkColorDefault: () => this.plugin.isBibleReferenceLinkColorDefault(),
-            setBibleReferenceLinkColor: (color) => this.plugin.setBibleReferenceLinkColor(color),
-            resetBibleReferenceLinkColor: () => this.plugin.resetBibleReferenceLinkColor(),
-            getFloatingPreviewBackgroundColor: () => this.plugin.getFloatingPreviewBackgroundColor(),
-            isFloatingPreviewBackgroundColorDefault: () => this.plugin.isFloatingPreviewBackgroundColorDefault(),
-            resetFloatingPreviewBackgroundColor: () => this.plugin.resetFloatingPreviewBackgroundColor(),
-            refresh: () => this.display(),
+            type: "group",
+            heading: this.plugin.t("settings.bibleIndex.title"),
+            items: [
+                {
+                    name: this.plugin.t("settings.openIndexFolder.name"),
+                    desc: this.plugin.t("settings.openIndexFolder.desc"),
+                    render: (setting) => {
+                        setting.addButton((button) => button
+                            .setButtonText(this.plugin.t("settings.openIndexFolder.button"))
+                            .onClick(() => void this.plugin.openBibleIndexFolder()));
+                    },
+                },
+                {
+                    name: this.plugin.t("settings.showStats.name"),
+                    desc: this.plugin.t("settings.showStats.desc"),
+                    render: (setting) => {
+                        setting.addButton((button) => button
+                            .setButtonText(this.plugin.t("settings.showStats.button"))
+                            .onClick(() => void this.plugin.showBibleIndexStats()));
+                    },
+                },
+            ],
         };
-    }
-
-    private renderBibleIndexSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.openIndexFolder.name"))
-            .setDesc(this.plugin.t("settings.openIndexFolder.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.openIndexFolder.button")).onClick(() => void this.plugin.openBibleIndexFolder()));
-
-        new Setting(containerEl)
-            .setName(this.plugin.t("settings.showStats.name"))
-            .setDesc(this.plugin.t("settings.showStats.desc"))
-            .addButton((button) => button.setButtonText(this.plugin.t("settings.showStats.button")).onClick(() => void this.plugin.showBibleIndexStats()));
     }
 }

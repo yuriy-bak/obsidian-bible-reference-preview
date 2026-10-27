@@ -56,7 +56,7 @@ export default class BiblePlugin extends Plugin {
     private bibleIndex = EMPTY_BIBLE_INDEX;
     private activeV2Data: BibleIndexV2Data | null = null;
     private activeTranslationId: string | null = null;
-    private settings: BiblePluginSettings = { ...DEFAULT_SETTINGS };
+    settings: BiblePluginSettings = { ...DEFAULT_SETTINGS };
     private settingsTab: BiblePluginSettingTab | null = null;
     private readingModePreviewController: BibleReadingModePreviewController | null = null;
     private floatingPreviewWindow: FloatingBiblePreviewWindow | null = null;
@@ -184,8 +184,8 @@ export default class BiblePlugin extends Plugin {
         await reloadBibleIndexFlow(this.createBibleIndexPluginFlowInput());
     }
 
-    public openEpubFilePicker(): void {
-        openEpubFilePickerFlow(this.createBibleIndexPluginFlowInput());
+    public openEpubFilePicker(hostEl?: HTMLElement): void {
+        openEpubFilePickerFlow(this.createBibleIndexPluginFlowInput(), hostEl);
     }
 
     public async importEpubFile(file: File): Promise<void> {
@@ -640,7 +640,7 @@ export default class BiblePlugin extends Plugin {
     }
 
     private refreshSettingsTab(): void {
-        this.settingsTab?.display();
+        this.settingsTab?.update();
     }
 
     private createBiblePreviewPluginFlowInput(): BiblePreviewPluginFlowInput {
