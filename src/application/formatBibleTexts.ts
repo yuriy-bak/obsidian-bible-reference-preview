@@ -3,6 +3,7 @@ import { Verse } from "../domain/BibleText";
 import { ChapterVerseRange } from "../domain/ChapterVerseRange";
 import { BookMapping } from "../parsing/BookMapping";
 import { formatBibleReference } from "../parsing/formatBibleReference";
+import { BibleChapterLocation, BibleChapterTarget, getChapterTargetFromReferences, isVerseInRanges } from "./BibleChapterNavigation";
 import { BibleTextBlock, BibleTextPart } from "./BibleTextBlock";
 
 const DEFAULT_MISSING_VERSE_TEXT = "[стих не найден]";
@@ -11,6 +12,15 @@ const DIFFERENT_BOOK_SEPARATOR = "__________";
 export type BiblePreviewContent = {
     plainText: string;
     blocks: BiblePreviewBlock[];
+    chapterView?: BiblePreviewChapterView;
+    // Scroll position to restore when this content is shown again (e.g. after "Back").
+    scrollTop?: number;
+};
+
+export type BiblePreviewChapterView = BibleChapterTarget & {
+    title: string;
+    previous: BibleChapterLocation | null;
+    next: BibleChapterLocation | null;
 };
 
 export type BiblePreviewReferenceBlock = {
@@ -22,6 +32,7 @@ export type BiblePreviewReferenceBlock = {
 
 export type BiblePreviewComparisonTranslation = {
     translationName: string;
+    isMain?: boolean;
     referenceTitle: string;
     paragraphs: BiblePreviewParagraph[];
     footnotes: string[];
@@ -51,15 +62,53 @@ export type BiblePreviewComparisonInput = {
     references: BibleReference[];
     translations: {
         translationName: string;
+        isMain?: boolean;
         blocks: BibleTextBlock[];
         mapping: BookMapping;
     }[];
+    formatReferenceTitle?: (mapping: BookMapping) => string;
 };
 
 export type BiblePreviewRenderOptions = {
     getFindUsagesButtonText?: () => string;
     getFindUsagesButtonAria?: (block: BiblePreviewReferenceBlock) => string;
     onFindUsages?: (block: BiblePreviewReferenceBlock) => void;
+    getOpenChapterAria?: (title: string) => string;
+    onOpenChapter?: (target: BibleChapterTarget) => void;
+    getChapterNavigationLabels?: () => BiblePreviewChapterNavigationLabels;
+    onNavigateChapter?: (location: BibleChapterLocation) => void;
+    onBackFromChapter?: () => void;
+};
+
+// Chapter-related callbacks as the preview views receive them; the views add their current content and scroll.
+export type BiblePreviewChapterViewInput = {
+    getOpenChapterAria?: (title: string) => string;
+    onOpenChapter?: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) => void;
+    getChapterNavigationLabels?: () => BiblePreviewChapterNavigationLabels;
+    onNavigateChapter?: (location: BibleChapterLocation) => void;
+    onBackFromChapter?: () => void;
+};
+
+export function createChapterRenderOptions(
+    input: BiblePreviewChapterViewInput,
+    content: BiblePreviewContent,
+    getScrollTop: () => number,
+): BiblePreviewRenderOptions {
+    const onOpenChapter = input.onOpenChapter;
+    return {
+        getOpenChapterAria: input.getOpenChapterAria,
+        onOpenChapter: onOpenChapter === undefined ? undefined : (target) => onOpenChapter(target, content, getScrollTop()),
+        getChapterNavigationLabels: input.getChapterNavigationLabels,
+        onNavigateChapter: input.onNavigateChapter,
+        onBackFromChapter: input.onBackFromChapter,
+    };
+}
+
+export type BiblePreviewChapterNavigationLabels = {
+    back: string;
+    backAria: string;
+    previousAria: string;
+    nextAria: string;
 };
 
 export function formatBibleComparisonTextBlocks(
@@ -75,7 +124,9 @@ export function formatBibleComparisonTextBlocks(
                 const content = formatBibleTextBlocks(translation.blocks, translation.mapping, missingVerseText);
                 return {
                     translationName: translation.translationName,
-                    referenceTitle: formatComparisonReferenceTitle(input.references, translation.mapping),
+                    isMain: translation.isMain,
+                    referenceTitle: input.formatReferenceTitle?.(translation.mapping)
+                        ?? formatComparisonReferenceTitle(input.references, translation.mapping),
                     paragraphs: content.blocks
                         .filter((block): block is BiblePreviewReferenceBlock => block.type === "reference")
                         .flatMap((block) => block.paragraphs),
@@ -111,6 +162,7 @@ export type BiblePreviewParagraph = {
 export type BiblePreviewVerse = {
     number: number;
     text: string;
+    highlighted?: boolean;
 };
 
 type RenderedReferenceBlock = {
@@ -172,6 +224,12 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
     const fragment = createFragment();
 
     let previousRenderedBlockType: "reference" | "footnote" | "separator" | null = null;
+    const chapterView = content.chapterView;
+    const onOpenChapter = chapterView === undefined ? options.onOpenChapter : undefined;
+
+    if (chapterView !== undefined && options.onBackFromChapter !== undefined) {
+        fragment.appendChild(createChapterNavigation(chapterView, options));
+    }
 
     for (const block of content.blocks) {
         if (block.type === "separator") {
@@ -214,7 +272,10 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
 
                 const translationReferenceEl = createDiv();
                 translationReferenceEl.className = "bible-preview-comparison-reference-title";
-                translationReferenceEl.textContent = `${translation.referenceTitle}.`;
+                const chapterTarget = onOpenChapter !== undefined && translation.isMain === true
+                    ? getChapterTargetFromReferences(block.references)
+                    : null;
+                appendReferenceTitle(translationReferenceEl, translation.referenceTitle, chapterTarget, options);
                 comparisonEl.appendChild(translationReferenceEl);
 
                 translation.paragraphs.forEach((paragraph) => {
@@ -241,19 +302,23 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         const referenceEl = createDiv();
         referenceEl.className = "bible-preview-reference-block";
 
-        const titleRowEl = createDiv();
-        titleRowEl.className = "bible-preview-reference-title-row";
+        // In chapter view the navigation bar already shows the chapter title.
+        if (chapterView === undefined) {
+            const titleRowEl = createDiv();
+            titleRowEl.className = "bible-preview-reference-title-row";
 
-        const titleEl = createDiv();
-        titleEl.className = "bible-preview-reference-title";
-        titleEl.textContent = `${block.title}.`;
-        titleRowEl.appendChild(titleEl);
+            const titleEl = createDiv();
+            titleEl.className = "bible-preview-reference-title";
+            const chapterTarget = onOpenChapter !== undefined ? getChapterTargetFromReferences(block.references) : null;
+            appendReferenceTitle(titleEl, block.title, chapterTarget, options);
+            titleRowEl.appendChild(titleEl);
 
-        if (options.onFindUsages !== undefined && block.references.length > 0) {
-            titleRowEl.appendChild(createFindUsagesButton(block, options));
+            if (options.onFindUsages !== undefined && block.references.length > 0) {
+                titleRowEl.appendChild(createFindUsagesButton(block, options));
+            }
+
+            referenceEl.appendChild(titleRowEl);
         }
-
-        referenceEl.appendChild(titleRowEl);
 
         block.paragraphs.forEach((paragraph) => {
             const paragraphEl = createDiv();
@@ -269,6 +334,157 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
     }
 
     containerEl.replaceChildren(fragment);
+}
+
+const BOOK_ICON = "📖";
+
+function appendReferenceTitle(
+    titleEl: HTMLElement,
+    title: string,
+    chapterTarget: BibleChapterTarget | null,
+    options: BiblePreviewRenderOptions,
+): void {
+    if (chapterTarget === null || options.onOpenChapter === undefined) {
+        titleEl.textContent = `${title}.`;
+        return;
+    }
+
+    const titleText = title.startsWith(BOOK_ICON) ? title.slice(BOOK_ICON.length).trimStart() : title;
+    titleEl.appendChild(createOpenChapterButton(titleText, chapterTarget, options));
+    titleEl.appendChild(document.createTextNode(` ${titleText}.`));
+}
+
+function createOpenChapterButton(titleText: string, target: BibleChapterTarget, options: BiblePreviewRenderOptions): HTMLElement {
+    const buttonEl = createSpan();
+    buttonEl.className = "bible-preview-open-chapter-button";
+    buttonEl.textContent = BOOK_ICON;
+    buttonEl.setAttribute("role", "button");
+    buttonEl.setAttribute("tabindex", "0");
+    const ariaLabel = options.getOpenChapterAria?.(titleText) ?? titleText;
+    buttonEl.setAttribute("aria-label", ariaLabel);
+    buttonEl.setAttribute("title", ariaLabel);
+    buttonEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        options.onOpenChapter?.(target);
+    });
+    buttonEl.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        options.onOpenChapter?.(target);
+    });
+    return buttonEl;
+}
+
+function createChapterNavigation(chapterView: BiblePreviewChapterView, options: BiblePreviewRenderOptions): HTMLElement {
+    const labels = options.getChapterNavigationLabels?.() ?? {
+        back: "↩ Back",
+        backAria: "Back to reference",
+        previousAria: "Previous chapter",
+        nextAria: "Next chapter",
+    };
+
+    const navigationEl = createDiv();
+    navigationEl.className = "bible-preview-chapter-navigation";
+
+    navigationEl.appendChild(createChapterNavigationButton(labels.back, labels.backAria, true, () => options.onBackFromChapter?.()));
+
+    const titleEl = createDiv();
+    titleEl.className = "bible-preview-chapter-navigation-title";
+    titleEl.textContent = chapterView.title;
+    navigationEl.appendChild(titleEl);
+
+    const previous = chapterView.previous;
+    const next = chapterView.next;
+    navigationEl.appendChild(createChapterNavigationButton("←", labels.previousAria, previous !== null, () => {
+        if (previous !== null) options.onNavigateChapter?.(previous);
+    }));
+    navigationEl.appendChild(createChapterNavigationButton("→", labels.nextAria, next !== null, () => {
+        if (next !== null) options.onNavigateChapter?.(next);
+    }));
+
+    return navigationEl;
+}
+
+function createChapterNavigationButton(text: string, ariaLabel: string, enabled: boolean, onClick: () => void): HTMLButtonElement {
+    const buttonEl = createEl("button");
+    buttonEl.type = "button";
+    buttonEl.className = "bible-preview-chapter-navigation-button";
+    buttonEl.textContent = text;
+    buttonEl.disabled = !enabled;
+    buttonEl.setAttribute("aria-label", ariaLabel);
+    buttonEl.setAttribute("title", ariaLabel);
+    buttonEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+    });
+    return buttonEl;
+}
+
+// Restores a saved scroll position, or scrolls a chapter view to its first highlighted verse.
+export function applyBiblePreviewScroll(containerEl: HTMLElement, content: BiblePreviewContent): void {
+    if (content.scrollTop !== undefined) {
+        containerEl.scrollTop = content.scrollTop;
+        return;
+    }
+
+    if (content.chapterView === undefined) {
+        return;
+    }
+
+    const highlightedEl = containerEl.querySelector(".bible-preview-verse-highlighted");
+    if (!(highlightedEl instanceof HTMLElement)) {
+        containerEl.scrollTop = 0;
+        return;
+    }
+
+    const navigationEl = containerEl.querySelector(".bible-preview-chapter-navigation");
+    const navigationHeight = navigationEl instanceof HTMLElement ? navigationEl.offsetHeight : 0;
+    const offset = highlightedEl.getBoundingClientRect().top - containerEl.getBoundingClientRect().top;
+    containerEl.scrollTop = Math.max(0, containerEl.scrollTop + offset - navigationHeight - 8);
+}
+
+export function formatBibleChapterTitle(location: BibleChapterLocation, mapping: BookMapping): string {
+    const bookName = mapping.idToDisplayName.get(location.book) ?? String(location.book);
+    return mapping.oneChapterBooks.has(location.book)
+        ? `${BOOK_ICON} ${bookName}`
+        : `${BOOK_ICON} ${bookName} ${location.chapter}`;
+}
+
+export function toBibleChapterPreviewContent(content: BiblePreviewContent, chapterView: BiblePreviewChapterView): BiblePreviewContent {
+    const highlightParagraphs = (paragraphs: BiblePreviewParagraph[]): BiblePreviewParagraph[] => paragraphs.map((paragraph) => ({
+        verses: paragraph.verses.map((verse) => ({
+            ...verse,
+            highlighted: isVerseInRanges(verse.number, chapterView.highlightedRanges),
+        })),
+    }));
+
+    const blocks = content.blocks.map((block): BiblePreviewBlock => {
+        if (block.type === "reference") {
+            return { ...block, title: chapterView.title, paragraphs: highlightParagraphs(block.paragraphs) };
+        }
+        if (block.type === "comparison") {
+            return {
+                ...block,
+                title: chapterView.title,
+                translations: block.translations.map((translation) => ({
+                    ...translation,
+                    paragraphs: highlightParagraphs(translation.paragraphs),
+                })),
+            };
+        }
+        return block;
+    });
+
+    return {
+        blocks,
+        plainText: buildPlainText(blocks),
+        chapterView,
+    };
 }
 
 function createFindUsagesButton(block: BiblePreviewReferenceBlock, options: BiblePreviewRenderOptions): HTMLButtonElement {
@@ -682,12 +898,19 @@ function appendPreviewVerses(containerEl: HTMLElement, verses: BiblePreviewVerse
             containerEl.appendChild(document.createTextNode(" "));
         }
 
+        let verseEl = containerEl;
+        if (verse.highlighted === true) {
+            verseEl = createSpan();
+            verseEl.className = "bible-preview-verse-highlighted";
+            containerEl.appendChild(verseEl);
+        }
+
         const numberEl = createEl("strong");
         numberEl.className = "bible-preview-verse-number";
         numberEl.textContent = String(verse.number);
-        containerEl.appendChild(numberEl);
-        containerEl.appendChild(document.createTextNode(" "));
-        appendTextWithLineBreaks(containerEl, verse.text);
+        verseEl.appendChild(numberEl);
+        verseEl.appendChild(document.createTextNode(" "));
+        appendTextWithLineBreaks(verseEl, verse.text);
     });
 }
 

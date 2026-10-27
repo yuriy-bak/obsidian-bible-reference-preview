@@ -35,3 +35,21 @@ export async function getBibleTextBlocks(
 
     return blocks;
 }
+
+export async function getBibleChapterTextBlock(
+    book: number,
+    chapter: number,
+    bibleIndex: BibleIndex,
+    translationId: string,
+): Promise<BibleTextBlock | null> {
+    const bibleText = await bibleIndex.getBibleText({ translationId, book, chapter, verseStart: 1 });
+    if (bibleText === null || bibleText.verses.length === 0) {
+        return null;
+    }
+
+    const lastVerse = Math.max(...bibleText.verses.map((verse) => verse.number));
+    return {
+        reference: { book, chapterStart: chapter, verseStart: 1, chapterEnd: chapter, verseEnd: lastVerse },
+        parts: [{ range: { book, chapter, verseStart: 1 }, bibleText }],
+    };
+}
