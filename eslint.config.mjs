@@ -1,6 +1,7 @@
-import tseslint from "typescript-eslint";
+import { defineConfig } from "eslint/config";
+import obsidianmd from "eslint-plugin-obsidianmd";
 
-export default tseslint.config(
+export default defineConfig([
   {
     ignores: [
       "node_modules/",
@@ -12,32 +13,33 @@ export default tseslint.config(
       "data/",
       "main.js",
       "**/*.js.map",
-      "src/**/*.js"
+      "src/**/*.js",
+      "scripts/",
+      "tests/",
+      "esbuild.config.mjs",
+      "eslint.config.mjs"
     ]
   },
+  ...obsidianmd.configs.recommended,
   {
     files: ["**/*.ts"],
     languageOptions: {
-      parser: tseslint.parser,
-      ecmaVersion: "latest",
-      sourceType: "module"
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname
+      }
     }
   },
   {
-    files: ["**/*.js", "**/*.mjs"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
-      globals: {
-        console: "readonly",
-        process: "readonly",
-        Buffer: "readonly",
-        URL: "readonly",
-        __dirname: "readonly",
-        require: "readonly",
-        module: "readonly",
-        exports: "readonly"
-      }
+    // Reported only as warnings by the Obsidian plugin review; kept as warnings until they are fixed.
+    files: ["**/*.ts"],
+    rules: {
+      "@typescript-eslint/unbound-method": "warn",
+      "@typescript-eslint/no-misused-promises": "warn",
+      "@typescript-eslint/no-unsafe-argument": "warn",
+      "@typescript-eslint/await-thenable": "warn",
+      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+      "no-useless-escape": "warn"
     }
   }
-);
+]);

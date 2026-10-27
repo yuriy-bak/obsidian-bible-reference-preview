@@ -1,10 +1,7 @@
 import type { ReferenceUsageSearchResult } from "../reference-usage/ReferenceUsageIndexService";
 
 export function renderReferenceUsageExcerpt(containerEl: HTMLElement, result: ReferenceUsageSearchResult): HTMLElement {
-    const excerptEl = containerEl.createDiv();
-    excerptEl.style.fontSize = "12px";
-    excerptEl.style.color = "var(--text-muted)";
-    excerptEl.style.marginTop = "4px";
+    const excerptEl = containerEl.createDiv({ cls: "bible-reference-usage-excerpt" });
 
     appendHighlightedExcerpt(excerptEl, result.excerpt, result.sourceText);
     return excerptEl;
@@ -25,12 +22,7 @@ function appendHighlightedExcerpt(containerEl: HTMLElement, excerpt: string, sou
         containerEl.createSpan({ text: beforeText });
     }
 
-    const matchedEl = containerEl.createSpan({ text: matchedText });
-    matchedEl.style.fontWeight = "700";
-    matchedEl.style.color = "var(--text-normal)";
-    matchedEl.style.backgroundColor = "var(--text-highlight-bg)";
-    matchedEl.style.borderRadius = "3px";
-    matchedEl.style.padding = "0 2px";
+    containerEl.createSpan({ text: matchedText, cls: "bible-reference-usage-excerpt-match" });
 
     if (afterText.length > 0) {
         containerEl.createSpan({ text: afterText });

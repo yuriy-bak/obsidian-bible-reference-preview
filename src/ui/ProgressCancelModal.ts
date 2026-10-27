@@ -18,8 +18,7 @@ export class ProgressCancelModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.createEl("h2", { text: this.titleText });
-        this.messageEl = contentEl.createDiv({ text: this.messageText });
-        this.messageEl.style.whiteSpace = "pre-wrap";
+        this.messageEl = contentEl.createDiv({ text: this.messageText, cls: "bible-reference-preview-pre-wrap" });
         new Setting(contentEl)
             .addButton((button) => button
                 .setButtonText(this.cancelText)

@@ -34,7 +34,7 @@ export type ReferenceUsageIndexSettingsSectionInput = {
 export function renderReferenceUsageIndexSettingsSection(input: ReferenceUsageIndexSettingsSectionInput): void {
     const { containerEl, translate } = input;
 
-    containerEl.createEl("h3", { text: translate("settings.referenceUsageIndex.title") });
+    new Setting(containerEl).setName(translate("settings.referenceUsageIndex.title")).setHeading();
     containerEl.createEl("p", { text: translate("settings.referenceUsageIndex.desc") });
 
     new Setting(containerEl)
@@ -60,7 +60,7 @@ export function renderReferenceUsageIndexSettingsSection(input: ReferenceUsageIn
                 .setValue(input.getExcludedFoldersText())
                 .onChange((value) => void input.setExcludedFoldersText(value));
             textArea.inputEl.rows = 4;
-            textArea.inputEl.style.width = "100%";
+            textArea.inputEl.addClass("bible-reference-preview-full-width");
         });
 
     new Setting(containerEl)

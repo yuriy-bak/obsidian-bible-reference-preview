@@ -23,23 +23,16 @@ export class ReferenceUsageResultsModal extends Modal {
             return;
         }
         contentEl.createEl("p", { text: t(this.locale, "modal.referenceUsages.count", { count: this.results.length }) });
-        const listEl = contentEl.createDiv();
-        listEl.style.display = "flex";
-        listEl.style.flexDirection = "column";
-        listEl.style.gap = "8px";
+        const listEl = contentEl.createDiv({ cls: "bible-reference-usage-results-list" });
         for (const result of this.results) {
-            const rowEl = listEl.createDiv();
-            rowEl.style.border = "1px solid var(--background-modifier-border)";
-            rowEl.style.borderRadius = "6px";
-            rowEl.style.padding = "8px";
-            const buttonEl = rowEl.createEl("button", { text: `${result.filePath}:${result.line}` });
-            buttonEl.style.marginBottom = "6px";
+            const rowEl = listEl.createDiv({ cls: "bible-reference-usage-results-row" });
+            const buttonEl = rowEl.createEl("button", { text: `${result.filePath}:${result.line}`, cls: "bible-reference-usage-results-open-button" });
             buttonEl.addEventListener("click", (event) => {
                 event.preventDefault();
                 this.openResult(result);
                 this.close();
             });
-            rowEl.createDiv({ text: result.sourceText }).style.fontWeight = "600";
+            rowEl.createDiv({ text: result.sourceText, cls: "bible-reference-usage-source-text" });
             renderReferenceUsageExcerpt(rowEl, result);
         }
     }
