@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.5 - Reference parsing and comparison fixes
+
+- Fixed references like "Иов 14:1" being parsed as "Иов 1" + "4:1": trailing chapter numbers from EPUB navigation links are no longer kept as book aliases. Existing imported translations are fixed without re-import.
+- Fixed comparison preview for references spanning several chapters (e.g. "Суд 7:22;8:23", "Суд 7:24-8:1"): verses are split by chapter on first open, not only after toggling the mode.
+
 ## 0.1.4 - Comparison settings cleanup
 
 - Removed comparison checkboxes from the translation settings list.
