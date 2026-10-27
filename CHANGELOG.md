@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed: "Import EPUB" and the `+` button in settings did not open the file picker on Obsidian 1.13. The file input is now created in the document of the clicked element and stays attached until the dialog closes.
+
 ## 0.2.0 - Declarative settings (requires Obsidian 1.13)
 
 - **Requires Obsidian 1.13.0 or later** (`minAppVersion` 1.13.0). Users on older Obsidian versions stay on 0.1.9.

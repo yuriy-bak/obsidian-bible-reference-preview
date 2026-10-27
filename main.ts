@@ -180,8 +180,8 @@ export default class BiblePlugin extends Plugin {
         await reloadBibleIndexFlow(this.createBibleIndexPluginFlowInput());
     }
 
-    public openEpubFilePicker(): void {
-        openEpubFilePickerFlow(this.createBibleIndexPluginFlowInput());
+    public openEpubFilePicker(hostEl?: HTMLElement): void {
+        openEpubFilePickerFlow(this.createBibleIndexPluginFlowInput(), hostEl);
     }
 
     public async importEpubFile(file: File): Promise<void> {

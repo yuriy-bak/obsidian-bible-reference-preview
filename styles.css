@@ -80,6 +80,10 @@ a.bible-reference-link.bible-reference-reading-link {
 }
 
 /* Shared helpers */
+input.bible-reference-preview-hidden-file-input {
+    display: none;
+}
+
 .bible-reference-preview-pre-wrap {
     white-space: pre-wrap;
 }

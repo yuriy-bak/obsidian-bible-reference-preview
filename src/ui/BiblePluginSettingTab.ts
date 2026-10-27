@@ -14,7 +14,7 @@ export type BiblePluginSettingTabInput = {
     setPluginActive: (isPluginActive: boolean) => Promise<void>;
     getInterfaceLanguage: () => BiblePluginLocale;
     setInterfaceLanguage: (interfaceLanguage: BiblePluginLocale) => Promise<void>;
-    openEpubFilePicker: () => void;
+    openEpubFilePicker: (hostEl?: HTMLElement) => void;
 
     getTranslationSettingsItems: () => TranslationSettingsItem[];
     deleteImportedTranslation: (translationId: string) => Promise<void>;
@@ -94,7 +94,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 translate: (key, params) => this.plugin.t(key, params),
                 onDelete: (translationId) => this.plugin.deleteImportedTranslation(translationId),
                 onReorder: (nextOrder) => this.plugin.setTranslationOrder(nextOrder),
-                onImport: () => this.plugin.openEpubFilePicker(),
+                onImport: (hostEl) => this.plugin.openEpubFilePicker(hostEl),
                 refresh: () => this.update(),
             }),
             createReferenceUsageIndexSettingsGroup({
@@ -191,7 +191,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     setting.addButton((button) => button
                         .setButtonText(this.plugin.t("settings.import.button"))
                         .setCta()
-                        .onClick(() => this.plugin.openEpubFilePicker()));
+                        .onClick(() => this.plugin.openEpubFilePicker(setting.settingEl)));
                 },
             },
         ];
