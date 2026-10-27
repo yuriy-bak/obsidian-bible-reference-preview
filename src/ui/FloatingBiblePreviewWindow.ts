@@ -186,8 +186,8 @@ export class FloatingBiblePreviewWindow {
     public hide(resetPosition = false): void {
         this.previewContent = null;
         this.previewText = "";
-        this.previewPanelEl.style.display = "none";
-        this.collapsedButtonEl.style.display = "none";
+        this.previewPanelEl.setCssStyles({ display: "none" });
+        this.collapsedButtonEl.setCssStyles({ display: "none" });
 
         if (resetPosition) {
             this.customPreviewPosition = null;
@@ -431,8 +431,10 @@ export class FloatingBiblePreviewWindow {
     }
 
     private styleClosePreviewButton(closeButton: HTMLButtonElement): void {
-        closeButton.style.fontSize = "18px";
-        closeButton.style.fontWeight = "700";
+        this.setStyles(closeButton, {
+            fontSize: "18px",
+            fontWeight: "700",
+        });
     }
 
     private stopHeaderButtonDrag(buttonEl: HTMLElement): void {
@@ -627,7 +629,7 @@ export class FloatingBiblePreviewWindow {
 
     private applyMobileResizeHandleStyle(handleEl: HTMLDivElement, edge: PreviewResizeEdge): void {
         if (edge !== "bottom") {
-            handleEl.style.display = "none";
+            handleEl.setCssStyles({ display: "none" });
             return;
         }
         this.setStyles(handleEl, {
@@ -723,7 +725,7 @@ export class FloatingBiblePreviewWindow {
         this.comparisonPreviewButtonEl.textContent = this.labels.getComparisonButtonText?.() ?? "⇄";
         this.comparisonPreviewButtonEl.setAttribute("aria-label", this.getComparisonAriaLabel());
         this.comparisonPreviewButtonEl.title = this.getComparisonAriaLabel();
-        this.comparisonPreviewButtonEl.style.display = this.labels.onToggleComparison === undefined ? "none" : "inline-flex";
+        this.comparisonPreviewButtonEl.setCssStyles({ display: this.labels.onToggleComparison === undefined ? "none" : "inline-flex" });
     }
 
     private renderComparisonTranslationSelector(): void {
@@ -735,16 +737,16 @@ export class FloatingBiblePreviewWindow {
         hostEl.replaceChildren();
         const options = this.labels.getComparisonTranslations?.() ?? [];
         if (options.length <= 1 || this.labels.onToggleComparisonTranslation === undefined) {
-            hostEl.style.display = "none";
+            hostEl.setCssStyles({ display: "none" });
             if (this.previewTitleEl !== null) {
-                this.previewTitleEl.style.display = "block";
+                this.previewTitleEl.setCssStyles({ display: "block" });
             }
             return;
         }
 
-        hostEl.style.display = "block";
+        hostEl.setCssStyles({ display: "block" });
         if (this.previewTitleEl !== null) {
-            this.previewTitleEl.style.display = "none";
+            this.previewTitleEl.setCssStyles({ display: "none" });
         }
         hostEl.appendChild(renderComparisonTranslationSelectorView({
             options,
@@ -758,7 +760,7 @@ export class FloatingBiblePreviewWindow {
             return;
         }
         this.openInPanelButtonEl.textContent = this.getOpenInPanelButtonIcon();
-        this.openInPanelButtonEl.style.display = this.labels.onOpenInPanel === undefined ? "none" : "inline-flex";
+        this.openInPanelButtonEl.setCssStyles({ display: this.labels.onOpenInPanel === undefined ? "none" : "inline-flex" });
     }
 
     private renderBiblePreview(): void {
@@ -784,13 +786,13 @@ export class FloatingBiblePreviewWindow {
     }
 
     private renderCollapsedPreviewState(): void {
-        this.previewPanelEl.style.display = "none";
-        this.collapsedButtonEl.style.display = "block";
+        this.previewPanelEl.setCssStyles({ display: "none" });
+        this.collapsedButtonEl.setCssStyles({ display: "block" });
     }
 
     private renderExpandedPreviewState(): void {
-        this.collapsedButtonEl.style.display = "none";
-        this.previewPanelEl.style.display = "flex";
+        this.collapsedButtonEl.setCssStyles({ display: "none" });
+        this.previewPanelEl.setCssStyles({ display: "flex" });
     }
 
     private scheduleBiblePreviewPositionUpdate(): void {
@@ -814,16 +816,16 @@ export class FloatingBiblePreviewWindow {
         this.collapsedButtonDragState = null;
         this.previewDragState = null;
         this.previewResizeState = null;
-        this.collapsedButtonEl.style.cursor = "grab";
+        this.collapsedButtonEl.setCssStyles({ cursor: "grab" });
         this.endPreviewPointerInteraction();
     }
 
     private beginPreviewPointerInteraction(): void {
-        document.body.style.userSelect = "none";
+        document.body.setCssStyles({ userSelect: "none" });
     }
 
     private endPreviewPointerInteraction(): void {
-        document.body.style.userSelect = "";
+        document.body.setCssStyles({ userSelect: "" });
     }
 
     private handleKeydown(event: KeyboardEvent): void {
@@ -898,7 +900,7 @@ export class FloatingBiblePreviewWindow {
             moved: false,
         };
         this.suppressCollapsedButtonClick = false;
-        this.collapsedButtonEl.style.cursor = "grabbing";
+        this.collapsedButtonEl.setCssStyles({ cursor: "grabbing" });
         this.beginPreviewPointerInteraction();
         this.stopPreviewPointerEvent(event);
     }
@@ -1164,7 +1166,7 @@ export class FloatingBiblePreviewWindow {
             this.suppressCollapsedButtonClick = this.collapsedButtonDragState.moved;
         }
         this.collapsedButtonDragState = null;
-        this.collapsedButtonEl.style.cursor = "grab";
+        this.collapsedButtonEl.setCssStyles({ cursor: "grab" });
         this.endPreviewPointerInteraction();
     }
 
@@ -1608,9 +1610,7 @@ export class FloatingBiblePreviewWindow {
     private createCopyFallbackTextarea(): HTMLTextAreaElement {
         const textareaEl = document.createElement("textarea");
         textareaEl.value = this.previewText;
-        textareaEl.style.position = "fixed";
-        textareaEl.style.left = "-9999px";
-        textareaEl.style.top = "0";
+        textareaEl.addClass("bible-preview-copy-fallback-textarea");
         return textareaEl;
     }
 

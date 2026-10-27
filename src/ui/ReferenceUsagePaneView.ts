@@ -57,22 +57,10 @@ export class ReferenceUsagePaneView extends ItemView {
 
     private renderShell(): void {
         this.contentEl.empty();
-        this.contentEl.style.display = "flex";
-        this.contentEl.style.flexDirection = "column";
-        this.contentEl.style.height = "100%";
-        this.contentEl.style.padding = "12px";
-        this.contentEl.style.boxSizing = "border-box";
+        this.contentEl.addClass("bible-reference-usage-pane");
 
-        this.headerEl = this.contentEl.createDiv();
-        this.headerEl.style.flex = "0 0 auto";
-        this.headerEl.style.marginBottom = "10px";
-
-        this.resultsEl = this.contentEl.createDiv();
-        this.resultsEl.style.flex = "1 1 auto";
-        this.resultsEl.style.overflow = "auto";
-        this.resultsEl.style.display = "flex";
-        this.resultsEl.style.flexDirection = "column";
-        this.resultsEl.style.gap = "8px";
+        this.headerEl = this.contentEl.createDiv({ cls: "bible-reference-usage-pane-header" });
+        this.resultsEl = this.contentEl.createDiv({ cls: "bible-reference-usage-pane-results" });
     }
 
     private renderResults(): void {
@@ -83,17 +71,17 @@ export class ReferenceUsagePaneView extends ItemView {
         this.headerEl.empty();
         this.resultsEl.empty();
 
-        const titleEl = this.headerEl.createEl("h3", { text: this.titleText.length > 0 ? this.titleText : this.input.getTitle() });
-        titleEl.style.margin = "0 0 6px 0";
+        this.headerEl.createEl("h3", {
+            text: this.titleText.length > 0 ? this.titleText : this.input.getTitle(),
+            cls: "bible-reference-usage-pane-title",
+        });
 
         if (this.results.length === 0) {
-            this.headerEl.createDiv({ text: this.input.getEmptyText() }).style.color = "var(--text-muted)";
+            this.headerEl.createDiv({ text: this.input.getEmptyText(), cls: "bible-reference-usage-pane-muted" });
             return;
         }
 
-        const countEl = this.headerEl.createDiv({ text: this.input.getCountText(this.results.length) });
-        countEl.style.fontSize = "12px";
-        countEl.style.color = "var(--text-muted)";
+        this.headerEl.createDiv({ text: this.input.getCountText(this.results.length), cls: "bible-reference-usage-pane-count" });
 
         for (const result of this.results) {
             this.renderResult(result);
@@ -105,25 +93,19 @@ export class ReferenceUsagePaneView extends ItemView {
             return;
         }
 
-        const rowEl = this.resultsEl.createDiv();
-        rowEl.style.border = "1px solid var(--background-modifier-border)";
-        rowEl.style.borderRadius = "6px";
-        rowEl.style.padding = "8px";
-        rowEl.style.background = "var(--background-primary)";
+        const rowEl = this.resultsEl.createDiv({ cls: "bible-reference-usage-results-row bible-reference-usage-pane-row" });
 
-        const buttonEl = rowEl.createEl("button", { text: `${result.filePath}:${result.line}` });
+        const buttonEl = rowEl.createEl("button", {
+            text: `${result.filePath}:${result.line}`,
+            cls: "bible-reference-usage-results-open-button bible-reference-usage-pane-open-button",
+        });
         buttonEl.setAttribute("aria-label", this.input.getOpenResultAria(result));
-        buttonEl.style.marginBottom = "6px";
-        buttonEl.style.maxWidth = "100%";
-        buttonEl.style.overflow = "hidden";
-        buttonEl.style.textOverflow = "ellipsis";
         buttonEl.addEventListener("click", (event) => {
             event.preventDefault();
             this.input.onOpenResult(result);
         });
 
-        const sourceEl = rowEl.createDiv({ text: result.sourceText });
-        sourceEl.style.fontWeight = "600";
+        rowEl.createDiv({ text: result.sourceText, cls: "bible-reference-usage-source-text" });
 
         renderReferenceUsageExcerpt(rowEl, result);
     }

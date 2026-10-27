@@ -67,10 +67,7 @@ function replaceReadingModeBibleReferencesInTextNode(textNode: Text, input: Read
         linkEl.textContent = sourceText.slice(match.from, match.to);
         linkEl.className = "bible-reference-link bible-reference-reading-link";
         linkEl.dataset.bibleReference = match.text;
-        linkEl.style.color = input.getBibleReferenceLinkColor();
-        linkEl.style.textDecoration = "underline";
-        linkEl.style.textDecorationStyle = "dotted";
-        linkEl.style.cursor = "pointer";
+        linkEl.setCssProps({ "--bible-reference-link-color": input.getBibleReferenceLinkColor() });
         linkEl.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();

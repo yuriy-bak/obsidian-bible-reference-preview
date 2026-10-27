@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.7 - Obsidian plugin review fixes
+
+- Moved static inline styles to `styles.css` classes; dynamic values (link color, floating window state) use `setCssProps` / `setCssStyles`.
+- Settings headings now use `Setting.setHeading()`; removed the redundant plugin-name heading at the top of the settings tab.
+- Raised `minAppVersion` to 1.7.2 (required by `Workspace.revealLeaf`).
+- Added `eslint-plugin-obsidianmd` to `npm run lint`, so CI catches Obsidian review errors.
+
 ## 0.1.6 - Book name parsing fix
 
 - Fixed references like "Иов 14:1" still being parsed as "Иов 4:1" in 0.1.5: the trailing chapter number is now also stripped from the book name and abbreviation, not only from aliases (some EPUBs store the book name as "Иов 1"). Existing imported translations are fixed without re-import.

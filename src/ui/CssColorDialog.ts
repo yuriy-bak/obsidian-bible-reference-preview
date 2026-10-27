@@ -49,75 +49,22 @@ export class CssColorDialog extends Modal {
         contentEl.createEl("h2", { text: this.input.title });
         contentEl.createEl("p", { text: this.input.description });
 
-        const previewEl = contentEl.createDiv({ text: this.input.previewText });
-        previewEl.style.border = "1px solid var(--background-modifier-border)";
-        previewEl.style.borderRadius = "6px";
-        previewEl.style.padding = "10px";
-        previewEl.style.marginBottom = "10px";
-        previewEl.style.background = this.input.normalize(this.value);
-        previewEl.style.color = "var(--text-normal)";
+        const previewEl = contentEl.createDiv({ text: this.input.previewText, cls: "bible-color-dialog-preview" });
 
-        const inputEl = contentEl.createEl("input");
+        const inputEl = contentEl.createEl("input", { cls: "bible-color-dialog-input" });
         inputEl.type = "text";
         inputEl.value = this.value;
         inputEl.placeholder = "#e6e2d8, var(--background-primary), color-mix(...)";
-        inputEl.style.width = "100%";
-        inputEl.style.boxSizing = "border-box";
-        inputEl.style.marginBottom = "10px";
 
-        const statusEl = contentEl.createDiv();
-        statusEl.style.fontSize = "12px";
-        statusEl.style.color = "var(--text-muted)";
-        statusEl.style.marginBottom = "10px";
+        const statusEl = contentEl.createDiv({ cls: "bible-color-dialog-status" });
 
-        const pickerTitleEl = contentEl.createDiv({ text: t(this.locale, "settings.colorDialog.picker") });
-        pickerTitleEl.style.fontWeight = "600";
-        pickerTitleEl.style.marginBottom = "6px";
+        contentEl.createDiv({ text: t(this.locale, "settings.colorDialog.picker"), cls: "bible-color-dialog-section-title" });
 
-        const pickerWrapEl = contentEl.createDiv();
-        pickerWrapEl.style.display = "grid";
-        pickerWrapEl.style.gridTemplateColumns = "minmax(180px, 1fr) 24px";
-        pickerWrapEl.style.gap = "10px";
-        pickerWrapEl.style.alignItems = "stretch";
-        pickerWrapEl.style.marginBottom = "12px";
-
-        const saturationEl = pickerWrapEl.createDiv();
-        saturationEl.style.position = "relative";
-        saturationEl.style.height = "150px";
-        saturationEl.style.borderRadius = "8px";
-        saturationEl.style.border = "1px solid var(--background-modifier-border)";
-        saturationEl.style.cursor = "crosshair";
-        saturationEl.style.overflow = "hidden";
-        saturationEl.style.touchAction = "none";
-
-        const saturationMarkerEl = saturationEl.createDiv();
-        saturationMarkerEl.style.position = "absolute";
-        saturationMarkerEl.style.width = "14px";
-        saturationMarkerEl.style.height = "14px";
-        saturationMarkerEl.style.border = "2px solid white";
-        saturationMarkerEl.style.borderRadius = "50%";
-        saturationMarkerEl.style.boxShadow = "0 0 0 1px rgba(0, 0, 0, 0.65)";
-        saturationMarkerEl.style.pointerEvents = "none";
-        saturationMarkerEl.style.transform = "translate(-7px, -7px)";
-
-        const hueEl = pickerWrapEl.createDiv();
-        hueEl.style.position = "relative";
-        hueEl.style.width = "24px";
-        hueEl.style.borderRadius = "8px";
-        hueEl.style.border = "1px solid var(--background-modifier-border)";
-        hueEl.style.cursor = "ns-resize";
-        hueEl.style.touchAction = "none";
-        hueEl.style.background = "linear-gradient(to bottom, #ff0000 0%, #ffff00 16.67%, #00ff00 33.33%, #00ffff 50%, #0000ff 66.67%, #ff00ff 83.33%, #ff0000 100%)";
-
-        const hueMarkerEl = hueEl.createDiv();
-        hueMarkerEl.style.position = "absolute";
-        hueMarkerEl.style.left = "-3px";
-        hueMarkerEl.style.right = "-3px";
-        hueMarkerEl.style.height = "4px";
-        hueMarkerEl.style.borderRadius = "4px";
-        hueMarkerEl.style.background = "white";
-        hueMarkerEl.style.boxShadow = "0 0 0 1px rgba(0, 0, 0, 0.65)";
-        hueMarkerEl.style.pointerEvents = "none";
+        const pickerWrapEl = contentEl.createDiv({ cls: "bible-color-dialog-picker" });
+        const saturationEl = pickerWrapEl.createDiv({ cls: "bible-color-dialog-saturation" });
+        const saturationMarkerEl = saturationEl.createDiv({ cls: "bible-color-dialog-saturation-marker" });
+        const hueEl = pickerWrapEl.createDiv({ cls: "bible-color-dialog-hue" });
+        const hueMarkerEl = hueEl.createDiv({ cls: "bible-color-dialog-hue-marker" });
 
         const updatePickerUi = (): void => {
             const hueColor = hsvToHex(this.hue, 100, 100);
@@ -172,32 +119,18 @@ export class CssColorDialog extends Modal {
         inputEl.addEventListener("input", () => applyValue(inputEl.value, true));
         applyValue(this.value, true);
 
-        const presetsTitleEl = contentEl.createDiv({ text: t(this.locale, "settings.colorDialog.palette") });
-        presetsTitleEl.style.fontWeight = "600";
-        presetsTitleEl.style.marginBottom = "6px";
+        contentEl.createDiv({ text: t(this.locale, "settings.colorDialog.palette"), cls: "bible-color-dialog-section-title" });
 
-        const presetsEl = contentEl.createDiv();
-        presetsEl.style.display = "grid";
-        presetsEl.style.gridTemplateColumns = "repeat(auto-fill, minmax(128px, 1fr))";
-        presetsEl.style.gap = "6px";
-        presetsEl.style.marginBottom = "12px";
+        const presetsEl = contentEl.createDiv({ cls: "bible-color-dialog-presets" });
         const presets = [...this.input.presets, ...this.recentValues.map((value) => ({ label: t(this.locale, "settings.colorDialog.current"), value }))];
         for (const preset of presets) {
-            const buttonEl = presetsEl.createEl("button");
+            const buttonEl = presetsEl.createEl("button", { cls: "bible-color-dialog-preset" });
             buttonEl.type = "button";
-            buttonEl.style.display = "flex";
-            buttonEl.style.alignItems = "center";
-            buttonEl.style.gap = "6px";
-            buttonEl.style.justifyContent = "flex-start";
             buttonEl.addEventListener("click", (event) => {
                 event.preventDefault();
                 applyValue(preset.value, true);
             });
-            const swatchEl = buttonEl.createSpan();
-            swatchEl.style.width = "16px";
-            swatchEl.style.height = "16px";
-            swatchEl.style.borderRadius = "4px";
-            swatchEl.style.border = "1px solid var(--background-modifier-border)";
+            const swatchEl = buttonEl.createSpan({ cls: "bible-color-dialog-preset-swatch" });
             swatchEl.style.background = this.input.normalize(preset.value);
             buttonEl.appendChild(swatchEl);
             buttonEl.appendText(preset.label);

@@ -132,13 +132,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     private styleRoot(rootEl: HTMLElement): void {
-        rootEl.style.display = "flex";
-        rootEl.style.flexDirection = "column";
-        rootEl.style.height = "100%";
-        rootEl.style.minHeight = "0";
-        rootEl.style.overflow = "hidden";
-        rootEl.style.background = "var(--background-secondary)";
-        rootEl.style.color = "var(--text-normal)";
+        rootEl.addClass("bible-preview-pane-root");
     }
 
     private buildHeader(): void {
@@ -157,13 +151,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     private styleHeader(headerEl: HTMLElement): void {
-        headerEl.style.display = "flex";
-        headerEl.style.alignItems = "center";
-        headerEl.style.gap = "6px";
-        headerEl.style.flex = "0 0 auto";
-        headerEl.style.padding = "5px 8px";
-        headerEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-        headerEl.style.background = "var(--background-secondary-alt)";
+        headerEl.addClass("bible-preview-pane-header");
     }
 
     private buildTitle(headerEl: HTMLElement): void {
@@ -172,14 +160,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     private styleTitle(titleEl: HTMLElement): void {
-        titleEl.style.flex = "1";
-        titleEl.style.minWidth = "0";
-        titleEl.style.fontWeight = "600";
-        titleEl.style.fontSize = "12px";
-        titleEl.style.lineHeight = "1.2";
-        titleEl.style.whiteSpace = "nowrap";
-        titleEl.style.overflow = "hidden";
-        titleEl.style.textOverflow = "ellipsis";
+        titleEl.addClass("bible-preview-pane-title");
     }
 
     private buildComparisonSelectorHost(headerEl: HTMLElement): void {
@@ -189,8 +170,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     private styleComparisonSelectorHost(hostEl: HTMLElement): void {
-        hostEl.style.flex = "1 1 auto";
-        hostEl.style.minWidth = "0";
+        hostEl.addClass("bible-preview-pane-comparison-selector-host");
     }
 
     private buildCopyButton(headerEl: HTMLElement): void {
@@ -252,14 +232,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     private styleContentContainer(contentContainerEl: HTMLElement): void {
-        contentContainerEl.style.flex = "1 1 auto";
-        contentContainerEl.style.minHeight = "0";
-        contentContainerEl.style.overflow = "auto";
-        contentContainerEl.style.padding = "10px";
-        contentContainerEl.style.whiteSpace = "pre-wrap";
-        contentContainerEl.style.userSelect = "text";
-        contentContainerEl.style.lineHeight = "1.45";
-        contentContainerEl.style.fontSize = "var(--font-text-size)";
+        contentContainerEl.addClass("bible-preview-pane-content");
     }
 
     private createIconButton(text: string, label: string): HTMLButtonElement {
@@ -271,19 +244,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     private styleIconButton(buttonEl: HTMLButtonElement): void {
-        buttonEl.style.width = "26px";
-        buttonEl.style.height = "26px";
-        buttonEl.style.display = "inline-flex";
-        buttonEl.style.alignItems = "center";
-        buttonEl.style.justifyContent = "center";
-        buttonEl.style.borderRadius = "5px";
-        buttonEl.style.border = "1px solid var(--background-modifier-border)";
-        buttonEl.style.background = "var(--background-primary)";
-        buttonEl.style.color = "var(--text-normal)";
-        buttonEl.style.cursor = "pointer";
-        buttonEl.style.fontSize = "13px";
-        buttonEl.style.lineHeight = "1";
-        buttonEl.style.padding = "0";
+        buttonEl.addClass("bible-preview-pane-icon-button");
     }
 
     private updateIconButton(buttonEl: HTMLButtonElement | null, text: string, label: string): void {
@@ -299,7 +260,7 @@ export class BiblePreviewPaneView extends ItemView {
         const text = this.input.getComparisonButtonText?.() ?? "⇄";
         const label = this.input.getComparisonButtonAria?.() ?? text;
         this.updateIconButton(buttonEl, text, label);
-        buttonEl.style.display = this.input.onToggleComparison === undefined ? "none" : "inline-flex";
+        buttonEl.toggle(this.input.onToggleComparison !== undefined);
     }
 
     private getContentRootElement(): HTMLElement {
@@ -368,17 +329,13 @@ export class BiblePreviewPaneView extends ItemView {
         hostEl.replaceChildren();
         const options = this.input.getComparisonTranslations?.() ?? [];
         if (options.length <= 1 || this.input.onToggleComparisonTranslation === undefined) {
-            hostEl.style.display = "none";
-            if (this.titleEl !== null) {
-                this.titleEl.style.display = "block";
-            }
+            hostEl.hide();
+            this.titleEl?.show();
             return;
         }
 
-        hostEl.style.display = "block";
-        if (this.titleEl !== null) {
-            this.titleEl.style.display = "none";
-        }
+        hostEl.show();
+        this.titleEl?.hide();
         hostEl.appendChild(renderComparisonTranslationSelectorView({
             options,
             getTitle: () => this.input.getComparisonTranslationsTitle?.() ?? "Compare:",
@@ -412,9 +369,7 @@ export class BiblePreviewPaneView extends ItemView {
     private createCopyFallbackTextarea(text: string): HTMLTextAreaElement {
         const textareaEl = document.createElement("textarea");
         textareaEl.value = text;
-        textareaEl.style.position = "fixed";
-        textareaEl.style.left = "-9999px";
-        textareaEl.style.top = "0";
+        textareaEl.addClass("bible-preview-copy-fallback-textarea");
         return textareaEl;
     }
 

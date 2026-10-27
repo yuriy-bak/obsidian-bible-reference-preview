@@ -67,8 +67,6 @@ export class BiblePluginSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        containerEl.createEl("h2", { text: this.plugin.t("settings.title") });
-
         this.renderGeneralSettings(containerEl);
 
         this.renderTranslationsSection(containerEl);

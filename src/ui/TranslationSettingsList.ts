@@ -1,3 +1,4 @@
+import { Setting } from "obsidian";
 import type { TranslationSettingsItem } from "../translations/TranslationModels";
 
 type TranslationSettingsListI18nKey =
@@ -24,7 +25,7 @@ export type TranslationSettingsSectionInput = {
 export function renderTranslationSettingsSection(input: TranslationSettingsSectionInput): void {
     const { containerEl, translations, translate } = input;
 
-    containerEl.createEl("h3", { text: translate("settings.translations.title") });
+    new Setting(containerEl).setName(translate("settings.translations.title")).setHeading();
     containerEl.createEl("p", {
         text: translate("settings.translations.desc"),
     });
@@ -34,46 +35,31 @@ export function renderTranslationSettingsSection(input: TranslationSettingsSecti
         return;
     }
 
-    const listEl = containerEl.createDiv();
-    listEl.style.display = "flex";
-    listEl.style.flexDirection = "column";
-    listEl.style.gap = "6px";
-    listEl.style.marginBottom = "12px";
+    const listEl = containerEl.createDiv({ cls: "bible-translation-settings-list" });
 
     let draggedTranslationId: string | null = null;
     const rows: HTMLElement[] = [];
 
     const clearDropStyles = (): void => {
         for (const row of rows) {
-            row.style.borderTop = "1px solid var(--background-modifier-border)";
-            row.style.borderBottom = "1px solid var(--background-modifier-border)";
+            row.removeClass("bible-translation-settings-row-drop-before", "bible-translation-settings-row-drop-after");
         }
     };
 
     for (const translation of translations) {
-        const row = listEl.createDiv();
+        const row = listEl.createDiv({ cls: "bible-translation-settings-row" });
+        row.toggleClass("is-active", translation.isActive);
         rows.push(row);
         row.draggable = true;
-        row.style.display = "flex";
-        row.style.alignItems = "center";
-        row.style.gap = "8px";
-        row.style.padding = "8px";
-        row.style.border = "1px solid var(--background-modifier-border)";
-        row.style.borderRadius = "6px";
-        row.style.background = translation.isActive ? "var(--background-secondary)" : "var(--background-primary)";
-        row.style.cursor = "grab";
 
-        const dragHandle = row.createSpan({ text: "☰" });
-        dragHandle.style.opacity = "0.7";
-        dragHandle.style.fontSize = "18px";
-        dragHandle.style.lineHeight = "1";
+        row.createSpan({ text: "☰", cls: "bible-translation-settings-drag-handle" });
 
-        const textEl = row.createDiv();
-        textEl.style.flex = "1";
-        textEl.style.minWidth = "0";
+        const textEl = row.createDiv({ cls: "bible-translation-settings-text" });
 
-        const titleEl = textEl.createDiv({ text: `${translation.isActive ? "✓ " : ""}${translation.name || translation.id}` });
-        titleEl.style.fontWeight = translation.isActive ? "600" : "500";
+        textEl.createDiv({
+            text: `${translation.isActive ? "✓ " : ""}${translation.name || translation.id}`,
+            cls: "bible-translation-settings-title",
+        });
 
         const description = [
             `ID: ${translation.id}`,
@@ -82,17 +68,10 @@ export function renderTranslationSettingsSection(input: TranslationSettingsSecti
             translation.sourceFileName.length === 0 ? "" : translate("settings.translations.file", { fileName: translation.sourceFileName }),
         ].filter((part) => part.length > 0).join(" · ");
 
-        const descriptionEl = textEl.createDiv({ text: description });
-        descriptionEl.style.fontSize = "12px";
-        descriptionEl.style.color = "var(--text-muted)";
-        descriptionEl.style.overflow = "hidden";
-        descriptionEl.style.textOverflow = "ellipsis";
-        descriptionEl.style.whiteSpace = "nowrap";
+        textEl.createDiv({ text: description, cls: "bible-translation-settings-description" });
 
-
-        const deleteButton = row.createEl("button", { text: "🗑" });
+        const deleteButton = row.createEl("button", { text: "🗑", cls: "bible-translation-settings-delete-button" });
         deleteButton.setAttribute("aria-label", translate("settings.translations.deleteAria", { translationName: translation.name || translation.id }));
-        deleteButton.style.cursor = "pointer";
         deleteButton.addEventListener("click", async (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -102,7 +81,7 @@ export function renderTranslationSettingsSection(input: TranslationSettingsSecti
 
         row.addEventListener("dragstart", (event) => {
             draggedTranslationId = translation.id;
-            row.style.opacity = "0.5";
+            row.addClass("is-dragging");
 
             if (event.dataTransfer !== null) {
                 event.dataTransfer.effectAllowed = "move";
@@ -112,7 +91,7 @@ export function renderTranslationSettingsSection(input: TranslationSettingsSecti
 
         row.addEventListener("dragend", () => {
             draggedTranslationId = null;
-            row.style.opacity = "1";
+            row.removeClass("is-dragging");
             clearDropStyles();
         });
 
@@ -128,15 +107,14 @@ export function renderTranslationSettingsSection(input: TranslationSettingsSecti
             const rect = row.getBoundingClientRect();
             const insertAfter = event.clientY > rect.top + rect.height / 2;
             if (insertAfter) {
-                row.style.borderBottom = "2px solid var(--color-accent)";
+                row.addClass("bible-translation-settings-row-drop-after");
             } else {
-                row.style.borderTop = "2px solid var(--color-accent)";
+                row.addClass("bible-translation-settings-row-drop-before");
             }
         });
 
         row.addEventListener("dragleave", () => {
-            row.style.borderTop = "1px solid var(--background-modifier-border)";
-            row.style.borderBottom = "1px solid var(--background-modifier-border)";
+            row.removeClass("bible-translation-settings-row-drop-before", "bible-translation-settings-row-drop-after");
         });
 
         row.addEventListener("drop", async (event) => {

@@ -187,10 +187,9 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         if (block.type === "footnote") {
             const footnoteEl = document.createElement("div");
             footnoteEl.className = "bible-preview-footnote";
-            footnoteEl.style.marginLeft = "0.2em";
 
             if (previousRenderedBlockType === "reference") {
-                footnoteEl.style.marginTop = "1em";
+                footnoteEl.classList.add("bible-preview-footnote-after-reference");
             }
 
             appendTextWithLineBreaks(footnoteEl, block.text);
@@ -204,28 +203,23 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
             const comparisonEl = document.createElement("div");
             comparisonEl.className = "bible-preview-comparison-block";
             if (previousRenderedBlockType !== null) {
-                comparisonEl.style.marginTop = "1.15em";
+                comparisonEl.classList.add("bible-preview-comparison-block-spaced");
             }
 
             for (const translation of block.translations) {
                 const translationTitleEl = document.createElement("div");
                 translationTitleEl.className = "bible-preview-comparison-translation-title";
                 translationTitleEl.textContent = `[${translation.translationName}]`;
-                translationTitleEl.style.marginTop = "0.8em";
-                translationTitleEl.style.fontWeight = "600";
                 comparisonEl.appendChild(translationTitleEl);
 
                 const translationReferenceEl = document.createElement("div");
                 translationReferenceEl.className = "bible-preview-comparison-reference-title";
                 translationReferenceEl.textContent = `${translation.referenceTitle}.`;
-                translationReferenceEl.style.marginTop = "0.25em";
-                translationReferenceEl.style.fontWeight = "500";
                 comparisonEl.appendChild(translationReferenceEl);
 
                 translation.paragraphs.forEach((paragraph) => {
                     const paragraphEl = document.createElement("div");
                     paragraphEl.className = "bible-preview-paragraph";
-                    paragraphEl.style.setProperty("text-align", "justify");
 
                     appendPreviewVerses(paragraphEl, paragraph.verses);
                     comparisonEl.appendChild(paragraphEl);
@@ -234,8 +228,6 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
                 for (const footnote of translation.footnotes) {
                     const footnoteEl = document.createElement("div");
                     footnoteEl.className = "bible-preview-footnote";
-                    footnoteEl.style.marginLeft = "0.2em";
-                    footnoteEl.style.marginTop = "0.45em";
                     appendTextWithLineBreaks(footnoteEl, footnote);
                     comparisonEl.appendChild(footnoteEl);
                 }
@@ -251,15 +243,10 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
 
         const titleRowEl = document.createElement("div");
         titleRowEl.className = "bible-preview-reference-title-row";
-        titleRowEl.style.display = "flex";
-        titleRowEl.style.alignItems = "center";
-        titleRowEl.style.gap = "6px";
-        titleRowEl.style.justifyContent = "space-between";
 
         const titleEl = document.createElement("div");
         titleEl.className = "bible-preview-reference-title";
         titleEl.textContent = `${block.title}.`;
-        titleEl.style.flex = "1 1 auto";
         titleRowEl.appendChild(titleEl);
 
         if (options.onFindUsages !== undefined && block.references.length > 0) {
@@ -271,7 +258,6 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         block.paragraphs.forEach((paragraph) => {
             const paragraphEl = document.createElement("div");
             paragraphEl.className = "bible-preview-paragraph";
-            paragraphEl.style.setProperty("text-align", "justify");
 
             appendPreviewVerses(paragraphEl, paragraph.verses);
             referenceEl.appendChild(paragraphEl);
@@ -293,11 +279,6 @@ function createFindUsagesButton(block: BiblePreviewReferenceBlock, options: Bibl
     const ariaLabel = options.getFindUsagesButtonAria?.(block) ?? block.title;
     buttonEl.setAttribute("aria-label", ariaLabel);
     buttonEl.setAttribute("title", ariaLabel);
-    buttonEl.style.flex = "0 0 auto";
-    buttonEl.style.padding = "1px 6px";
-    buttonEl.style.minWidth = "24px";
-    buttonEl.style.height = "24px";
-    buttonEl.style.lineHeight = "1";
     buttonEl.addEventListener("click", (event) => handleFindUsagesButtonClick(event, block, options));
     return buttonEl;
 }

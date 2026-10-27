@@ -54,9 +54,7 @@ export class BibleTranslationImportModal extends Modal {
         const translationNameSetting = new Setting(contentEl)
             .setName(t(this.locale, "modal.import.translationName"));
 
-        translationNameSetting.settingEl.style.flexDirection = "column";
-        translationNameSetting.settingEl.style.alignItems = "stretch";
-        translationNameSetting.controlEl.style.width = "100%";
+        translationNameSetting.settingEl.addClass("bible-reference-preview-stacked-setting");
 
         translationNameSetting.addText((text) => {
             text
@@ -66,7 +64,7 @@ export class BibleTranslationImportModal extends Modal {
                     this.value.translationName = value.trim();
                 });
 
-            text.inputEl.style.width = "100%";
+            text.inputEl.addClass("bible-reference-preview-full-width");
         });
 
         new Setting(contentEl)
