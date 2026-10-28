@@ -93,6 +93,8 @@ Result snippets show a short context around the matched reference:
 
 The index is stored locally in the plugin data directory. Large Markdown files may be skipped according to the configured size limits to keep indexing responsive.
 
+Notes open in the editor are reindexed from their current text before every usage search, including unsaved edits, so the current note is always included even when auto-update is off. The ⟳ button in the usages panel header updates the index for changed files in the background and repeats the search.
+
 ## Hotkeys
 
 The plugin includes the command **Open Bible reference under cursor**. Use the built-in shortcut option in plugin settings or assign any Obsidian hotkey in Settings → Hotkeys.
@@ -131,6 +133,8 @@ The commands have no default hotkeys. Assign them in Settings → Hotkeys, for e
 ### Поиск использований ссылок
 
 Reference Usage Index строит локальный индекс Markdown-файлов vault и позволяет находить, где используется выбранная библейская ссылка. В результатах показывается короткий фрагмент: 30 символов до ссылки, сама ссылка с подсветкой и 140 символов после ссылки. При обрезке добавляется `…`.
+
+Открытые в редакторе заметки переиндексируются по их текущему тексту (включая несохранённые правки) перед каждым поиском, поэтому текущая заметка попадает в результаты даже при выключенном автообновлении. Кнопка ⟳ в шапке панели использований обновляет индекс изменённых файлов в фоне и повторяет поиск.
 
 ### Сравнение переводов
 

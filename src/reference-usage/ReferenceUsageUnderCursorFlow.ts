@@ -1,4 +1,5 @@
 import type { BibleReference } from "../domain/BibleReference";
+import type { ReferenceUsagePaneQuery } from "../ui/ReferenceUsagePaneView";
 import type { ReferenceUsageSearchResult } from "./ReferenceUsageIndexService";
 
 type ReferenceUsageUnderCursorMatch = {
@@ -13,7 +14,7 @@ export type ReferenceUsageUnderCursorFlowInput = {
     findUsages: (references: BibleReference[]) => ReferenceUsageSearchResult[];
     formatTitle: (referenceText: string) => string;
     openResultsModal: (titleText: string, results: ReferenceUsageSearchResult[]) => void;
-    showResultsInPanel: (titleText: string, results: ReferenceUsageSearchResult[]) => Promise<void>;
+    showResultsInPanel: (query: ReferenceUsagePaneQuery) => Promise<void>;
 };
 
 export async function findReferenceUsagesUnderCursor(input: ReferenceUsageUnderCursorFlowInput): Promise<void> {
@@ -26,21 +27,19 @@ export async function findReferenceUsagesUnderCursor(input: ReferenceUsageUnderC
 }
 
 export async function openReferenceUsagesPanelUnderCursor(input: ReferenceUsageUnderCursorFlowInput): Promise<void> {
-    const result = getReferenceUsageResultsUnderCursor(input);
-    if (result === null) {
+    const match = getReferenceUsageMatchUnderCursor(input);
+    if (match === null) {
         return;
     }
 
-    await input.showResultsInPanel(result.titleText, result.results);
+    await input.showResultsInPanel({
+        titleText: input.formatTitle(match.text),
+        run: () => ({ results: input.findUsages(match.references) }),
+    });
 }
 
 function getReferenceUsageResultsUnderCursor(input: ReferenceUsageUnderCursorFlowInput): { titleText: string; results: ReferenceUsageSearchResult[] } | null {
-    if (!input.isIndexingEnabled()) {
-        input.showIndexingDisabledNotice();
-        return null;
-    }
-
-    const match = input.getReferenceUnderCursor();
+    const match = getReferenceUsageMatchUnderCursor(input);
     if (match === null) {
         return null;
     }
@@ -49,4 +48,13 @@ function getReferenceUsageResultsUnderCursor(input: ReferenceUsageUnderCursorFlo
         titleText: input.formatTitle(match.text),
         results: input.findUsages(match.references),
     };
+}
+
+function getReferenceUsageMatchUnderCursor(input: ReferenceUsageUnderCursorFlowInput): ReferenceUsageUnderCursorMatch | null {
+    if (!input.isIndexingEnabled()) {
+        input.showIndexingDisabledNotice();
+        return null;
+    }
+
+    return input.getReferenceUnderCursor();
 }

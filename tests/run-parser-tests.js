@@ -1121,6 +1121,28 @@ const {
   assert.strictEqual(referenceUsageResults[0].line, 2);
   assert.strictEqual(referenceUsageResults[0].excerpt, "Ин 3:16 and Рим 8:28");
 
+  const referenceUsageOpenNoteApp = createReferenceUsageTestApp({});
+  const referenceUsageOpenNoteService = new ReferenceUsageIndexService(
+    referenceUsageOpenNoteApp,
+    () => "data/bible",
+    createReferenceUsageTestParseMatches,
+    () => ["archive"]
+  );
+  const referenceUsageOpenNoteFile = createReferenceUsageTestFile("notes/open.md", 100, 9);
+  const referenceUsageJohn316Query = [{ book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 16 }];
+  assert.strictEqual(referenceUsageOpenNoteService.syncOpenFileContent(referenceUsageOpenNoteFile, "Draft"), false);
+  assert.strictEqual(referenceUsageOpenNoteService.syncOpenFileContent(referenceUsageOpenNoteFile, "Draft Ин 3:16"), true);
+  assert.strictEqual(referenceUsageOpenNoteService.findUsages(referenceUsageJohn316Query).length, 1);
+  assert.strictEqual(referenceUsageOpenNoteService.syncOpenFileContent(referenceUsageOpenNoteFile, "Draft Ин 3:16"), false);
+  assert.strictEqual(referenceUsageOpenNoteService.syncOpenFileContent(referenceUsageOpenNoteFile, "Draft"), true);
+  assert.strictEqual(referenceUsageOpenNoteService.findUsages(referenceUsageJohn316Query).length, 0);
+  assert.strictEqual(
+    referenceUsageOpenNoteService.syncOpenFileContent(createReferenceUsageTestFile("archive/open.md", 100, 10), "Ин 3:16"),
+    false
+  );
+  assert.deepStrictEqual(referenceUsageOpenNoteApp.readPaths, []);
+  referenceUsageOpenNoteService.clearPendingSave();
+
   const referenceUsageExcerptPrefix = "012345678901234567890123456789abcdef";
   const referenceUsageExcerptSuffix = "0123456789".repeat(16);
   referenceUsageApp.vault.cachedRead = async (file) => {

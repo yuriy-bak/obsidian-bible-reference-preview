@@ -6,7 +6,7 @@ import { getBibleIndexDataDirectoryPath as getBibleIndexDataDirectoryPathFlow } 
 import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createBookMapping } from "./src/parsing/BookMapping";
 import type { BibleChapterLocation, BibleChapterTarget } from "./src/application/BibleChapterNavigation";
-import type { BiblePreviewContent } from "./src/application/formatBibleTexts";
+import { refreshChapterUsageCounts, type BiblePreviewContent } from "./src/application/formatBibleTexts";
 import { backFromBiblePreviewChapter as backFromBiblePreviewChapterFlow, isBiblePreviewChapterHighlightHidden as isBiblePreviewChapterHighlightHiddenFlow, isBiblePreviewChapterModeActive as isBiblePreviewChapterModeActiveFlow, navigateBiblePreviewChapter as navigateBiblePreviewChapterFlow, openBiblePreviewChapter as openBiblePreviewChapterFlow, setBiblePreviewChapterHighlightHidden as setBiblePreviewChapterHighlightHiddenFlow, trackShownBiblePreviewContent as trackShownBiblePreviewContentFlow, type BiblePreviewChapterFlowInput, type BiblePreviewChapterState } from "./src/preview-navigation/BiblePreviewChapterFlow";
 import { getFirstWorkspaceLeafOfType } from "./src/workspace/BiblePreviewWorkspace";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
@@ -235,6 +235,10 @@ export default class BiblePlugin extends Plugin {
             setSuppressPreviewActiveLeafChange: (value) => {
                 this.suppressPreviewActiveLeafChange = value;
             },
+            onReferenceUsageIndexChanged: () => refreshChapterUsageCounts(
+                activeDocument,
+                (location) => countReferenceUsagesInChapterFlow(createReferenceUsagePreviewBlockFlowInputFlow(this.createReferenceUsagePluginFlowInput()), location),
+            ),
         };
     }
 

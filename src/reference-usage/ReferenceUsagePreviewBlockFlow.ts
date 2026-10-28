@@ -24,12 +24,10 @@ export async function showReferenceUsagesForPreviewBlock(
         return;
     }
 
-    const results = input.findUsages(target.references);
-    await showReferenceUsageResultsInPanel(
-        input.createReferenceUsagePaneFlowInput(),
-        input.formatTitle(target.title),
-        results,
-    );
+    await showReferenceUsageResultsInPanel(input.createReferenceUsagePaneFlowInput(), {
+        titleText: input.formatTitle(target.title),
+        run: () => ({ results: input.findUsages(target.references) }),
+    });
 }
 
 // Null hides the chapter's find-usages button (indexing is off).
@@ -47,11 +45,11 @@ export async function showReferenceUsagesForChapter(
         return;
     }
 
-    const results = input.findUsages([createChapterUsageQuery(location)]);
-    await showReferenceUsageResultsInPanel(
-        input.createReferenceUsagePaneFlowInput(),
-        input.formatTitle(chapterTitle),
-        results,
-        groupReferenceUsagesByChapterVerses(results, location, input.formatChapterGroupTitle),
-    );
+    await showReferenceUsageResultsInPanel(input.createReferenceUsagePaneFlowInput(), {
+        titleText: input.formatTitle(chapterTitle),
+        run: () => {
+            const results = input.findUsages([createChapterUsageQuery(location)]);
+            return { results, groups: groupReferenceUsagesByChapterVerses(results, location, input.formatChapterGroupTitle) };
+        },
+    });
 }

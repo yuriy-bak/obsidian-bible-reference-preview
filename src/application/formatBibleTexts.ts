@@ -8,6 +8,7 @@ import { BibleTextBlock, BibleTextPart } from "./BibleTextBlock";
 
 const DEFAULT_MISSING_VERSE_TEXT = "[стих не найден]";
 const DIFFERENT_BOOK_SEPARATOR = "__________";
+const CHAPTER_USAGES_BUTTON_CLASS = "bible-preview-chapter-usages-button";
 
 export type BiblePreviewContent = {
     plainText: string;
@@ -477,11 +478,29 @@ function createChapterUsagesButton(chapterView: BiblePreviewChapterView, options
 
     const icon = options.getFindUsagesButtonText?.() ?? "🔎";
     const ariaLabel = options.getFindChapterUsagesAria?.(chapterView.title) ?? chapterView.title;
-    const buttonEl = createChapterNavigationButton(count > 0 ? `${icon} ${count}` : icon, ariaLabel, true, () => {
+    const buttonEl = createChapterNavigationButton(formatChapterUsagesButtonText(icon, count), ariaLabel, true, () => {
         onFindChapterUsages({ book: chapterView.book, chapter: chapterView.chapter }, chapterView.title);
     });
-    buttonEl.classList.add("bible-preview-chapter-usages-button");
+    buttonEl.classList.add(CHAPTER_USAGES_BUTTON_CLASS);
+    buttonEl.dataset.book = String(chapterView.book);
+    buttonEl.dataset.chapter = String(chapterView.chapter);
+    buttonEl.dataset.icon = icon;
     return buttonEl;
+}
+
+// Updates usage counts of rendered chapter views in place, after the reference usage index changes.
+export function refreshChapterUsageCounts(rootEl: ParentNode, getChapterUsageCount: (location: BibleChapterLocation) => number | null): void {
+    rootEl.querySelectorAll<HTMLButtonElement>(`.${CHAPTER_USAGES_BUTTON_CLASS}`).forEach((buttonEl) => {
+        const book = Number(buttonEl.dataset.book);
+        const chapter = Number(buttonEl.dataset.chapter);
+        if (!Number.isInteger(book) || !Number.isInteger(chapter)) return;
+        const count = getChapterUsageCount({ book, chapter });
+        if (count !== null) buttonEl.textContent = formatChapterUsagesButtonText(buttonEl.dataset.icon ?? "🔎", count);
+    });
+}
+
+function formatChapterUsagesButtonText(icon: string, count: number): string {
+    return count > 0 ? `${icon} ${count}` : icon;
 }
 
 function createChapterHighlightToggle(

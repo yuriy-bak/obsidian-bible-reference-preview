@@ -78,6 +78,8 @@ export type ReferenceUsageIndexBuildResult = ReferenceUsageIndexStats & {
 export class ReferenceUsageIndexService {
     private index: ReferenceUsageIndex = createEmptyReferenceUsageIndex();
     private saveTimeout: number | null = null;
+    // Last editor text indexed per open note, so repeated searches skip unchanged notes.
+    private readonly syncedOpenFileContents = new Map<string, string>();
     private readonly maxMarkdownFileSizeBytes: number;
     private readonly buildYieldEveryFiles: number;
 
@@ -171,6 +173,7 @@ export class ReferenceUsageIndexService {
         assertReferenceUsageBuildNotAborted(options.signal);
         nextIndex.updatedAt = Date.now();
         this.index = nextIndex;
+        this.syncedOpenFileContents.clear();
         await this.save();
         return {
             ...this.getStats(),
@@ -182,6 +185,7 @@ export class ReferenceUsageIndexService {
 
     public async clear(): Promise<void> {
         this.index = createEmptyReferenceUsageIndex();
+        this.syncedOpenFileContents.clear();
         await this.save();
     }
 
@@ -193,6 +197,33 @@ export class ReferenceUsageIndexService {
         const content = await this.app.vault.cachedRead(file);
         this.index.files[file.path] = this.createIndexedFile(file, content);
         this.scheduleSave();
+    }
+
+    // Indexes an open note from its editor text, including unsaved edits. Returns true when its references changed.
+    public syncOpenFileContent(file: TFile, content: string): boolean {
+        if (this.syncedOpenFileContents.get(file.path) === content) {
+            return false;
+        }
+        this.syncedOpenFileContents.set(file.path, content);
+        if (!this.shouldIndexFile(file) || this.isFileTooLargeForIndex(file)) {
+            return this.removeFile(file.path);
+        }
+        const previousFile = this.index.files[file.path];
+        const nextFile = this.createIndexedFile(file, content);
+        this.index.files[file.path] = nextFile;
+        if (areIndexedReferenceUsagesEqual(previousFile?.references ?? [], nextFile.references)) {
+            return false;
+        }
+        this.scheduleSave();
+        return true;
+    }
+
+    public retainSyncedOpenFiles(openFilePaths: ReadonlySet<string>): void {
+        for (const path of this.syncedOpenFileContents.keys()) {
+            if (!openFilePaths.has(path)) {
+                this.syncedOpenFileContents.delete(path);
+            }
+        }
     }
 
     public removeFile(path: string): boolean {
@@ -379,6 +410,10 @@ function assertReferenceUsageBuildNotAborted(signal: AbortSignal | undefined): v
     const error = new Error("Reference usage index build was cancelled.");
     error.name = REFERENCE_USAGE_BUILD_ABORT_ERROR_NAME;
     throw error;
+}
+
+function areIndexedReferenceUsagesEqual(left: IndexedReferenceUsage[], right: IndexedReferenceUsage[]): boolean {
+    return left.length === right.length && JSON.stringify(left) === JSON.stringify(right);
 }
 
 async function yieldReferenceUsageBuildIfNeeded(processedFileCount: number, everyCount: number): Promise<void> {

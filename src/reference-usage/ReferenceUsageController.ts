@@ -18,6 +18,7 @@ export type ReferenceUsageControllerInput = {
     hasImportedTranslations: () => boolean;
     translate: (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
     refreshSettings: () => void;
+    onIndexChanged: () => void;
 };
 
 export class ReferenceUsageController {
@@ -84,6 +85,37 @@ export class ReferenceUsageController {
             progressModal.finish();
             this.indexingInProgress = false;
             this.input.refreshSettings();
+            this.input.onIndexChanged();
+        }
+    }
+
+    // Incremental update without a modal, for the usages panel refresh button. Returns true when the index was updated.
+    public async updateIndexInBackground(onProgress?: (progress: ReferenceUsageIndexBuildProgress) => void): Promise<boolean> {
+        if (!this.input.isIndexingEnabled()) {
+            new Notice(this.input.translate("notice.referenceUsageIndexDisabled"), 4000);
+            return false;
+        }
+        if (!this.input.hasImportedTranslations()) {
+            new Notice(this.input.translate("notice.noImportedTranslations"), 4000);
+            return false;
+        }
+        if (this.indexingInProgress) {
+            new Notice(this.input.translate("notice.referenceUsageIndexAlreadyRunning"), 4000);
+            return false;
+        }
+
+        this.indexingInProgress = true;
+        try {
+            await this.input.getService().build(this.input.app.vault.getMarkdownFiles(), false, { onProgress });
+            return true;
+        } catch (error) {
+            console.warn("Bible reference usage index update failed", error);
+            new Notice(this.input.translate("notice.referenceUsageIndexSaveFailed"), 5000);
+            return false;
+        } finally {
+            this.indexingInProgress = false;
+            this.input.refreshSettings();
+            this.input.onIndexChanged();
         }
     }
 
@@ -91,6 +123,7 @@ export class ReferenceUsageController {
         try {
             await this.input.getService().clear();
             this.input.refreshSettings();
+            this.input.onIndexChanged();
             new Notice(this.input.translate("notice.referenceUsageIndexCleared"), 4000);
         } catch (error) {
             console.warn("Bible reference usage index clear failed", error);
