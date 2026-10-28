@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.2.5 - Catalog review: link underline
+
+- Reference links (reading mode and editor) draw the dotted underline with `border-bottom` instead of `text-decoration-*` properties, which the catalog review flags as partially supported.
+
 ## 0.2.4 - Catalog review fixes
 
 - Reading-mode and editor reference links use `text-decoration-line` instead of the `text-decoration` shorthand (catalog review warning about partial browser support). The look is unchanged.
