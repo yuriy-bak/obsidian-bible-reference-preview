@@ -39,7 +39,7 @@ export const bibleReferenceLinkDecorationsField = StateField.define<DecorationSe
 
 export const bibleReferenceLinkTheme = EditorView.baseTheme({
     ".bible-reference-link": {
-        textDecoration: "underline",
+        textDecorationLine: "underline",
         textDecorationStyle: "dotted",
         cursor: "pointer",
     },

@@ -109,6 +109,15 @@ The commands have no default hotkeys. Assign them in Settings → Hotkeys, for e
 - Alt+Home — scroll to top
 - Alt+End — scroll to bottom
 
+## Privacy and permissions
+
+The Obsidian community catalog lists two capabilities for this plugin:
+
+- **Vault enumeration.** The plugin reads the list of Markdown files in your vault (`vault.getMarkdownFiles`) only to build the local Reference Usage Index. The index stays in the plugin data directory.
+- **Clipboard access.** The plugin only writes to the clipboard when you press the copy button in the preview. It never reads the clipboard.
+
+The plugin makes no network requests and sends no data anywhere.
+
 ## Known limitations
 
 - Command names are registered when the plugin loads. Restart the plugin to update command names after changing the interface language.
@@ -151,6 +160,12 @@ Reference Usage Index строит локальный индекс Markdown-фа
 - Alt+PageUp — прокрутить вверх
 - Alt+Home — в начало
 - Alt+End — в конец
+
+### Конфиденциальность и разрешения
+
+- Список Markdown-файлов vault плагин читает только для локального индекса использований ссылок. Индекс хранится в папке данных плагина.
+- В буфер обмена плагин только записывает текст по кнопке копирования в предпросмотре и никогда его не читает.
+- Плагин не делает сетевых запросов и никуда не отправляет данные.
 
 ## Development
 
