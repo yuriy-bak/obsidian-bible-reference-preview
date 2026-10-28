@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.4 - Catalog review fixes
+
+- Reading-mode and editor reference links use `text-decoration-line` instead of the `text-decoration` shorthand (catalog review warning about partial browser support). The look is unchanged.
+- README: new "Privacy and permissions" section explaining vault file listing and clipboard use.
+
 ## 0.2.3 - Chapter usages, highlight toggle, usages panel fixes
 
 - The 🔎 "find usages" button is now shown in comparison mode too, next to the main translation's reference title (like the 📖 chapter icon).

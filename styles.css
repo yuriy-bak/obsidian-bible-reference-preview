@@ -157,7 +157,7 @@ button.bible-preview-chapter-navigation-button:disabled {
 /* Reading mode links */
 a.bible-reference-link.bible-reference-reading-link {
     color: var(--bible-reference-link-color);
-    text-decoration: underline;
+    text-decoration-line: underline;
     text-decoration-style: dotted;
     cursor: pointer;
 }
