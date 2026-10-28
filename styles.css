@@ -452,8 +452,40 @@ button.bible-color-dialog-preset {
     gap: 8px;
 }
 
+.bible-reference-usage-pane-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
 h3.bible-reference-usage-pane-title {
-    margin: 0 0 6px 0;
+    margin: 0;
+}
+
+button.bible-reference-usage-pane-refresh-button {
+    flex: 0 0 auto;
+}
+
+button.bible-reference-usage-pane-refresh-button.is-refreshing svg {
+    animation: bible-reference-usage-refresh-spin 1s linear infinite;
+}
+
+@keyframes bible-reference-usage-refresh-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.bible-reference-usage-pane-progress {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.bible-reference-usage-pane-progress.is-hidden {
+    display: none;
 }
 
 .bible-reference-usage-pane-muted {

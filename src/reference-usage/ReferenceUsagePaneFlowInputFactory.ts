@@ -8,6 +8,7 @@ import {
 import type { ReferenceUsagePaneFlowInput } from "./ReferenceUsagePaneFlow";
 import { createReferenceUsagePaneViewInput } from "./ReferenceUsagePaneViewInputFactory";
 import type { BiblePluginLocale } from "../i18n/I18n";
+import type { ReferenceUsagePaneViewInput } from "../ui/ReferenceUsagePaneView";
 
 export type ReferenceUsagePaneFlowInputFactoryInput = {
     app: App;
@@ -17,6 +18,7 @@ export type ReferenceUsagePaneFlowInputFactoryInput = {
     isMobile: boolean;
     waitForNextAnimationFrame: () => Promise<void>;
     setSuppressPreviewActiveLeafChange: (value: boolean) => void;
+    refreshIndex: ReferenceUsagePaneViewInput["refreshIndex"];
 };
 
 export function createReferenceUsagePaneFlowInput(input: ReferenceUsagePaneFlowInputFactoryInput): ReferenceUsagePaneFlowInput {
@@ -26,6 +28,7 @@ export function createReferenceUsagePaneFlowInput(input: ReferenceUsagePaneFlowI
             app: input.app,
             interfaceLanguage: input.interfaceLanguage,
             waitForNextAnimationFrame: input.waitForNextAnimationFrame,
+            refreshIndex: input.refreshIndex,
         }),
         getFirstWorkspaceLeafOfType: (viewType) => getFirstWorkspaceLeafOfType(input.app, viewType),
         detachDuplicateWorkspaceLeavesOfType: (viewType: string, keepLeaf: WorkspaceLeaf) => detachDuplicateWorkspaceLeavesOfType(input.app, viewType, keepLeaf),

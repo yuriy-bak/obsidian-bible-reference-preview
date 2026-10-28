@@ -8,6 +8,7 @@ export type ReferenceUsagePaneViewInputFactoryInput = {
     app: App;
     interfaceLanguage: BiblePluginLocale;
     waitForNextAnimationFrame: () => Promise<void>;
+    refreshIndex: ReferenceUsagePaneViewInput["refreshIndex"];
 };
 
 export function createReferenceUsagePaneViewInput(input: ReferenceUsagePaneViewInputFactoryInput): ReferenceUsagePaneViewInput {
@@ -20,5 +21,11 @@ export function createReferenceUsagePaneViewInput(input: ReferenceUsagePaneViewI
             app: input.app,
             waitForNextAnimationFrame: input.waitForNextAnimationFrame,
         }, result),
+        getRefreshAria: () => t(input.interfaceLanguage, "referenceUsages.panel.refreshAria"),
+        getRefreshProgressText: (progress) => t(input.interfaceLanguage, "referenceUsages.panel.refreshProgress", {
+            processed: progress.processedFileCount,
+            total: progress.totalFileCount,
+        }),
+        refreshIndex: input.refreshIndex,
     };
 }
