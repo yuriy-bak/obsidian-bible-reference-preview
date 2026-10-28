@@ -30,6 +30,12 @@ export type BiblePreviewReferenceBlock = {
     paragraphs: BiblePreviewParagraph[];
 };
 
+// What a find-usages action needs; both reference and comparison blocks provide it.
+export type BiblePreviewUsageTarget = {
+    title: string;
+    references: BibleReference[];
+};
+
 export type BiblePreviewComparisonTranslation = {
     translationName: string;
     isMain?: boolean;
@@ -71,8 +77,8 @@ export type BiblePreviewComparisonInput = {
 
 export type BiblePreviewRenderOptions = {
     getFindUsagesButtonText?: () => string;
-    getFindUsagesButtonAria?: (block: BiblePreviewReferenceBlock) => string;
-    onFindUsages?: (block: BiblePreviewReferenceBlock) => void;
+    getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
+    onFindUsages?: (target: BiblePreviewUsageTarget) => void;
     getOpenChapterAria?: (title: string) => string;
     onOpenChapter?: (target: BibleChapterTarget) => void;
     getChapterNavigationLabels?: () => BiblePreviewChapterNavigationLabels;
@@ -270,13 +276,15 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
                 translationTitleEl.textContent = `[${translation.translationName}]`;
                 comparisonEl.appendChild(translationTitleEl);
 
-                const translationReferenceEl = createDiv();
-                translationReferenceEl.className = "bible-preview-comparison-reference-title";
-                const chapterTarget = onOpenChapter !== undefined && translation.isMain === true
-                    ? getChapterTargetFromReferences(block.references)
-                    : null;
-                appendReferenceTitle(translationReferenceEl, translation.referenceTitle, chapterTarget, options);
-                comparisonEl.appendChild(translationReferenceEl);
+                // Only the main translation gets the chapter and find-usages actions.
+                const isMain = translation.isMain === true;
+                const titleRowEl = createReferenceTitleRow(
+                    { title: translation.referenceTitle, references: block.references },
+                    { openChapter: isMain && onOpenChapter !== undefined, findUsages: isMain },
+                    options,
+                );
+                titleRowEl.classList.add("bible-preview-comparison-reference-title");
+                comparisonEl.appendChild(titleRowEl);
 
                 translation.paragraphs.forEach((paragraph) => {
                     const paragraphEl = createDiv();
@@ -304,20 +312,11 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
 
         // In chapter view the navigation bar already shows the chapter title.
         if (chapterView === undefined) {
-            const titleRowEl = createDiv();
-            titleRowEl.className = "bible-preview-reference-title-row";
-
-            const titleEl = createDiv();
-            titleEl.className = "bible-preview-reference-title";
-            const chapterTarget = onOpenChapter !== undefined ? getChapterTargetFromReferences(block.references) : null;
-            appendReferenceTitle(titleEl, block.title, chapterTarget, options);
-            titleRowEl.appendChild(titleEl);
-
-            if (options.onFindUsages !== undefined && block.references.length > 0) {
-                titleRowEl.appendChild(createFindUsagesButton(block, options));
-            }
-
-            referenceEl.appendChild(titleRowEl);
+            referenceEl.appendChild(createReferenceTitleRow(
+                block,
+                { openChapter: onOpenChapter !== undefined, findUsages: true },
+                options,
+            ));
         }
 
         block.paragraphs.forEach((paragraph) => {
@@ -337,6 +336,28 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
 }
 
 const BOOK_ICON = "📖";
+
+// Title row shared by single and comparison previews: 📖 + reference title on the left, 🔎 on the right.
+function createReferenceTitleRow(
+    target: BiblePreviewUsageTarget,
+    actions: { openChapter: boolean; findUsages: boolean },
+    options: BiblePreviewRenderOptions,
+): HTMLElement {
+    const titleRowEl = createDiv();
+    titleRowEl.className = "bible-preview-reference-title-row";
+
+    const titleEl = createDiv();
+    titleEl.className = "bible-preview-reference-title";
+    const chapterTarget = actions.openChapter ? getChapterTargetFromReferences(target.references) : null;
+    appendReferenceTitle(titleEl, target.title, chapterTarget, options);
+    titleRowEl.appendChild(titleEl);
+
+    if (actions.findUsages && options.onFindUsages !== undefined && target.references.length > 0) {
+        titleRowEl.appendChild(createFindUsagesButton(target, options));
+    }
+
+    return titleRowEl;
+}
 
 function appendReferenceTitle(
     titleEl: HTMLElement,
@@ -487,22 +508,22 @@ export function toBibleChapterPreviewContent(content: BiblePreviewContent, chapt
     };
 }
 
-function createFindUsagesButton(block: BiblePreviewReferenceBlock, options: BiblePreviewRenderOptions): HTMLButtonElement {
+function createFindUsagesButton(target: BiblePreviewUsageTarget, options: BiblePreviewRenderOptions): HTMLButtonElement {
     const buttonEl = createEl("button");
     buttonEl.type = "button";
     buttonEl.className = "bible-preview-reference-usages-button";
     buttonEl.textContent = options.getFindUsagesButtonText?.() ?? "🔎";
-    const ariaLabel = options.getFindUsagesButtonAria?.(block) ?? block.title;
+    const ariaLabel = options.getFindUsagesButtonAria?.(target) ?? target.title;
     buttonEl.setAttribute("aria-label", ariaLabel);
     buttonEl.setAttribute("title", ariaLabel);
-    buttonEl.addEventListener("click", (event) => handleFindUsagesButtonClick(event, block, options));
+    buttonEl.addEventListener("click", (event) => handleFindUsagesButtonClick(event, target, options));
     return buttonEl;
 }
 
-function handleFindUsagesButtonClick(event: MouseEvent, block: BiblePreviewReferenceBlock, options: BiblePreviewRenderOptions): void {
+function handleFindUsagesButtonClick(event: MouseEvent, target: BiblePreviewUsageTarget, options: BiblePreviewRenderOptions): void {
     event.preventDefault();
     event.stopPropagation();
-    options.onFindUsages?.(block);
+    options.onFindUsages?.(target);
 }
 
 function groupSourceTextBlocks(blocks: BibleTextBlock[]): BibleTextBlock[][] {

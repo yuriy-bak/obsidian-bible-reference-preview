@@ -1,6 +1,6 @@
 import type { App, WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
-import type { BiblePreviewContent, BiblePreviewReferenceBlock } from "../application/formatBibleTexts";
+import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/formatBibleTexts";
 import type { I18nKey } from "../i18n/I18n";
 import type { BiblePreviewDisplayMode, BiblePreviewPanelSide } from "../settings/PluginSettings";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
@@ -42,7 +42,7 @@ export type BiblePreviewPluginFlowInput = {
     getFloatingPreviewBackgroundColor: () => string;
     isPreviewComparisonEnabled: () => boolean;
     getPreviewComparisonTranslationOptions: () => PreviewComparisonTranslationOption[];
-    showReferenceUsagesForPreviewBlock: (block: BiblePreviewReferenceBlock) => void;
+    showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget) => void;
     setComparisonTranslationEnabled: (translationId: string, enabled: boolean) => void;
     toggleBiblePreviewComparison: (content: BiblePreviewContent) => void;
     openBiblePreviewChapter: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) => void;

@@ -1,5 +1,5 @@
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
-import type { BiblePreviewContent, BiblePreviewReferenceBlock } from "../application/formatBibleTexts";
+import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/formatBibleTexts";
 import type { I18nKey } from "../i18n/I18n";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
 import type { BiblePreviewPaneViewInput } from "./BiblePreviewPaneView";
@@ -13,7 +13,7 @@ export type BiblePreviewViewInputFactoryInput = {
     getFloatingPreviewBackgroundColor: () => string;
     isPreviewComparisonEnabled: () => boolean;
     getPreviewComparisonTranslationOptions: () => PreviewComparisonTranslationOption[];
-    showReferenceUsagesForPreviewBlock: (block: BiblePreviewReferenceBlock) => void;
+    showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget) => void;
     setComparisonTranslationEnabled: (translationId: string, enabled: boolean) => void;
     toggleBiblePreviewComparison: (content: BiblePreviewContent) => void;
     switchBiblePreviewToPanel: (content: BiblePreviewContent) => void;
@@ -29,8 +29,8 @@ function createCommonPreviewInput(input: BiblePreviewViewInputFactoryInput) {
         getCopyNoticeText: () => input.translate("notice.bibleTextCopied"),
         getCopyAria: () => input.translate("preview.copyAria"),
         getFindUsagesButtonText: () => input.translate("preview.findUsagesIcon"),
-        getFindUsagesButtonAria: (block: BiblePreviewReferenceBlock) => input.translate("preview.findUsagesAria", { reference: block.title }),
-        onFindUsages: (block: BiblePreviewReferenceBlock) => input.showReferenceUsagesForPreviewBlock(block),
+        getFindUsagesButtonAria: (target: BiblePreviewUsageTarget) => input.translate("preview.findUsagesAria", { reference: target.title }),
+        onFindUsages: (target: BiblePreviewUsageTarget) => input.showReferenceUsagesForPreviewBlock(target),
         getComparisonButtonText: () => input.isPreviewComparisonEnabled() ? "1" : "⇄",
         getComparisonButtonAria: () => input.isPreviewComparisonEnabled()
             ? input.translate("preview.comparisonOffAria")

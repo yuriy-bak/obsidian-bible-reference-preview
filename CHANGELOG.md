@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The 🔎 "find usages" button is now shown in comparison mode too, next to the main translation's reference title (like the 📖 chapter icon).
+
 ## 0.2.2 - Open whole chapter, EPUB import fix
 
 - Open the whole chapter from a preview passage: click the 📖 icon in a passage title to show the full chapter in the same preview (side panel or floating window). The referenced verses are highlighted and scrolled into view.

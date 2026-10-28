@@ -1,5 +1,5 @@
 import { Notice, Platform } from "obsidian";
-import { applyBiblePreviewScroll, BiblePreviewChapterViewInput, BiblePreviewContent, BiblePreviewReferenceBlock, createChapterRenderOptions, renderBiblePreviewContent } from "../application/formatBibleTexts";
+import { applyBiblePreviewScroll, BiblePreviewChapterViewInput, BiblePreviewContent, BiblePreviewUsageTarget, createChapterRenderOptions, renderBiblePreviewContent } from "../application/formatBibleTexts";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
 import { renderComparisonTranslationSelector as renderComparisonTranslationSelectorView } from "./ComparisonTranslationSelector";
 
@@ -17,8 +17,8 @@ export type FloatingBiblePreviewWindowInput = BiblePreviewChapterViewInput & {
     getExpandAria: () => string;
     getBackgroundColor: () => string;
     getFindUsagesButtonText?: () => string;
-    getFindUsagesButtonAria?: (block: BiblePreviewReferenceBlock) => string;
-    onFindUsages?: (block: BiblePreviewReferenceBlock) => void;
+    getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
+    onFindUsages?: (target: BiblePreviewUsageTarget) => void;
     getComparisonButtonText?: () => string;
     getComparisonButtonAria?: () => string;
     getComparisonTranslationsTitle?: () => string;
