@@ -71,6 +71,8 @@ const {
 } = require("../.test-build/src/reference-usage/ReferenceUsageChapterGroups.js");
 const { ensureLeafViewLoaded } = require("../.test-build/src/workspace/WorkspaceLeafViewLoading.js");
 const JSZip = require("jszip");
+const vm = require("vm");
+const { readAndValidateEpubFile } = require("../.test-build/src/import/EpubFileValidation.js");
 const {
   EPUB_IMPORT_LIMITS,
   normalizeZipPath,
@@ -1353,6 +1355,16 @@ const {
     zip.file("OEBPS/1-split2.xhtml", verseDocument("From split."));
     return zip.generateAsync({ type: "arraybuffer" });
   }
+
+  // A file picked in another window returns an ArrayBuffer from that realm; JSZip must still accept it.
+  const foreignZipBytes = await new JSZip().file("a.txt", "x").generateAsync({ type: "uint8array" });
+  const foreignBuffer = vm.runInNewContext("new ArrayBuffer(length)", { length: foreignZipBytes.byteLength });
+  new Uint8Array(foreignBuffer).set(foreignZipBytes);
+  assert(!(foreignBuffer instanceof ArrayBuffer));
+  const foreignFile = { name: "foreign.epub", size: foreignBuffer.byteLength, arrayBuffer: async () => foreignBuffer };
+  const realmContent = await readAndValidateEpubFile(foreignFile, (key) => key);
+  assert(realmContent instanceof ArrayBuffer);
+  assert((await JSZip.loadAsync(realmContent)).file("a.txt") !== null);
 
   const jwSource = new JwEpubBibleSource();
   const spineFirstOrderEpub = await createJwLikeEpub(["1-split2.xhtml", "1.xhtml"]);
