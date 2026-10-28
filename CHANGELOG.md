@@ -13,6 +13,7 @@
 - Editor link highlighting no longer builds a cache key from the whole visible text; it compares the document and visible ranges instead. Refreshing the links (new translation, settings) always rebuilds them.
 - The usage index file is saved without indentation, and reference ids no longer repeat the file path, so the file is noticeably smaller. Existing indexes keep working without a rebuild.
 - Internal: the plugin state lives in one `PluginContext`; settings, translations and the Bible index/import are single services instead of chains of `*Flow`/`*Input` wrappers. No behavior change.
+- Internal: the floating window, the side panel preview and the chapter mode are one `BiblePreviewService` instead of six `BiblePreview*Flow`/`*InputFactory` files. No behavior change.
 
 ## 0.2.5 - Catalog review: link underline
 

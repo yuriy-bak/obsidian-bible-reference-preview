@@ -1,18 +1,14 @@
 
-import { Notice, Platform, Plugin, type MarkdownPostProcessorContext, type WorkspaceLeaf } from "obsidian";
+import { Notice, Platform, Plugin, type MarkdownPostProcessorContext } from "obsidian";
 import { PluginContext } from "./src/core/PluginContext";
 import { SettingsService } from "./src/settings/SettingsService";
 import { TranslationService } from "./src/translations/TranslationService";
 import { BibleLibraryService } from "./src/import/BibleLibraryService";
 import type { BiblePluginSettingTabServices } from "./src/ui/BiblePluginSettingTab";
-import type { BibleChapterLocation, BibleChapterTarget } from "./src/application/BibleChapterNavigation";
-import { refreshChapterUsageCounts, type BiblePreviewContent } from "./src/application/formatBibleTexts";
-import { backFromBiblePreviewChapter as backFromBiblePreviewChapterFlow, isBiblePreviewChapterHighlightHidden as isBiblePreviewChapterHighlightHiddenFlow, isBiblePreviewChapterModeActive as isBiblePreviewChapterModeActiveFlow, navigateBiblePreviewChapter as navigateBiblePreviewChapterFlow, openBiblePreviewChapter as openBiblePreviewChapterFlow, setBiblePreviewChapterHighlightHidden as setBiblePreviewChapterHighlightHiddenFlow, trackShownBiblePreviewContent as trackShownBiblePreviewContentFlow, type BiblePreviewChapterFlowInput, type BiblePreviewChapterState } from "./src/preview-navigation/BiblePreviewChapterFlow";
-import { getFirstWorkspaceLeafOfType } from "./src/workspace/BiblePreviewWorkspace";
-import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
-import { BIBLE_PREVIEW_VIEW_TYPE, type BiblePreviewScrollCommand } from "./src/ui/BiblePreviewPaneView";
-import { refreshBiblePreviewLocalizedLabels as refreshBiblePreviewLocalizedLabelsFlow } from "./src/ui/BiblePreviewLocalizedRefreshFlow";
-import { closeBiblePreviewPane as closeBiblePreviewPaneFlow, createBiblePreviewPaneViewInput as createBiblePreviewPaneViewInputFlow, createFloatingBiblePreviewWindowInput as createFloatingBiblePreviewWindowInputFlow, handleBiblePreviewActiveLeafChange as handleBiblePreviewActiveLeafChangeFlow, handleBiblePreviewPanelEscapeKeydown as handleBiblePreviewPanelEscapeKeydownFlow, hideFloatingBiblePreview as hideFloatingBiblePreviewFlow, isFloatingPreviewTarget as isFloatingPreviewTargetFlow, refreshFloatingPreviewLabels as refreshFloatingPreviewLabelsFlow, scrollBiblePreview as scrollBiblePreviewFlow, showBiblePreviewContent as showBiblePreviewContentFlow, type BiblePreviewPluginFlowInput } from "./src/ui/BiblePreviewPluginFlow";
+import { refreshChapterUsageCounts } from "./src/application/formatBibleTexts";
+import { BIBLE_PREVIEW_VIEW_TYPE } from "./src/ui/BiblePreviewPaneView";
+import { BiblePreviewService } from "./src/ui/BiblePreviewService";
+import { refreshEditorPreviewControllerLocalizedLabels } from "./src/editor/EditorPreviewControllerRegistration";
 
 import type { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
 import type { ReferenceUsageController } from "./src/reference-usage/ReferenceUsageController";
@@ -41,35 +37,35 @@ export default class BiblePlugin extends Plugin {
         refreshBibleReferenceLinks: () => refreshBibleReferenceLinksFlow(this.createEditorPluginFlowInput()),
         clearBibleReferenceLinks: () => clearBibleReferenceLinksFlow(this.createEditorPluginFlowInput()),
         dispatchEditorViewNoopUpdate: () => dispatchEditorViewNoopUpdate(this.editorRuntimeState.editorViews),
-        refreshFloatingPreviewLabels: () => refreshFloatingPreviewLabelsFlow(this.createBiblePreviewPluginFlowInput()),
-        refreshBiblePreviewLocalizedLabels: () => refreshBiblePreviewLocalizedLabelsFlow({
-            app: this.app,
-            previewControllers: this.editorRuntimeState.previewControllers.values(),
-            readingModePreviewController: this.readingModePreviewController,
-            refreshFloatingPreviewLabels: () => refreshFloatingPreviewLabelsFlow(this.createBiblePreviewPluginFlowInput()),
-            createBiblePreviewPaneViewInput: () => createBiblePreviewPaneViewInputFlow(this.createBiblePreviewPluginFlowInput()),
-        }),
-        hideFloatingBiblePreview: (resetPosition) => hideFloatingBiblePreviewFlow(this.createBiblePreviewPluginFlowInput(), resetPosition),
-        closeBiblePreviewPane: (options) => this.closeBiblePreviewPane(options),
+        refreshFloatingPreviewLabels: () => this.preview.refreshFloatingLabels(),
+        refreshBiblePreviewLocalizedLabels: () => {
+            this.preview.refreshLocalizedLabels();
+            refreshEditorPreviewControllerLocalizedLabels(this.editorRuntimeState.previewControllers.values());
+            this.readingModePreviewController?.refreshLocalizedLabels();
+        },
+        hideFloatingBiblePreview: (resetPosition) => this.preview.hideFloating(resetPosition),
+        closeBiblePreviewPane: (options) => this.preview.closePane(options),
         updatePluginActiveRibbonIcon: () => this.updatePluginActiveRibbonIcon(),
     });
     private readonly translations = new TranslationService(this.context, {
-        refreshVisibleBiblePreviewContent: () => this.refreshVisibleBiblePreviewContent(),
+        refreshVisibleBiblePreviewContent: () => this.preview.refreshVisibleContent(),
     });
     private readonly library = new BibleLibraryService(this.context, this.translations);
+    private readonly preview: BiblePreviewService = new BiblePreviewService(this.context, this.settingsService, this.translations, {
+        rebuildContent: (content) => rebuildBiblePreviewContentFlow(this.createEditorPluginFlowInput(), content),
+        buildChapterContent: (target) => buildBibleChapterContentFlow(this.createEditorPluginFlowInput(), target),
+        toggleComparison: (content) => toggleBiblePreviewComparisonFlow(this.createEditorPluginFlowInput(), content),
+        showReferenceUsagesForPreviewBlock: (block) => void showReferenceUsagesForPreviewBlockFlow(createReferenceUsagePreviewBlockFlowInputFlow(this.createReferenceUsagePluginFlowInput()), block),
+        getChapterUsageCount: (location) => countReferenceUsagesInChapterFlow(createReferenceUsagePreviewBlockFlowInputFlow(this.createReferenceUsagePluginFlowInput()), location),
+        showReferenceUsagesForChapter: (location, title) => void showReferenceUsagesForChapterFlow(createReferenceUsagePreviewBlockFlowInputFlow(this.createReferenceUsagePluginFlowInput()), location, title),
+    });
     private readingModePreviewController: BibleReadingModePreviewController | null = null;
-    private floatingPreviewWindow: FloatingBiblePreviewWindow | null = null;
-    private lastPanePreviewContent: BiblePreviewContent | null = null;
-    private biblePreviewChapterState: BiblePreviewChapterState | null = null;
-    private lastPanelEscapeTime = 0;
-    private suppressPreviewActiveLeafChange = false;
-    private biblePreviewPaneIsActiveInSideDock = false;
     private pluginActiveRibbonIconEl: HTMLElement | null = null;
     private referenceUsageIndexService: ReferenceUsageIndexService | null = null;
     private referenceUsageController: ReferenceUsageController | null = null;
     private readonly editorRuntimeState = createEditorRuntimeState();
     private readonly linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.handleLinkOpenShortcutKeydown(event);
-    private readonly panelEscapeKeydownHandler = (event: KeyboardEvent) => this.handlePanelEscapeKeydown(event);
+    private readonly panelEscapeKeydownHandler = (event: KeyboardEvent) => this.preview.handleEscapeKeydown(event);
 
     async onload() {
         this.context.onBookMappingChanged(() => refreshBibleReferenceLinksFlow(this.createEditorPluginFlowInput()));
@@ -116,18 +112,18 @@ export default class BiblePlugin extends Plugin {
             analyzeReferenceText: (referenceText) => analyzeReferenceTextFlow(this.createEditorPluginFlowInput(), referenceText),
             buildReferenceUsageIndex: () => this.buildReferenceUsageIndex(),
             clearReferenceUsageIndex: () => this.clearReferenceUsageIndex(),
-            createBiblePreviewPaneViewInput: () => createBiblePreviewPaneViewInputFlow(this.createBiblePreviewPluginFlowInput()),
+            createBiblePreviewPaneViewInput: () => this.preview.createPaneViewInput(),
             createCursorExtension: () => createCursorExtensionFlow(this.createEditorPluginFlowInput()),
-            createFloatingPreviewWindowInput: () => createFloatingBiblePreviewWindowInputFlow(this.createBiblePreviewPluginFlowInput()),
+            createFloatingPreviewWindowInput: () => this.preview.createFloatingWindowInput(),
             createReferenceUsagePaneViewInput: () => createReferenceUsagePaneFlowInputFlow(this.createReferenceUsagePluginFlowInput()).createReferenceUsagePaneViewInput(),
             findReferenceUsagesUnderCursor: () => this.findReferenceUsagesUnderCursor(),
-            getLastPanePreviewContent: () => this.lastPanePreviewContent,
+            getLastPanePreviewContent: () => this.preview.getLastPaneContent(),
             getPluginActiveRibbonTitle: () => this.settingsService.getPluginActiveRibbonTitle(),
             hasImportedTranslations: () => this.context.hasImportedTranslations(),
-            hideFloatingBiblePreview: () => hideFloatingBiblePreviewFlow(this.createBiblePreviewPluginFlowInput()),
-            isFloatingPreviewTarget: (target) => isFloatingPreviewTargetFlow(this.createBiblePreviewPluginFlowInput(), target),
-            isBiblePreviewChapterModeActive: () => this.isBiblePreviewChapterModeActive(),
-            onActiveLeafChange: (activeLeaf) => this.handlePreviewActiveLeafChange(activeLeaf),
+            hideFloatingBiblePreview: () => this.preview.hideFloating(),
+            isFloatingPreviewTarget: (target) => this.preview.isFloatingTarget(target),
+            isBiblePreviewChapterModeActive: () => this.preview.isChapterModeActive(),
+            onActiveLeafChange: (activeLeaf) => this.preview.handleActiveLeafChange(activeLeaf),
             openBibleIndexFolder: () => this.library.openBibleIndexFolder(),
             openBibleReferenceUnderCursorFromActiveEditor: (showNotice) => this.openBibleReferenceUnderCursorFromActiveEditor(showNotice),
             openEpubFilePicker: () => this.library.openEpubFilePicker(),
@@ -136,7 +132,7 @@ export default class BiblePlugin extends Plugin {
             ownerPlugin: this,
             settingsTabInput: this.createSettingTabServices(),
             processReadingModeBibleReferences: (element, context) => this.processReadingModeBibleReferences(element, context),
-            refreshFloatingPreviewLabels: () => refreshFloatingPreviewLabelsFlow(this.createBiblePreviewPluginFlowInput()),
+            refreshFloatingPreviewLabels: () => this.preview.refreshFloatingLabels(),
             rebuildReferenceUsageIndex: () => this.rebuildReferenceUsageIndex(),
             registerDisposer: (disposer) => this.register(disposer),
             registerEditorExtension: (extension) => this.registerEditorExtension(extension),
@@ -146,10 +142,8 @@ export default class BiblePlugin extends Plugin {
             registerReferenceUsageIndexEvents: () => this.registerReferenceUsageIndexEvents(),
             registerView: (viewType, viewCreator) => this.registerView(viewType, viewCreator),
             reloadBibleIndex: () => this.library.reloadBibleIndex(),
-            scrollBiblePreview: (command) => this.scrollBiblePreview(command),
-            setFloatingPreviewWindow: (floatingPreviewWindow) => {
-                this.floatingPreviewWindow = floatingPreviewWindow;
-            },
+            scrollBiblePreview: (command) => this.preview.scroll(command),
+            setFloatingPreviewWindow: (floatingPreviewWindow) => this.preview.setFloatingWindow(floatingPreviewWindow),
             setPluginActiveRibbonIcon: (pluginActiveRibbonIconEl) => {
                 this.pluginActiveRibbonIconEl = pluginActiveRibbonIconEl;
             },
@@ -159,7 +153,7 @@ export default class BiblePlugin extends Plugin {
             setSettingsTab: (settingsTab) => this.context.setSettingsTab(settingsTab),
             shouldAutoOpenPreviewOnVerseChange: () => this.settingsService.shouldAutoOpenPreviewOnVerseChange(),
             showBibleIndexStats: () => this.library.showBibleIndexStats(),
-            showBiblePreviewContent: (content, anchor, options) => this.showBiblePreviewContent(content, anchor, options),
+            showBiblePreviewContent: (content, anchor, options) => this.preview.show(content, anchor, options),
             showNoImportedTranslationsNotice: () => new Notice(this.context.t("notice.noImportedTranslations"), 2500),
             showReferenceUsageIndexStats: () => this.showReferenceUsageIndexStats(),
             togglePluginActive: () => this.settingsService.togglePluginActive(),
@@ -200,33 +194,12 @@ export default class BiblePlugin extends Plugin {
             translate: (key, params) => this.context.t(key, params),
             refreshSettings: () => this.context.refreshSettingsTab(),
             waitForNextAnimationFrame: () => waitForNextAnimationFrameFlow(),
-            setSuppressPreviewActiveLeafChange: (value) => {
-                this.suppressPreviewActiveLeafChange = value;
-            },
+            setSuppressPreviewActiveLeafChange: (value) => this.preview.setSuppressActiveLeafChange(value),
             onReferenceUsageIndexChanged: () => refreshChapterUsageCounts(
                 activeDocument,
                 (location) => countReferenceUsagesInChapterFlow(createReferenceUsagePreviewBlockFlowInputFlow(this.createReferenceUsagePluginFlowInput()), location),
             ),
         };
-    }
-
-    private async refreshVisibleBiblePreviewContent(): Promise<void> {
-        const content = this.getCurrentBiblePreviewContent();
-        if (content === null) {
-            return;
-        }
-
-        const nextContent = await rebuildBiblePreviewContentFlow(this.createEditorPluginFlowInput(), content);
-        if (nextContent !== null) {
-            this.showBiblePreviewContent(nextContent, { type: "default" }, { reveal: false });
-        }
-    }
-
-    private getCurrentBiblePreviewContent(): BiblePreviewContent | null {
-        if (this.context.settings.previewDisplayMode === "side-panel") {
-            return this.lastPanePreviewContent;
-        }
-        return this.floatingPreviewWindow?.getContent() ?? null;
     }
 
     private shouldRunBiblePreviewForEditor(_view?: unknown): boolean {
@@ -366,111 +339,6 @@ export default class BiblePlugin extends Plugin {
         return openBibleReferenceUnderCursorFromActiveEditorFlow(this.createEditorLinkOpenShortcutFlowInput(), showNotice);
     }
 
-    private createBiblePreviewPluginFlowInput(): BiblePreviewPluginFlowInput {
-        return {
-            app: this.app,
-            isMobile: Platform.isMobileApp,
-            previewViewType: BIBLE_PREVIEW_VIEW_TYPE,
-            getPreviewPanelSide: () => this.context.settings.previewPanelSide,
-            getPreviewDisplayMode: () => this.context.settings.previewDisplayMode,
-            setPreviewDisplayMode: (previewDisplayMode) => this.context.updateSettings({ previewDisplayMode }),
-            saveSettings: () => this.context.saveSettings(),
-            refreshSettings: () => this.context.refreshSettingsTab(),
-            getActiveTranslationPreviewTitle: () => this.translations.getActiveTranslationPreviewTitle(),
-            translate: (key, params) => this.context.t(key, params),
-            getFloatingPreviewBackgroundColor: () => this.settingsService.getFloatingPreviewBackgroundColor(),
-            isPreviewComparisonEnabled: () => this.context.settings.previewComparisonEnabled,
-            getPreviewComparisonTranslationOptions: () => this.translations.getPreviewComparisonTranslationOptions(),
-            showReferenceUsagesForPreviewBlock: (block) => void showReferenceUsagesForPreviewBlockFlow(createReferenceUsagePreviewBlockFlowInputFlow(this.createReferenceUsagePluginFlowInput()), block),
-            getChapterUsageCount: (location) => countReferenceUsagesInChapterFlow(createReferenceUsagePreviewBlockFlowInputFlow(this.createReferenceUsagePluginFlowInput()), location),
-            showReferenceUsagesForChapter: (location, title) => void showReferenceUsagesForChapterFlow(createReferenceUsagePreviewBlockFlowInputFlow(this.createReferenceUsagePluginFlowInput()), location, title),
-            setComparisonTranslationEnabled: (translationId, enabled) => void this.translations.setComparisonTranslationEnabled(translationId, enabled),
-            toggleBiblePreviewComparison: (content) => void toggleBiblePreviewComparisonFlow(this.createEditorPluginFlowInput(), content),
-            openBiblePreviewChapter: (target, returnContent, returnScrollTop) => void this.openBiblePreviewChapter(target, returnContent, returnScrollTop),
-            navigateBiblePreviewChapter: (location) => void this.navigateBiblePreviewChapter(location),
-            backFromBiblePreviewChapter: () => backFromBiblePreviewChapterFlow(this.createBiblePreviewChapterFlowInput()),
-            isBiblePreviewChapterHighlightHidden: () => isBiblePreviewChapterHighlightHiddenFlow(this.biblePreviewChapterState),
-            setBiblePreviewChapterHighlightHidden: (hidden) => setBiblePreviewChapterHighlightHiddenFlow(this.createBiblePreviewChapterFlowInput(), hidden),
-            showFloatingBiblePreview: (content, anchor, options) => this.floatingPreviewWindow?.show(content, anchor, options),
-            scrollFloatingBiblePreview: (command) => {
-                this.floatingPreviewWindow?.scrollPreview(command);
-            },
-            waitForNextFrame: () => waitForNextAnimationFrameFlow(),
-            setLastPanePreviewContent: (nextContent) => {
-                this.lastPanePreviewContent = nextContent;
-            },
-            setSuppressPreviewActiveLeafChange: (value) => {
-                this.suppressPreviewActiveLeafChange = value;
-            },
-            getBiblePreviewPaneIsActiveInSideDock: () => this.biblePreviewPaneIsActiveInSideDock,
-            setBiblePreviewPaneIsActiveInSideDock: (value) => {
-                this.biblePreviewPaneIsActiveInSideDock = value;
-            },
-            getLastPanelEscapeTime: () => this.lastPanelEscapeTime,
-            setLastPanelEscapeTime: (value) => {
-                this.lastPanelEscapeTime = value;
-            },
-            isFloatingPreviewVisible: () => this.floatingPreviewWindow?.isVisible() === true,
-            isClosePreviewOnActiveLeafChangeEnabled: () => this.context.settings.closePreviewOnActiveLeafChange,
-            isPluginActive: () => this.settingsService.isPluginActive(),
-            hideFloatingBiblePreview: (resetPosition) => this.floatingPreviewWindow?.hide(resetPosition),
-            refreshFloatingPreviewLabels: (input) => this.floatingPreviewWindow?.refreshLabels(input),
-            isFloatingPreviewTarget: (target) => this.floatingPreviewWindow?.containsTarget(target) ?? false,
-        };
-    }
-
-    public showBiblePreviewContent(
-        content: BiblePreviewContent,
-        anchor: FloatingBiblePreviewAnchor = { type: "default" },
-        options: { reveal?: boolean } = {},
-    ): void {
-        this.biblePreviewChapterState = trackShownBiblePreviewContentFlow(this.biblePreviewChapterState, content);
-        showBiblePreviewContentFlow(this.createBiblePreviewPluginFlowInput(), content, anchor, options);
-    }
-
-    private async openBiblePreviewChapter(target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number): Promise<void> {
-        await openBiblePreviewChapterFlow(this.createBiblePreviewChapterFlowInput(), target, returnContent, returnScrollTop);
-    }
-
-    private async navigateBiblePreviewChapter(location: BibleChapterLocation): Promise<void> {
-        await navigateBiblePreviewChapterFlow(this.createBiblePreviewChapterFlowInput(), location);
-    }
-
-    private createBiblePreviewChapterFlowInput(): BiblePreviewChapterFlowInput {
-        return {
-            getState: () => this.biblePreviewChapterState,
-            setState: (state) => {
-                this.biblePreviewChapterState = state;
-            },
-            buildChapterContent: (target) => buildBibleChapterContentFlow(this.createEditorPluginFlowInput(), target),
-            showBiblePreviewContent: (content) => this.showBiblePreviewContent(content, { type: "default" }, { reveal: true }),
-        };
-    }
-
-    private isBiblePreviewChapterModeActive(): boolean {
-        const isPreviewVisible = this.context.settings.previewDisplayMode === "side-panel"
-            ? getFirstWorkspaceLeafOfType(this.app, BIBLE_PREVIEW_VIEW_TYPE) !== null
-            : this.floatingPreviewWindow?.isVisible() === true;
-        return isPreviewVisible
-            && isBiblePreviewChapterModeActiveFlow(this.biblePreviewChapterState, this.getCurrentBiblePreviewContent());
-    }
-
-    private async scrollBiblePreview(command: BiblePreviewScrollCommand): Promise<void> {
-        await scrollBiblePreviewFlow(this.createBiblePreviewPluginFlowInput(), command);
-    }
-
-    private async closeBiblePreviewPane(options: { collapseSideDock?: boolean; requireActivePreview?: boolean } = {}): Promise<void> {
-        await closeBiblePreviewPaneFlow(this.createBiblePreviewPluginFlowInput(), options);
-    }
-    private handlePanelEscapeKeydown(event: KeyboardEvent): void {
-        handleBiblePreviewPanelEscapeKeydownFlow(this.createBiblePreviewPluginFlowInput(), event);
-    }
-
-    private handlePreviewActiveLeafChange(activeLeaf: WorkspaceLeaf | null): void {
-        handleBiblePreviewActiveLeafChangeFlow(this.createBiblePreviewPluginFlowInput(), activeLeaf, {
-            suppressPreviewActiveLeafChange: this.suppressPreviewActiveLeafChange,
-        });
-    }
     private createEditorPluginFlowInput(): EditorPluginFlowInput {
         return {
             app: this.app,
@@ -492,10 +360,10 @@ export default class BiblePlugin extends Plugin {
             findBibleReferenceMatchAtPosition: (view, position) => findEditorBibleReferenceMatchAtPosition(view, position, (text) => this.context.parseMatches(text)),
             getCurrentParagraph: getCurrentEditorParagraph,
             setPreviewComparisonEnabled: (enabled) => this.settingsService.setPreviewComparisonEnabled(enabled),
-            showBiblePreviewContent: (content, options) => this.showBiblePreviewContent(content, { type: "default" }, options),
-            refreshFloatingPreviewLabels: () => refreshFloatingPreviewLabelsFlow(this.createBiblePreviewPluginFlowInput()),
-            hideFloatingBiblePreview: () => hideFloatingBiblePreviewFlow(this.createBiblePreviewPluginFlowInput()),
-            isBiblePreviewChapterModeActive: () => this.isBiblePreviewChapterModeActive(),
+            showBiblePreviewContent: (content, options) => this.preview.show(content, { type: "default" }, options),
+            refreshFloatingPreviewLabels: () => this.preview.refreshFloatingLabels(),
+            hideFloatingBiblePreview: () => this.preview.hideFloating(),
+            isBiblePreviewChapterModeActive: () => this.preview.isChapterModeActive(),
             getMissingVerseText: () => this.context.t("preview.missingVerse"),
             translate: (key) => this.context.t(key),
         };
