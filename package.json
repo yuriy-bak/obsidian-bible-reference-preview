@@ -22,7 +22,7 @@
     "watch": "tsc --noEmit --watch",
     "clean:test-build": "node scripts/clean-test-build.mjs",
     "build:test-modules": "npm run clean:test-build && tsc --target ES2018 --module commonjs --moduleResolution Node --esModuleInterop --skipLibCheck --strict --outDir .test-build --rootDir . --noEmit false",
-    "test": "npm run build && npm run build:test-modules && node tests/run-parser-tests.js",
+    "test": "npm run build && npm run build:test-modules && node tests/run-parser-tests.js && node tests/run-parser-benchmark.js",
     "test:golden": "node scripts/golden-import.mjs"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import { RangeSetBuilder, StateEffect, StateField, type Extension } from "@codemirror/state";
+import { RangeSetBuilder, StateEffect, StateField, type Extension, type Text } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 
 const MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS = 20000;
@@ -10,8 +10,13 @@ type BibleReferenceLinkDecorationVisibleRangeInput = {
     text: string;
 };
 
+// The document is immutable, so comparing it by reference together with the visible ranges
+// tells whether the visible text changed without building a key from that text.
 export type BibleReferenceLinkDecorationCacheEntry = {
-    key: string;
+    doc: Text;
+    ranges: Array<{ from: number; to: number }>;
+    linkColor: string;
+    activeTranslationId: string | null;
     decorations: DecorationSet;
 };
 
@@ -60,11 +65,14 @@ export function clearBibleReferenceLinkDecorations(view: EditorView): void {
     dispatchBibleReferenceLinkDecorations(view, Decoration.none);
 }
 
+// A refresh means the parser or settings changed, so cached decorations for the same text are stale.
 export function refreshBibleReferenceLinkDecorationsForViews(
     views: Iterable<EditorView>,
+    cache: WeakMap<EditorView, BibleReferenceLinkDecorationCacheEntry>,
     createDecorations: (view: EditorView) => DecorationSet,
 ): void {
     for (const view of views) {
+        cache.delete(view);
         dispatchBibleReferenceLinkDecorations(view, createDecorations(view));
     }
 }
@@ -127,9 +135,14 @@ export function createBibleReferenceLinkDecorations(input: BibleReferenceLinkDec
         rangeInputs.push({ from: range.from, to: range.to, text });
     }
 
-    const cacheKey = createBibleReferenceLinkDecorationCacheKey(rangeInputs, input.linkColor, input.activeTranslationId);
+    const doc = view.state.doc;
+    const ranges = rangeInputs.map((range) => ({ from: range.from, to: range.to }));
     const cachedEntry = cache.get(view);
-    if (cachedEntry !== undefined && cachedEntry.key === cacheKey) {
+    if (cachedEntry !== undefined
+        && cachedEntry.doc === doc
+        && cachedEntry.linkColor === input.linkColor
+        && cachedEntry.activeTranslationId === input.activeTranslationId
+        && areDecorationRangesEqual(cachedEntry.ranges, ranges)) {
         return cachedEntry.decorations;
     }
 
@@ -151,18 +164,14 @@ export function createBibleReferenceLinkDecorations(input: BibleReferenceLinkDec
     }
 
     const decorations = builder.finish();
-    cache.set(view, { key: cacheKey, decorations });
+    cache.set(view, { doc, ranges, linkColor: input.linkColor, activeTranslationId: input.activeTranslationId, decorations });
     return decorations;
 }
 
-function createBibleReferenceLinkDecorationCacheKey(
-    ranges: BibleReferenceLinkDecorationVisibleRangeInput[],
-    linkColor: string,
-    activeTranslationId: string | null,
-): string {
-    return [
-        activeTranslationId ?? "",
-        linkColor,
-        ...ranges.map((range) => `${range.from}:${range.to}:${range.text.length}:${range.text}`),
-    ].join("\n");
+function areDecorationRangesEqual(
+    left: Array<{ from: number; to: number }>,
+    right: Array<{ from: number; to: number }>,
+): boolean {
+    return left.length === right.length
+        && left.every((range, index) => range.from === right[index].from && range.to === right[index].to);
 }

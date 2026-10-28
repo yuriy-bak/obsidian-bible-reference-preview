@@ -29,6 +29,7 @@ export function createEditorReferenceLinkDecorations(
 export function refreshEditorReferenceLinks(input: EditorReferenceLinkDecorationFlowInput): void {
     refreshBibleReferenceLinkDecorationsForViews(
         input.editorRuntimeState.editorViews,
+        input.editorRuntimeState.bibleReferenceLinkDecorationCache,
         (view) => createEditorReferenceLinkDecorations(input, view),
     );
 }
