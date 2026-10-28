@@ -146,6 +146,14 @@ button.bible-preview-chapter-navigation-button:disabled {
     cursor: default;
 }
 
+.bible-preview-chapter-highlights-hidden .bible-preview-verse-highlighted {
+    background-color: transparent;
+}
+
+.bible-preview-chapter-highlights-hidden button.bible-preview-chapter-highlight-button {
+    opacity: 0.5;
+}
+
 /* Reading mode links */
 a.bible-reference-link.bible-reference-reading-link {
     color: var(--bible-reference-link-color);

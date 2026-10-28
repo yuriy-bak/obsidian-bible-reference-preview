@@ -48,6 +48,8 @@ export type BiblePreviewPluginFlowInput = {
     openBiblePreviewChapter: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) => void;
     navigateBiblePreviewChapter: (location: BibleChapterLocation) => void;
     backFromBiblePreviewChapter: () => void;
+    isBiblePreviewChapterHighlightHidden: () => boolean;
+    setBiblePreviewChapterHighlightHidden: (hidden: boolean) => void;
     showFloatingBiblePreview: (content: BiblePreviewContent, anchor: FloatingBiblePreviewAnchor, options: { reveal?: boolean }) => void;
     scrollFloatingBiblePreview: (command: BiblePreviewScrollCommand) => void;
     waitForNextFrame: () => Promise<void>;
@@ -78,6 +80,8 @@ export function createPreviewViewInputFactoryInput(input: BiblePreviewPluginFlow
         openBiblePreviewChapter: input.openBiblePreviewChapter,
         navigateBiblePreviewChapter: input.navigateBiblePreviewChapter,
         backFromBiblePreviewChapter: input.backFromBiblePreviewChapter,
+        isBiblePreviewChapterHighlightHidden: input.isBiblePreviewChapterHighlightHidden,
+        setBiblePreviewChapterHighlightHidden: input.setBiblePreviewChapterHighlightHidden,
         switchBiblePreviewToPanel: (content) => void switchBiblePreviewToPanel(input, content),
         switchBiblePreviewToFloating: (content) => void switchBiblePreviewToFloating(input, content),
     };

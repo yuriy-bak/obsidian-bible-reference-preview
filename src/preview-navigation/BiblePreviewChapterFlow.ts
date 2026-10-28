@@ -6,6 +6,8 @@ export type BiblePreviewChapterState = {
     returnScrollTop: number;
     origin: BibleChapterTarget;
     chapterContent: BiblePreviewContent | null;
+    // Toggled from the chapter navigation bar; kept while browsing chapters and reset when a chapter is opened again.
+    highlightsHidden: boolean;
 };
 
 export type BiblePreviewChapterFlowInput = {
@@ -21,7 +23,7 @@ export async function openBiblePreviewChapter(
     returnContent: BiblePreviewContent,
     returnScrollTop: number,
 ): Promise<void> {
-    const state: BiblePreviewChapterState = { returnContent, returnScrollTop, origin: target, chapterContent: null };
+    const state: BiblePreviewChapterState = { returnContent, returnScrollTop, origin: target, chapterContent: null, highlightsHidden: false };
     input.setState(state);
 
     const content = await buildChapterContentSafely(input, target);
@@ -79,6 +81,23 @@ export function isBiblePreviewChapterModeActive(
     displayedContent: BiblePreviewContent | null,
 ): boolean {
     return state !== null && state.chapterContent !== null && state.chapterContent === displayedContent;
+}
+
+export function isBiblePreviewChapterHighlightHidden(state: BiblePreviewChapterState | null): boolean {
+    return state?.highlightsHidden === true;
+}
+
+export function setBiblePreviewChapterHighlightHidden(
+    input: Pick<BiblePreviewChapterFlowInput, "getState" | "setState">,
+    hidden: boolean,
+): void {
+    const state = input.getState();
+    if (state === null) {
+        return;
+    }
+    // Updated in place: an in-flight chapter load compares the state by identity.
+    state.highlightsHidden = hidden;
+    input.setState(state);
 }
 
 async function buildChapterContentSafely(input: BiblePreviewChapterFlowInput, target: BibleChapterTarget): Promise<BiblePreviewContent | null> {
