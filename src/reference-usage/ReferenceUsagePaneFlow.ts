@@ -1,5 +1,6 @@
-import type { App, WorkspaceLeaf } from "obsidian";
+import type { App, View, WorkspaceLeaf } from "obsidian";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, type ReferenceUsagePaneQuery, type ReferenceUsagePaneViewInput } from "../ui/ReferenceUsagePaneView";
+import { ensureLeafViewLoaded } from "../workspace/WorkspaceLeafViewLoading";
 
 export type ReferenceUsagePaneFlowInput = {
     app: App;
@@ -24,8 +25,13 @@ export async function showReferenceUsageResultsInPanel(
 async function getOrCreateReferenceUsagePaneView(input: ReferenceUsagePaneFlowInput): Promise<ReferenceUsagePaneView | null> {
     const existingLeaf = input.getFirstWorkspaceLeafOfType(REFERENCE_USAGE_VIEW_TYPE);
     if (existingLeaf !== null) {
-        const existingView = existingLeaf.view;
-        if (existingView instanceof ReferenceUsagePaneView) {
+        const existingView = await ensureLeafViewLoaded({
+            leaf: existingLeaf,
+            viewType: REFERENCE_USAGE_VIEW_TYPE,
+            active: true,
+            isExpectedView: isReferenceUsagePaneView,
+        });
+        if (existingView !== null) {
             await input.revealLeafWithoutStealingEditorFocus(existingLeaf, { focus: true });
             await input.detachDuplicateWorkspaceLeavesOfType(REFERENCE_USAGE_VIEW_TYPE, existingLeaf);
             existingView.refreshInput(input.createReferenceUsagePaneViewInput());
@@ -39,8 +45,11 @@ async function getOrCreateReferenceUsagePaneView(input: ReferenceUsagePaneFlowIn
     }
     await leaf.setViewState({ type: REFERENCE_USAGE_VIEW_TYPE, active: true });
     await input.revealLeafWithoutStealingEditorFocus(leaf, { focus: true });
-    const createdLeaf = input.getFirstWorkspaceLeafOfType(REFERENCE_USAGE_VIEW_TYPE) ?? leaf;
-    await input.detachDuplicateWorkspaceLeavesOfType(REFERENCE_USAGE_VIEW_TYPE, createdLeaf);
-    const view = createdLeaf.view;
-    return view instanceof ReferenceUsagePaneView ? view : null;
+    await input.detachDuplicateWorkspaceLeavesOfType(REFERENCE_USAGE_VIEW_TYPE, leaf);
+    const view = leaf.view;
+    return isReferenceUsagePaneView(view) ? view : null;
+}
+
+function isReferenceUsagePaneView(view: View): view is ReferenceUsagePaneView {
+    return view instanceof ReferenceUsagePaneView;
 }

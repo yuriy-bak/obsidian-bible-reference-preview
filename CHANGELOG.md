@@ -5,6 +5,7 @@
 - The 🔎 "find usages" button is now shown in comparison mode too, next to the main translation's reference title (like the 📖 chapter icon).
 - Chapter view: a 🖍 button in the navigation bar hides or shows the highlighting of the referenced verses without leaving the chapter. The choice is kept while moving between chapters and switching translations, and resets when a chapter is opened again.
 - Chapter view: a 🔎 button in the navigation bar shows all usages of the chapter from the usage index, with the number of usages next to it. The results panel groups them by verse in chapter order ("Whole chapter" first, then "v. 5", "vv. 5–7", …); each group can be collapsed. Hidden when the usage index is disabled.
+- Fixed: after restarting Obsidian, the first 🔎 click (from a reference or the chapter view) did not open the usages panel until you switched to its tab manually. The restored tab is now loaded and reused; the same fix applies to the preview side panel.
 - Usage search always includes the notes open in the editor: before each search they are reindexed from their current text, including unsaved edits, even when auto-update of the usage index is off. The chapter usage counter updates accordingly.
 - Usages panel: a ⟳ button in the header updates the usage index (changed files only) in the background, without a modal, and repeats the current search. Progress is shown under the title if the update takes longer than a second.
 

@@ -1,7 +1,8 @@
-import { App, MarkdownView, type WorkspaceLeaf } from "obsidian";
+import { App, MarkdownView, type View, type WorkspaceLeaf } from "obsidian";
 import type { BiblePreviewContent } from "../application/formatBibleTexts";
 import type { BiblePreviewPanelSide } from "../settings/PluginSettings";
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, type BiblePreviewPaneViewInput } from "./BiblePreviewPaneView";
+import { ensureLeafViewLoaded } from "../workspace/WorkspaceLeafViewLoading";
 
 export type BiblePreviewPaneRevealOptions = {
     restoreActiveLeaf?: WorkspaceLeaf | null;
@@ -43,6 +44,7 @@ export async function scrollBiblePreviewPane(
     },
 ): Promise<void> {
     const leaf = input.getFirstWorkspaceLeafOfType(BIBLE_PREVIEW_VIEW_TYPE);
+    await leaf?.loadIfDeferred();
     if (leaf === null || !(leaf.view instanceof BiblePreviewPaneView)) {
         return;
     }
@@ -72,8 +74,13 @@ async function getOrCreateBiblePreviewPaneView(
     const reveal = options.reveal !== false;
     const existingLeaf = input.getFirstWorkspaceLeafOfType(BIBLE_PREVIEW_VIEW_TYPE);
     if (existingLeaf !== null) {
-        const existingView = existingLeaf.view;
-        if (existingView instanceof BiblePreviewPaneView) {
+        const existingView = await ensureLeafViewLoaded({
+            leaf: existingLeaf,
+            viewType: BIBLE_PREVIEW_VIEW_TYPE,
+            active: reveal,
+            isExpectedView: isBiblePreviewPaneView,
+        });
+        if (existingView !== null) {
             if (reveal) {
                 input.setBiblePreviewPaneIsActiveInSideDock(true);
                 input.expandBiblePreviewSideDock();
@@ -111,10 +118,9 @@ async function getOrCreateBiblePreviewPaneView(
         }
         await input.waitForNextFrame();
         await input.waitForNextFrame();
-        const createdLeaf = input.getFirstWorkspaceLeafOfType(BIBLE_PREVIEW_VIEW_TYPE) ?? leaf;
-        await input.detachDuplicateWorkspaceLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE, createdLeaf);
-        const view = createdLeaf.view;
-        if (view instanceof BiblePreviewPaneView) {
+        await input.detachDuplicateWorkspaceLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE, leaf);
+        const view = leaf.view;
+        if (isBiblePreviewPaneView(view)) {
             view.refreshInput(input.createBiblePreviewPaneViewInput());
             return view;
         }
@@ -124,4 +130,8 @@ async function getOrCreateBiblePreviewPaneView(
             input.setSuppressPreviewActiveLeafChange(false);
         }, 100);
     }
+}
+
+function isBiblePreviewPaneView(view: View): view is BiblePreviewPaneView {
+    return view instanceof BiblePreviewPaneView;
 }
