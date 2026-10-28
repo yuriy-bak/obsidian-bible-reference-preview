@@ -14,6 +14,7 @@
 - The usage index file is saved without indentation, and reference ids no longer repeat the file path, so the file is noticeably smaller. Existing indexes keep working without a rebuild.
 - Internal: the plugin state lives in one `PluginContext`; settings, translations and the Bible index/import are single services instead of chains of `*Flow`/`*Input` wrappers. No behavior change.
 - Internal: the floating window, the side panel preview and the chapter mode are one `BiblePreviewService` instead of six `BiblePreview*Flow`/`*InputFactory` files. No behavior change.
+- Internal: reference usages (settings, indexing, search, results panel and modal) are one `ReferenceUsageService` instead of nine `ReferenceUsage*Flow`/`*InputFactory` files. No behavior change.
 
 ## 0.2.5 - Catalog review: link underline
 

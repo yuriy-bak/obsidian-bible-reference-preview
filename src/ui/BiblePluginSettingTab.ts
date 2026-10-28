@@ -2,6 +2,7 @@ import { App, Plugin, PluginSettingTab, type SettingDefinitionItem } from "obsid
 import type { PluginContext } from "../core/PluginContext";
 import type { BiblePluginLocale } from "../i18n/I18n";
 import type { BibleLibraryService } from "../import/BibleLibraryService";
+import type { ReferenceUsageService } from "../reference-usage/ReferenceUsageService";
 import type { BibleLinkOpenShortcut, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode } from "../settings/PluginSettings";
 import type { SettingsService } from "../settings/SettingsService";
 import type { TranslationService } from "../translations/TranslationService";
@@ -9,25 +10,12 @@ import { createColorSettingDefinitions } from "./ColorSettingsSection";
 import { createReferenceUsageIndexSettingsGroup, type ReferenceUsageIndexSettingKey } from "./ReferenceUsageIndexSettingsSection";
 import { createTranslationSettingsList } from "./TranslationSettingsList";
 
-export type ReferenceUsageSettingsActions = {
-    isReferenceUsageIndexingEnabled: () => boolean;
-    setReferenceUsageIndexingEnabled: (referenceUsageIndexingEnabled: boolean) => Promise<void>;
-    shouldAutoUpdateReferenceUsageIndex: () => boolean;
-    setReferenceUsageAutoUpdate: (referenceUsageAutoUpdate: boolean) => Promise<void>;
-    getReferenceUsageExcludedFoldersText: () => string;
-    setReferenceUsageExcludedFoldersText: (value: string) => Promise<void>;
-    buildReferenceUsageIndex: () => Promise<void>;
-    rebuildReferenceUsageIndex: () => Promise<void>;
-    showReferenceUsageIndexStats: () => Promise<void>;
-    clearReferenceUsageIndex: () => Promise<void>;
-};
-
 export type BiblePluginSettingTabServices = {
     context: PluginContext;
     settings: SettingsService;
     translations: TranslationService;
     library: BibleLibraryService;
-    referenceUsage: ReferenceUsageSettingsActions;
+    referenceUsage: ReferenceUsageService;
 };
 
 type SettingControlKey =
