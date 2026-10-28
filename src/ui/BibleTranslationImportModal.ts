@@ -1,5 +1,5 @@
 import { App, Modal, Notice, Setting } from "obsidian";
-import type { EpubBibleSourceMetadata } from "../infrastructure/EpubBibleImporter";
+import type { BibleSourceMetadata } from "../infrastructure/sources/BibleSource";
 import { BiblePluginLocale, t } from "../i18n/I18n";
 
 export type BibleTranslationImportSettings = {
@@ -119,7 +119,7 @@ export class BibleTranslationImportModal extends Modal {
     }
 }
 
-export function createImportSettingsDefaults(fileName: string, sourceMetadata: EpubBibleSourceMetadata): BibleTranslationImportSettings {
+export function createImportSettingsDefaults(fileName: string, sourceMetadata: BibleSourceMetadata): BibleTranslationImportSettings {
     const fileNameWithoutExtension = fileName.replace(/\.epub$/i, "").trim();
     const detectedTranslationName = sourceMetadata.title?.trim() ?? "";
     const translationNameForId = detectedTranslationName || fileNameWithoutExtension || "Imported EPUB Bible";

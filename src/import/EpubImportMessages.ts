@@ -1,9 +1,9 @@
-import type { EpubBibleImportProgress, EpubBibleImportReport, EpubBibleImportResult } from "../infrastructure/EpubBibleImporter";
+import type { BibleImportProgress, BibleImportReport, BibleImportResult } from "../infrastructure/sources/BibleSource";
 import type { I18nKey } from "../i18n/I18n";
 
 export type EpubImportTranslate = (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
 
-export function formatEpubImportProgress(progress: EpubBibleImportProgress, translate: EpubImportTranslate): string {
+export function formatEpubImportProgress(progress: BibleImportProgress, translate: EpubImportTranslate): string {
     return translate("notice.importProgress", {
         stage: translate(`notice.importProgress.stage.${progress.stage}`),
         processed: progress.processedCount,
@@ -12,7 +12,7 @@ export function formatEpubImportProgress(progress: EpubBibleImportProgress, tran
 }
 
 export function formatEpubImportSuccessNotice(
-    result: EpubBibleImportResult,
+    result: BibleImportResult,
     translate: EpubImportTranslate,
 ): string {
     const warningsText = result.warnings.length === 0 ? "" : `\n${translate("notice.importWarnings", { count: result.warnings.length })}`;
@@ -30,7 +30,7 @@ export function formatEpubImportSuccessNotice(
 }
 
 export function formatLastImportReportNotice(
-    report: EpubBibleImportReport,
+    report: BibleImportReport,
     translate: EpubImportTranslate,
 ): string {
     return [

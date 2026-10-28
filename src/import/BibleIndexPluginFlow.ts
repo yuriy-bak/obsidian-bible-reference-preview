@@ -2,7 +2,7 @@ import { Notice, type App } from "obsidian";
 import type { BibleIndex } from "../infrastructure/BibleIndex";
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
 import type { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
-import { isEpubImportAbortError } from "../infrastructure/epub/JsZipEpubBibleImporter";
+import { isBibleImportAbortError } from "../infrastructure/sources/BibleImportCancellation";
 import type { BiblePluginLocale } from "../i18n/I18n";
 import type { EpubFileValidationTranslate } from "./EpubFileValidation";
 import { executePreparedEpubImport, prepareEpubImportSettings } from "./EpubImportFlow";
@@ -112,7 +112,7 @@ export async function importEpubFile(input: BibleIndexPluginFlowInput, file: Fil
         }
         new Notice(formatEpubImportSuccessNotice(result, input.translate), 15000);
     } catch (error) {
-        if (isEpubImportAbortError(error)) {
+        if (isBibleImportAbortError(error)) {
             new Notice(input.translate("notice.importCancelled"), 5000);
             return;
         }

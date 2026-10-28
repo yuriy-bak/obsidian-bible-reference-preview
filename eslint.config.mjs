@@ -16,6 +16,7 @@ export default defineConfig([
       "src/**/*.js",
       "scripts/",
       "tests/",
+      ".golden/",
       "esbuild.config.mjs",
       "eslint.config.mjs"
     ]

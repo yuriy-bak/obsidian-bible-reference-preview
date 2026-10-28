@@ -1,8 +1,9 @@
 import type { DataAdapter } from "obsidian";
 import { BibleIndex } from "../BibleIndex";
-import { EpubBibleImportReport } from "../EpubBibleImporter";
+import { BibleImportReport } from "../sources/BibleSource";
 import { BibleBookV2Loader } from "./BibleBookV2Loader";
 import { BibleIndexV2Data } from "./BibleIndexV2Data";
+import { sanitizeBibleIndexV2Data } from "./BibleIndexV2Validation";
 import { CompactBibleBookData } from "./CompactBibleBookData";
 import { LazyBibleIndexV2 } from "./LazyBibleIndexV2";
 
@@ -20,7 +21,7 @@ const EMPTY_BIBLE_INDEX: BibleIndex = {
 export type SaveBibleIndexV2Input = {
     metadata: BibleIndexV2Data;
     books: Record<string, CompactBibleBookData>;
-    report: EpubBibleImportReport;
+    report: BibleImportReport;
 };
 
 export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
@@ -126,7 +127,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         return isCompactBibleBookData(parsed) ? parsed : null;
     }
 
-    async readLastImportReport(): Promise<EpubBibleImportReport | null> {
+    async readLastImportReport(): Promise<BibleImportReport | null> {
         const path = this.getImportReportPath();
 
         if (!(await this.adapter.exists(path))) {
@@ -155,7 +156,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         }
 
         const parsed = JSON.parse(await this.adapter.read(path)) as unknown;
-        return isBibleIndexV2Data(parsed) ? parsed : null;
+        return isBibleIndexV2Data(parsed) ? sanitizeBibleIndexV2Data(parsed) : null;
     }
 
     private async removeTranslationDirectory(translationId: string): Promise<void> {
@@ -195,7 +196,7 @@ function isCompactBibleBookData(value: unknown): value is CompactBibleBookData {
     return isRecord(value) && Array.isArray(value.chapters);
 }
 
-function isImportReport(value: unknown): value is EpubBibleImportReport {
+function isImportReport(value: unknown): value is BibleImportReport {
     return isRecord(value)
         && typeof value.translationId === "string"
         && typeof value.translationName === "string"

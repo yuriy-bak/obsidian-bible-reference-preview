@@ -1,12 +1,12 @@
 import { Notice, type App } from "obsidian";
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
-import type { EpubBibleImportReport } from "../infrastructure/EpubBibleImporter";
+import type { BibleImportReport } from "../infrastructure/sources/BibleSource";
 import { ensureVaultDirectoryExists } from "../infrastructure/VaultPathUtils";
 import { formatBibleIndexV2StatsNotice, formatLastImportReportNotice, type EpubImportTranslate } from "./EpubImportMessages";
 
 export type BibleIndexInfoRepository = {
     load: () => Promise<void>;
-    readLastImportReport: () => Promise<EpubBibleImportReport | null>;
+    readLastImportReport: () => Promise<BibleImportReport | null>;
 };
 
 export type OpenBibleIndexFolderFlowInput = {

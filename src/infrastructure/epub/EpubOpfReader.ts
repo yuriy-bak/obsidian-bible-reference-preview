@@ -1,3 +1,5 @@
+import { findElementsByName, findFirstElementByName, parseXmlDocument } from "./MarkupDocument";
+
 export type EpubManifestItem = {
     id: string;
     href: string;
@@ -13,10 +15,26 @@ export type EpubOpfDocument = {
     spineItems: EpubSpineItem[];
 };
 
+export type EpubOpfMetadata = {
+    title: string | null;
+    language: string | null;
+};
+
 export function parseOpfDocument(opfXml: string): EpubOpfDocument {
+    const document = parseXmlDocument(opfXml);
+
     return {
-        manifestItems: parseManifestItems(opfXml),
-        spineItems: parseSpineItems(opfXml),
+        manifestItems: parseManifestItems(document),
+        spineItems: parseSpineItems(document),
+    };
+}
+
+export function parseOpfMetadata(opfXml: string): EpubOpfMetadata {
+    const document = parseXmlDocument(opfXml);
+
+    return {
+        title: getElementText(document, "dc:title") ?? getElementText(document, "title"),
+        language: getElementText(document, "dc:language") ?? getElementText(document, "language"),
     };
 }
 
@@ -29,35 +47,30 @@ export function getSpineXhtmlItems(opf: EpubOpfDocument): EpubManifestItem[] {
         .filter((item) => item.mediaType === "application/xhtml+xml" || item.mediaType === "text/html");
 }
 
-function parseManifestItems(opfXml: string): EpubManifestItem[] {
+function parseManifestItems(document: Document): EpubManifestItem[] {
     const result: EpubManifestItem[] = [];
-    const itemPattern = /<item\s+([^>]+?)\/?\s*>/gi;
 
-    for (let match = itemPattern.exec(opfXml); match !== null; match = itemPattern.exec(opfXml)) {
-        const attributes = parseAttributes(match[1]);
-        const id = attributes.get("id");
-        const href = attributes.get("href");
-        const mediaType = attributes.get("media-type") ?? "";
+    for (const element of findElementsByName(document, "item")) {
+        const id = element.getAttribute("id");
+        const href = element.getAttribute("href");
 
-        if (id === undefined || href === undefined) {
+        if (id === null || href === null) {
             continue;
         }
 
-        result.push({ id, href, mediaType });
+        result.push({ id, href, mediaType: element.getAttribute("media-type") ?? "" });
     }
 
     return result;
 }
 
-function parseSpineItems(opfXml: string): EpubSpineItem[] {
+function parseSpineItems(document: Document): EpubSpineItem[] {
     const result: EpubSpineItem[] = [];
-    const itemRefPattern = /<itemref\s+([^>]+?)\/?\s*>/gi;
 
-    for (let match = itemRefPattern.exec(opfXml); match !== null; match = itemRefPattern.exec(opfXml)) {
-        const attributes = parseAttributes(match[1]);
-        const idref = attributes.get("idref");
+    for (const element of findElementsByName(document, "itemref")) {
+        const idref = element.getAttribute("idref");
 
-        if (idref !== undefined) {
+        if (idref !== null) {
             result.push({ idref });
         }
     }
@@ -65,22 +78,7 @@ function parseSpineItems(opfXml: string): EpubSpineItem[] {
     return result;
 }
 
-function parseAttributes(rawAttributes: string): Map<string, string> {
-    const attributes = new Map<string, string>();
-    const attributePattern = /([\w:-]+)=["']([^"']*)["']/g;
-
-    for (let match = attributePattern.exec(rawAttributes); match !== null; match = attributePattern.exec(rawAttributes)) {
-        attributes.set(match[1].toLowerCase(), decodeXmlEntities(match[2]));
-    }
-
-    return attributes;
-}
-
-function decodeXmlEntities(value: string): string {
-    return value
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&");
+function getElementText(document: Document, name: string): string | null {
+    const value = (findFirstElementByName(document, name)?.textContent ?? "").replace(/\s+/g, " ").trim();
+    return value.length === 0 ? null : value;
 }
