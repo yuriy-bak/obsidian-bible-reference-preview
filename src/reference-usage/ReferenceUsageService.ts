@@ -3,7 +3,9 @@ import type { BibleChapterLocation } from "../application/BibleChapterNavigation
 import { refreshChapterUsageCounts, type BiblePreviewUsageTarget } from "../application/formatBibleTexts";
 import type { PluginContext } from "../core/PluginContext";
 import type { BibleReference } from "../domain/BibleReference";
+import type { EditorReferenceUnderCursor, EditorService } from "../editor/EditorService";
 import { BIBLE_PREVIEW_VIEW_TYPE } from "../ui/BiblePreviewPaneView";
+import type { BiblePreviewService } from "../ui/BiblePreviewService";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, type ReferenceUsagePaneQuery, type ReferenceUsagePaneViewInput } from "../ui/ReferenceUsagePaneView";
 import { ReferenceUsageResultsModal } from "../ui/ReferenceUsageResultsModal";
 import { areStringArraysEqual } from "../utils/ArrayEquality";
@@ -20,17 +22,6 @@ import {
 } from "./ReferenceUsageIndexService";
 import { openReferenceUsageResult } from "./ReferenceUsageResultOpening";
 
-type ReferenceUnderCursor = {
-    text: string;
-    references: BibleReference[];
-};
-
-/** What the usages need from the editor and the preview. */
-export type ReferenceUsageServiceEffects = {
-    getReferenceUnderCursor: () => ReferenceUnderCursor | null;
-    setSuppressPreviewActiveLeafChange: (value: boolean) => void;
-};
-
 /** The index of Bible reference usages in notes: settings, indexing, search and the results panel. */
 export class ReferenceUsageService {
     private indexService: ReferenceUsageIndexService | null = null;
@@ -38,7 +29,8 @@ export class ReferenceUsageService {
 
     constructor(
         private readonly context: PluginContext,
-        private readonly effects: ReferenceUsageServiceEffects,
+        private readonly editor: EditorService,
+        private readonly preview: BiblePreviewService,
     ) {}
 
     async load(): Promise<void> {
@@ -226,11 +218,11 @@ export class ReferenceUsageService {
         refreshChapterUsageCounts(activeDocument, (location) => this.countUsagesInChapter(location));
     }
 
-    private getReferenceUnderCursor(): ReferenceUnderCursor | null {
+    private getReferenceUnderCursor(): EditorReferenceUnderCursor | null {
         if (!this.ensureIndexingEnabled()) {
             return null;
         }
-        return this.effects.getReferenceUnderCursor();
+        return this.editor.getReferenceUnderCursor(true);
     }
 
     private ensureIndexingEnabled(): boolean {
@@ -332,7 +324,7 @@ export class ReferenceUsageService {
             restoreActiveLeaf: null,
             focus: true,
             isMobile: this.context.isMobile,
-            setSuppressPreviewActiveLeafChange: (value) => this.effects.setSuppressPreviewActiveLeafChange(value),
+            setSuppressPreviewActiveLeafChange: (value) => this.preview.setSuppressActiveLeafChange(value),
         });
     }
 }

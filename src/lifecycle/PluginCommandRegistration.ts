@@ -1,81 +1,61 @@
 import type { Plugin } from "obsidian";
-import type { I18nKey } from "../i18n/I18n";
+import type { PluginContext } from "../core/PluginContext";
+import type { EditorService } from "../editor/EditorService";
+import type { BibleLibraryService } from "../import/BibleLibraryService";
+import type { ReferenceUsageService } from "../reference-usage/ReferenceUsageService";
+import type { SettingsService } from "../settings/SettingsService";
+import type { BiblePreviewService } from "../ui/BiblePreviewService";
 
-type PluginCommand = Parameters<Plugin["addCommand"]>[0];
-type PluginCommandTranslate = (key: I18nKey) => string;
-type BiblePreviewScrollCommand = "page-down" | "page-up" | "top" | "bottom";
-
-export type PluginCommandRegistrationInput = {
-    addCommand: (command: PluginCommand) => void;
-    translate: PluginCommandTranslate;
-    openEpubFilePicker: () => void;
-    reloadBibleIndex: () => Promise<void>;
-    openBibleIndexFolder: () => Promise<void>;
-    showBibleIndexStats: () => Promise<void>;
-    buildReferenceUsageIndex: () => Promise<void>;
-    rebuildReferenceUsageIndex: () => Promise<void>;
-    clearReferenceUsageIndex: () => Promise<void>;
-    showReferenceUsageIndexStats: () => Promise<void>;
-    findReferenceUsagesUnderCursor: () => Promise<void>;
-    openReferenceUsagesPanelUnderCursor: () => Promise<void>;
-    scrollBiblePreview: (command: BiblePreviewScrollCommand) => Promise<void>;
-    togglePluginActive: () => Promise<void>;
-    openBibleReferenceUnderCursorFromActiveEditor: (showNotice: boolean) => boolean;
+export type PluginCommandServices = {
+    context: PluginContext;
+    settings: SettingsService;
+    library: BibleLibraryService;
+    preview: BiblePreviewService;
+    referenceUsage: ReferenceUsageService;
+    editor: EditorService;
 };
 
-export type PluginActiveRibbonRegistrationInput = {
-    addRibbonIcon: (icon: string, title: string, callback: () => void) => HTMLElement;
-    title: string;
-    togglePluginActive: () => Promise<void>;
-};
-
-export function registerPluginCommands(input: PluginCommandRegistrationInput): void {
-    input.addCommand({ id: "import-epub-bible", name: input.translate("command.importEpubBible"), callback: () => input.openEpubFilePicker() });
-    input.addCommand({ id: "reload-bible-index", name: input.translate("command.reloadBibleIndex"), callback: () => void input.reloadBibleIndex() });
-    input.addCommand({ id: "open-bible-index-folder", name: input.translate("command.openBibleIndexFolder"), callback: () => void input.openBibleIndexFolder() });
-    input.addCommand({ id: "show-bible-index-stats", name: input.translate("command.showBibleIndexStats"), callback: () => void input.showBibleIndexStats() });
-    input.addCommand({ id: "build-reference-usage-index", name: input.translate("command.buildReferenceUsageIndex"), callback: () => void input.buildReferenceUsageIndex() });
-    input.addCommand({ id: "rebuild-reference-usage-index", name: input.translate("command.rebuildReferenceUsageIndex"), callback: () => void input.rebuildReferenceUsageIndex() });
-    input.addCommand({ id: "clear-reference-usage-index", name: input.translate("command.clearReferenceUsageIndex"), callback: () => void input.clearReferenceUsageIndex() });
-    input.addCommand({ id: "show-reference-usage-index-stats", name: input.translate("command.showReferenceUsageIndexStats"), callback: () => void input.showReferenceUsageIndexStats() });
-    input.addCommand({ id: "find-reference-usages-under-cursor", name: input.translate("command.findReferenceUsagesUnderCursor"), callback: () => void input.findReferenceUsagesUnderCursor() });
-    input.addCommand({ id: "open-reference-usages-panel-under-cursor", name: input.translate("command.openReferenceUsagesPanelUnderCursor"), callback: () => void input.openReferenceUsagesPanelUnderCursor() });
-    input.addCommand({
+export function registerPluginCommands(plugin: Plugin, services: PluginCommandServices): void {
+    const { context, settings, library, preview, referenceUsage, editor } = services;
+    const t = (key: Parameters<PluginContext["t"]>[0]) => context.t(key);
+    plugin.addCommand({ id: "import-epub-bible", name: t("command.importEpubBible"), callback: () => library.openEpubFilePicker() });
+    plugin.addCommand({ id: "reload-bible-index", name: t("command.reloadBibleIndex"), callback: () => void library.reloadBibleIndex() });
+    plugin.addCommand({ id: "open-bible-index-folder", name: t("command.openBibleIndexFolder"), callback: () => void library.openBibleIndexFolder() });
+    plugin.addCommand({ id: "show-bible-index-stats", name: t("command.showBibleIndexStats"), callback: () => void library.showBibleIndexStats() });
+    plugin.addCommand({ id: "build-reference-usage-index", name: t("command.buildReferenceUsageIndex"), callback: () => void referenceUsage.buildReferenceUsageIndex() });
+    plugin.addCommand({ id: "rebuild-reference-usage-index", name: t("command.rebuildReferenceUsageIndex"), callback: () => void referenceUsage.rebuildReferenceUsageIndex() });
+    plugin.addCommand({ id: "clear-reference-usage-index", name: t("command.clearReferenceUsageIndex"), callback: () => void referenceUsage.clearReferenceUsageIndex() });
+    plugin.addCommand({ id: "show-reference-usage-index-stats", name: t("command.showReferenceUsageIndexStats"), callback: () => void referenceUsage.showReferenceUsageIndexStats() });
+    plugin.addCommand({ id: "find-reference-usages-under-cursor", name: t("command.findReferenceUsagesUnderCursor"), callback: () => void referenceUsage.findUsagesUnderCursor() });
+    plugin.addCommand({ id: "open-reference-usages-panel-under-cursor", name: t("command.openReferenceUsagesPanelUnderCursor"), callback: () => void referenceUsage.openUsagesPanelUnderCursor() });
+    plugin.addCommand({
         id: "scroll-bible-preview-panel-page-down",
-        name: input.translate("command.scrollBiblePreviewPanelPageDown"),
-        callback: () => void input.scrollBiblePreview("page-down"),
+        name: t("command.scrollBiblePreviewPanelPageDown"),
+        callback: () => void preview.scroll("page-down"),
     });
-    input.addCommand({
+    plugin.addCommand({
         id: "scroll-bible-preview-panel-page-up",
-        name: input.translate("command.scrollBiblePreviewPanelPageUp"),
-        callback: () => void input.scrollBiblePreview("page-up"),
+        name: t("command.scrollBiblePreviewPanelPageUp"),
+        callback: () => void preview.scroll("page-up"),
     });
-    input.addCommand({
+    plugin.addCommand({
         id: "scroll-bible-preview-panel-top",
-        name: input.translate("command.scrollBiblePreviewPanelTop"),
-        callback: () => void input.scrollBiblePreview("top"),
+        name: t("command.scrollBiblePreviewPanelTop"),
+        callback: () => void preview.scroll("top"),
     });
-    input.addCommand({
+    plugin.addCommand({
         id: "scroll-bible-preview-panel-bottom",
-        name: input.translate("command.scrollBiblePreviewPanelBottom"),
-        callback: () => void input.scrollBiblePreview("bottom"),
+        name: t("command.scrollBiblePreviewPanelBottom"),
+        callback: () => void preview.scroll("bottom"),
     });
-    input.addCommand({
+    plugin.addCommand({
         id: "toggle-bible-preview-active",
-        name: input.translate("command.togglePluginActive"),
-        callback: () => void input.togglePluginActive(),
+        name: t("command.togglePluginActive"),
+        callback: () => void settings.togglePluginActive(),
     });
-    input.addCommand({
+    plugin.addCommand({
         id: "open-bible-reference-under-cursor",
-        name: input.translate("command.openBibleReferenceUnderCursor"),
-        callback: () => input.openBibleReferenceUnderCursorFromActiveEditor(true),
+        name: t("command.openBibleReferenceUnderCursor"),
+        callback: () => editor.openReferenceUnderCursor(true),
     });
-}
-
-export function registerPluginActiveRibbonIcon(input: PluginActiveRibbonRegistrationInput): HTMLElement {
-    return input.addRibbonIcon(
-        "book-open",
-        input.title,
-        () => void input.togglePluginActive(),
-    );
 }
