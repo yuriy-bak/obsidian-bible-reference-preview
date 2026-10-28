@@ -31,12 +31,23 @@ const {
 const {
   createBookMappingFromBibleIndexV2Data,
 } = require("../.test-build/src/infrastructure/v2/createBookMappingFromBibleIndexV2Data.js");
+const { JSDOM } = require("jsdom");
+global.DOMParser = new JSDOM("").window.DOMParser;
 const {
-  enrichBookTableFromNavigationHtml,
-  extractBookNavigationAliasesFromHtml,
-  extractBookTableFromHtml,
-  extractVersesFromHtml,
-} = require("../.test-build/src/infrastructure/epub/htmlTextUtils.js");
+  enrichBookTableFromNavigationDocument,
+  extractBookNavigationAliasesFromDocument,
+  extractBookTableFromDocument,
+  extractVersesFromDocument,
+} = require("../.test-build/src/infrastructure/sources/jw-epub/jwEpubHtml.js");
+const {
+  parseXhtmlDocument,
+} = require("../.test-build/src/infrastructure/epub/MarkupDocument.js");
+const extractBookTableFromHtml = (html) => extractBookTableFromDocument(parseXhtmlDocument(html));
+const enrichBookTableFromNavigationHtml = (bookTable, path, html) =>
+  enrichBookTableFromNavigationDocument(bookTable, path, parseXhtmlDocument(html));
+const extractBookNavigationAliasesFromHtml = (html, bookTable) =>
+  extractBookNavigationAliasesFromDocument(parseXhtmlDocument(html), bookTable);
+const extractVersesFromHtml = (html) => extractVersesFromDocument(parseXhtmlDocument(html));
 const {
   extractBibleTextFromCompactBook,
 } = require("../.test-build/src/infrastructure/v2/extractBibleTextFromCompactBook.js");
@@ -1303,6 +1314,129 @@ const {
     spineItems: [],
   });
 
+
+  // XHTML parsed as XML: self-closing markers, namespaces, entities and footnotes behave as in HTML.
+  const xhtmlVerses = extractVersesFromHtml(`<?xml version="1.0" encoding="utf-8" ?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Test</title></head><body>
+<p><span id="chapter2_verse7"/><strong><sup>7</sup></strong>Первый<span id="footnotesource1"/><a epub:type="noteref" href="#footnote1">*</a>. <span id="chapter2_verse8"/><strong><sup>8</sup></strong>Второй&#x2014;&#160;&amp; «третий».</p>
+<p><span id="chapter2_verse9"/><span class="w_ch"><strong>2</strong> </span>Строка 1<br/>Строка 2</p>
+<div class="groupFootnote"><aside epub:type="footnote"><div epub:type="footnote" id="footnote1"><p><a href="#footnotesource1">^ <span class="footnoteref">Быт. 2:7</span></a> Сноска &amp; текст.</p></div></aside></div>
+</body></html>`);
+  assert.deepStrictEqual(xhtmlVerses, [
+    { chapter: 2, verse: 7, text: "Первый*.", footnotes: ["Сноска & текст."], paragraphStart: true },
+    { chapter: 2, verse: 8, text: "Второй— & «третий».", footnotes: [], paragraphStart: false },
+    { chapter: 2, verse: 9, text: "Строка 1\nСтрока 2", footnotes: [], paragraphStart: true },
+  ]);
+
+  const {
+    JwEpubBibleSource,
+  } = require("../.test-build/src/infrastructure/sources/jw-epub/JwEpubBibleSource.js");
+  const {
+    selectBibleSource,
+    createBibleSources,
+  } = require("../.test-build/src/infrastructure/sources/BibleSourceRegistry.js");
+  const {
+    isBibleImportAbortError,
+  } = require("../.test-build/src/infrastructure/sources/BibleImportCancellation.js");
+
+  async function createJwLikeEpub(spineHrefs) {
+    const zip = new JSZip();
+    zip.file("META-INF/container.xml", `<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
+    const manifest = spineHrefs.map((href, index) => `<item id="doc${index}" href="${href}" media-type="application/xhtml+xml"/>`).join("");
+    const spine = spineHrefs.map((_href, index) => `<itemref idref="doc${index}"/>`).join("");
+    zip.file("OEBPS/content.opf", `<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Test &amp; Bible</dc:title><dc:language>en_US</dc:language></metadata><manifest>${manifest}</manifest><spine>${spine}</spine></package>`);
+    const rows = Array.from({ length: 66 }, (_unused, index) =>
+      `<tr><td><a href="${index + 1}.xhtml">Book ${index + 1}</a></td><td></td><td>Bk${index + 1}</td></tr>`).join("");
+    zip.file("OEBPS/table.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><table>${rows}</table></body></html>`);
+    const verseDocument = (text) => `<html xmlns="http://www.w3.org/1999/xhtml"><body><p><span id="chapter1_verse1"/><strong><sup>1</sup></strong>${text}</p></body></html>`;
+    zip.file("OEBPS/1.xhtml", verseDocument("From 1."));
+    zip.file("OEBPS/1-split2.xhtml", verseDocument("From split."));
+    return zip.generateAsync({ type: "arraybuffer" });
+  }
+
+  const jwSource = new JwEpubBibleSource();
+  const spineFirstOrderEpub = await createJwLikeEpub(["1-split2.xhtml", "1.xhtml"]);
+  assert.strictEqual(selectBibleSource(createBibleSources(), "test.epub", spineFirstOrderEpub).id, "jw-epub");
+  assert.throws(() => selectBibleSource(createBibleSources(), "test.txt", new TextEncoder().encode("text").buffer), /Unsupported Bible file format/);
+  assert.deepStrictEqual(await jwSource.readMetadata(spineFirstOrderEpub), { title: "Test & Bible", language: "en-us" });
+
+  const importJwLikeEpub = (content, options) => jwSource.importBible({
+    fileName: "test.epub",
+    content,
+    translationId: "en-test",
+    translationName: "",
+    language: "",
+  }, options);
+  const spineFirstOrderResult = await importJwLikeEpub(spineFirstOrderEpub);
+  assert.strictEqual(spineFirstOrderResult.translationName, "Test & Bible");
+  assert.strictEqual(spineFirstOrderResult.language, "en-us");
+  assert.strictEqual(spineFirstOrderResult.books.length, 66);
+  assert.deepStrictEqual(
+    spineFirstOrderResult.compactBooks["translations/en-test/books/1.json"].chapters[1][1],
+    { text: "From 1.", footnotes: [], paragraphStart: true }
+  );
+  const spineLastOrderResult = await importJwLikeEpub(await createJwLikeEpub(["1.xhtml", "1-split2.xhtml"]));
+  assert.strictEqual(
+    spineLastOrderResult.compactBooks["translations/en-test/books/1.json"].chapters[1][1].text,
+    "From split."
+  );
+  assert.strictEqual(spineLastOrderResult.report.verses, 1);
+  assert.strictEqual(spineLastOrderResult.bibleIndexV2Data.translations["en-test"].books["1"].chapterCount, 1);
+
+  const abortedImportController = new AbortController();
+  abortedImportController.abort();
+  await assert.rejects(
+    importJwLikeEpub(spineFirstOrderEpub, { signal: abortedImportController.signal }),
+    (error) => isBibleImportAbortError(error)
+  );
+
+  const {
+    sanitizeBibleIndexV2Data,
+  } = require("../.test-build/src/infrastructure/v2/BibleIndexV2Validation.js");
+  const {
+    ObsidianBibleIndexV2Repository,
+  } = require("../.test-build/src/infrastructure/v2/ObsidianBibleIndexV2Repository.js");
+  const validIndexBook = (path) => ({ name: "Book", abbreviation: "Bk", aliases: ["Book"], path });
+  const untrustedIndex = {
+    version: 2,
+    translations: {
+      "ru-nwt": {
+        name: "NWT",
+        language: "ru",
+        importedAt: "2026-01-01T00:00:00.000Z",
+        books: {
+          "1": validIndexBook("translations/ru-nwt/books/1.json"),
+          "2": validIndexBook("translations/ru-nwt/books/../../../evil.json"),
+          "3": validIndexBook("translations/other/books/3.json"),
+          "4": validIndexBook("/etc/passwd"),
+          "5": { ...validIndexBook("translations/ru-nwt/books/5.json"), aliases: [1] },
+          "x": validIndexBook("translations/ru-nwt/books/x.json"),
+        },
+      },
+      "../..": { name: "Evil", language: "ru", importedAt: "", books: {} },
+      "en-nwt": { name: "Broken", language: "en" },
+    },
+  };
+  const indexRepositoryFiles = new Map([["data/bibles-index.json", JSON.stringify(untrustedIndex)]]);
+  const indexRepository = new ObsidianBibleIndexV2Repository({
+    exists: async (path) => indexRepositoryFiles.has(path),
+    read: async (path) => indexRepositoryFiles.get(path),
+  }, "data");
+  const indexWarnings = [];
+  const originalConsoleWarn = console.warn;
+  console.warn = (...args) => indexWarnings.push(args.join(" "));
+  let sanitizedIndex;
+  try {
+    sanitizedIndex = sanitizeBibleIndexV2Data(untrustedIndex);
+    await indexRepository.load();
+  } finally {
+    console.warn = originalConsoleWarn;
+  }
+  assert.deepStrictEqual(Object.keys(sanitizedIndex.translations), ["ru-nwt"]);
+  assert.deepStrictEqual(Object.keys(sanitizedIndex.translations["ru-nwt"].books), ["1"]);
+  assert.strictEqual(indexWarnings.length, 14);
+  assert.deepStrictEqual(indexRepository.getV2Data(), sanitizedIndex);
+  assert.strictEqual(await indexRepository.loadBook("ru-nwt", 2), null);
 
   const chapterUsageResult = (filePath, chapterStart, verseStart, chapterEnd, verseEnd) => ({
     filePath,

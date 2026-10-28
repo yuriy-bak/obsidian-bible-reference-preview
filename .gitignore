@@ -60,3 +60,6 @@ tmp/
 agent_output.json
 zip_project.*
 RELEASE_NOTES_*
+
+# golden import test
+.golden/

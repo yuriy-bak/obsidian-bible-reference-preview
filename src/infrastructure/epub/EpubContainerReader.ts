@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { EpubImportError } from "./EpubImportError";
+import { findFirstElementByName, parseXmlDocument } from "./MarkupDocument";
 
 export const EPUB_IMPORT_LIMITS = {
     maxArchiveBytes: 100 * 1024 * 1024,
@@ -29,13 +30,13 @@ export function validateZipArchive(zip: JSZip): void {
 
 export async function readContainerOpfPath(zip: JSZip): Promise<string> {
     const containerXml = await readZipText(zip, "META-INF/container.xml");
-    const match = /<rootfile[^>]+full-path=["']([^"']+)["'][^>]*>/i.exec(containerXml);
+    const opfPath = findFirstElementByName(parseXmlDocument(containerXml), "rootfile")?.getAttribute("full-path") ?? "";
 
-    if (match === null) {
+    if (opfPath.length === 0) {
         throw new EpubImportError("EPUB container.xml does not contain OPF rootfile path.");
     }
 
-    return normalizeZipPath(match[1]);
+    return normalizeZipPath(opfPath);
 }
 
 export async function readZipText(zip: JSZip, path: string, maxBytes = EPUB_IMPORT_LIMITS.maxXmlTextBytes): Promise<string> {
