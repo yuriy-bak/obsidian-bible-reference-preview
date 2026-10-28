@@ -36,6 +36,7 @@ export type PluginLifecycleFlowInput = {
     hasImportedTranslations: () => boolean;
     hideFloatingBiblePreview: () => void;
     isFloatingPreviewTarget: (target: Node) => boolean;
+    isBiblePreviewChapterModeActive: () => boolean;
     onActiveLeafChange: (activeLeaf: WorkspaceLeaf | null) => void;
     openBibleIndexFolder: () => Promise<void>;
     openBibleReferenceUnderCursorFromActiveEditor: (showNotice: boolean) => boolean;
@@ -117,6 +118,7 @@ export function initializePluginLifecycle(input: PluginLifecycleFlowInput): void
         refreshFloatingPreviewLabels: input.refreshFloatingPreviewLabels,
         isFloatingPreviewTarget: input.isFloatingPreviewTarget,
         hideFloatingBiblePreview: input.hideFloatingBiblePreview,
+        isBiblePreviewChapterModeActive: input.isBiblePreviewChapterModeActive,
     }, input.registerDisposer));
 
     input.setSettingsTab(initializeSettingsTab({

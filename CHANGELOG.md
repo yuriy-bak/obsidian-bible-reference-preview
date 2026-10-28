@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fixed: the preview from the editor used the translations loaded at startup. After the first import, importing or re-importing a translation, switching the active translation or changing the comparison set, it showed nothing or stale text until Obsidian was restarted.
+- One-chapter books accept the "1:N" form: "Jude 1:5" / «Иуд 1:5» is verse 5 (it used to be verse 1). A different chapter number («Иуд 2:3») is no longer treated as a reference.
+- Verse and chapter ranges are capped at the end of the chapter and of the book. A typo like «Ин 3:1-2000000» no longer freezes Obsidian, and «Ин 3:16-180» no longer lists "[verse not found]" past the last verse.
+- The usage index saves pending changes when the plugin unloads instead of dropping them.
+- Reading mode: a click inside the note outside a reference hides the floating preview, like moving the cursor in the editor. Side panes and an open chapter keep it visible.
+
 ## 0.2.5 - Catalog review: link underline
 
 - Reference links (reading mode and editor) draw the dotted underline with `border-bottom` instead of `text-decoration-*` properties, which the catalog review flags as partially supported.

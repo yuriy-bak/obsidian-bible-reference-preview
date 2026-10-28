@@ -13,17 +13,20 @@ export async function getBibleTextBlocks(
 
     for (const reference of references) {
         const parts = [];
-        for (const range of expandBibleReference(reference)) {
-            parts.push({
-                range,
-                bibleText: await bibleIndex.getBibleText({
-                    translationId,
-                    book: range.book,
-                    chapter: range.chapter,
-                    verseStart: range.verseStart,
-                    verseEnd: range.verseEnd,
-                }),
+        const chapterCount = bibleIndex.getChapterCount?.(translationId, reference.book);
+        for (const range of expandBibleReference(reference, chapterCount)) {
+            const bibleText = await bibleIndex.getBibleText({
+                translationId,
+                book: range.book,
+                chapter: range.chapter,
+                verseStart: range.verseStart,
+                verseEnd: range.verseEnd,
             });
+            // Without chapterCount metadata, the first missing chapter after the start marks the end of the book.
+            if (bibleText === null && parts.length > 0 && chapterCount === undefined) {
+                break;
+            }
+            parts.push({ range, bibleText });
         }
 
         if (!parts.some((part) => part.bibleText !== null && part.bibleText.verses.length > 0)) {

@@ -131,6 +131,14 @@ export class ReferenceUsageIndexService {
         }
     }
 
+    // Used on unload: writes a scheduled save right away instead of dropping it.
+    public flushPendingSave(): void {
+        if (this.saveTimeout === null) return;
+        window.clearTimeout(this.saveTimeout);
+        this.saveTimeout = null;
+        void this.save();
+    }
+
     public async build(
         files: TFile[],
         forceRebuild: boolean,
