@@ -14,6 +14,8 @@ export type BiblePreviewViewInputFactoryInput = {
     isPreviewComparisonEnabled: () => boolean;
     getPreviewComparisonTranslationOptions: () => PreviewComparisonTranslationOption[];
     showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget) => void;
+    getChapterUsageCount: (location: BibleChapterLocation) => number | null;
+    showReferenceUsagesForChapter: (location: BibleChapterLocation, title: string) => void;
     setComparisonTranslationEnabled: (translationId: string, enabled: boolean) => void;
     toggleBiblePreviewComparison: (content: BiblePreviewContent) => void;
     switchBiblePreviewToPanel: (content: BiblePreviewContent) => void;
@@ -56,6 +58,9 @@ function createCommonPreviewInput(input: BiblePreviewViewInputFactoryInput) {
         onBackFromChapter: () => input.backFromBiblePreviewChapter(),
         isChapterHighlightHidden: () => input.isBiblePreviewChapterHighlightHidden(),
         onToggleChapterHighlight: (hidden: boolean) => input.setBiblePreviewChapterHighlightHidden(hidden),
+        getChapterUsageCount: (location: BibleChapterLocation) => input.getChapterUsageCount(location),
+        getFindChapterUsagesAria: (title: string) => input.translate("preview.findChapterUsagesAria", { reference: title }),
+        onFindChapterUsages: (location: BibleChapterLocation, title: string) => input.showReferenceUsagesForChapter(location, title),
     };
 }
 

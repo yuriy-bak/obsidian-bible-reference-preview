@@ -474,3 +474,24 @@ button.bible-reference-usage-pane-open-button {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.bible-reference-usage-pane-group-title {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.bible-reference-usage-pane-group-count {
+    font-size: 12px;
+    font-weight: normal;
+    color: var(--text-muted);
+}
+
+.bible-reference-usage-pane-group-results {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+}

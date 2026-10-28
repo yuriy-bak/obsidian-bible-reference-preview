@@ -1,5 +1,6 @@
 import type { App, WorkspaceLeaf } from "obsidian";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, type ReferenceUsagePaneViewInput } from "../ui/ReferenceUsagePaneView";
+import type { ReferenceUsageResultGroup } from "./ReferenceUsageChapterGroups";
 import type { ReferenceUsageSearchResult } from "./ReferenceUsageIndexService";
 
 export type ReferenceUsagePaneFlowInput = {
@@ -14,13 +15,14 @@ export async function showReferenceUsageResultsInPanel(
     input: ReferenceUsagePaneFlowInput,
     titleText: string,
     results: ReferenceUsageSearchResult[],
+    groups?: ReferenceUsageResultGroup[],
 ): Promise<void> {
     const view = await getOrCreateReferenceUsagePaneView(input);
     if (view === null) {
         return;
     }
     view.refreshInput(input.createReferenceUsagePaneViewInput());
-    view.setResults(titleText, results);
+    view.setResults(titleText, results, groups);
 }
 
 async function getOrCreateReferenceUsagePaneView(input: ReferenceUsagePaneFlowInput): Promise<ReferenceUsagePaneView | null> {
