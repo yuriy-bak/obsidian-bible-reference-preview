@@ -1,4 +1,5 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
+import type { ReferenceUsageResultGroup } from "../reference-usage/ReferenceUsageChapterGroups";
 import type { ReferenceUsageSearchResult } from "../reference-usage/ReferenceUsageIndexService";
 import { renderReferenceUsageExcerpt } from "./ReferenceUsageExcerpt";
 
@@ -17,6 +18,7 @@ export class ReferenceUsagePaneView extends ItemView {
     private resultsEl: HTMLElement | null = null;
     private titleText = "";
     private results: ReferenceUsageSearchResult[] = [];
+    private groups: ReferenceUsageResultGroup[] | null = null;
 
     constructor(leaf: WorkspaceLeaf, private input: ReferenceUsagePaneViewInput) {
         super(leaf);
@@ -49,9 +51,10 @@ export class ReferenceUsagePaneView extends ItemView {
         this.renderResults();
     }
 
-    public setResults(titleText: string, results: ReferenceUsageSearchResult[]): void {
+    public setResults(titleText: string, results: ReferenceUsageSearchResult[], groups?: ReferenceUsageResultGroup[]): void {
         this.titleText = titleText;
         this.results = results;
+        this.groups = groups ?? null;
         this.renderResults();
     }
 
@@ -83,17 +86,32 @@ export class ReferenceUsagePaneView extends ItemView {
 
         this.headerEl.createDiv({ text: this.input.getCountText(this.results.length), cls: "bible-reference-usage-pane-count" });
 
-        for (const result of this.results) {
-            this.renderResult(result);
-        }
-    }
-
-    private renderResult(result: ReferenceUsageSearchResult): void {
-        if (this.resultsEl === null) {
+        if (this.groups !== null) {
+            for (const group of this.groups) {
+                this.renderGroup(this.resultsEl, group);
+            }
             return;
         }
 
-        const rowEl = this.resultsEl.createDiv({ cls: "bible-reference-usage-results-row bible-reference-usage-pane-row" });
+        for (const result of this.results) {
+            this.renderResult(this.resultsEl, result);
+        }
+    }
+
+    private renderGroup(containerEl: HTMLElement, group: ReferenceUsageResultGroup): void {
+        const groupEl = containerEl.createEl("details", { cls: "bible-reference-usage-pane-group" });
+        groupEl.open = true;
+        const summaryEl = groupEl.createEl("summary", { cls: "bible-reference-usage-pane-group-title" });
+        summaryEl.createSpan({ text: group.title });
+        summaryEl.createSpan({ text: String(group.results.length), cls: "bible-reference-usage-pane-group-count" });
+        const resultsEl = groupEl.createDiv({ cls: "bible-reference-usage-pane-group-results" });
+        for (const result of group.results) {
+            this.renderResult(resultsEl, result);
+        }
+    }
+
+    private renderResult(containerEl: HTMLElement, result: ReferenceUsageSearchResult): void {
+        const rowEl = containerEl.createDiv({ cls: "bible-reference-usage-results-row bible-reference-usage-pane-row" });
 
         const buttonEl = rowEl.createEl("button", {
             text: `${result.filePath}:${result.line}`,

@@ -4,6 +4,7 @@
 
 - The 🔎 "find usages" button is now shown in comparison mode too, next to the main translation's reference title (like the 📖 chapter icon).
 - Chapter view: a 🖍 button in the navigation bar hides or shows the highlighting of the referenced verses without leaving the chapter. The choice is kept while moving between chapters and switching translations, and resets when a chapter is opened again.
+- Chapter view: a 🔎 button in the navigation bar shows all usages of the chapter from the usage index, with the number of usages next to it. The results panel groups them by verse in chapter order ("Whole chapter" first, then "v. 5", "vv. 5–7", …); each group can be collapsed. Hidden when the usage index is disabled.
 
 ## 0.2.2 - Open whole chapter, EPUB import fix
 

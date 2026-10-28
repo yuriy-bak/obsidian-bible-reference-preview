@@ -54,6 +54,10 @@ const {
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
 } = require("../.test-build/src/reference-usage/ReferenceUsageIndexService.js");
+const {
+  createChapterUsageQuery,
+  groupReferenceUsagesByChapterVerses,
+} = require("../.test-build/src/reference-usage/ReferenceUsageChapterGroups.js");
 const JSZip = require("jszip");
 const {
   EPUB_IMPORT_LIMITS,
@@ -1275,6 +1279,46 @@ const {
     manifestItems: [],
     spineItems: [],
   });
+
+
+  const chapterUsageResult = (filePath, chapterStart, verseStart, chapterEnd, verseEnd) => ({
+    filePath,
+    book: 43,
+    chapterStart,
+    verseStart,
+    chapterEnd,
+    verseEnd,
+  });
+  const formatChapterUsageSpan = (span) => span.verseStart === 1 && span.verseEnd === null
+    ? "whole"
+    : `${span.verseStart}-${span.verseEnd ?? "end"}`;
+  assert.deepStrictEqual(createChapterUsageQuery({ book: 43, chapter: 3 }), {
+    book: 43,
+    chapterStart: 3,
+    verseStart: 1,
+    chapterEnd: 3,
+    verseEnd: Number.MAX_SAFE_INTEGER,
+  });
+  const chapterUsageGroups = groupReferenceUsagesByChapterVerses([
+    chapterUsageResult("a.md", 3, 16, 3, 16),
+    chapterUsageResult("b.md", 3, 5, 3, 7),
+    chapterUsageResult("c.md", 2, 23, 3, 2),
+    chapterUsageResult("d.md", 3, 16, 3, 16),
+    chapterUsageResult("e.md", 3, 30, 4, 2),
+    chapterUsageResult("f.md", 2, 1, 4, 1),
+    chapterUsageResult("g.md", 3, 5, 3, 5),
+  ], { book: 43, chapter: 3 }, formatChapterUsageSpan);
+  assert.deepStrictEqual(
+    chapterUsageGroups.map((group) => [group.title, group.results.map((result) => result.filePath)]),
+    [
+      ["whole", ["f.md"]],
+      ["1-2", ["c.md"]],
+      ["5-5", ["g.md"]],
+      ["5-7", ["b.md"]],
+      ["16-16", ["a.md", "d.md"]],
+      ["30-end", ["e.md"]],
+    ]
+  );
 
   console.log("All parser/importer tests passed.");
 })().catch((error) => {

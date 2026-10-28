@@ -3,6 +3,7 @@ import type { BiblePreviewReferenceBlock } from "../application/formatBibleTexts
 import type { BiblePluginLocale, I18nKey } from "../i18n/I18n";
 import type { BibleReferenceMatch } from "../parsing/BibleReferenceParser";
 import type { BiblePreviewPanelSide } from "../settings/PluginSettings";
+import { isWholeChapterUsageSpan, type ChapterUsageVerseSpan } from "./ReferenceUsageChapterGroups";
 import { ReferenceUsageController } from "./ReferenceUsageController";
 import {
     REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES,
@@ -122,6 +123,7 @@ export function createReferenceUsagePreviewBlockFlowInput(input: ReferenceUsageP
         getIndexDisabledText: () => input.translate("notice.referenceUsageIndexDisabled"),
         findUsages: (references: BiblePreviewReferenceBlock["references"]) => input.getReferenceUsageIndexService().findUsages(references),
         formatTitle: (referenceText) => input.translate("modal.referenceUsages.title", { reference: referenceText }),
+        formatChapterGroupTitle: (span) => formatChapterUsageGroupTitle(input.translate, span),
         createReferenceUsagePaneFlowInput: () => createReferenceUsagePaneFlowInput(input),
     };
 }
@@ -133,4 +135,16 @@ export function registerReferenceUsageIndexEvents(input: ReferenceUsagePluginFlo
     input.registerEvent(input.app.vault.on("delete", (file) => controller.handleFileDelete(file)));
     input.registerEvent(input.app.vault.on("rename", (file, oldPath) => controller.handleFileRename(file, oldPath)));
     input.registerDisposer(() => controller.clearPendingUpdates());
+}
+
+function formatChapterUsageGroupTitle(translate: ReferenceUsagePluginTranslate, span: ChapterUsageVerseSpan): string {
+    if (isWholeChapterUsageSpan(span)) {
+        return translate("referenceUsages.chapterGroup.wholeChapter");
+    }
+    if (span.verseEnd === null) {
+        return translate("referenceUsages.chapterGroup.verseToEnd", { start: span.verseStart });
+    }
+    return span.verseStart === span.verseEnd
+        ? translate("referenceUsages.chapterGroup.verse", { verse: span.verseStart })
+        : translate("referenceUsages.chapterGroup.verseRange", { start: span.verseStart, end: span.verseEnd });
 }

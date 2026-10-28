@@ -43,6 +43,8 @@ export type BiblePreviewPluginFlowInput = {
     isPreviewComparisonEnabled: () => boolean;
     getPreviewComparisonTranslationOptions: () => PreviewComparisonTranslationOption[];
     showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget) => void;
+    getChapterUsageCount: (location: BibleChapterLocation) => number | null;
+    showReferenceUsagesForChapter: (location: BibleChapterLocation, title: string) => void;
     setComparisonTranslationEnabled: (translationId: string, enabled: boolean) => void;
     toggleBiblePreviewComparison: (content: BiblePreviewContent) => void;
     openBiblePreviewChapter: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) => void;
@@ -75,6 +77,8 @@ export function createPreviewViewInputFactoryInput(input: BiblePreviewPluginFlow
         isPreviewComparisonEnabled: input.isPreviewComparisonEnabled,
         getPreviewComparisonTranslationOptions: input.getPreviewComparisonTranslationOptions,
         showReferenceUsagesForPreviewBlock: input.showReferenceUsagesForPreviewBlock,
+        getChapterUsageCount: input.getChapterUsageCount,
+        showReferenceUsagesForChapter: input.showReferenceUsagesForChapter,
         setComparisonTranslationEnabled: input.setComparisonTranslationEnabled,
         toggleBiblePreviewComparison: input.toggleBiblePreviewComparison,
         openBiblePreviewChapter: input.openBiblePreviewChapter,
