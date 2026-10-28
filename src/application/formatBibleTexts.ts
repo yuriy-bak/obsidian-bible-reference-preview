@@ -866,7 +866,9 @@ function formatPartParagraphs(part: BibleTextPart, missingVerseText: string): Bi
 
 function getVerseNumbersToRender(part: BibleTextPart): number[] {
     if (part.range.verseEnd !== undefined) {
-        return createNumberRange(part.range.verseStart, part.range.verseEnd);
+        // Missing verses inside the chapter stay visible as gaps; nothing is rendered past its last verse.
+        const lastVerse = Math.max(0, ...(part.bibleText?.verses ?? []).map((verse) => verse.number));
+        return createNumberRange(part.range.verseStart, Math.min(part.range.verseEnd, lastVerse));
     }
 
     return (part.bibleText?.verses ?? [])

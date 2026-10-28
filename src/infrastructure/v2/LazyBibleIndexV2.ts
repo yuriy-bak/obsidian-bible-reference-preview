@@ -15,6 +15,10 @@ export class LazyBibleIndexV2 implements BibleIndex {
         return book === null ? null : extractBibleTextFromCompactBook(this.metadata, book, input);
     }
 
+    getChapterCount(translationId: string, book: number): number | undefined {
+        return this.metadata.translations[translationId]?.books[String(book)]?.chapterCount;
+    }
+
     private async getBook(translationId: string, bookId: number): Promise<CompactBibleBookData | null> {
         const cacheKey = `${translationId}:${bookId}`;
         const cached = this.bookCache.get(cacheKey);

@@ -29,10 +29,11 @@ export type EditorPluginFlowInput = {
     app: App;
     previewViewType: string;
     editorRuntimeState: EditorRuntimeState;
-    bibleIndex: BibleIndex;
-    bookMapping: BookMapping;
-    activeV2Data: BibleIndexV2Data | null;
-    translationControllerState: TranslationControllerState;
+    // Getters, not values: the editor extension lives for the whole session while imports and translation changes replace these.
+    getBibleIndex: () => BibleIndex;
+    getBookMapping: () => BookMapping;
+    getActiveV2Data: () => BibleIndexV2Data | null;
+    getTranslationControllerState: () => TranslationControllerState;
     getActiveTranslationId: () => string | null;
     getBibleReferenceLinkColor: () => string;
     shouldRunBiblePreviewForEditor: (view: EditorView) => boolean;
@@ -98,10 +99,10 @@ export function clearBibleReferenceLinks(input: EditorPluginFlowInput): void {
 
 export function createBiblePreviewAnalyzerFlowInput(input: EditorPluginFlowInput): BiblePreviewAnalyzerFlowInput {
     return {
-        bibleIndex: input.bibleIndex,
-        bookMapping: input.bookMapping,
-        activeV2Data: input.activeV2Data,
-        translationControllerState: input.translationControllerState,
+        bibleIndex: input.getBibleIndex(),
+        bookMapping: input.getBookMapping(),
+        activeV2Data: input.getActiveV2Data(),
+        translationControllerState: input.getTranslationControllerState(),
         hasImportedTranslations: input.hasImportedTranslations,
         getActiveTranslationId: input.getActiveTranslationId,
         isPreviewComparisonEnabled: input.isPreviewComparisonEnabled,

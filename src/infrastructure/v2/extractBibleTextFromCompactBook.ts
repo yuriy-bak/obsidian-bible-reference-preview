@@ -41,7 +41,7 @@ export function extractBibleTextFromCompactBook(
     }
 
     const verses: Verse[] = [];
-    const verseEnd = input.verseEnd ?? chapter.length - 1;
+    const verseEnd = Math.min(input.verseEnd ?? chapter.length - 1, chapter.length - 1);
 
     for (let verseNumber = input.verseStart; verseNumber <= verseEnd; verseNumber += 1) {
         const compactVerse = chapter[verseNumber];

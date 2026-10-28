@@ -10,4 +10,5 @@ export type GetBibleTextInput = {
 
 export type BibleIndex = {
     getBibleText: (input: GetBibleTextInput) => Promise<BibleText | null>;
+    getChapterCount?: (translationId: string, book: number) => number | undefined;
 };

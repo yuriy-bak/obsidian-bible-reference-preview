@@ -1,17 +1,29 @@
 import { BibleReference } from "../domain/BibleReference";
 import { ChapterVerseRange } from "../domain/ChapterVerseRange";
 
-export function expandBibleReference(reference: BibleReference): ChapterVerseRange[] {
+// Psalms has 150 chapters; caps ranges for old imports without chapterCount metadata.
+const MAX_CHAPTER_WITHOUT_METADATA = 150;
+
+export function expandBibleReference(reference: BibleReference, chapterCount?: number): ChapterVerseRange[] {
     if (reference.chapterEnd < reference.chapterStart) {
         return [];
     }
 
-    if (reference.chapterStart === reference.chapterEnd) {
+    // A typo like "1:1-2000000:1" must not expand into millions of chapters.
+    const maxChapter = chapterCount ?? MAX_CHAPTER_WITHOUT_METADATA;
+    if (reference.chapterStart > maxChapter) {
+        return [];
+    }
+    const isChapterEndClamped = reference.chapterEnd > maxChapter;
+    const chapterEnd = isChapterEndClamped ? maxChapter : reference.chapterEnd;
+    const lastChapterVerseEnd = isChapterEndClamped ? undefined : reference.verseEnd;
+
+    if (reference.chapterStart === chapterEnd) {
         return [{
             book: reference.book,
             chapter: reference.chapterStart,
             verseStart: reference.verseStart,
-            verseEnd: reference.verseEnd,
+            verseEnd: lastChapterVerseEnd,
         }];
     }
 
@@ -21,7 +33,7 @@ export function expandBibleReference(reference: BibleReference): ChapterVerseRan
         verseStart: reference.verseStart,
     }];
 
-    for (let chapter = reference.chapterStart + 1; chapter < reference.chapterEnd; chapter += 1) {
+    for (let chapter = reference.chapterStart + 1; chapter < chapterEnd; chapter += 1) {
         ranges.push({
             book: reference.book,
             chapter,
@@ -31,9 +43,9 @@ export function expandBibleReference(reference: BibleReference): ChapterVerseRan
 
     ranges.push({
         book: reference.book,
-        chapter: reference.chapterEnd,
+        chapter: chapterEnd,
         verseStart: 1,
-        verseEnd: reference.verseEnd,
+        verseEnd: lastChapterVerseEnd,
     });
 
     return ranges;
