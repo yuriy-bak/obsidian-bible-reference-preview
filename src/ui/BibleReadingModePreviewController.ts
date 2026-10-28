@@ -9,13 +9,16 @@ export type BibleReadingModePreviewControllerInput = {
     refreshFloatingPreviewLabels: () => void;
     isFloatingPreviewTarget: (target: Node) => boolean;
     hideFloatingBiblePreview: () => void;
+    isBiblePreviewChapterModeActive: () => boolean;
 };
 
 export class BibleReadingModePreviewController {
     private readonly outsideInteractionHandler = (event: Event) => this.hideBiblePreviewIfEventIsOutside(event);
     private requestId = 0;
 
-    constructor(private readonly input: BibleReadingModePreviewControllerInput) {}
+    constructor(private readonly input: BibleReadingModePreviewControllerInput) {
+        this.registerListeners();
+    }
 
     public async open(anchorEl: HTMLElement, referenceText: string): Promise<void> {
         if (!this.input.hasImportedTranslations()) {
@@ -32,7 +35,9 @@ export class BibleReadingModePreviewController {
         this.input.showBiblePreviewContent(content, { type: "element", element: anchorEl }, { reveal: this.input.shouldAutoOpenPreviewOnVerseChange() });
     }
 
-    public destroy(): void { }
+    public destroy(): void {
+        this.unregisterListeners();
+    }
 
     public refreshLocalizedLabels(): void {
         this.input.refreshFloatingPreviewLabels();
@@ -40,23 +45,23 @@ export class BibleReadingModePreviewController {
 
     private registerListeners(): void {
         document.addEventListener("pointerdown", this.outsideInteractionHandler, true);
-        document.addEventListener("focusin", this.outsideInteractionHandler, true);
     }
 
     private unregisterListeners(): void {
         document.removeEventListener("pointerdown", this.outsideInteractionHandler, true);
-        document.removeEventListener("focusin", this.outsideInteractionHandler, true);
     }
 
     private hideBiblePreviewIfEventIsOutside(event: Event): void {
         const target = event.target;
-        if (!(target instanceof Node)) {
+        if (!(target instanceof Node) || !target.instanceOf(HTMLElement)) {
             return;
         }
-        if (this.input.isFloatingPreviewTarget(target)) {
+        // Like cursor moves in the editor: only clicks inside a note in reading mode hide the preview,
+        // so side panes, settings and an open chapter keep it visible.
+        if (target.closest(".markdown-reading-view") === null || target.closest(".bible-reference-reading-link") !== null) {
             return;
         }
-        if (target.instanceOf(HTMLElement) && target.closest(".bible-reference-reading-link") !== null) {
+        if (this.input.isFloatingPreviewTarget(target) || this.input.isBiblePreviewChapterModeActive()) {
             return;
         }
         this.input.hideFloatingBiblePreview();

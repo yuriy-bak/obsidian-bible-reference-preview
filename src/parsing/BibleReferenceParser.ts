@@ -284,7 +284,8 @@ export class BibleReferenceParser {
     }
 
     private matchShortBookBody(text: string): string | null {
-        const match = /^\d+(?:-\d+|,\d+)*(?:;\d+(?:-\d+|,\d+)*)*/.exec(text);
+        // One-chapter books also accept the "1:N" form ("Jude 1:5"); any other chapter number is not a reference.
+        const match = /^(?:1:)?\d+(?:-\d+|,\d+)*(?:;(?:1:)?\d+(?:-\d+|,\d+)*)*(?!\d*:)/.exec(text);
 
         return match?.[0] ?? null;
     }
@@ -324,7 +325,7 @@ export class BibleReferenceParser {
         const parts = body.split(";").filter((part) => part.length > 0);
 
         for (const part of parts) {
-            this.addShortBookReferences(references, bookId, part);
+            this.addShortBookReferences(references, bookId, part.startsWith("1:") ? part.slice(2) : part);
         }
 
         return references;

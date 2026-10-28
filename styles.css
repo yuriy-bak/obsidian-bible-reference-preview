@@ -288,6 +288,9 @@ button.bible-preview-pane-icon-button {
 /* Comparison translation selector */
 .bible-preview-comparison-selector {
     position: relative;
+    /* Clickable only as wide as its label, so the rest of the header can drag the floating window. */
+    width: fit-content;
+    max-width: 100%;
 }
 
 .bible-preview-comparison-selector-summary {

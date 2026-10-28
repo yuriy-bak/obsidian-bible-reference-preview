@@ -160,7 +160,7 @@ export class ReferenceUsageController {
     public clearPendingUpdates(): void {
         for (const timeout of this.fileUpdateTimeouts.values()) window.clearTimeout(timeout);
         this.fileUpdateTimeouts.clear();
-        this.input.getService().clearPendingSave();
+        this.input.getService().flushPendingSave();
     }
 
     private scheduleFileUpdate(file: TFile): void {
