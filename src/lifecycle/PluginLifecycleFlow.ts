@@ -5,7 +5,7 @@ import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBi
 import type { BibleReadingModePreviewController } from "../ui/BibleReadingModePreviewController";
 import type { BiblePreviewPaneViewInput } from "../ui/BiblePreviewPaneView";
 import type { ReferenceUsagePaneViewInput } from "../ui/ReferenceUsagePaneView";
-import type { BiblePluginSettingTab, BiblePluginSettingTabInput } from "../ui/BiblePluginSettingTab";
+import type { BiblePluginSettingTab, BiblePluginSettingTabServices } from "../ui/BiblePluginSettingTab";
 import { registerContentProcessingExtensions } from "./PluginContentRegistration";
 import { registerPluginActiveRibbonIcon, registerPluginCommands } from "./PluginCommandRegistration";
 import { initializeFloatingPreviewWindow, initializeReadingModePreviewController } from "./PluginPreviewInitialization";
@@ -44,7 +44,7 @@ export type PluginLifecycleFlowInput = {
     openReferenceUsagesPanelUnderCursor: () => Promise<void>;
     panelEscapeKeydownHandler: (event: KeyboardEvent) => void;
     ownerPlugin: Plugin;
-    settingsTabInput: BiblePluginSettingTabInput;
+    settingsTabInput: BiblePluginSettingTabServices;
     processReadingModeBibleReferences: (element: HTMLElement, context: MarkdownPostProcessorContext) => void;
     refreshFloatingPreviewLabels: () => void;
     rebuildReferenceUsageIndex: () => Promise<void>;
