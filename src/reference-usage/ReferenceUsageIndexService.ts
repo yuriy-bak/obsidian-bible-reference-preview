@@ -111,7 +111,7 @@ export class ReferenceUsageIndexService {
     public async save(): Promise<void> {
         this.index.updatedAt = Date.now();
         await ensureAdapterDirectoryExists(this.app, this.getDataDirectoryPath());
-        await this.app.vault.adapter.write(this.getIndexPath(), JSON.stringify(this.index, null, 2));
+        await this.app.vault.adapter.write(this.getIndexPath(), JSON.stringify(this.index));
     }
 
     public scheduleSave(): void {
@@ -301,7 +301,7 @@ export class ReferenceUsageIndexService {
                 for (let referenceIndex = 0; referenceIndex < match.references.length; referenceIndex += 1) {
                     const reference = match.references[referenceIndex];
                     references.push({
-                        id: `${file.path}:${lineIndex + 1}:${match.from}:${match.to}:${referenceIndex}`,
+                        id: `${lineIndex + 1}:${match.from}:${match.to}:${referenceIndex}`,
                         sourceText: match.text,
                         book: reference.book,
                         chapterStart: reference.chapterStart,

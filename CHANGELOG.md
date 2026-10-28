@@ -9,6 +9,9 @@
 - Fixed EPUB import failing with "Can't read the data of 'the loaded zip file'" when the file was picked from settings opened in a separate window.
 - Floating preview: the translations selector in the header is only as wide as its label, so the rest of the header drags the window again.
 - Reading mode: a click inside the note outside a reference hides the floating preview, like moving the cursor in the editor. Side panes and an open chapter keep it visible.
+- Faster reference parsing: the text is normalized in one pass and book names are looked up by their first letter. 50k characters parse in about 10 ms instead of about 200 ms (editor highlighting, previews, usage indexing). The parser now has a benchmark test.
+- Editor link highlighting no longer builds a cache key from the whole visible text; it compares the document and visible ranges instead. Refreshing the links (new translation, settings) always rebuilds them.
+- The usage index file is saved without indentation, and reference ids no longer repeat the file path, so the file is noticeably smaller. Existing indexes keep working without a rebuild.
 
 ## 0.2.5 - Catalog review: link underline
 

@@ -28,10 +28,11 @@ export type BibleReferenceMatch = {
 };
 
 export class BibleReferenceParser {
-    private readonly aliases: BookAliasCandidate[];
+    // Aliases grouped by their first character, longest first within each group.
+    private readonly aliasesByFirstCharacter: Map<string, BookAliasCandidate[]>;
 
-    constructor(private readonly mapping: BookMapping) {
-        this.aliases = this.createBookAliases(mapping);
+    constructor(mapping: BookMapping) {
+        this.aliasesByFirstCharacter = this.groupAliasesByFirstCharacter(this.createBookAliases(mapping));
     }
 
     parse(text: string): BibleReference[] {
@@ -75,98 +76,45 @@ export class BibleReferenceParser {
         }
     }
 
-    private normalizeLine(text: string): string {
-        return this.normalizeLineWithOffsets(text).text;
-    }
-
     private normalizeLineWithOffsets(text: string): NormalizedLine {
-        const characters: string[] = [];
+        // One pass: characters are normalized via a per-character cache, whitespace runs collapse
+        // to one space, and a space next to a reference delimiter (",", ":", ";") is dropped.
+        let normalizedText = "";
         const offsets: number[] = [];
+        let lastCharacter = "";
+        let pendingSpaceOffset = -1;
 
         for (let index = 0; index < text.length; index += 1) {
-            const normalizedCharacter = this.normalizeSearchCharacter(text[index]);
+            const normalizedCharacters = normalizeSearchCharacter(text[index]);
 
-            if (normalizedCharacter === null || normalizedCharacter === ".") {
-                continue;
-            }
+            for (let characterIndex = 0; characterIndex < normalizedCharacters.length; characterIndex += 1) {
+                const character = normalizedCharacters[characterIndex];
 
-            const character = this.normalizeReferencePunctuation(normalizedCharacter);
-
-            if (/\s/u.test(character)) {
-                if (characters.length === 0 || characters[characters.length - 1] === " ") {
+                if (character === " ") {
+                    if (lastCharacter !== "" && pendingSpaceOffset < 0) {
+                        pendingSpaceOffset = index;
+                    }
                     continue;
                 }
 
-                characters.push(" ");
+                if (pendingSpaceOffset >= 0) {
+                    if (!isReferenceDelimiter(lastCharacter) && !isReferenceDelimiter(character)) {
+                        normalizedText += " ";
+                        offsets.push(pendingSpaceOffset);
+                    }
+                    pendingSpaceOffset = -1;
+                }
+
+                normalizedText += character;
                 offsets.push(index);
-                continue;
-            }
-
-            characters.push(character);
-            offsets.push(index);
-        }
-
-        while (characters.length > 0 && characters[characters.length - 1] === " ") {
-            characters.pop();
-            offsets.pop();
-        }
-
-        for (let index = characters.length - 1; index >= 0; index -= 1) {
-            if (characters[index] !== " ") {
-                continue;
-            }
-
-            const previousCharacter = characters[index - 1];
-            const nextCharacter = characters[index + 1];
-
-            if (this.isReferenceDelimiter(previousCharacter) || this.isReferenceDelimiter(nextCharacter)) {
-                characters.splice(index, 1);
-                offsets.splice(index, 1);
+                lastCharacter = character;
             }
         }
 
         return {
-            text: characters.join(""),
+            text: normalizedText,
             offsets,
         };
-    }
-
-    private normalizeSearchCharacter(character: string): string | null {
-        if (/^[؜‎‏‪-‮⁦-⁩]$/u.test(character)) {
-            return null;
-        }
-
-        const normalizedCharacter = character
-            .normalize("NFC")
-            .toLowerCase()
-            .replace(/̇/g, "")
-            .replace(/ё/g, "е");
-
-        return this.replaceArabicIndicDigit(normalizedCharacter);
-    }
-
-    private replaceArabicIndicDigit(character: string): string {
-        if (/^[٠-٩]$/u.test(character)) {
-            return String(character.charCodeAt(0) - 0x0660);
-        }
-
-        if (/^[۰-۹]$/u.test(character)) {
-            return String(character.charCodeAt(0) - 0x06F0);
-        }
-
-        return character;
-    }
-
-    private normalizeReferencePunctuation(character: string): string {
-        return character
-            .replace(/[—–−]/g, "-")
-            .replace(/[：∶]/g, ":")
-            .replace(/[،﹐，]/g, ",")
-            .replace(/[؛﹔；]/g, ";");
-    }
-
-    private isReferenceDelimiter(character: string | undefined): boolean {
-        return character !== undefined && [",", ":", ";"].includes(character);
     }
 
     private createBookAliases(mapping: BookMapping): BookAliasCandidate[] {
@@ -207,18 +155,37 @@ export class BibleReferenceParser {
             .sort((left, right) => right.alias.length - left.alias.length);
     }
 
+    private groupAliasesByFirstCharacter(aliases: BookAliasCandidate[]): Map<string, BookAliasCandidate[]> {
+        const groups = new Map<string, BookAliasCandidate[]>();
+
+        for (const aliasCandidate of aliases) {
+            const firstCharacter = aliasCandidate.alias[0];
+            const group = groups.get(firstCharacter);
+
+            if (group === undefined) {
+                groups.set(firstCharacter, [aliasCandidate]);
+            } else {
+                group.push(aliasCandidate);
+            }
+        }
+
+        return groups;
+    }
+
     private findReferenceCandidates(text: string): ReferenceCandidate[] {
         const candidates: ReferenceCandidate[] = [];
 
         let index = 0;
 
         while (index < text.length) {
-            if (!this.isReferenceBoundary(text, index)) {
+            const aliases = this.aliasesByFirstCharacter.get(text[index]);
+
+            if (aliases === undefined || !this.isReferenceBoundary(text, index)) {
                 index += 1;
                 continue;
             }
 
-            const candidate = this.findReferenceCandidateAt(text, index);
+            const candidate = this.findReferenceCandidateAt(text, index, aliases);
 
             if (candidate === null) {
                 index += 1;
@@ -232,8 +199,12 @@ export class BibleReferenceParser {
         return candidates;
     }
 
-    private findReferenceCandidateAt(text: string, index: number): ReferenceCandidate | null {
-        for (const aliasCandidate of this.aliases) {
+    private findReferenceCandidateAt(
+        text: string,
+        index: number,
+        aliases: BookAliasCandidate[],
+    ): ReferenceCandidate | null {
+        for (const aliasCandidate of aliases) {
             if (!text.startsWith(aliasCandidate.alias, index)) {
                 continue;
             }
@@ -243,9 +214,11 @@ export class BibleReferenceParser {
                 index + aliasCandidate.alias.length,
             );
 
-            const bodyMatch = aliasCandidate.isShortBook
-                ? this.matchShortBookBody(text.slice(afterAliasIndex))
-                : this.matchBigBookBody(text.slice(afterAliasIndex));
+            const bodyMatch = matchStickyPattern(
+                aliasCandidate.isShortBook ? SHORT_BOOK_BODY_PATTERN : BIG_BOOK_BODY_PATTERN,
+                text,
+                afterAliasIndex,
+            );
 
             if (bodyMatch === null) {
                 continue;
@@ -277,19 +250,6 @@ export class BibleReferenceParser {
         return currentIndex;
     }
 
-    private matchBigBookBody(text: string): string | null {
-        const match = /^\d+:\d+(?:-\d+:\d+|-\d+|,\d+)*(?:;\d+:\d+(?:-\d+:\d+|-\d+|,\d+)*)*/.exec(text);
-
-        return match?.[0] ?? null;
-    }
-
-    private matchShortBookBody(text: string): string | null {
-        // One-chapter books also accept the "1:N" form ("Jude 1:5"); any other chapter number is not a reference.
-        const match = /^(?:1:)?\d+(?:-\d+|,\d+)*(?:;(?:1:)?\d+(?:-\d+|,\d+)*)*(?!\d*:)/.exec(text);
-
-        return match?.[0] ?? null;
-    }
-
     private isReferenceBoundary(text: string, index: number): boolean {
         if (index === 0) {
             return true;
@@ -300,8 +260,7 @@ export class BibleReferenceParser {
 
     private parseBigBookBody(bookId: number, body: string): BibleReference[] {
         const references: BibleReference[] = [];
-        const markedBody = this.markMultichapters(body);
-        const parts = this.parseMultichapters(markedBody);
+        const parts = this.parseMultichapters(body);
 
         for (const part of parts) {
             const chapterMatch = /^(\d+):(.+)$/.exec(part);
@@ -329,10 +288,6 @@ export class BibleReferenceParser {
         }
 
         return references;
-    }
-
-    private markMultichapters(body: string): string {
-        return body;
     }
 
     private parseMultichapters(body: string): string[] {
@@ -481,4 +436,86 @@ export class BibleReferenceParser {
     private isPositiveInteger(value: number): boolean {
         return Number.isInteger(value) && value > 0;
     }
+}
+const BIG_BOOK_BODY_PATTERN = /\d+:\d+(?:-\d+:\d+|-\d+|,\d+)*(?:;\d+:\d+(?:-\d+:\d+|-\d+|,\d+)*)*/y;
+// One-chapter books also accept the "1:N" form ("Jude 1:5"); any other chapter number is not a reference.
+const SHORT_BOOK_BODY_PATTERN = /(?:1:)?\d+(?:-\d+|,\d+)*(?:;(?:1:)?\d+(?:-\d+|,\d+)*)*(?!\d*:)/y;
+
+// Normalized form of each source character: "" when it is dropped, " " for whitespace.
+// The result may be longer than one character (e.g. after toLowerCase).
+const normalizedSearchCharacterCache = new Map<string, string>();
+
+function normalizeSearchCharacter(character: string): string {
+    const code = character.charCodeAt(0);
+
+    if (code < 0x80) {
+        if (code >= 0x41 && code <= 0x5A) {
+            return String.fromCharCode(code + 0x20);
+        }
+        if (character === ".") {
+            return "";
+        }
+        if (code === 0x20 || (code >= 0x09 && code <= 0x0D)) {
+            return " ";
+        }
+        return character;
+    }
+
+    let normalizedCharacter = normalizedSearchCharacterCache.get(character);
+
+    if (normalizedCharacter === undefined) {
+        normalizedCharacter = normalizeNonAsciiSearchCharacter(character);
+        normalizedSearchCharacterCache.set(character, normalizedCharacter);
+    }
+
+    return normalizedCharacter;
+}
+
+function normalizeNonAsciiSearchCharacter(character: string): string {
+    if (/^[؜‎‏‪-‮⁦-⁩]$/u.test(character)) {
+        return "";
+    }
+
+    const normalizedCharacter = replaceArabicIndicDigit(character
+        .normalize("NFC")
+        .toLowerCase()
+        .replace(/̇/g, "")
+        .replace(/ё/g, "е"));
+
+    if (normalizedCharacter === ".") {
+        return "";
+    }
+
+    const punctuation = normalizeReferencePunctuation(normalizedCharacter);
+
+    return /^\s$/u.test(punctuation) ? " " : punctuation;
+}
+
+function replaceArabicIndicDigit(character: string): string {
+    if (/^[٠-٩]$/u.test(character)) {
+        return String(character.charCodeAt(0) - 0x0660);
+    }
+
+    if (/^[۰-۹]$/u.test(character)) {
+        return String(character.charCodeAt(0) - 0x06F0);
+    }
+
+    return character;
+}
+
+function normalizeReferencePunctuation(character: string): string {
+    return character
+        .replace(/[—–−]/g, "-")
+        .replace(/[：∶]/g, ":")
+        .replace(/[،﹐，]/g, ",")
+        .replace(/[؛﹔；]/g, ";");
+}
+
+function isReferenceDelimiter(character: string | undefined): boolean {
+    return character === "," || character === ":" || character === ";";
+}
+
+function matchStickyPattern(pattern: RegExp, text: string, index: number): string | null {
+    pattern.lastIndex = index;
+    return pattern.exec(text)?.[0] ?? null;
 }
