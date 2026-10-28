@@ -1,23 +1,16 @@
 import { App, MarkdownView, Notice, TFile } from "obsidian";
+import { waitForNextAnimationFrame } from "../utils/AnimationFrame";
 import type { ReferenceUsageSearchResult } from "./ReferenceUsageIndexService";
 
-export type ReferenceUsageResultOpeningInput = {
-    app: App;
-    waitForNextAnimationFrame: () => Promise<void>;
-};
-
-export async function openReferenceUsageResult(
-    input: ReferenceUsageResultOpeningInput,
-    result: ReferenceUsageSearchResult,
-): Promise<void> {
-    const file = input.app.vault.getAbstractFileByPath(result.filePath);
+export async function openReferenceUsageResult(app: App, result: ReferenceUsageSearchResult): Promise<void> {
+    const file = app.vault.getAbstractFileByPath(result.filePath);
 
     if (!(file instanceof TFile)) {
         new Notice(`File not found: ${result.filePath}`, 4000);
         return;
     }
 
-    const leaf = input.app.workspace.getLeaf(false);
+    const leaf = app.workspace.getLeaf(false);
     await leaf.openFile(file, {
         active: true,
         eState: {
@@ -25,12 +18,12 @@ export async function openReferenceUsageResult(
         },
     });
 
-    await input.waitForNextAnimationFrame();
+    await waitForNextAnimationFrame();
 
     const openedView = leaf.view;
     const markdownView = openedView instanceof MarkdownView
         ? openedView
-        : input.app.workspace.getActiveViewOfType(MarkdownView);
+        : app.workspace.getActiveViewOfType(MarkdownView);
 
     if (markdownView === null || markdownView.file?.path !== file.path) {
         return;
