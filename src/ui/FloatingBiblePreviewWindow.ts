@@ -339,8 +339,16 @@ export class FloatingBiblePreviewWindow {
         const comparisonSelectorEl = headerEl.createDiv();
         this.comparisonSelectorEl = comparisonSelectorEl;
         this.styleComparisonSelectorHost(comparisonSelectorEl);
-        comparisonSelectorEl.addEventListener("pointerdown", (event) => this.stopEventPropagation(event));
-        comparisonSelectorEl.addEventListener("click", (event) => this.stopEventPropagation(event));
+        // Only the selector itself is interactive; the empty space around it stays a drag handle for the header.
+        comparisonSelectorEl.addEventListener("pointerdown", (event) => this.stopComparisonSelectorEventPropagation(event));
+        comparisonSelectorEl.addEventListener("click", (event) => this.stopComparisonSelectorEventPropagation(event));
+    }
+
+    private stopComparisonSelectorEventPropagation(event: Event): void {
+        const target = event.target;
+        if (target instanceof Node && target.instanceOf(HTMLElement) && target.closest(".bible-preview-comparison-selector") !== null) {
+            event.stopPropagation();
+        }
     }
 
     private styleComparisonSelectorHost(comparisonSelectorEl: HTMLElement): void {
