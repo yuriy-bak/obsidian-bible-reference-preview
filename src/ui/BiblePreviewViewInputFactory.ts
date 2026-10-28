@@ -21,6 +21,8 @@ export type BiblePreviewViewInputFactoryInput = {
     openBiblePreviewChapter: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) => void;
     navigateBiblePreviewChapter: (location: BibleChapterLocation) => void;
     backFromBiblePreviewChapter: () => void;
+    isBiblePreviewChapterHighlightHidden: () => boolean;
+    setBiblePreviewChapterHighlightHidden: (hidden: boolean) => void;
 };
 
 function createCommonPreviewInput(input: BiblePreviewViewInputFactoryInput) {
@@ -47,9 +49,13 @@ function createCommonPreviewInput(input: BiblePreviewViewInputFactoryInput) {
             backAria: input.translate("preview.chapterBackAria"),
             previousAria: input.translate("preview.previousChapterAria"),
             nextAria: input.translate("preview.nextChapterAria"),
+            hideHighlightAria: input.translate("preview.hideChapterHighlightAria"),
+            showHighlightAria: input.translate("preview.showChapterHighlightAria"),
         }),
         onNavigateChapter: (location: BibleChapterLocation) => input.navigateBiblePreviewChapter(location),
         onBackFromChapter: () => input.backFromBiblePreviewChapter(),
+        isChapterHighlightHidden: () => input.isBiblePreviewChapterHighlightHidden(),
+        onToggleChapterHighlight: (hidden: boolean) => input.setBiblePreviewChapterHighlightHidden(hidden),
     };
 }
 

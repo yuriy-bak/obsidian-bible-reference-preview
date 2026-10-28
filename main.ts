@@ -7,7 +7,7 @@ import { BibleReferenceParser } from "./src/parsing/BibleReferenceParser";
 import { createBookMapping } from "./src/parsing/BookMapping";
 import type { BibleChapterLocation, BibleChapterTarget } from "./src/application/BibleChapterNavigation";
 import type { BiblePreviewContent } from "./src/application/formatBibleTexts";
-import { backFromBiblePreviewChapter as backFromBiblePreviewChapterFlow, isBiblePreviewChapterModeActive as isBiblePreviewChapterModeActiveFlow, navigateBiblePreviewChapter as navigateBiblePreviewChapterFlow, openBiblePreviewChapter as openBiblePreviewChapterFlow, trackShownBiblePreviewContent as trackShownBiblePreviewContentFlow, type BiblePreviewChapterFlowInput, type BiblePreviewChapterState } from "./src/preview-navigation/BiblePreviewChapterFlow";
+import { backFromBiblePreviewChapter as backFromBiblePreviewChapterFlow, isBiblePreviewChapterHighlightHidden as isBiblePreviewChapterHighlightHiddenFlow, isBiblePreviewChapterModeActive as isBiblePreviewChapterModeActiveFlow, navigateBiblePreviewChapter as navigateBiblePreviewChapterFlow, openBiblePreviewChapter as openBiblePreviewChapterFlow, setBiblePreviewChapterHighlightHidden as setBiblePreviewChapterHighlightHiddenFlow, trackShownBiblePreviewContent as trackShownBiblePreviewContentFlow, type BiblePreviewChapterFlowInput, type BiblePreviewChapterState } from "./src/preview-navigation/BiblePreviewChapterFlow";
 import { getFirstWorkspaceLeafOfType } from "./src/workspace/BiblePreviewWorkspace";
 import { ObsidianBibleIndexV2Repository } from "./src/infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "./src/infrastructure/v2/createBookMappingFromBibleIndexV2Data";
@@ -666,6 +666,8 @@ export default class BiblePlugin extends Plugin {
             openBiblePreviewChapter: (target, returnContent, returnScrollTop) => void this.openBiblePreviewChapter(target, returnContent, returnScrollTop),
             navigateBiblePreviewChapter: (location) => void this.navigateBiblePreviewChapter(location),
             backFromBiblePreviewChapter: () => backFromBiblePreviewChapterFlow(this.createBiblePreviewChapterFlowInput()),
+            isBiblePreviewChapterHighlightHidden: () => isBiblePreviewChapterHighlightHiddenFlow(this.biblePreviewChapterState),
+            setBiblePreviewChapterHighlightHidden: (hidden) => setBiblePreviewChapterHighlightHiddenFlow(this.createBiblePreviewChapterFlowInput(), hidden),
             showFloatingBiblePreview: (content, anchor, options) => this.floatingPreviewWindow?.show(content, anchor, options),
             scrollFloatingBiblePreview: (command) => {
                 this.floatingPreviewWindow?.scrollPreview(command);

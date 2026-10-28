@@ -17,6 +17,8 @@ const {
   backFromBiblePreviewChapter,
   isBiblePreviewChapterModeActive,
   navigateBiblePreviewChapter,
+  isBiblePreviewChapterHighlightHidden,
+  setBiblePreviewChapterHighlightHidden,
   openBiblePreviewChapter,
   trackShownBiblePreviewContent,
 } = require("../.test-build/src/preview-navigation/BiblePreviewChapterFlow.js");
@@ -944,8 +946,12 @@ const {
   assert.strictEqual(openedChapter.chapterView.chapter, 7);
   assert(isBiblePreviewChapterModeActive(chapterState, openedChapter));
   assert(!isBiblePreviewChapterModeActive(chapterState, referenceContent));
+  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), false);
+  setBiblePreviewChapterHighlightHidden(chapterFlowInput, true);
+  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), true);
 
   await navigateBiblePreviewChapter(chapterFlowInput, openedChapter.chapterView.next);
+  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), true);
   const navigatedChapter = shownContents[shownContents.length - 1];
   assert.strictEqual(navigatedChapter.chapterView.chapter, 8);
   assert.deepStrictEqual(navigatedChapter.chapterView.highlightedRanges, []);
@@ -953,6 +959,7 @@ const {
 
   await navigateBiblePreviewChapter(chapterFlowInput, navigatedChapter.chapterView.previous);
   assert.deepStrictEqual(shownContents[shownContents.length - 1].chapterView.highlightedRanges, chapterTarget.highlightedRanges);
+  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), true);
 
   backFromBiblePreviewChapter(chapterFlowInput);
   const returnedContent = shownContents[shownContents.length - 1];
@@ -960,7 +967,12 @@ const {
   assert.strictEqual(returnedContent.scrollTop, 120);
   assert.strictEqual(chapterState, null);
 
+  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), false);
+  setBiblePreviewChapterHighlightHidden(chapterFlowInput, true);
+  assert.strictEqual(chapterState, null);
+
   await openBiblePreviewChapter(chapterFlowInput, chapterTarget, referenceContent, 0);
+  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), false);
   chapterFlowInput.showBiblePreviewContent(referenceContent);
   assert.strictEqual(chapterState, null);
 

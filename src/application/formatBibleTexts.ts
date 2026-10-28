@@ -84,6 +84,8 @@ export type BiblePreviewRenderOptions = {
     getChapterNavigationLabels?: () => BiblePreviewChapterNavigationLabels;
     onNavigateChapter?: (location: BibleChapterLocation) => void;
     onBackFromChapter?: () => void;
+    isChapterHighlightHidden?: () => boolean;
+    onToggleChapterHighlight?: (hidden: boolean) => void;
 };
 
 // Chapter-related callbacks as the preview views receive them; the views add their current content and scroll.
@@ -93,6 +95,8 @@ export type BiblePreviewChapterViewInput = {
     getChapterNavigationLabels?: () => BiblePreviewChapterNavigationLabels;
     onNavigateChapter?: (location: BibleChapterLocation) => void;
     onBackFromChapter?: () => void;
+    isChapterHighlightHidden?: () => boolean;
+    onToggleChapterHighlight?: (hidden: boolean) => void;
 };
 
 export function createChapterRenderOptions(
@@ -107,6 +111,8 @@ export function createChapterRenderOptions(
         getChapterNavigationLabels: input.getChapterNavigationLabels,
         onNavigateChapter: input.onNavigateChapter,
         onBackFromChapter: input.onBackFromChapter,
+        isChapterHighlightHidden: input.isChapterHighlightHidden,
+        onToggleChapterHighlight: input.onToggleChapterHighlight,
     };
 }
 
@@ -115,6 +121,8 @@ export type BiblePreviewChapterNavigationLabels = {
     backAria: string;
     previousAria: string;
     nextAria: string;
+    hideHighlightAria: string;
+    showHighlightAria: string;
 };
 
 export function formatBibleComparisonTextBlocks(
@@ -234,8 +242,13 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
     const onOpenChapter = chapterView === undefined ? options.onOpenChapter : undefined;
 
     if (chapterView !== undefined && options.onBackFromChapter !== undefined) {
-        fragment.appendChild(createChapterNavigation(chapterView, options));
+        fragment.appendChild(createChapterNavigation(containerEl, chapterView, options));
     }
+    // The highlight toggle only swaps a class, so hiding it keeps the scroll position.
+    containerEl.classList.toggle(
+        CHAPTER_HIGHLIGHTS_HIDDEN_CLASS,
+        chapterView !== undefined && options.isChapterHighlightHidden?.() === true,
+    );
 
     for (const block of content.blocks) {
         if (block.type === "separator") {
@@ -336,6 +349,8 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
 }
 
 const BOOK_ICON = "📖";
+const HIGHLIGHT_ICON = "🖍";
+const CHAPTER_HIGHLIGHTS_HIDDEN_CLASS = "bible-preview-chapter-highlights-hidden";
 
 // Title row shared by single and comparison previews: 📖 + reference title on the left, 🔎 on the right.
 function createReferenceTitleRow(
@@ -400,12 +415,14 @@ function createOpenChapterButton(titleText: string, target: BibleChapterTarget, 
     return buttonEl;
 }
 
-function createChapterNavigation(chapterView: BiblePreviewChapterView, options: BiblePreviewRenderOptions): HTMLElement {
+function createChapterNavigation(containerEl: HTMLElement, chapterView: BiblePreviewChapterView, options: BiblePreviewRenderOptions): HTMLElement {
     const labels = options.getChapterNavigationLabels?.() ?? {
         back: "↩ Back",
         backAria: "Back to reference",
         previousAria: "Previous chapter",
         nextAria: "Next chapter",
+        hideHighlightAria: "Hide highlighting",
+        showHighlightAria: "Show highlighting",
     };
 
     const navigationEl = createDiv();
@@ -418,6 +435,11 @@ function createChapterNavigation(chapterView: BiblePreviewChapterView, options: 
     titleEl.textContent = chapterView.title;
     navigationEl.appendChild(titleEl);
 
+    const onToggleChapterHighlight = options.onToggleChapterHighlight;
+    if (onToggleChapterHighlight !== undefined && chapterView.highlightedRanges.length > 0) {
+        navigationEl.appendChild(createChapterHighlightToggle(containerEl, labels, options.isChapterHighlightHidden?.() === true, onToggleChapterHighlight));
+    }
+
     const previous = chapterView.previous;
     const next = chapterView.next;
     navigationEl.appendChild(createChapterNavigationButton("←", labels.previousAria, previous !== null, () => {
@@ -428,6 +450,30 @@ function createChapterNavigation(chapterView: BiblePreviewChapterView, options: 
     }));
 
     return navigationEl;
+}
+
+function createChapterHighlightToggle(
+    containerEl: HTMLElement,
+    labels: BiblePreviewChapterNavigationLabels,
+    initiallyHidden: boolean,
+    onToggle: (hidden: boolean) => void,
+): HTMLButtonElement {
+    let hidden = initiallyHidden;
+    const buttonEl = createChapterNavigationButton(HIGHLIGHT_ICON, "", true, () => {
+        hidden = !hidden;
+        containerEl.classList.toggle(CHAPTER_HIGHLIGHTS_HIDDEN_CLASS, hidden);
+        updateState();
+        onToggle(hidden);
+    });
+    buttonEl.classList.add("bible-preview-chapter-highlight-button");
+    const updateState = (): void => {
+        const ariaLabel = hidden ? labels.showHighlightAria : labels.hideHighlightAria;
+        buttonEl.setAttribute("aria-label", ariaLabel);
+        buttonEl.setAttribute("title", ariaLabel);
+        buttonEl.setAttribute("aria-pressed", String(!hidden));
+    };
+    updateState();
+    return buttonEl;
 }
 
 function createChapterNavigationButton(text: string, ariaLabel: string, enabled: boolean, onClick: () => void): HTMLButtonElement {
