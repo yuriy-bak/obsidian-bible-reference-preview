@@ -6,6 +6,7 @@
 - One-chapter books accept the "1:N" form: "Jude 1:5" / «Иуд 1:5» is verse 5 (it used to be verse 1). A different chapter number («Иуд 2:3») is no longer treated as a reference.
 - Verse and chapter ranges are capped at the end of the chapter and of the book. A typo like «Ин 3:1-2000000» no longer freezes Obsidian, and «Ин 3:16-180» no longer lists "[verse not found]" past the last verse.
 - The usage index saves pending changes when the plugin unloads instead of dropping them.
+- Fixed EPUB import failing with "Can't read the data of 'the loaded zip file'" when the file was picked from settings opened in a separate window.
 - Floating preview: the translations selector in the header is only as wide as its label, so the rest of the header drags the window again.
 - Reading mode: a click inside the note outside a reference hides the floating preview, like moving the cursor in the editor. Side panes and an open chapter keep it visible.
 

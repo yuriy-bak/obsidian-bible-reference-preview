@@ -8,7 +8,9 @@ export async function readAndValidateEpubFile(file: File, translate: EpubFileVal
         throw new Error(`Imported EPUB/ZIP file is too large: ${file.size} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxArchiveBytes} bytes.`);
     }
 
-    const content = await file.arrayBuffer();
+    // A file picked in another window (e.g. settings opened as a separate window) yields that window's
+    // ArrayBuffer, which fails JSZip's `instanceof ArrayBuffer` check here; copy it into this window's realm.
+    const content = copyToCurrentRealm(await file.arrayBuffer());
 
     if (content.byteLength > EPUB_IMPORT_LIMITS.maxArchiveBytes) {
         throw new Error(`Imported EPUB/ZIP file is too large: ${content.byteLength} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxArchiveBytes} bytes.`);
@@ -37,4 +39,13 @@ export async function readAndValidateEpubFile(file: File, translate: EpubFileVal
     }
 
     return content;
+}
+
+function copyToCurrentRealm(buffer: ArrayBuffer): ArrayBuffer {
+    // Not `instanceof`: TypeScript would narrow the foreign-realm branch to `never`.
+    if (Object.getPrototypeOf(buffer) === ArrayBuffer.prototype) return buffer;
+    const source = new Uint8Array(buffer);
+    const copy = new Uint8Array(source.byteLength);
+    copy.set(source);
+    return copy.buffer;
 }
