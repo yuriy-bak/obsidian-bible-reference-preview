@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.7 - No false network-call warning
+
+- Internal rename so the Obsidian catalog check no longer reports "network calls". The plugin still makes no network requests.
+
 ## 0.2.6 - Fresh previews, faster parsing, integration tests
 
 - Typing around a reference in the paragraph no longer rebuilds the preview or reopens the side panel; the preview updates when the reference itself changes.
