@@ -15,6 +15,7 @@ const {
   createBookMapping,
   removeChapterNumberFromAlias,
 } = require("../.test-build/src/parsing/BookMapping.js");
+const { getParagraphReferencesKey } = require("../.test-build/src/editor/EditorTextAnalysis.js");
 const { DEFAULT_TRANSLATION_ID, syntheticMetadata } = require("./fixtures/synthetic-bible-index.js");
 const { getBibleChapterTextBlock, getBibleTextBlocks } = require("../.test-build/src/application/getBibleTexts.js");
 const {
@@ -103,6 +104,7 @@ global.window = global.window || global;
 
 module.exports = {
   BibleReferenceParser,
+  getParagraphReferencesKey,
   getBibleReferenceParserSignature,
   getBiblePluginLocaleForLanguage,
   normalizeBiblePluginLocale,

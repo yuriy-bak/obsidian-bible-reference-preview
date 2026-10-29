@@ -1,4 +1,5 @@
 import type { EditorView, ViewUpdate } from "@codemirror/view";
+import type { BibleReference } from "../domain/BibleReference";
 
 const MAX_ANALYZED_PARAGRAPH_LINES = 40;
 const MAX_ANALYZED_PARAGRAPH_CHARACTERS = 2000;
@@ -127,4 +128,10 @@ function getCurrentLineAnalysisFragment(lineText: string, lineFrom: number, curs
         text: lineText.slice(fromOffset, toOffset),
         end: lineFrom + toOffset,
     };
+}
+
+// Identifies what the paragraph preview shows: typing around a reference keeps the key,
+// so the preview is not rebuilt (and the panel not re-revealed) on every keystroke.
+export function getParagraphReferencesKey(matches: readonly { text: string; references: BibleReference[] }[]): string {
+    return matches.map((match) => `${match.text}\u0000${JSON.stringify(match.references)}`).join("\u0001");
 }
