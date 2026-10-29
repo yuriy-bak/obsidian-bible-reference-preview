@@ -98,7 +98,10 @@ export default class BiblePlugin extends Plugin {
         // The main window and every popout window get the same keyboard and pointer listeners.
         this.registerWindowListeners(window);
         this.registerEvent(this.app.workspace.on("window-open", (_workspaceWindow, popoutWindow) => this.registerWindowListeners(popoutWindow)));
-        this.registerEvent(this.app.workspace.on("window-close", (_workspaceWindow, popoutWindow) => this.unregisterWindowListeners(popoutWindow)));
+        this.registerEvent(this.app.workspace.on("window-close", (_workspaceWindow, popoutWindow) => {
+            this.unregisterWindowListeners(popoutWindow);
+            this.preview.handleWindowClose(popoutWindow);
+        }));
         this.register(() => {
             for (const dispose of this.windowListenerDisposers.values()) dispose();
             this.windowListenerDisposers.clear();

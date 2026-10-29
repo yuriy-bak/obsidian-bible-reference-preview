@@ -372,13 +372,13 @@ export function applyBiblePreviewScroll(containerEl: HTMLElement, content: Bible
     }
 
     const highlightedEl = containerEl.querySelector(".bible-preview-verse-highlighted");
-    if (!(highlightedEl instanceof HTMLElement)) {
+    if (highlightedEl === null || !highlightedEl.instanceOf(HTMLElement)) {
         containerEl.scrollTop = 0;
         return;
     }
 
     const navigationEl = containerEl.querySelector(".bible-preview-chapter-navigation");
-    const navigationHeight = navigationEl instanceof HTMLElement ? navigationEl.offsetHeight : 0;
+    const navigationHeight = navigationEl?.instanceOf(HTMLElement) ? navigationEl.offsetHeight : 0;
     const offset = highlightedEl.getBoundingClientRect().top - containerEl.getBoundingClientRect().top;
     containerEl.scrollTop = Math.max(0, containerEl.scrollTop + offset - navigationHeight - 8);
 }

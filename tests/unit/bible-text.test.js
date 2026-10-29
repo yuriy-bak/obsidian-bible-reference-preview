@@ -125,4 +125,39 @@ module.exports = async () => {
     },
   });
   assert.strictEqual(compactObjectText.verses[1].paragraphStart, false);
+
+  // Book cache: parallel requests share one load, the least recently used book is evicted, failures are not kept.
+  const loads = [];
+  let failNextLoad = false;
+  const cacheBook = { chapters: [null, [null, "Стих."]] };
+  const cachedIndex = new LazyBibleIndexV2(syntheticMetadata, {
+    async loadBook(translationId, bookId) {
+      loads.push(bookId);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (failNextLoad) {
+        failNextLoad = false;
+        throw new Error("read failed");
+      }
+      return bookId === 99 ? null : cacheBook;
+    },
+  }, 3);
+  const readBook = (book) => cachedIndex.getBibleText({ translationId: DEFAULT_TRANSLATION_ID, book, chapter: 1, verseStart: 1, verseEnd: 1 });
+  await Promise.all([readBook(1), readBook(1), readBook(1)]);
+  assert.deepStrictEqual(loads, [1]);
+  await readBook(2);
+  await readBook(3);
+  await readBook(1); // 1 becomes the most recent, 2 is now the oldest
+  await readBook(4); // evicts 2
+  await readBook(1);
+  await readBook(3);
+  assert.deepStrictEqual(loads, [1, 2, 3, 4]);
+  await readBook(2);
+  assert.deepStrictEqual(loads, [1, 2, 3, 4, 2]);
+  assert.strictEqual(await readBook(99), null);
+  assert.strictEqual(await readBook(99), null);
+  assert.deepStrictEqual(loads.filter((book) => book === 99), [99, 99]);
+  failNextLoad = true;
+  await assert.rejects(() => readBook(5), /read failed/);
+  assert.notStrictEqual(await readBook(5), null);
+  assert.deepStrictEqual(loads.filter((book) => book === 5), [5, 5]);
 };

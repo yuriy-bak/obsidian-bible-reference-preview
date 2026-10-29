@@ -208,6 +208,21 @@ export class FloatingBiblePreviewWindow {
         this.registerListeners();
     }
 
+    /**
+     * A popout window closed. When the preview lived there, its listeners go now instead of at the next
+     * move, and it returns to the main window; the next show() puts it where the reference is.
+     */
+    public handleWindowClose(closedWindow: Window): void {
+        if (closedWindow.document !== this.hostDocument) {
+            return;
+        }
+        this.unregisterListeners();
+        this.hide(true);
+        this.previewPanelEl.remove();
+        this.collapsedButtonEl.remove();
+        this.hostDocument = document;
+    }
+
     public destroy(): void {
         this.unregisterListeners();
         this.previewPanelEl.remove();
