@@ -75,14 +75,37 @@ function stopPlugin(plugin) {
   document.body.empty();
 }
 
-/** Imports through the same path as the import command: file, import settings modal, progress modal. */
-async function importBible(plugin, language, epubOptions) {
+/**
+ * Imports through the same path as the import command: file, import settings modal, progress modal.
+ * The small test books do not identify a numbering scheme, so the import asks for one: `versification`
+ * is the scheme to pick there (the suggested one when left out), null cancels the import.
+ */
+async function importBible(plugin, language, epubOptions, { versification } = {}) {
   const file = new File([await createJwEpub(language, epubOptions)], `bible_${language}.epub`, { type: "application/epub+zip" });
   const importing = plugin.library.importBibleFile(file);
-  const importModal = await waitFor(() => obsidian.__state.openModals.find((modal) => modal.constructor.name === "BibleTranslationImportModal"));
+  let finished = false;
+  importing.then(() => { finished = true; }, () => { finished = true; });
+  const importModal = await waitFor(() => findModal("BibleTranslationImportModal"));
   clickButton(importModal.contentEl, plugin.context.t("modal.import.import"));
+  const choiceModal = await waitFor(() => finished || findModal("VersificationChoiceModal"));
+  if (choiceModal !== true) {
+    if (versification === null) {
+      clickButton(choiceModal.contentEl, plugin.context.t("common.cancel"));
+    } else {
+      if (versification !== undefined) {
+        const select = choiceModal.contentEl.querySelector("select");
+        select.value = versification;
+        select.dispatchEvent(new Event("change"));
+      }
+      clickButton(choiceModal.contentEl, plugin.context.t("modal.versification.continue"));
+    }
+  }
   await importing;
   await flush();
+}
+
+function findModal(name) {
+  return obsidian.__state.openModals.find((modal) => modal.constructor.name === name);
 }
 
 function clickButton(containerEl, text) {

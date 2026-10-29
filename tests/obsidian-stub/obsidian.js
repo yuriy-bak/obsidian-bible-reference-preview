@@ -257,6 +257,10 @@ class ToggleComponent {
 }
 
 class DropdownComponent extends ValueComponent {
+  get selectEl() {
+    return this.inputEl;
+  }
+
   addOption(value, display) {
     this.inputEl.createEl("option", { text: display, value });
     return this;

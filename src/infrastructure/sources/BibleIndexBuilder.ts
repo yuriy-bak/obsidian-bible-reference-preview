@@ -7,9 +7,12 @@ import { detectVersification, type ChapterVerseCounts } from "../../versificatio
 import { getCompactBookChapterVerseCounts } from "../../versification/compactBookVerseCounts";
 import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../../versification/VersificationRegistry";
 import { assertBibleImportNotAborted, yieldBibleImportIfNeeded } from "./BibleImportCancellation";
-import { BibleImportOptions, BibleImportResult } from "./BibleSource";
+import { BibleImportOptions, BibleImportResult, BibleImportVersificationDetection } from "./BibleSource";
 
 const BIBLE_IMPORT_APPEND_VERSES_YIELD_EVERY_VERSES = 500;
+
+/** Starts the import warning about an uncertain scheme; dropped once the user picks the scheme. */
+export const VERSIFICATION_NOT_DETECTED_WARNING_PREFIX = "Versification was not detected reliably, using";
 
 export type BibleImportVerse = {
     chapter: number;
@@ -126,7 +129,7 @@ export class BibleIndexBuilder {
             this.options.onProgress?.({ stage: "building-index", processedCount: processedBookMetadataCount, totalCount: this.books.length });
         }
 
-        this.setDetectedVersification(chapterVerseCounts);
+        const versificationDetection = this.setDetectedVersification(chapterVerseCounts);
 
         const { translationId, translationName, language, sourceFileName } = this.input;
         const bibleIndexV2Data: BibleIndexV2Data = {
@@ -161,10 +164,11 @@ export class BibleIndexBuilder {
                 booksBytes,
             },
             warnings: this.warnings,
+            versificationDetection,
         };
     }
 
-    private setDetectedVersification(chapterVerseCounts: ChapterVerseCounts): void {
+    private setDetectedVersification(chapterVerseCounts: ChapterVerseCounts): BibleImportVersificationDetection {
         const detection = detectVersification(chapterVerseCounts, getVersificationRegistry());
         this.translation.versification = detection.key ?? DEFAULT_VERSIFICATION_KEY;
         this.translation.bookOrder = this.books
@@ -176,8 +180,15 @@ export class BibleIndexBuilder {
                 .slice(0, 3)
                 .map((score) => `${score.key} ${score.matchedChapters}/${detection.totalChapters}`)
                 .join(", ");
-            this.warnings.push(`Versification was not detected reliably, using ${this.translation.versification} (${scores})`);
+            this.warnings.push(`${VERSIFICATION_NOT_DETECTED_WARNING_PREFIX} ${this.translation.versification} (${scores})`);
         }
+
+        return {
+            key: this.translation.versification,
+            confident: detection.confident,
+            totalChapters: detection.totalChapters,
+            scores: detection.scores.map(({ key, matchedChapters }) => ({ key, matchedChapters })),
+        };
     }
 }
 

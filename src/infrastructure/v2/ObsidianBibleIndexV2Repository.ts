@@ -98,7 +98,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
     /** Updates the stored scheme fields of one translation, keeping everything else in bibles-index.json. */
     async updateTranslationVersification(
         translationId: string,
-        fields: Required<Pick<BibleIndexV2TranslationMetadata, "versification" | "bookOrder">>,
+        fields: Required<Pick<BibleIndexV2TranslationMetadata, "versification">> & Pick<BibleIndexV2TranslationMetadata, "bookOrder">,
     ): Promise<void> {
         // Re-read the file: an import may have saved another translation since this repository was loaded.
         const latestData = await this.readV2Index(this.getMetadataPath()) ?? this.currentV2Data;

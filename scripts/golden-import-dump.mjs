@@ -47,6 +47,16 @@ for (const [path, book] of Object.entries(result.compactBooks)) {
 console.log(`${basename(epubPath)}: ${report.books} books, ${report.chapters} chapters, ${report.verses} verses, ${report.footnotes} footnotes, ${report.warnings.length} warnings`);
 
 function createImporter() {
+  // The source registry picks the source by content, as the plugin does.
+  const registryPath = join(buildDirectory, "src/infrastructure/sources/BibleSourceRegistry.js");
+  if (existsSync(registryPath)) {
+    const { createBibleSources, selectBibleSource } = require(registryPath);
+    return async (importInput) => {
+      const source = await selectBibleSource(createBibleSources(), { fileName: importInput.fileName, content: importInput.content });
+      return source.importBible(importInput);
+    };
+  }
+
   const sourcePath = join(buildDirectory, "src/infrastructure/sources/jw-epub/JwEpubBibleSource.js");
   if (existsSync(sourcePath)) {
     const { JwEpubBibleSource } = require(sourcePath);

@@ -53,6 +53,20 @@ export class TranslationService {
         return TranslationController.getTranslationSettingsItems(this.getControllerState());
     }
 
+    /** Stores the numbering scheme the user picked for a translation and redraws the open preview. */
+    async setTranslationVersification(translationId: string, versification: string): Promise<void> {
+        if (this.context.v2Data?.translations[translationId]?.versification === versification) {
+            return;
+        }
+
+        const repository = this.context.createRepository();
+        await repository.load();
+        await repository.updateTranslationVersification(translationId, { versification });
+        this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+        this.context.updateBookMapping();
+        await this.effects.refreshVisibleBiblePreviewContent();
+    }
+
     async moveTranslation(translationId: string, direction: -1 | 1): Promise<void> {
         const nextOrder = TranslationController.moveTranslation(this.getControllerState(), translationId, direction);
         if (nextOrder === null) {

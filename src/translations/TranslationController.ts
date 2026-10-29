@@ -1,5 +1,6 @@
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
 import { areStringArraysEqual } from "../utils/ArrayEquality";
+import { DEFAULT_VERSIFICATION_KEY } from "../versification/VersificationRegistry";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./TranslationModels";
 
 export type TranslationControllerState = {
@@ -75,6 +76,7 @@ export class TranslationController {
                 language: translation.language,
                 sourceFileName: translation.sourceFileName ?? "",
                 bookCount: Object.keys(translation.books).length,
+                versification: translation.versification ?? DEFAULT_VERSIFICATION_KEY,
                 isActive: translationId === state.activeTranslationId,
                 isComparisonEnabled: comparisonTranslationIds.has(translationId),
             };

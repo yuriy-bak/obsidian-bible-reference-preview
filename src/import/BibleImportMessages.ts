@@ -1,6 +1,7 @@
 import type { BibleImportProgress, BibleImportReport, BibleImportResult } from "../infrastructure/sources/BibleSource";
 import type { I18nKey } from "../i18n/I18n";
 import { UnsupportedBibleFileError } from "../infrastructure/sources/BibleSourceRegistry";
+import { getVersificationLabel } from "../ui/VersificationLabels";
 
 export type BibleImportTranslate = (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
 
@@ -25,6 +26,7 @@ export function formatBibleImportSuccessNotice(
         translate("import.summary.chapters", { count: result.report.chapters }),
         translate("import.summary.verses", { count: result.report.verses }),
         translate("import.summary.footnotes", { count: result.report.footnotes }),
+        translate("import.summary.versification", { versification: getVersificationLabel(result.versificationDetection.key, translate) }),
         translate("import.summary.metadataSize", { size: formatKilobytes(result.report.metadataBytes) }),
         translate("import.summary.booksSize", { size: formatMegabytes(result.report.booksBytes) }),
     ].join("\n") + warningsText;
