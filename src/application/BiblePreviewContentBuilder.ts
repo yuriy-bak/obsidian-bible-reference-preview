@@ -5,7 +5,7 @@ import type { TranslationService } from "../translations/TranslationService";
 import { BiblePreviewAnalyzer } from "./BiblePreviewAnalyzer";
 import type { BibleChapterTarget } from "./BibleChapterNavigation";
 import { getBibleChapterTextBlock, getBibleTextBlocks } from "./getBibleTexts";
-import { type BiblePreviewContent, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./formatBibleTexts";
+import { type BiblePreviewContent, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./BiblePreviewModel";
 
 /** Builds preview content from the current Bible data. Each call reads the data anew, so imports and translation changes apply at once. */
 export class BiblePreviewContentBuilder {

@@ -1,5 +1,5 @@
 import { isSameChapterLocation, type BibleChapterLocation, type BibleChapterTarget } from "../application/BibleChapterNavigation";
-import type { BiblePreviewContent } from "../application/formatBibleTexts";
+import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 
 export type BiblePreviewChapterState = {
     returnContent: BiblePreviewContent;

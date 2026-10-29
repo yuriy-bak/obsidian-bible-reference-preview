@@ -54,7 +54,7 @@ const {
 const {
   formatBibleComparisonTextBlocks,
   formatBibleTextBlocks,
-} = require("../.test-build/src/application/formatBibleTexts.js");
+} = require("../.test-build/src/application/BiblePreviewModel.js");
 const {
   isCssColor,
   normalizeBibleReferenceLinkColor,

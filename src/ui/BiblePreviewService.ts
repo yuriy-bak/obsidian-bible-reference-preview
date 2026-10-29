@@ -1,7 +1,7 @@
 import { MarkdownView, type View, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
-import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/formatBibleTexts";
+import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
 import {
     backFromBiblePreviewChapter,

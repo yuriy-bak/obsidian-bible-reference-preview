@@ -1,5 +1,6 @@
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
-import { applyBiblePreviewScroll, BiblePreviewChapterViewInput, BiblePreviewContent, BiblePreviewUsageTarget, createChapterRenderOptions, renderBiblePreviewContent } from "../application/formatBibleTexts";
+import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
+import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
 import { renderComparisonTranslationSelector as renderComparisonTranslationSelectorView } from "./ComparisonTranslationSelector";
 
