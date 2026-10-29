@@ -6,6 +6,9 @@ import { BiblePreviewAnalyzer } from "./BiblePreviewAnalyzer";
 import type { BibleChapterTarget } from "./BibleChapterNavigation";
 import { getBibleChapterTextBlock, getBibleTextBlocks } from "./getBibleTexts";
 import { type BiblePreviewContent, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./BiblePreviewModel";
+import { mapBibleReferences } from "./mapBibleReferences";
+import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
+import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../versification/VersificationRegistry";
 
 /** Builds preview content from the current Bible data. Each call reads the data anew, so imports and translation changes apply at once. */
 export class BiblePreviewContentBuilder {
@@ -45,8 +48,17 @@ export class BiblePreviewContentBuilder {
             getComparisonMapping: (translationId) => v2Data === null
                 ? bookMapping
                 : createBookMappingFromBibleIndexV2Data(v2Data, translationId),
+            mapReferences: (references, fromTranslationId, toTranslationId) => mapBibleReferences(
+                references,
+                getTranslationVersification(v2Data, fromTranslationId),
+                getTranslationVersification(v2Data, toTranslationId),
+                getVersificationRegistry(),
+            ),
             getBibleChapterTextBlock: (book, chapter, translationId) => getBibleChapterTextBlock(book, chapter, bibleIndex, translationId),
-            getBookIds: () => [...bookMapping.idToDisplayName.keys()].sort((left, right) => left - right),
+            getBookIds: () => getBookIdsInTranslationOrder(
+                [...bookMapping.idToDisplayName.keys()],
+                context.activeTranslationId === null ? undefined : v2Data?.translations[context.activeTranslationId]?.bookOrder,
+            ),
             getChapterCount: (book) => {
                 const activeTranslationId = context.activeTranslationId;
                 return activeTranslationId === null
@@ -55,4 +67,16 @@ export class BiblePreviewContentBuilder {
             },
         });
     }
+}
+
+function getTranslationVersification(v2Data: BibleIndexV2Data | null, translationId: string): string {
+    return v2Data?.translations[translationId]?.versification ?? DEFAULT_VERSIFICATION_KEY;
+}
+
+/** The books in the translation's own order (the Synodal one puts James after Acts); by number without it. */
+export function getBookIdsInTranslationOrder(bookIds: number[], bookOrder: number[] | undefined): number[] {
+    const known = new Set(bookIds);
+    const ordered = (bookOrder ?? []).filter((bookId) => known.has(bookId));
+    const rest = bookIds.filter((bookId) => !ordered.includes(bookId)).sort((left, right) => left - right);
+    return [...ordered, ...rest];
 }

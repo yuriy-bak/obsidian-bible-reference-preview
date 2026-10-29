@@ -12,25 +12,34 @@ const BiblePlugin = require("../../.test-build/main.js").default;
 const MANIFEST = { id: "bible-reference-preview", name: "Bible Reference Preview", version: "0.0.0", dir: ".obsidian/plugins/bible-reference-preview" };
 
 // Book names differ between the translations, so switching changes the parser.
+// Psalms for the numbering tests, chapters 1–23: the Synodal Ps 9 (39 verses) is Ps 9 and Ps 10 in English,
+// the Synodal Ps 22 is Ps 23.
+const psalms = (prefix, verseCounts) => Array.from({ length: 23 }, (_unused, index) => index + 1)
+  .flatMap((chapter) => Array.from({ length: verseCounts[chapter] ?? 1 }, (_unused, index) => [chapter, index + 1, `${prefix} ${chapter}:${index + 1}.`]));
+
 const TRANSLATIONS = {
   ru: {
     title: "Тестовая Библия",
-    bookName: (id) => ({ 1: "Бытие", 43: "Иоанна" })[id] ?? `Книга ${id}`,
-    bookAbbreviation: (id) => ({ 1: "Быт", 43: "Ин" })[id] ?? `Кн${id}`,
+    bookName: (id) => ({ 1: "Бытие", 19: "Псалтирь", 43: "Иоанна" })[id] ?? `Книга ${id}`,
+    bookAbbreviation: (id) => ({ 1: "Быт", 19: "Пс", 43: "Ин" })[id] ?? `Кн${id}`,
+    psalms: psalms("Пс", { 9: 39, 22: 2 }),
     verses: { 1: [[1, 1, "В начале Бог сотворил небо и землю."]], 43: [[1, 1, "В начале было Слово."], [2, 1, "На третий день была свадьба."], [3, 16, "Ведь Бог так любит мир."], [3, 17, "Бог послал Сына в мир."]] },
   },
   en: {
     title: "Test Bible",
-    bookName: (id) => ({ 1: "Genesis", 43: "John" })[id] ?? `Book ${id}`,
-    bookAbbreviation: (id) => ({ 1: "Ge", 43: "Joh" })[id] ?? `Bk${id}`,
+    bookName: (id) => ({ 1: "Genesis", 19: "Psalms", 43: "John" })[id] ?? `Book ${id}`,
+    bookAbbreviation: (id) => ({ 1: "Ge", 19: "Ps", 43: "Joh" })[id] ?? `Bk${id}`,
+    psalms: psalms("Ps", { 9: 20, 10: 18, 23: 2 }),
     verses: { 1: [[1, 1, "In the beginning God created the heavens and the earth."]], 43: [[1, 1, "In the beginning was the Word."], [2, 1, "On the third day a marriage feast took place."], [3, 16, "For God loved the world so much."], [3, 17, "For God sent his Son into the world."]] },
   },
 };
 
 // Chapters of a book are numbered without gaps, as in a real Bible: the chapter count comes from them.
 /** A minimal EPUB in the jw.org layout: the 66-book table and one XHTML document per book with verses. `revised` marks every verse, like a corrected edition. */
-async function createJwEpub(language, { revised = false } = {}) {
-  const translation = TRANSLATIONS[language];
+async function createJwEpub(language, { revised = false, withPsalms = false } = {}) {
+  const translation = withPsalms
+    ? { ...TRANSLATIONS[language], verses: { ...TRANSLATIONS[language].verses, 19: TRANSLATIONS[language].psalms } }
+    : TRANSLATIONS[language];
   const zip = new JSZip();
   const bookIds = Array.from({ length: 66 }, (_unused, index) => index + 1);
   const bookDocuments = bookIds.filter((id) => translation.verses[id] !== undefined);

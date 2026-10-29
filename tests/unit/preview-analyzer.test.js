@@ -55,6 +55,7 @@ module.exports = async () => {
     getComparisonTranslationIds: () => ["a", "b"],
     getTranslationPreviewTitle: (translationId) => translationId.toUpperCase(),
     getComparisonMapping: () => judgesMapping,
+    mapReferences: (references) => references,
   });
 
   for (const [text, expected] of [
@@ -158,6 +159,7 @@ module.exports = async () => {
     getComparisonTranslationIds: () => ["b", "a"],
     getTranslationPreviewTitle: (translationId) => translationId.toUpperCase(),
     getComparisonMapping: () => judgesMapping,
+    mapReferences: (references) => references,
     getBibleChapterTextBlock: (book, chapter, translationId) => getBibleChapterTextBlock(book, chapter, chapterIndex, translationId),
     getBookIds: () => [7],
     getChapterCount: () => undefined,

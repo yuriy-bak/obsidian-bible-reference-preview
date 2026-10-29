@@ -27,6 +27,11 @@ export type BiblePreviewAnalyzerInput = {
     getComparisonTranslationIds: () => string[];
     getTranslationPreviewTitle: (translationId: string) => string;
     getComparisonMapping: (translationId: string) => BookMapping;
+    /**
+     * The references in another translation's numbering scheme; the same array when both translations
+     * use the same scheme.
+     */
+    mapReferences: (references: BibleReference[], fromTranslationId: string, toTranslationId: string) => BibleReference[];
     getBibleChapterTextBlock: (book: number, chapter: number, translationId: string) => Promise<BibleTextBlock | null>;
     getBookIds: () => number[];
     getChapterCount: (book: number) => number | undefined;
@@ -58,7 +63,7 @@ export class BiblePreviewAnalyzer {
                 const comparisonInputs = referenceBlocks.length > 0
                     ? referenceBlocks.map((block) => ({ title: block.title, references: block.references }))
                     : matches.map((match) => ({ title: match.text, references: match.references }));
-                return this.buildComparisonContent(comparisonInputs);
+                return this.buildComparisonContent(comparisonInputs, activeTranslationId);
             }
 
             return standardContent;
@@ -99,7 +104,7 @@ export class BiblePreviewAnalyzer {
             ? this.input.formatBibleComparisonTextBlocks([{
                 title: chapterView.title,
                 references: [activeBlock.reference],
-                translations: await this.getComparisonChapterTranslationInputs(target, activeTranslationId),
+                translations: await this.getComparisonChapterTranslationInputs(target, activeBlock.reference, activeTranslationId),
                 formatReferenceTitle: (mapping) => formatBibleChapterTitle(location, mapping),
             }])
             : this.input.formatBibleTextBlocks([activeBlock]);
@@ -123,7 +128,7 @@ export class BiblePreviewAnalyzer {
         }
 
         if (this.input.isPreviewComparisonEnabled()) {
-            return this.buildComparisonContent(previewReferenceBlocks);
+            return this.buildComparisonContent(previewReferenceBlocks, activeTranslationId);
         }
 
         const bibleTextBlocks = (await Promise.all(previewReferenceBlocks.map((block) =>
@@ -140,36 +145,70 @@ export class BiblePreviewAnalyzer {
         );
     }
 
-    private async buildComparisonContent(blocks: { title: string; references: BibleReference[] }[]): Promise<BiblePreviewContent | null> {
+    private async buildComparisonContent(blocks: { title: string; references: BibleReference[] }[], activeTranslationId: string): Promise<BiblePreviewContent | null> {
         const comparisonInputs = await Promise.all(blocks.map(async (block): Promise<BiblePreviewComparisonInput> => ({
             title: block.title,
             references: block.references,
-            translations: await this.getComparisonTranslationInputs(block.references, block.title),
+            translations: await this.getComparisonTranslationInputs(block.references, block.title, activeTranslationId),
         })));
         const comparisonContent = this.input.formatBibleComparisonTextBlocks(comparisonInputs);
         return comparisonContent.plainText.length === 0 ? null : comparisonContent;
     }
 
-    private async getComparisonTranslationInputs(references: BiblePreviewReferenceBlock["references"], sourceText: string): Promise<BiblePreviewComparisonInput["translations"]> {
+    // References in notes follow the numbering of the active translation; each compared translation
+    // shows the same passage in its own numbering.
+    private async getComparisonTranslationInputs(
+        references: BiblePreviewReferenceBlock["references"],
+        sourceText: string,
+        activeTranslationId: string,
+    ): Promise<BiblePreviewComparisonInput["translations"]> {
         const translationIds = this.input.getComparisonTranslationIds();
         const mainTranslationId = this.getMainComparisonTranslationId(translationIds);
-        return Promise.all(translationIds.map(async (translationId) => ({
-            translationName: this.input.getTranslationPreviewTitle(translationId),
-            isMain: translationId === mainTranslationId,
-            blocks: await this.input.getBibleTextBlocks(references, translationId, sourceText),
-            mapping: this.input.getComparisonMapping(translationId),
-        })));
-    }
-
-    private async getComparisonChapterTranslationInputs(target: BibleChapterTarget, activeTranslationId: string): Promise<BiblePreviewComparisonInput["translations"]> {
-        const translationIds = this.input.getComparisonTranslationIds();
         return Promise.all(translationIds.map(async (translationId) => {
-            const block = await this.input.getBibleChapterTextBlock(target.book, target.chapter, translationId);
+            const translationReferences = this.input.mapReferences(references, activeTranslationId, translationId);
             return {
                 translationName: this.input.getTranslationPreviewTitle(translationId),
-                isMain: translationId === activeTranslationId,
-                blocks: block === null ? [] : [block],
+                isMain: translationId === mainTranslationId,
+                blocks: await this.input.getBibleTextBlocks(translationReferences, translationId, sourceText),
                 mapping: this.input.getComparisonMapping(translationId),
+                references: translationReferences === references ? undefined : translationReferences,
+            };
+        }));
+    }
+
+    // A translation with another numbering shows the passage of the active chapter, which may be parts of
+    // two chapters there (Ps 9 of the Synodal numbering is Ps 9 and Ps 10 in English).
+    private async getComparisonChapterTranslationInputs(
+        target: BibleChapterTarget,
+        chapterReference: BibleReference,
+        activeTranslationId: string,
+    ): Promise<BiblePreviewComparisonInput["translations"]> {
+        const translationIds = this.input.getComparisonTranslationIds();
+        const chapterReferences = [chapterReference];
+        return Promise.all(translationIds.map(async (translationId) => {
+            const translation = {
+                translationName: this.input.getTranslationPreviewTitle(translationId),
+                isMain: translationId === activeTranslationId,
+                mapping: this.input.getComparisonMapping(translationId),
+            };
+            const translationReferences = this.input.mapReferences(chapterReferences, activeTranslationId, translationId);
+            if (translationReferences === chapterReferences) {
+                const block = await this.input.getBibleChapterTextBlock(target.book, target.chapter, translationId);
+                return { ...translation, blocks: block === null ? [] : [block] };
+            }
+
+            const highlightedReferences = this.input.mapReferences(target.highlightedRanges.map((range) => ({
+                book: target.book,
+                chapterStart: target.chapter,
+                verseStart: range.verseStart,
+                chapterEnd: target.chapter,
+                verseEnd: range.verseEnd ?? chapterReference.verseEnd,
+            })), activeTranslationId, translationId);
+            const blocks = await this.input.getBibleTextBlocks(translationReferences, translationId, "");
+            return {
+                ...translation,
+                blocks: blocks.map((block) => ({ ...block, highlightedReferences })),
+                references: translationReferences,
             };
         }));
     }
