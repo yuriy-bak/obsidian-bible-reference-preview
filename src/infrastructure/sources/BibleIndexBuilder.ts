@@ -3,6 +3,9 @@ import { normalizeBookAlias, removeChapterNumberFromAlias } from "../../parsing/
 import { BibleIndexV2Data, BibleIndexV2TranslationMetadata } from "../v2/BibleIndexV2Data";
 import { CompactBibleBookData, CompactVerseData } from "../v2/CompactBibleBookData";
 import { EpubImportError } from "../epub/EpubImportError";
+import { detectVersification, type ChapterVerseCounts } from "../../versification/detectVersification";
+import { getCompactBookChapterVerseCounts } from "../../versification/compactBookVerseCounts";
+import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../../versification/VersificationRegistry";
 import { assertBibleImportNotAborted, yieldBibleImportIfNeeded } from "./BibleImportCancellation";
 import { BibleImportOptions, BibleImportResult } from "./BibleSource";
 
@@ -110,17 +113,20 @@ export class BibleIndexBuilder {
         }
 
         assertBibleImportNotAborted(this.options);
-        const bookMetadataList = Object.values(this.translation.books);
         this.options.onProgress?.({ stage: "building-index", processedCount: 0, totalCount: this.books.length });
         let processedBookMetadataCount = 0;
-        for (const bookMetadata of bookMetadataList) {
+        const chapterVerseCounts: ChapterVerseCounts = {};
+        for (const [bookId, bookMetadata] of Object.entries(this.translation.books)) {
             const compactBook = this.compactBooks[bookMetadata.path];
             if (compactBook !== undefined) {
                 bookMetadata.chapterCount = countImportedChapters(compactBook);
+                chapterVerseCounts[Number(bookId)] = getCompactBookChapterVerseCounts(compactBook);
             }
             processedBookMetadataCount += 1;
             this.options.onProgress?.({ stage: "building-index", processedCount: processedBookMetadataCount, totalCount: this.books.length });
         }
+
+        this.setDetectedVersification(chapterVerseCounts);
 
         const { translationId, translationName, language, sourceFileName } = this.input;
         const bibleIndexV2Data: BibleIndexV2Data = {
@@ -156,6 +162,22 @@ export class BibleIndexBuilder {
             },
             warnings: this.warnings,
         };
+    }
+
+    private setDetectedVersification(chapterVerseCounts: ChapterVerseCounts): void {
+        const detection = detectVersification(chapterVerseCounts, getVersificationRegistry());
+        this.translation.versification = detection.key ?? DEFAULT_VERSIFICATION_KEY;
+        this.translation.bookOrder = this.books
+            .map((book) => book.id)
+            .filter((bookId) => this.translation.books[String(bookId)] !== undefined);
+
+        if (!detection.confident) {
+            const scores = detection.scores
+                .slice(0, 3)
+                .map((score) => `${score.key} ${score.matchedChapters}/${detection.totalChapters}`)
+                .join(", ");
+            this.warnings.push(`Versification was not detected reliably, using ${this.translation.versification} (${scores})`);
+        }
     }
 }
 

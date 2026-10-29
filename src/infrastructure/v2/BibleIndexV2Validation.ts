@@ -1,3 +1,4 @@
+import { isVersificationKey } from "../../versification/VersificationRegistry";
 import { BibleIndexV2BookMetadata, BibleIndexV2Data, BibleIndexV2TranslationMetadata } from "./BibleIndexV2Data";
 
 const TRANSLATION_ID_PATTERN = /^[a-z0-9-]+$/;
@@ -25,7 +26,14 @@ export function sanitizeBibleIndexV2Data(data: BibleIndexV2Data): BibleIndexV2Da
             books[bookId] = book;
         }
 
-        translations[translationId] = { ...translation, books };
+        const sanitized: BibleIndexV2TranslationMetadata = { ...translation, books };
+        if (!isVersificationKey(sanitized.versification)) {
+            delete sanitized.versification;
+        }
+        if (!isBookOrder(sanitized.bookOrder, books)) {
+            delete sanitized.bookOrder;
+        }
+        translations[translationId] = sanitized;
     }
 
     return { version: 2, translations };
@@ -58,6 +66,13 @@ function isBookMetadata(value: unknown): value is BibleIndexV2BookMetadata {
         && Array.isArray(value.aliases)
         && value.aliases.every((alias) => typeof alias === "string")
         && typeof value.path === "string";
+}
+
+function isBookOrder(value: unknown, books: Record<string, BibleIndexV2BookMetadata>): value is number[] {
+    return Array.isArray(value)
+        && value.every((bookId) => Number.isInteger(bookId) && books[String(bookId)] !== undefined)
+        && new Set(value).size === value.length
+        && value.length === Object.keys(books).length;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

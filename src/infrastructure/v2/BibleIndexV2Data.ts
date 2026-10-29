@@ -11,6 +11,10 @@ export type BibleIndexV2TranslationMetadata = {
     language: string;
     sourceFileName?: string;
     importedAt: string;
+    /** Versification scheme key ("builtin:eng"); missing in indexes written before 0.3.0. */
+    versification?: string;
+    /** Book ids in the translation's own order (the Synodal one puts James right after Acts). */
+    bookOrder?: number[];
     books: Record<string, BibleIndexV2BookMetadata>;
 };
 

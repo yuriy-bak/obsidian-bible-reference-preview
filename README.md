@@ -206,10 +206,11 @@ Releasing:
 Import and indexing notes:
 
 - Translations are imported through the plugin settings (**Import Bible**) or the **Import Bible file** command. Each supported format is a Bible source in `src/infrastructure/sources/` (`BibleSource`): it recognizes its own files (`canHandle`), declares its file types and size limit, and reads books and verses for `BibleIndexBuilder`. `createBibleSources()` lists the sources; the first one that recognizes a file takes it, so a narrower format goes before a more general one. Adding a format means adding a source and one line to that list; the file picker and the "not recognized" error pick it up.
+- Versification: verse numbering differs between translations (the Synodal Psalm 22 is Psalm 23 in English Bibles). `src/versification/schemes/*.vrs` are the Paratext schemes English, Original, Septuagint, Vulgate and Russian Protestant, copied unchanged from [sillsdev/machine.py](https://github.com/sillsdev/machine.py) (MIT, see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)). `npm run generate:versification` turns them into `src/versification/builtinVersificationData.ts` with the 66 canonical books only; a test fails if the generated file is out of date. The import stores the detected scheme (`versification`, best match of verse counts per chapter) and the book order (`bookOrder`) of each translation in `bibles-index.json`; translations imported before 0.3.0 get them detected once in the background after loading.
 - The Reference Usage Index scans Markdown files in the vault to find Bible reference usages.
 - Large Markdown files can be skipped by the Reference Usage Index according to its size limit to avoid slow indexing and UI freezes.
 - Long Reference Usage Index builds and the safe in-memory part of EPUB import show progress and can be cancelled.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Third-party data: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
