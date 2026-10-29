@@ -27,6 +27,7 @@ import { openReferenceUsageResult } from "./ReferenceUsageResultOpening";
 export class ReferenceUsageService {
     private indexService: ReferenceUsageIndexService | null = null;
     private controller: ReferenceUsageController | null = null;
+    private outdatedNotice: Notice | null = null;
 
     constructor(
         private readonly context: PluginContext,
@@ -52,6 +53,21 @@ export class ReferenceUsageService {
         owner.registerEvent(vault.on("delete", (file) => controller.handleFileDelete(file)));
         owner.registerEvent(vault.on("rename", (file, oldPath) => controller.handleFileRename(file, oldPath)));
         owner.register(() => controller.clearPendingUpdates());
+    }
+
+    /**
+     * Called after the book names changed and once on startup. An outdated index is rebuilt in the background
+     * when auto-update is on; otherwise a notice offers the rebuild.
+     */
+    handleParserChanged(): void {
+        if (!this.isReferenceUsageIndexingEnabled() || !this.context.hasImportedTranslations() || !this.isReferenceUsageIndexOutdated()) {
+            return;
+        }
+        if (this.shouldAutoUpdateReferenceUsageIndex()) {
+            this.getController().requestRebuildAfterParserChange();
+            return;
+        }
+        this.showOutdatedNotice();
     }
 
     isReferenceUsageIndexOutdated(): boolean {
@@ -220,6 +236,21 @@ export class ReferenceUsageService {
             });
         }
         return this.controller;
+    }
+
+    private showOutdatedNotice(): void {
+        this.outdatedNotice?.hide();
+        const fragment = createFragment((el) => {
+            el.createDiv({ text: this.context.t("notice.referenceUsageIndexOutdatedPrompt") });
+            el.createEl("button", { text: this.context.t("notice.referenceUsageIndexOutdatedRebuildButton") }, (buttonEl) => {
+                buttonEl.addEventListener("click", () => {
+                    this.outdatedNotice?.hide();
+                    this.outdatedNotice = null;
+                    void this.rebuildReferenceUsageIndex();
+                });
+            });
+        });
+        this.outdatedNotice = new Notice(fragment, 0);
     }
 
     private onIndexChanged(): void {

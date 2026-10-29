@@ -104,13 +104,17 @@ export class PluginContext {
             && this.currentV2Data.translations[this.currentActiveTranslationId] !== undefined;
     }
 
-    /** Rebuilds the book names and the parser for the active translation and notifies listeners. */
+    /** Rebuilds the book names and the parser for the active translation; notifies listeners when the parser changed. */
     updateBookMapping(): void {
+        const previousParserSignature = this.parserSignature;
         this.currentBookMapping = this.currentV2Data !== null && this.currentActiveTranslationId !== null
             ? createBookMappingFromBibleIndexV2Data(this.currentV2Data, this.currentActiveTranslationId)
             : createBookMapping([]);
         this.currentParser = new BibleReferenceParser(this.currentBookMapping);
         this.currentParserSignature = null;
+        if (this.parserSignature === previousParserSignature) {
+            return;
+        }
         for (const listener of this.bookMappingListeners) {
             listener();
         }

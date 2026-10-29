@@ -22,6 +22,8 @@
 - A new install uses the Obsidian interface language: Russian when Obsidian is in Russian, English otherwise. Existing settings are kept.
 - The floating preview opens in popout windows: it moves to the window with the reference or the active note. Escape, the link-open shortcut and click-outside hiding in reading mode work there too.
 - The fallback plugin folder uses the vault configuration folder (`app.vault.configDir`) instead of a hard-coded `.obsidian`.
+- After the book names change (first import, switching to a translation in another language, removing the last one), open notes in reading mode redraw their reference links without reopening the note.
+- An outdated usage index no longer waits for a manual rebuild: with auto-update on it is rebuilt in the background (one build at a time, a change during a build queues one more); with auto-update off a notice offers the rebuild. The same check runs once on startup, for a plugin update that changes the parser. Reordering translations without changing the active one no longer refreshes anything.
 
 ## 0.2.5 - Catalog review: link underline
 

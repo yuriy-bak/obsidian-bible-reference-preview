@@ -1,6 +1,7 @@
 import { App, Notice, TFile, type TAbstractFile } from "obsidian";
 import type { I18nKey } from "../i18n/I18n";
 import { ProgressCancelModal } from "../ui/ProgressCancelModal";
+import { ReferenceUsageBuildQueue } from "./ReferenceUsageBuildQueue";
 import {
     isReferenceUsageIndexBuildAbortError,
     type ReferenceUsageIndexBuildProgress,
@@ -23,7 +24,7 @@ export type ReferenceUsageControllerInput = {
 
 export class ReferenceUsageController {
     private readonly fileUpdateTimeouts = new Map<string, number>();
-    private indexingInProgress = false;
+    private readonly buildQueue = new ReferenceUsageBuildQueue();
 
     constructor(private readonly input: ReferenceUsageControllerInput) {}
 
@@ -36,12 +37,12 @@ export class ReferenceUsageController {
             new Notice(this.input.translate("notice.noImportedTranslations"), 4000);
             return;
         }
-        if (this.indexingInProgress) {
+        if (!await this.buildQueue.tryRun(() => this.runBuildWithProgress(forceRebuild))) {
             new Notice(this.input.translate("notice.referenceUsageIndexAlreadyRunning"), 4000);
-            return;
         }
+    }
 
-        this.indexingInProgress = true;
+    private async runBuildWithProgress(forceRebuild: boolean): Promise<void> {
         const abortController = new AbortController();
         const files = this.input.app.vault.getMarkdownFiles();
         const progressModal = new ProgressCancelModal(
@@ -83,7 +84,6 @@ export class ReferenceUsageController {
             }
         } finally {
             progressModal.finish();
-            this.indexingInProgress = false;
             this.input.refreshSettings();
             this.input.onIndexChanged();
         }
@@ -99,24 +99,46 @@ export class ReferenceUsageController {
             new Notice(this.input.translate("notice.noImportedTranslations"), 4000);
             return false;
         }
-        if (this.indexingInProgress) {
+        let updated = false;
+        const started = await this.buildQueue.tryRun(async () => {
+            try {
+                await this.input.getService().build(this.input.app.vault.getMarkdownFiles(), false, { onProgress });
+                updated = true;
+            } catch (error) {
+                console.warn("Bible reference usage index update failed", error);
+                new Notice(this.input.translate("notice.referenceUsageIndexSaveFailed"), 5000);
+            } finally {
+                this.input.refreshSettings();
+                this.input.onIndexChanged();
+            }
+        });
+        if (!started) {
             new Notice(this.input.translate("notice.referenceUsageIndexAlreadyRunning"), 4000);
-            return false;
         }
+        return updated;
+    }
 
-        this.indexingInProgress = true;
-        try {
-            await this.input.getService().build(this.input.app.vault.getMarkdownFiles(), false, { onProgress });
-            return true;
-        } catch (error) {
-            console.warn("Bible reference usage index update failed", error);
-            new Notice(this.input.translate("notice.referenceUsageIndexSaveFailed"), 5000);
-            return false;
-        } finally {
-            this.indexingInProgress = false;
-            this.input.refreshSettings();
-            this.input.onIndexChanged();
-        }
+    // Full reparse in the background after the book names changed. Queued behind a running build,
+    // and checked again when it starts, since that build may already have used the new parser.
+    public requestRebuildAfterParserChange(): void {
+        this.buildQueue.request(async () => {
+            if (!this.input.shouldAutoProcessEvents() || !this.input.getService().isOutdated()) return;
+            new Notice(this.input.translate("notice.referenceUsageIndexAutoRebuildStarted"), 4000);
+            try {
+                const result = await this.input.getService().build(this.input.app.vault.getMarkdownFiles(), false);
+                new Notice(this.input.translate("notice.referenceUsageIndexBuildCompleted", {
+                    fileCount: result.fileCount,
+                    updatedFileCount: result.updatedFileCount,
+                    referenceCount: result.referenceCount,
+                }), 8000);
+            } catch (error) {
+                console.warn("Bible reference usage index rebuild failed", error);
+                new Notice(this.input.translate("notice.referenceUsageIndexSaveFailed"), 5000);
+            } finally {
+                this.input.refreshSettings();
+                this.input.onIndexChanged();
+            }
+        });
     }
 
     public async clearIndex(): Promise<void> {
