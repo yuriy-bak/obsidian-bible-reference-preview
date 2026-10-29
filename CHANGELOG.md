@@ -17,6 +17,7 @@
 - Internal: reference usages (settings, indexing, search, results panel and modal) are one `ReferenceUsageService` instead of nine `ReferenceUsage*Flow`/`*InputFactory` files. No behavior change.
 - Internal: the editor is one `EditorService` plus one CodeMirror view plugin class instead of 23 `Editor*` files; startup and registration live in `main.ts` (147 lines, was 818 before the refactoring). No behavior change.
 - Internal: one module for vault paths and one empty Bible index instead of copies; book aliases and note text share one set of normalization rules; `noUnusedLocals`/`noUnusedParameters` are on; the unit tests are split into files by module. No behavior change.
+- Internal: the floating window and the side panel share one preview header (title, translations selector, copy and comparison buttons); the floating window's static styles moved from inline styles to `styles.css`; `formatBibleTexts.ts` is split into the preview model and the DOM renderer. No visual or behavior change.
 
 ## 0.2.5 - Catalog review: link underline
 

@@ -28,7 +28,8 @@ import {
     revealLeafWithoutStealingEditorFocus,
 } from "../workspace/BiblePreviewWorkspace";
 import { ensureLeafViewLoaded } from "../workspace/WorkspaceLeafViewLoading";
-import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, type BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./BiblePreviewPaneView";
+import type { BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, type BiblePreviewPaneViewInput } from "./BiblePreviewPaneView";
 import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./FloatingBiblePreviewWindow";
 
 export type ClosePreviewPaneOptions = {
