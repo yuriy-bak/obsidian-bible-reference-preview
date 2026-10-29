@@ -4,15 +4,16 @@ import type { I18nKey, I18nParams } from "../i18n/I18n";
 import { isBibleImportAbortError } from "../infrastructure/sources/BibleImportCancellation";
 import { ensureVaultDirectoryExists } from "../infrastructure/VaultPathUtils";
 import type { TranslationService } from "../translations/TranslationService";
-import { executePreparedEpubImport, prepareEpubImportSettings } from "./EpubImportFlow";
+import { createBibleSources, getBibleFilePickerAccept } from "../infrastructure/sources/BibleSourceRegistry";
+import { executePreparedBibleImport, prepareBibleImport } from "./BibleImportFlow";
 import {
     formatBibleIndexV2StatsNotice,
-    formatEpubImportSuccessNotice,
+    formatBibleImportSuccessNotice,
     formatLastImportReportNotice,
     localizeImportErrorMessage,
-} from "./EpubImportMessages";
+} from "./BibleImportMessages";
 
-/** Loading the Bible index, importing EPUB files and showing information about the index. */
+/** Loading the Bible index, importing Bible files and showing information about the index. */
 export class BibleLibraryService {
     private readonly translate = (key: I18nKey, params?: I18nParams): string => this.context.t(key, params);
     private readonly createRepository = () => this.context.createRepository();
@@ -44,30 +45,30 @@ export class BibleLibraryService {
         new Notice(this.context.t("notice.bibleIndexReloaded"), 5000);
     }
 
-    openEpubFilePicker(hostEl?: HTMLElement): void {
+    openBibleFilePicker(hostEl?: HTMLElement): void {
         // Create the input in the document that received the click (the settings window may not be the main one)
         // and keep it attached until the dialog closes; a detached input can be dropped before `change` fires.
         const doc = hostEl?.doc ?? activeDocument;
         const fileInput = doc.body.createEl("input", {
             type: "file",
             cls: "bible-reference-preview-hidden-file-input",
-            attr: { accept: ".epub,application/epub+zip" },
+            attr: { accept: getBibleFilePickerAccept(createBibleSources()) },
         });
         const removeFileInput = (): void => fileInput.remove();
         fileInput.addEventListener("change", () => {
             const file = fileInput.files?.[0];
             removeFileInput();
             if (file !== undefined) {
-                void this.importEpubFile(file);
+                void this.importBibleFile(file);
             }
         });
         fileInput.addEventListener("cancel", removeFileInput);
         fileInput.click();
     }
 
-    async importEpubFile(file: File): Promise<void> {
+    async importBibleFile(file: File): Promise<void> {
         try {
-            const preparedImport = await prepareEpubImportSettings({
+            const preparedImport = await prepareBibleImport({
                 app: this.context.app,
                 file,
                 locale: this.context.settings.interfaceLanguage,
@@ -79,7 +80,7 @@ export class BibleLibraryService {
                 return;
             }
 
-            const result = await executePreparedEpubImport({
+            const result = await executePreparedBibleImport({
                 app: this.context.app,
                 fileName: file.name,
                 preparedImport,
@@ -94,15 +95,15 @@ export class BibleLibraryService {
             });
 
             if (result.warnings.length > 0) {
-                console.warn("EPUB import warnings", result.warnings);
+                console.warn("Bible import warnings", result.warnings);
             }
-            new Notice(formatEpubImportSuccessNotice(result, this.translate), 15000);
+            new Notice(formatBibleImportSuccessNotice(result, this.translate), 15000);
         } catch (error) {
             if (isBibleImportAbortError(error)) {
                 new Notice(this.context.t("notice.importCancelled"), 5000);
                 return;
             }
-            console.error("EPUB import failed", error);
+            console.error("Bible import failed", error);
             new Notice(this.context.t("notice.importFailed", {
                 message: localizeImportErrorMessage(error, this.translate),
             }), 15000);

@@ -1,40 +1,41 @@
 import type { App } from "obsidian";
 import type { BibleImportResult, BibleSource } from "../infrastructure/sources/BibleSource";
 import type { BiblePluginLocale } from "../i18n/I18n";
-import { createBibleSources, selectBibleSource } from "../infrastructure/sources/BibleSourceRegistry";
+import { createBibleSources, getMaxBibleFileBytes, selectBibleSource } from "../infrastructure/sources/BibleSourceRegistry";
 import type { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createImportSettingsDefaults, openBibleTranslationImportSettingsModal, type BibleTranslationImportSettings } from "../ui/BibleTranslationImportModal";
 import { ProgressCancelModal } from "../ui/ProgressCancelModal";
 import { importBible } from "../application/importBible";
-import { formatEpubImportProgress, type EpubImportTranslate } from "./EpubImportMessages";
-import { readAndValidateEpubFile, type EpubFileValidationTranslate } from "./EpubFileValidation";
+import { formatBibleImportProgress, type BibleImportTranslate } from "./BibleImportMessages";
+import { readBibleFile } from "./BibleFileValidation";
 
-export type PreparedEpubImport = {
+export type PreparedBibleImport = {
     content: ArrayBuffer;
     source: BibleSource;
     importSettings: BibleTranslationImportSettings;
 };
 
-export type PrepareEpubImportSettingsInput = {
+export type PrepareBibleImportInput = {
     app: App;
     file: File;
     locale: BiblePluginLocale;
-    translate: EpubFileValidationTranslate;
+    translate: BibleImportTranslate;
     createRepository: () => ObsidianBibleIndexV2Repository;
 };
 
-export type ExecutePreparedEpubImportInput = {
+export type ExecutePreparedBibleImportInput = {
     app: App;
     fileName: string;
-    preparedImport: PreparedEpubImport;
-    translate: EpubImportTranslate;
+    preparedImport: PreparedBibleImport;
+    translate: BibleImportTranslate;
     createRepository: () => ObsidianBibleIndexV2Repository;
     onImported: (repository: ObsidianBibleIndexV2Repository, result: BibleImportResult) => Promise<void>;
 };
 
-export async function prepareEpubImportSettings(input: PrepareEpubImportSettingsInput): Promise<PreparedEpubImport | null> {
-    const content = await readAndValidateEpubFile(input.file, input.translate);
-    const source = selectBibleSource(createBibleSources(), input.file.name, content);
+export async function prepareBibleImport(input: PrepareBibleImportInput): Promise<PreparedBibleImport | null> {
+    const sources = createBibleSources();
+    const content = await readBibleFile(input.file, getMaxBibleFileBytes(sources), input.translate);
+    const source = await selectBibleSource(sources, { fileName: input.file.name, content });
     const sourceMetadata = await source.readMetadata(content);
     const defaults = createImportSettingsDefaults(input.file.name, sourceMetadata);
     const existingRepository = input.createRepository();
@@ -54,12 +55,12 @@ export async function prepareEpubImportSettings(input: PrepareEpubImportSettings
     return { content, source, importSettings };
 }
 
-export async function executePreparedEpubImport(input: ExecutePreparedEpubImportInput): Promise<BibleImportResult> {
+export async function executePreparedBibleImport(input: ExecutePreparedBibleImportInput): Promise<BibleImportResult> {
     const abortController = new AbortController();
     const progressModal = new ProgressCancelModal(
         input.app,
         input.translate("notice.importStarted", { fileName: input.fileName }),
-        formatEpubImportProgress({ stage: "loading-zip", processedCount: 0, totalCount: 1 }, input.translate),
+        formatBibleImportProgress({ stage: "loading-zip", processedCount: 0, totalCount: 1 }, input.translate),
         input.translate("common.cancel"),
         () => abortController.abort(),
     );
@@ -81,7 +82,7 @@ export async function executePreparedEpubImport(input: ExecutePreparedEpubImport
             repository,
             importOptions: {
                 signal: abortController.signal,
-                onProgress: (progress) => progressModal.updateMessage(formatEpubImportProgress(progress, input.translate)),
+                onProgress: (progress) => progressModal.updateMessage(formatBibleImportProgress(progress, input.translate)),
             },
         });
 

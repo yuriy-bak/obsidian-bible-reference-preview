@@ -1,9 +1,10 @@
 import type { BibleImportProgress, BibleImportReport, BibleImportResult } from "../infrastructure/sources/BibleSource";
 import type { I18nKey } from "../i18n/I18n";
+import { UnsupportedBibleFileError } from "../infrastructure/sources/BibleSourceRegistry";
 
-export type EpubImportTranslate = (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
+export type BibleImportTranslate = (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
 
-export function formatEpubImportProgress(progress: BibleImportProgress, translate: EpubImportTranslate): string {
+export function formatBibleImportProgress(progress: BibleImportProgress, translate: BibleImportTranslate): string {
     return translate("notice.importProgress", {
         stage: translate(`notice.importProgress.stage.${progress.stage}`),
         processed: progress.processedCount,
@@ -11,13 +12,13 @@ export function formatEpubImportProgress(progress: BibleImportProgress, translat
     });
 }
 
-export function formatEpubImportSuccessNotice(
+export function formatBibleImportSuccessNotice(
     result: BibleImportResult,
-    translate: EpubImportTranslate,
+    translate: BibleImportTranslate,
 ): string {
     const warningsText = result.warnings.length === 0 ? "" : `\n${translate("notice.importWarnings", { count: result.warnings.length })}`;
     return [
-        translate("notice.epubImported"),
+        translate("notice.bibleImported"),
         translate("import.summary.translation", { translationName: result.translationName }),
         translate("import.summary.language", { language: result.language }),
         translate("import.summary.books", { count: result.report.books }),
@@ -31,7 +32,7 @@ export function formatEpubImportSuccessNotice(
 
 export function formatLastImportReportNotice(
     report: BibleImportReport,
-    translate: EpubImportTranslate,
+    translate: BibleImportTranslate,
 ): string {
     return [
         translate("notice.lastImport"),
@@ -49,7 +50,7 @@ export function formatLastImportReportNotice(
 export function formatBibleIndexV2StatsNotice(
     translationCount: number,
     activeTranslationIdText: string,
-    translate: EpubImportTranslate,
+    translate: BibleImportTranslate,
 ): string {
     return [
         translate("notice.bibleIndexV2"),
@@ -58,7 +59,14 @@ export function formatBibleIndexV2StatsNotice(
     ].join("\n");
 }
 
-export function localizeImportErrorMessage(error: unknown, translate: EpubImportTranslate): string {
+export function localizeImportErrorMessage(error: unknown, translate: BibleImportTranslate): string {
+    if (error instanceof UnsupportedBibleFileError) {
+        return [
+            translate("import.error.unsupportedFormat"),
+            "",
+            ...error.sourceLabels.map((label) => `• ${label}`),
+        ].join("\n");
+    }
     const message = getErrorMessage(error);
     if (message === "EPUB does not contain XHTML documents.") {
         return translate("import.error.noXhtml");

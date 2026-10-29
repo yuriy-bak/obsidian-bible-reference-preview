@@ -18,7 +18,7 @@ export type PluginCommandServices = {
 export function registerPluginCommands(plugin: Plugin, services: PluginCommandServices): void {
     const { context, settings, library, preview, referenceUsage, editor } = services;
     const t = (key: Parameters<PluginContext["t"]>[0]) => context.t(key);
-    plugin.addCommand({ id: "import-epub-bible", name: t("command.importEpubBible"), callback: () => library.openEpubFilePicker() });
+    plugin.addCommand({ id: "import-epub-bible", name: t("command.importBible"), callback: () => library.openBibleFilePicker() });
     plugin.addCommand({ id: "reload-bible-index", name: t("command.reloadBibleIndex"), callback: () => void library.reloadBibleIndex() });
     plugin.addCommand({ id: "open-bible-index-folder", name: t("command.openBibleIndexFolder"), callback: () => void library.openBibleIndexFolder() });
     plugin.addCommand({ id: "show-bible-index-stats", name: t("command.showBibleIndexStats"), callback: () => void library.showBibleIndexStats() });

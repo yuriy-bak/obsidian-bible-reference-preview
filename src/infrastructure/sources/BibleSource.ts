@@ -58,13 +58,29 @@ export type BibleImportResult = {
     warnings: string[];
 };
 
+export type BibleSourceFile = {
+    fileName: string;
+    content: ArrayBuffer;
+};
+
+export type BibleSourceFileTypes = {
+    extensions: string[];
+    mimeTypes: string[];
+};
+
 /**
- * One supported Bible file format. A source reads its own container and markup and hands
- * books and verses to BibleIndexBuilder, which produces the stored index.
+ * One supported Bible file format. A source recognizes its own files, applies its own format limits,
+ * reads its container and markup and hands books and verses to BibleIndexBuilder, which produces the stored index.
  */
 export type BibleSource = {
     readonly id: string;
-    canHandle: (fileName: string, content: ArrayBuffer) => boolean;
+    /** Where the files come from, listed to the user when no source recognizes a file (e.g. "jw.org"). */
+    readonly label: string;
+    /** Offered in the file picker. */
+    readonly fileTypes: BibleSourceFileTypes;
+    readonly maxFileBytes: number;
+    /** Looks inside the file; false (never a throw) for a file of another format or a broken one. */
+    canHandle: (file: BibleSourceFile) => Promise<boolean>;
     readMetadata: (content: ArrayBuffer) => Promise<BibleSourceMetadata>;
     importBible: (input: BibleImportInput, options?: BibleImportOptions) => Promise<BibleImportResult>;
 };

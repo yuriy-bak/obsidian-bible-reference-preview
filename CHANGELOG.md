@@ -24,6 +24,7 @@
 - The fallback plugin folder uses the vault configuration folder (`app.vault.configDir`) instead of a hard-coded `.obsidian`.
 - After the book names change (first import, switching to a translation in another language, removing the last one), open notes in reading mode redraw their reference links without reopening the note.
 - An outdated usage index no longer waits for a manual rebuild: with auto-update on it is rebuilt in the background (one build at a time, a change during a build queues one more); with auto-update off a notice offers the rebuild. The same check runs once on startup, for a plugin update that changes the parser. Reordering translations without changing the active one no longer refreshes anything.
+- Import picks the Bible source by looking inside the file: the jw.org source takes only EPUB files with the jw.org book navigation page or Watchtower as creator/publisher. Any other file gets "file format not recognized" with the list of supported sources instead of failing halfway. The format and its limits are checked by the source; the common check only rejects empty and oversized files. The file picker types come from the sources. Import texts no longer say "EPUB" where they mean any Bible file ("Import Bible file" command, "Import Bible" setting); the command id is unchanged.
 
 ## 0.2.5 - Catalog review: link underline
 
