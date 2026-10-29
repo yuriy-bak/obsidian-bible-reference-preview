@@ -6,6 +6,7 @@ import { ensureVaultDirectoryExists } from "../infrastructure/VaultPathUtils";
 import type { TranslationService } from "../translations/TranslationService";
 import { createBibleSources, getBibleFilePickerAccept } from "../infrastructure/sources/BibleSourceRegistry";
 import { executePreparedBibleImport, prepareBibleImport } from "./BibleImportFlow";
+import { detectMissingVersifications } from "./detectMissingVersifications";
 import {
     formatBibleIndexV2StatsNotice,
     formatBibleImportSuccessNotice,
@@ -31,11 +32,27 @@ export class BibleLibraryService {
             const lastImportReport = await repository.readLastImportReport();
             await this.translations.syncTranslationOrder(lastImportReport?.translationId);
             this.translations.activateTopTranslation();
+            void this.updateMissingVersifications();
         } catch (error) {
             console.warn("Bible index load failed. Bible analysis will be disabled until a translation is imported.", error);
             this.context.setBibleData(null, null);
             this.context.setActiveTranslationId(null);
             this.context.updateBookMapping();
+        }
+    }
+
+    // Runs in the background after loading; skips publishing its result if an import or a deletion
+    // replaced the index meanwhile (the next load repeats the detection then).
+    private async updateMissingVersifications(): Promise<void> {
+        const loadedV2Data = this.context.v2Data;
+        try {
+            const repository = this.context.createRepository();
+            await repository.load();
+            if (await detectMissingVersifications(repository) && this.context.v2Data === loadedV2Data) {
+                this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+            }
+        } catch (error) {
+            console.warn("Versification detection for imported translations failed.", error);
         }
     }
 

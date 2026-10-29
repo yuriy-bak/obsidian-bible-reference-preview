@@ -9,6 +9,7 @@ const TEST_FILES = [
   "reference-usage",
   "epub-import",
   "workspace",
+  "versification",
 ];
 
 (async () => {

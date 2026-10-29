@@ -3,7 +3,7 @@ import { BibleIndex, EMPTY_BIBLE_INDEX } from "../BibleIndex";
 import { ensureVaultDirectoryExists, getDirectoryPath, normalizePath } from "../VaultPathUtils";
 import { BibleImportReport } from "../sources/BibleSource";
 import { BibleBookV2Loader } from "./BibleBookV2Loader";
-import { BibleIndexV2Data } from "./BibleIndexV2Data";
+import { BibleIndexV2Data, BibleIndexV2TranslationMetadata } from "./BibleIndexV2Data";
 import { sanitizeBibleIndexV2Data } from "./BibleIndexV2Validation";
 import { CompactBibleBookData } from "./CompactBibleBookData";
 import { LazyBibleIndexV2 } from "./LazyBibleIndexV2";
@@ -91,6 +91,29 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         delete nextData.translations[translationId];
         await this.removeTranslationDirectory(translationId);
         await ensureVaultDirectoryExists(this.adapter, this.dataDirectoryPath);
+        await this.adapter.write(this.getMetadataPath(), JSON.stringify(nextData));
+        this.currentV2Data = nextData;
+    }
+
+    /** Updates the stored scheme fields of one translation, keeping everything else in bibles-index.json. */
+    async updateTranslationVersification(
+        translationId: string,
+        fields: Required<Pick<BibleIndexV2TranslationMetadata, "versification" | "bookOrder">>,
+    ): Promise<void> {
+        // Re-read the file: an import may have saved another translation since this repository was loaded.
+        const latestData = await this.readV2Index(this.getMetadataPath()) ?? this.currentV2Data;
+        const translation = latestData?.translations[translationId];
+        if (latestData === null || translation === undefined) {
+            return;
+        }
+
+        const nextData: BibleIndexV2Data = {
+            version: 2,
+            translations: {
+                ...latestData.translations,
+                [translationId]: { ...translation, ...fields },
+            },
+        };
         await this.adapter.write(this.getMetadataPath(), JSON.stringify(nextData));
         this.currentV2Data = nextData;
     }
