@@ -4,11 +4,11 @@ import type { BiblePreviewTriggerMode } from "../settings/PluginSettings";
 import { clearBibleReferenceLinkDecorations, dispatchBibleReferenceLinkDecorations } from "./BibleReferenceLinkDecorations";
 import { remapClickedReferenceAfterDocumentChange, type EditorClickedReference } from "./EditorClickedReference";
 import type { EditorService } from "./EditorService";
-import { getCurrentParagraph } from "./EditorTextAnalysis";
+import { getCurrentParagraph, getParagraphReferencesKey } from "./EditorTextAnalysis";
 
 /** One per editor: highlights references and opens the preview on cursor movement or click. */
 export class EditorReferenceViewPlugin implements PluginValue {
-    private lastParagraph = "";
+    private lastParagraphReferencesKey = "";
     private requestId = 0;
     private referenceLinkUpdateTimeout: number | null = null;
     private lastActiveTranslationId: string | null;
@@ -120,7 +120,7 @@ export class EditorReferenceViewPlugin implements PluginValue {
     }
 
     private resetPreviewRequest(): void {
-        this.lastParagraph = "";
+        this.lastParagraphReferencesKey = "";
         this.clickedReference = null;
         this.requestId += 1;
     }
@@ -145,19 +145,20 @@ export class EditorReferenceViewPlugin implements PluginValue {
     }
 
     private openCurrentParagraphPreview(paragraph: string): void {
-        if (paragraph === this.lastParagraph) {
+        const referencesKey = paragraph ? getParagraphReferencesKey(this.service.context.parseMatches(paragraph)) : "";
+        if (referencesKey === this.lastParagraphReferencesKey) {
             return;
         }
 
-        this.lastParagraph = paragraph;
+        this.lastParagraphReferencesKey = referencesKey;
         const currentRequestId = ++this.requestId;
-        if (!paragraph) {
+        if (!referencesKey) {
             this.hideBiblePreview();
             return;
         }
 
         void this.service.analyze(paragraph).then((content) => {
-            if (currentRequestId !== this.requestId || paragraph !== this.lastParagraph) {
+            if (currentRequestId !== this.requestId || referencesKey !== this.lastParagraphReferencesKey) {
                 return;
             }
             if (content === null || content.plainText.length === 0) {
@@ -203,7 +204,7 @@ export class EditorReferenceViewPlugin implements PluginValue {
 
     private openReferenceMatch(match: EditorClickedReference): void {
         this.clickedReference = match;
-        this.lastParagraph = "";
+        this.lastParagraphReferencesKey = "";
         const currentRequestId = ++this.requestId;
 
         void this.service.analyze(match.text).then((content) => {

@@ -8,6 +8,7 @@ const {
   getBibleTextBlocks,
   createBookMappingFromBibleIndexV2Data,
   DEFAULT_TRANSLATION_ID,
+  getParagraphReferencesKey,
 } = require("../helpers");
 
 module.exports = async () => {
@@ -203,4 +204,14 @@ module.exports = async () => {
     { id: 45, name: "Римлянам", abbreviation: "Рим", aliases: [], chapterCount: 16 },
   ])));
   assert.notStrictEqual(signature, getBibleReferenceParserSignature(createBookMapping([])));
+
+  // Paragraph preview key: typing around a reference keeps it, editing the reference changes it.
+  const paragraphKeyParser = new BibleReferenceParser(mapping);
+  const paragraphKey = (text) => getParagraphReferencesKey(paragraphKeyParser.parseMatches(text));
+  assert.strictEqual(paragraphKey("Читаю Ин 3:16 сегодня"), paragraphKey("Читаю Ин 3:16 сегодня утром"));
+  assert.strictEqual(paragraphKey("Ин 3:16"), paragraphKey("См. Ин 3:16!"));
+  assert.notStrictEqual(paragraphKey("Ин 3:16"), paragraphKey("Ин 3:17"));
+  assert.notStrictEqual(paragraphKey("Ин 3:1"), paragraphKey("Ин 3:16"));
+  assert.notStrictEqual(paragraphKey("Ин 3:16"), paragraphKey("Ин 3:16; Рим 8:28"));
+  assert.strictEqual(paragraphKey("Без ссылок"), "");
 };
