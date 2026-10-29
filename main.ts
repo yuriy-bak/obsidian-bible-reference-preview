@@ -44,6 +44,7 @@ export default class BiblePlugin extends Plugin {
     private readonly editor = new EditorService(this.context, this.settingsService, this.contentBuilder, this.preview);
     private readonly referenceUsage = new ReferenceUsageService(this.context, this.editor, this.preview);
     private readingModePreviewController: BibleReadingModePreviewController | null = null;
+    private readonly windowListenerDisposers = new Map<Window, () => void>();
     private pluginActiveRibbonIconEl: HTMLElement | null = null;
 
     async onload() {
@@ -73,9 +74,7 @@ export default class BiblePlugin extends Plugin {
         );
         this.updatePluginActiveRibbonIcon();
 
-        const readingModePreviewController = this.createReadingModePreviewController();
-        this.register(() => readingModePreviewController.destroy());
-        this.readingModePreviewController = readingModePreviewController;
+        this.readingModePreviewController = this.createReadingModePreviewController();
 
         const settingsTab = new BiblePluginSettingTab(this.app, this, {
             context: this.context,
@@ -88,13 +87,14 @@ export default class BiblePlugin extends Plugin {
         this.context.setSettingsTab(settingsTab);
 
         this.registerEvent(this.app.workspace.on("active-leaf-change", (activeLeaf) => this.preview.handleActiveLeafChange(activeLeaf)));
-        // Capture phase, so the plugin sees the keys before the editor handles them.
-        const escapeKeydownHandler = (event: KeyboardEvent) => this.preview.handleEscapeKeydown(event);
-        document.addEventListener("keydown", escapeKeydownHandler, true);
-        this.register(() => document.removeEventListener("keydown", escapeKeydownHandler, true));
-        const linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.editor.handleLinkOpenShortcutKeydown(event);
-        window.addEventListener("keydown", linkOpenShortcutKeydownHandler, true);
-        this.register(() => window.removeEventListener("keydown", linkOpenShortcutKeydownHandler, true));
+        // The main window and every popout window get the same keyboard and pointer listeners.
+        this.registerWindowListeners(window);
+        this.registerEvent(this.app.workspace.on("window-open", (_workspaceWindow, popoutWindow) => this.registerWindowListeners(popoutWindow)));
+        this.registerEvent(this.app.workspace.on("window-close", (_workspaceWindow, popoutWindow) => this.unregisterWindowListeners(popoutWindow)));
+        this.register(() => {
+            for (const dispose of this.windowListenerDisposers.values()) dispose();
+            this.windowListenerDisposers.clear();
+        });
 
         this.registerMarkdownPostProcessor((element) => processReadingModeBibleReferences({
             element,
@@ -119,6 +119,28 @@ export default class BiblePlugin extends Plugin {
             return view;
         });
         this.registerView(REFERENCE_USAGE_VIEW_TYPE, (leaf) => new ReferenceUsagePaneView(leaf, this.referenceUsage.createPaneViewInput()));
+    }
+
+    private registerWindowListeners(targetWindow: Window): void {
+        if (this.windowListenerDisposers.has(targetWindow)) return;
+        const targetDocument = targetWindow.document;
+        // Capture phase, so the plugin sees the keys before the editor handles them.
+        const escapeKeydownHandler = (event: KeyboardEvent) => this.preview.handleEscapeKeydown(event);
+        const linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.editor.handleLinkOpenShortcutKeydown(event);
+        const pointerDownHandler = (event: PointerEvent) => this.readingModePreviewController?.handlePointerDown(event);
+        targetDocument.addEventListener("keydown", escapeKeydownHandler, true);
+        targetWindow.addEventListener("keydown", linkOpenShortcutKeydownHandler, true);
+        targetDocument.addEventListener("pointerdown", pointerDownHandler, true);
+        this.windowListenerDisposers.set(targetWindow, () => {
+            targetDocument.removeEventListener("keydown", escapeKeydownHandler, true);
+            targetWindow.removeEventListener("keydown", linkOpenShortcutKeydownHandler, true);
+            targetDocument.removeEventListener("pointerdown", pointerDownHandler, true);
+        });
+    }
+
+    private unregisterWindowListeners(targetWindow: Window): void {
+        this.windowListenerDisposers.get(targetWindow)?.();
+        this.windowListenerDisposers.delete(targetWindow);
     }
 
     private createReadingModePreviewController(): BibleReadingModePreviewController {

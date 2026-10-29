@@ -1,7 +1,16 @@
 const assert = require("assert");
 const {
   BibleReferenceParser,
+  getBibleReferenceParserSignature,
 } = require("../.test-build/src/parsing/BibleReferenceParser.js");
+const {
+  getBiblePluginLocaleForLanguage,
+  normalizeBiblePluginLocale,
+} = require("../.test-build/src/i18n/I18n.js");
+const {
+  getBibleIndexDataDirectoryPath,
+  getPluginDirectoryPath,
+} = require("../.test-build/src/infrastructure/PluginDirectoryPath.js");
 const {
   createBookMapping,
   removeChapterNumberFromAlias,
@@ -94,6 +103,11 @@ global.window = global.window || global;
 
 module.exports = {
   BibleReferenceParser,
+  getBibleReferenceParserSignature,
+  getBiblePluginLocaleForLanguage,
+  normalizeBiblePluginLocale,
+  getBibleIndexDataDirectoryPath,
+  getPluginDirectoryPath,
   createBookMapping,
   removeChapterNumberFromAlias,
   getBibleChapterTextBlock,

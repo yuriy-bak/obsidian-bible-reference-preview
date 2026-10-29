@@ -1,5 +1,5 @@
-import { Platform } from "obsidian";
-import { BiblePluginLocale, normalizeBiblePluginLocale } from "../i18n/I18n";
+import { Platform, getLanguage } from "obsidian";
+import { BiblePluginLocale, getBiblePluginLocaleForLanguage, normalizeBiblePluginLocale } from "../i18n/I18n";
 import { normalizeReferenceUsageExcludedFolders } from "../reference-usage/ReferenceUsageIndexService";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "../ui/cssColorValidation";
 
@@ -32,7 +32,8 @@ const DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS = ["Attachments/", "Templates/", 
 
 export const DEFAULT_SETTINGS: BiblePluginSettings = {
     isPluginActive: true,
-    interfaceLanguage: "ru",
+    // Until settings are loaded; a new install takes the Obsidian interface language (getDefaultInterfaceLanguage).
+    interfaceLanguage: "en",
     translationOrder: [],
     comparisonTranslationIds: [],
     bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
@@ -52,7 +53,7 @@ export const DEFAULT_SETTINGS: BiblePluginSettings = {
 
 export function normalizePluginSettings(value: unknown): BiblePluginSettings {
     if (!isRecord(value)) {
-        return { ...DEFAULT_SETTINGS };
+        return { ...DEFAULT_SETTINGS, interfaceLanguage: getDefaultInterfaceLanguage() };
     }
 
     const translationOrder = Array.isArray(value.translationOrder)
@@ -64,7 +65,7 @@ export function normalizePluginSettings(value: unknown): BiblePluginSettings {
 
     return {
         isPluginActive: typeof value.isPluginActive === "boolean" ? value.isPluginActive : DEFAULT_SETTINGS.isPluginActive,
-        interfaceLanguage: normalizeBiblePluginLocale(value.interfaceLanguage),
+        interfaceLanguage: normalizeBiblePluginLocale(value.interfaceLanguage, getDefaultInterfaceLanguage()),
         translationOrder: [...new Set(translationOrder)],
         comparisonTranslationIds: [...new Set(comparisonTranslationIds)],
         bibleReferenceLinkColor: typeof value.bibleReferenceLinkColor === "string"
@@ -111,6 +112,10 @@ export function normalizePluginSettings(value: unknown): BiblePluginSettings {
             )
             : DEFAULT_SETTINGS.referenceUsageExcludedFolders,
     };
+}
+
+function getDefaultInterfaceLanguage(): BiblePluginLocale {
+    return getBiblePluginLocaleForLanguage(getLanguage());
 }
 
 function isBiblePreviewTriggerMode(value: string): value is BiblePreviewTriggerMode {

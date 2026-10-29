@@ -189,6 +189,7 @@ export class ReferenceUsageController {
             this.input.translate("notice.referenceUsageIndexStatsReferences", { count: stats.referenceCount }),
             this.input.translate("notice.referenceUsageIndexStatsUpdated", { date: stats.updatedAt <= 0 ? this.input.translate("notice.none") : new Date(stats.updatedAt).toLocaleString() }),
             this.input.translate("notice.referenceUsageIndexStatsPath", { path: stats.indexPath }),
+            ...(stats.isOutdated ? [this.input.translate("notice.referenceUsageIndexStatsOutdated")] : []),
         ].join("\n");
     }
 }

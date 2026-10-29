@@ -5,7 +5,7 @@ import { getBibleIndexDataDirectoryPath } from "../infrastructure/PluginDirector
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
 import { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createBookMappingFromBibleIndexV2Data } from "../infrastructure/v2/createBookMappingFromBibleIndexV2Data";
-import { BibleReferenceParser, type BibleReferenceMatch } from "../parsing/BibleReferenceParser";
+import { BibleReferenceParser, getBibleReferenceParserSignature, type BibleReferenceMatch } from "../parsing/BibleReferenceParser";
 import { createBookMapping, type BookMapping } from "../parsing/BookMapping";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BiblePluginSettings } from "../settings/PluginSettings";
 
@@ -28,12 +28,13 @@ export class PluginContext {
     private currentActiveTranslationId: string | null = null;
     private currentBookMapping: BookMapping = createBookMapping([]);
     private currentParser = new BibleReferenceParser(this.currentBookMapping);
+    private currentParserSignature: string | null = null;
     private settingsTab: RefreshableSettingsTab | null = null;
     private readonly bookMappingListeners: Array<() => void> = [];
 
     constructor(private readonly plugin: Plugin) {
         this.app = plugin.app;
-        this.dataDirectoryPath = getBibleIndexDataDirectoryPath(plugin.manifest);
+        this.dataDirectoryPath = getBibleIndexDataDirectoryPath(plugin.manifest, plugin.app.vault.configDir);
     }
 
     get settings(): BiblePluginSettings {
@@ -72,6 +73,14 @@ export class PluginContext {
         return t(this.currentSettings.interfaceLanguage, key, params);
     }
 
+    /** Signature of the current parser, see getBibleReferenceParserSignature. */
+    get parserSignature(): string {
+        if (this.currentParserSignature === null) {
+            this.currentParserSignature = getBibleReferenceParserSignature(this.currentBookMapping);
+        }
+        return this.currentParserSignature;
+    }
+
     parseMatches(text: string): BibleReferenceMatch[] {
         return this.currentParser.parseMatches(text);
     }
@@ -101,6 +110,7 @@ export class PluginContext {
             ? createBookMappingFromBibleIndexV2Data(this.currentV2Data, this.currentActiveTranslationId)
             : createBookMapping([]);
         this.currentParser = new BibleReferenceParser(this.currentBookMapping);
+        this.currentParserSignature = null;
         for (const listener of this.bookMappingListeners) {
             listener();
         }

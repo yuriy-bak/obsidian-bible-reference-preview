@@ -219,6 +219,7 @@ module.exports = async () => {
     referenceCount: 0,
     updatedAt: referenceUsageService.getStats().updatedAt,
     indexPath: "data/bible/reference-usage-index.json",
+    isOutdated: false,
   });
 
   const chapterUsageResult = (filePath, chapterStart, verseStart, chapterEnd, verseEnd) => ({
@@ -259,4 +260,60 @@ module.exports = async () => {
       ["30-end", ["e.md"]],
     ]
   );
+
+  // Parser signature: after the book names change, an incremental build parses unchanged notes again.
+  let currentParserSignature = "ru-names";
+  const signatureApp = createReferenceUsageTestApp({
+    "notes/a.md": "Ин 3:16",
+    "notes/b.md": "Рим 8:28",
+  });
+  const signatureFiles = [
+    createReferenceUsageTestFile("notes/a.md", 10, 1),
+    createReferenceUsageTestFile("notes/b.md", 10, 1),
+  ];
+  const signatureService = new ReferenceUsageIndexService(
+    signatureApp,
+    () => "data/bible",
+    createReferenceUsageTestParseMatches,
+    () => [],
+    { getParserSignature: () => currentParserSignature }
+  );
+  await signatureService.build(signatureFiles, false);
+  assert.deepStrictEqual(signatureApp.readPaths, ["notes/a.md", "notes/b.md"]);
+  assert.strictEqual(signatureService.isOutdated(), false);
+  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names");
+
+  signatureApp.readPaths.length = 0;
+  const unchangedSignatureResult = await signatureService.build(signatureFiles, false);
+  assert.strictEqual(unchangedSignatureResult.updatedFileCount, 0);
+  assert.deepStrictEqual(signatureApp.readPaths, []);
+
+  currentParserSignature = "en-names";
+  assert.strictEqual(signatureService.isOutdated(), true);
+  assert.strictEqual(signatureService.getStats().isOutdated, true);
+  const changedSignatureResult = await signatureService.build(signatureFiles, false);
+  assert.strictEqual(changedSignatureResult.updatedFileCount, 2);
+  assert.deepStrictEqual(signatureApp.readPaths, ["notes/a.md", "notes/b.md"]);
+  assert.strictEqual(signatureService.isOutdated(), false);
+
+  // An index saved before signatures existed is outdated, an empty one is not.
+  const legacyIndexApp = createReferenceUsageTestApp({ "notes/a.md": "Ин 3:16" });
+  await legacyIndexApp.vault.adapter.write("data/bible/reference-usage-index.json", JSON.stringify({
+    version: 1,
+    updatedAt: 1,
+    files: { "notes/a.md": { path: "notes/a.md", mtime: 1, size: 10, references: [] } },
+  }));
+  const legacyIndexService = new ReferenceUsageIndexService(
+    legacyIndexApp,
+    () => "data/bible",
+    createReferenceUsageTestParseMatches,
+    () => [],
+    { getParserSignature: () => "ru-names" }
+  );
+  assert.strictEqual(legacyIndexService.isOutdated(), false);
+  await legacyIndexService.load();
+  assert.strictEqual(legacyIndexService.isOutdated(), true);
+  const legacyBuildResult = await legacyIndexService.build([createReferenceUsageTestFile("notes/a.md", 10, 1)], false);
+  assert.strictEqual(legacyBuildResult.updatedFileCount, 1);
+  assert.strictEqual(legacyBuildResult.referenceCount, 1);
 };
