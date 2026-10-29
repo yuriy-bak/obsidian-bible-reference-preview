@@ -21,6 +21,31 @@ type NormalizedLine = {
     offsets: number[];
 };
 
+// Bump when the parsing rules change, so indexes built by the old rules are rebuilt.
+export const BIBLE_REFERENCE_PARSER_VERSION = 1;
+
+/**
+ * Identifies what the parser recognizes: the rules version and the book aliases.
+ * Stored with the reference usage index; a different signature means the notes must be parsed again.
+ */
+export function getBibleReferenceParserSignature(mapping: BookMapping): string {
+    const aliasEntries = [...mapping.nameToId.entries()]
+        .map(([alias, bookId]) => `${alias}=${bookId}${mapping.shortBooks.has(alias) ? "s" : mapping.bigBooks.has(alias) ? "b" : ""}`)
+        .sort();
+    const oneChapterBooks = [...mapping.oneChapterBooks].sort((left, right) => left - right);
+    const source = `${aliasEntries.join("\n")}\n#${oneChapterBooks.join(",")}`;
+    return `${BIBLE_REFERENCE_PARSER_VERSION}:${aliasEntries.length}:${hashFnv1a(source)}`;
+}
+
+function hashFnv1a(text: string): string {
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < text.length; index += 1) {
+        hash ^= text.charCodeAt(index);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 export type BibleReferenceMatch = {
     from: number;
     to: number;

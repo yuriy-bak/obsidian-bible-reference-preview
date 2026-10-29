@@ -15,7 +15,8 @@ type ReferenceUsageIndexSettingsI18nKey =
     | "settings.referenceUsageIndex.build.button"
     | "settings.referenceUsageIndex.rebuild.button"
     | "settings.referenceUsageIndex.stats.button"
-    | "settings.referenceUsageIndex.clear.button";
+    | "settings.referenceUsageIndex.clear.button"
+    | "settings.referenceUsageIndex.outdated";
 
 export type ReferenceUsageIndexSettingKey =
     | "referenceUsageIndexingEnabled"
@@ -28,6 +29,7 @@ export type ReferenceUsageIndexSettingsSectionInput = {
     rebuildIndex: () => Promise<void> | void;
     showStats: () => Promise<void> | void;
     clearIndex: () => Promise<void> | void;
+    isIndexOutdated: () => boolean;
 };
 
 const ACTION_BUTTON_KEYS: ReferenceUsageIndexSettingsI18nKey[] = [
@@ -68,7 +70,11 @@ export function createReferenceUsageIndexSettingsGroup(input: ReferenceUsageInde
             },
             {
                 name: translate("settings.referenceUsageIndex.actions.name"),
-                desc: `${translate("settings.referenceUsageIndex.actions.desc")} ${translate("settings.referenceUsageIndex.desc")}`,
+                desc: [
+                    translate("settings.referenceUsageIndex.actions.desc"),
+                    translate("settings.referenceUsageIndex.desc"),
+                    ...(input.isIndexOutdated() ? [translate("settings.referenceUsageIndex.outdated")] : []),
+                ].join(" "),
                 // Button labels are not indexed by settings search, so expose them as aliases in both languages.
                 aliases: ALIAS_LOCALES.flatMap((locale) => ACTION_BUTTON_KEYS.map((key) => t(locale, key))),
                 render: (setting) => {

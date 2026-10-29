@@ -111,6 +111,8 @@ export class FloatingBiblePreviewWindow {
     private previewResizeState: PreviewResizeState | null = null;
     private suppressCollapsedButtonClick = false;
     private readonly disposables: Disposable[] = [];
+    // Document of the Obsidian window that holds the preview: the main window or a popout window.
+    private hostDocument: Document;
 
     private readonly viewportChangeHandler = () => this.updateBiblePreviewPosition();
     private readonly pointerMoveHandler = (event: PointerEvent) => this.handlePointerMove(event);
@@ -123,12 +125,17 @@ export class FloatingBiblePreviewWindow {
         this.resizeHandleEls = this.createResizeHandleElements();
         this.collapsedButtonEl = this.createCollapsedButtonElement();
 
-        document.body.appendChild(this.previewPanelEl);
-        document.body.appendChild(this.collapsedButtonEl);
+        this.hostDocument = activeDocument;
+        this.hostDocument.body.appendChild(this.previewPanelEl);
+        this.hostDocument.body.appendChild(this.collapsedButtonEl);
         for (const handleEl of this.resizeHandleEls) {
             this.previewPanelEl.appendChild(handleEl);
         }
         this.registerListeners();
+    }
+
+    private get hostWindow(): Window {
+        return this.hostDocument.defaultView ?? window;
     }
 
     public show(
@@ -137,6 +144,7 @@ export class FloatingBiblePreviewWindow {
         options: { reveal?: boolean } = {},
     ): void {
         const shouldReveal = options.reveal !== false;
+        this.moveToDocument(anchor.type === "element" ? anchor.element.ownerDocument : activeDocument);
         const wasVisible = this.isVisible();
         this.previewContent = content;
         this.previewText = content.plainText;
@@ -184,6 +192,22 @@ export class FloatingBiblePreviewWindow {
         }
     }
 
+    /**
+     * Moves the preview into the window where it is shown: the reference may be in a popout window.
+     * The position belongs to the old window, so the preview opens at its default place.
+     */
+    private moveToDocument(targetDocument: Document): void {
+        if (targetDocument === this.hostDocument && this.previewPanelEl.isConnected) {
+            return;
+        }
+        this.unregisterListeners();
+        this.hide(true);
+        this.hostDocument = targetDocument;
+        this.hostDocument.body.appendChild(this.previewPanelEl);
+        this.hostDocument.body.appendChild(this.collapsedButtonEl);
+        this.registerListeners();
+    }
+
     public destroy(): void {
         this.unregisterListeners();
         this.previewPanelEl.remove();
@@ -206,7 +230,9 @@ export class FloatingBiblePreviewWindow {
     }
 
     public isVisible(): boolean {
+        // A closed popout window takes the preview elements with it.
         return this.previewText.length > 0
+            && this.previewPanelEl.isConnected
             && (this.previewPanelEl.style.display !== "none" || this.collapsedButtonEl.style.display !== "none");
     }
 
@@ -408,19 +434,20 @@ export class FloatingBiblePreviewWindow {
     }
 
     private scheduleBiblePreviewPositionUpdate(): void {
-        window.requestAnimationFrame(() => this.updateBiblePreviewPosition());
+        this.hostWindow.requestAnimationFrame(() => this.updateBiblePreviewPosition());
     }
 
     private registerListeners(): void {
-        this.disposables.push(addDisposableEventListener(window, "resize", this.viewportChangeHandler));
-        if (window.visualViewport !== null) {
-            this.disposables.push(addDisposableEventListener(window.visualViewport, "resize", this.viewportChangeHandler));
-            this.disposables.push(addDisposableEventListener(window.visualViewport, "scroll", this.viewportChangeHandler));
+        const hostWindow = this.hostWindow;
+        this.disposables.push(addDisposableEventListener(hostWindow, "resize", this.viewportChangeHandler));
+        if (hostWindow.visualViewport !== null) {
+            this.disposables.push(addDisposableEventListener(hostWindow.visualViewport, "resize", this.viewportChangeHandler));
+            this.disposables.push(addDisposableEventListener(hostWindow.visualViewport, "scroll", this.viewportChangeHandler));
         }
-        this.disposables.push(addDisposableEventListener(window, "pointermove", this.pointerMoveHandler as EventListener));
-        this.disposables.push(addDisposableEventListener(window, "pointerup", this.pointerUpHandler as EventListener));
-        this.disposables.push(addDisposableEventListener(window, "pointercancel", this.pointerUpHandler as EventListener));
-        this.disposables.push(addDisposableEventListener(document, "keydown", this.keydownHandler as EventListener, true));
+        this.disposables.push(addDisposableEventListener(hostWindow, "pointermove", this.pointerMoveHandler as EventListener));
+        this.disposables.push(addDisposableEventListener(hostWindow, "pointerup", this.pointerUpHandler as EventListener));
+        this.disposables.push(addDisposableEventListener(hostWindow, "pointercancel", this.pointerUpHandler as EventListener));
+        this.disposables.push(addDisposableEventListener(this.hostDocument, "keydown", this.keydownHandler as EventListener, true));
     }
 
     private unregisterListeners(): void {
@@ -433,11 +460,11 @@ export class FloatingBiblePreviewWindow {
     }
 
     private beginPreviewPointerInteraction(): void {
-        document.body.setCssStyles({ userSelect: "none" });
+        this.hostDocument.body.setCssStyles({ userSelect: "none" });
     }
 
     private endPreviewPointerInteraction(): void {
-        document.body.setCssStyles({ userSelect: "" });
+        this.hostDocument.body.setCssStyles({ userSelect: "" });
     }
 
     private handleKeydown(event: KeyboardEvent): void {
@@ -1137,8 +1164,8 @@ export class FloatingBiblePreviewWindow {
     }
 
     private getWorkspacePreviewViewport(): PreviewViewport | null {
-        const rootWorkspaceEl = document.querySelector(".workspace-split.mod-root");
-        if (!(rootWorkspaceEl instanceof HTMLElement)) {
+        const rootWorkspaceEl = this.hostDocument.querySelector<HTMLElement>(".workspace-split.mod-root");
+        if (rootWorkspaceEl === null) {
             return null;
         }
         const rect = rootWorkspaceEl.getBoundingClientRect();
@@ -1154,12 +1181,13 @@ export class FloatingBiblePreviewWindow {
     }
 
     private getWindowPreviewViewport(): PreviewViewport {
-        const viewport = window.visualViewport;
+        const hostWindow = this.hostWindow;
+        const viewport = hostWindow.visualViewport;
         return {
             left: viewport?.offsetLeft ?? 0,
             top: viewport?.offsetTop ?? 0,
-            width: viewport?.width ?? window.innerWidth,
-            height: viewport?.height ?? window.innerHeight,
+            width: viewport?.width ?? hostWindow.innerWidth,
+            height: viewport?.height ?? hostWindow.innerHeight,
         };
     }
 

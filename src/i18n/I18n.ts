@@ -60,6 +60,7 @@ export const messages = {
         "notice.referenceUsageIndexStatsReferences": "Indexed references: {count}",
         "notice.referenceUsageIndexStatsUpdated": "Last updated: {date}",
         "notice.referenceUsageIndexStatsPath": "Index file: {path}",
+        "notice.referenceUsageIndexStatsOutdated": "The index was built for other book names. The next update will scan all notes again.",
         "notice.none": "none",
         "import.summary.translation": "Translation: {translationName}",
         "import.summary.language": "Language: {language}",
@@ -92,6 +93,7 @@ export const messages = {
         "settings.referenceUsageIndex.excludedFolders.desc": "One folder per line or comma-separated. Files inside these folders are not indexed.",
         "settings.referenceUsageIndex.actions.name": "Index actions",
         "settings.referenceUsageIndex.actions.desc": "Build, rebuild, inspect stats, or clear the index cache.",
+        "settings.referenceUsageIndex.outdated": "The index was built for other book names: update it to scan all notes again.",
         "settings.referenceUsageIndex.build.button": "Build",
         "settings.referenceUsageIndex.rebuild.button": "Rebuild",
         "settings.referenceUsageIndex.stats.button": "Stats",
@@ -273,6 +275,7 @@ export const messages = {
         "notice.referenceUsageIndexStatsReferences": "Ссылок в индексе: {count}",
         "notice.referenceUsageIndexStatsUpdated": "Последнее обновление: {date}",
         "notice.referenceUsageIndexStatsPath": "Файл индекса: {path}",
+        "notice.referenceUsageIndexStatsOutdated": "Индекс построен для других названий книг. При следующем обновлении все заметки будут просмотрены заново.",
         "notice.none": "нет",
         "import.summary.translation": "Перевод: {translationName}",
         "import.summary.language": "Язык: {language}",
@@ -305,6 +308,7 @@ export const messages = {
         "settings.referenceUsageIndex.excludedFolders.desc": "Одна папка на строку или через запятую. Файлы внутри этих папок не индексируются.",
         "settings.referenceUsageIndex.actions.name": "Действия с индексом",
         "settings.referenceUsageIndex.actions.desc": "Построить, перестроить, проверить статистику или очистить кэш индекса.",
+        "settings.referenceUsageIndex.outdated": "Индекс построен для других названий книг: обновите его, чтобы заново просмотреть все заметки.",
         "settings.referenceUsageIndex.build.button": "Построить",
         "settings.referenceUsageIndex.rebuild.button": "Перестроить",
         "settings.referenceUsageIndex.stats.button": "Статистика",
@@ -432,8 +436,13 @@ export const messages = {
 export type I18nKey = keyof typeof messages.en;
 export type I18nParams = Record<string, string | number | boolean | null | undefined>;
 
-export function normalizeBiblePluginLocale(value: unknown): BiblePluginLocale {
-    return value === "en" || value === "ru" ? value : "ru";
+export function normalizeBiblePluginLocale(value: unknown, fallback: BiblePluginLocale): BiblePluginLocale {
+    return value === "en" || value === "ru" ? value : fallback;
+}
+
+/** Interface locale for an Obsidian language code (getLanguage()): Russian only for "ru", English otherwise. */
+export function getBiblePluginLocaleForLanguage(language: string): BiblePluginLocale {
+    return language.toLowerCase().split(/[-_]/u)[0] === "ru" ? "ru" : "en";
 }
 
 export function t(locale: BiblePluginLocale, key: I18nKey, params: I18nParams = {}): string {

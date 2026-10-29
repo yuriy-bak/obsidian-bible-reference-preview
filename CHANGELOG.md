@@ -18,6 +18,10 @@
 - Internal: the editor is one `EditorService` plus one CodeMirror view plugin class instead of 23 `Editor*` files; startup and registration live in `main.ts` (147 lines, was 818 before the refactoring). No behavior change.
 - Internal: one module for vault paths and one empty Bible index instead of copies; book aliases and note text share one set of normalization rules; `noUnusedLocals`/`noUnusedParameters` are on; the unit tests are split into files by module. No behavior change.
 - Internal: the floating window and the side panel share one preview header (title, translations selector, copy and comparison buttons); the floating window's static styles moved from inline styles to `styles.css`; `formatBibleTexts.ts` is split into the preview model and the DOM renderer. No visual or behavior change.
+- The usage index remembers which book names it was built with. After switching to a translation with other book names, the next build or update scans all notes again instead of only changed ones; settings and index stats say when the index is outdated. Indexes from earlier versions are scanned in full once.
+- A new install uses the Obsidian interface language: Russian when Obsidian is in Russian, English otherwise. Existing settings are kept.
+- The floating preview opens in popout windows: it moves to the window with the reference or the active note. Escape, the link-open shortcut and click-outside hiding in reading mode work there too.
+- The fallback plugin folder uses the vault configuration folder (`app.vault.configDir`) instead of a hard-coded `.obsidian`.
 
 ## 0.2.5 - Catalog review: link underline
 

@@ -1,6 +1,7 @@
 // Runs the unit test files one by one; each exports an async function.
 const TEST_FILES = [
   "colors",
+  "settings",
   "parser",
   "bible-text",
   "preview-format",

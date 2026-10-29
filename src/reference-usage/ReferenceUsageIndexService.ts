@@ -18,6 +18,8 @@ const REFERENCE_USAGE_BUILD_ABORT_ERROR_NAME = "AbortError";
 export type ReferenceUsageIndexServiceOptions = {
     maxMarkdownFileSizeBytes?: number;
     buildYieldEveryFiles?: number;
+    // Signature of the parser that produces the matches (getBibleReferenceParserSignature).
+    getParserSignature?: () => string;
 };
 
 export type ReferenceUsageIndexBuildProgress = {
@@ -35,6 +37,8 @@ export type ReferenceUsageIndexBuildOptions = {
 export type ReferenceUsageIndex = {
     version: number;
     updatedAt: number;
+    // Parser signature of the last full pass over the vault; null for an index from before signatures.
+    parserSignature: string | null;
     files: Record<string, IndexedReferenceUsageFile>;
 };
 
@@ -68,6 +72,8 @@ export type ReferenceUsageIndexStats = {
     referenceCount: number;
     updatedAt: number;
     indexPath: string;
+    // The index was built by a parser with other book names or rules; a build parses all notes again.
+    isOutdated: boolean;
 };
 
 export type ReferenceUsageIndexBuildResult = ReferenceUsageIndexStats & {
@@ -83,6 +89,7 @@ export class ReferenceUsageIndexService {
     private readonly syncedOpenFileContents = new Map<string, string>();
     private readonly maxMarkdownFileSizeBytes: number;
     private readonly buildYieldEveryFiles: number;
+    private readonly getParserSignature: () => string;
 
     constructor(
         private readonly app: App,
@@ -93,6 +100,7 @@ export class ReferenceUsageIndexService {
     ) {
         this.maxMarkdownFileSizeBytes = options.maxMarkdownFileSizeBytes ?? REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES;
         this.buildYieldEveryFiles = options.buildYieldEveryFiles ?? REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES;
+        this.getParserSignature = options.getParserSignature ?? (() => "");
     }
 
     public getIndexPath(): string {
@@ -150,7 +158,10 @@ export class ReferenceUsageIndexService {
         const buildableFiles = indexableFiles.filter((file) => !this.isFileTooLargeForIndex(file));
         const skippedLargeFileCount = indexableFiles.length - buildableFiles.length;
         const indexedFilePaths = new Set(buildableFiles.map((file) => file.path));
-        const nextIndex = forceRebuild ? createEmptyReferenceUsageIndex() : normalizeReferenceUsageIndex(this.index);
+        const parserSignature = this.getParserSignature();
+        // Notes indexed by another parser may hold other references even when unchanged, so parse them all again.
+        const reparseAllFiles = forceRebuild || this.index.parserSignature !== parserSignature;
+        const nextIndex = reparseAllFiles ? createEmptyReferenceUsageIndex() : normalizeReferenceUsageIndex(this.index);
 
         for (const indexedFilePath of Object.keys(nextIndex.files)) {
             if (!indexedFilePaths.has(indexedFilePath)) {
@@ -166,7 +177,7 @@ export class ReferenceUsageIndexService {
             assertReferenceUsageBuildNotAborted(options.signal);
             processedFileCount += 1;
             const existingFileIndex = nextIndex.files[file.path];
-            if (!forceRebuild && existingFileIndex !== undefined && existingFileIndex.mtime === file.stat.mtime && existingFileIndex.size === file.stat.size) {
+            if (!reparseAllFiles && existingFileIndex !== undefined && existingFileIndex.mtime === file.stat.mtime && existingFileIndex.size === file.stat.size) {
                 options.onProgress?.(createReferenceUsageBuildProgress(buildableFiles.length, processedFileCount, updatedFileCount, skippedLargeFileCount));
                 await yieldReferenceUsageBuildIfNeeded(processedFileCount, this.buildYieldEveryFiles);
                 continue;
@@ -181,6 +192,7 @@ export class ReferenceUsageIndexService {
 
         assertReferenceUsageBuildNotAborted(options.signal);
         nextIndex.updatedAt = Date.now();
+        nextIndex.parserSignature = parserSignature;
         this.index = nextIndex;
         this.syncedOpenFileContents.clear();
         await this.save();
@@ -264,12 +276,17 @@ export class ReferenceUsageIndexService {
         return results;
     }
 
+    public isOutdated(): boolean {
+        return Object.keys(this.index.files).length > 0 && this.index.parserSignature !== this.getParserSignature();
+    }
+
     public getStats(): ReferenceUsageIndexStats {
         return {
             fileCount: Object.keys(this.index.files).length,
             referenceCount: Object.values(this.index.files).reduce((count, file) => count + file.references.length, 0),
             updatedAt: this.index.updatedAt,
             indexPath: this.getIndexPath(),
+            isOutdated: this.isOutdated(),
         };
     }
 
@@ -341,7 +358,7 @@ export function normalizeReferenceUsageExcludedFolder(value: string): string {
 }
 
 function createEmptyReferenceUsageIndex(): ReferenceUsageIndex {
-    return { version: REFERENCE_USAGE_INDEX_VERSION, updatedAt: 0, files: {} };
+    return { version: REFERENCE_USAGE_INDEX_VERSION, updatedAt: 0, parserSignature: null, files: {} };
 }
 
 function createReferenceUsageExcerpt(line: string, from: number, to: number): string {
@@ -368,7 +385,12 @@ function normalizeReferenceUsageIndex(value: unknown): ReferenceUsageIndex {
             references: file.references.filter(isIndexedReferenceUsage),
         };
     }
-    return { version: REFERENCE_USAGE_INDEX_VERSION, updatedAt: typeof value.updatedAt === "number" ? value.updatedAt : 0, files };
+    return {
+        version: REFERENCE_USAGE_INDEX_VERSION,
+        updatedAt: typeof value.updatedAt === "number" ? value.updatedAt : 0,
+        parserSignature: typeof value.parserSignature === "string" ? value.parserSignature : null,
+        files,
+    };
 }
 
 function isIndexedReferenceUsage(value: unknown): value is IndexedReferenceUsage {

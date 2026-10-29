@@ -13,12 +13,9 @@ export type BibleReadingModePreviewControllerInput = {
 };
 
 export class BibleReadingModePreviewController {
-    private readonly outsideInteractionHandler = (event: Event) => this.hideBiblePreviewIfEventIsOutside(event);
     private requestId = 0;
 
-    constructor(private readonly input: BibleReadingModePreviewControllerInput) {
-        this.registerListeners();
-    }
+    constructor(private readonly input: BibleReadingModePreviewControllerInput) {}
 
     public async open(anchorEl: HTMLElement, referenceText: string): Promise<void> {
         if (!this.input.hasImportedTranslations()) {
@@ -35,23 +32,12 @@ export class BibleReadingModePreviewController {
         this.input.showBiblePreviewContent(content, { type: "element", element: anchorEl }, { reveal: this.input.shouldAutoOpenPreviewOnVerseChange() });
     }
 
-    public destroy(): void {
-        this.unregisterListeners();
-    }
-
     public refreshLocalizedLabels(): void {
         this.input.refreshFloatingPreviewLabels();
     }
 
-    private registerListeners(): void {
-        document.addEventListener("pointerdown", this.outsideInteractionHandler, true);
-    }
-
-    private unregisterListeners(): void {
-        document.removeEventListener("pointerdown", this.outsideInteractionHandler, true);
-    }
-
-    private hideBiblePreviewIfEventIsOutside(event: Event): void {
+    /** Pointer down anywhere in an Obsidian window (main.ts listens in every window, capture phase). */
+    public handlePointerDown(event: Event): void {
         const target = event.target;
         if (!(target instanceof Node) || !target.instanceOf(HTMLElement)) {
             return;

@@ -59,6 +59,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 rebuildIndex: () => this.services.referenceUsage.rebuildReferenceUsageIndex(),
                 showStats: () => this.services.referenceUsage.showReferenceUsageIndexStats(),
                 clearIndex: () => this.services.referenceUsage.clearReferenceUsageIndex(),
+                isIndexOutdated: () => this.services.referenceUsage.isReferenceUsageIndexOutdated(),
             }),
             this.createPreviewSettingsGroup(),
             {

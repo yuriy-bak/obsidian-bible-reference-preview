@@ -2,6 +2,7 @@ const {
   assert,
   syntheticMetadata,
   BibleReferenceParser,
+  getBibleReferenceParserSignature,
   createBookMapping,
   removeChapterNumberFromAlias,
   getBibleTextBlocks,
@@ -185,4 +186,21 @@ module.exports = async () => {
         alias === "1"
     )
   );
+
+  // Parser signature: same aliases give the same signature, other aliases a different one.
+  const signatureBooks = [
+    { id: 43, name: "Иоанна", abbreviation: "Ин", aliases: [], chapterCount: 21 },
+    { id: 65, name: "Иуды", abbreviation: "Иуд", aliases: [], chapterCount: 1 },
+  ];
+  const signature = getBibleReferenceParserSignature(createBookMapping(signatureBooks));
+  assert.strictEqual(signature, getBibleReferenceParserSignature(createBookMapping(signatureBooks.map((book) => ({ ...book })))));
+  assert.notStrictEqual(signature, getBibleReferenceParserSignature(createBookMapping([
+    { id: 43, name: "John", abbreviation: "Jn", aliases: [], chapterCount: 21 },
+    { id: 65, name: "Jude", abbreviation: "Jud", aliases: [], chapterCount: 1 },
+  ])));
+  assert.notStrictEqual(signature, getBibleReferenceParserSignature(createBookMapping([
+    ...signatureBooks,
+    { id: 45, name: "Римлянам", abbreviation: "Рим", aliases: [], chapterCount: 16 },
+  ])));
+  assert.notStrictEqual(signature, getBibleReferenceParserSignature(createBookMapping([])));
 };

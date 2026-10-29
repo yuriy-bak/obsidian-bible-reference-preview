@@ -54,6 +54,10 @@ export class ReferenceUsageService {
         owner.register(() => controller.clearPendingUpdates());
     }
 
+    isReferenceUsageIndexOutdated(): boolean {
+        return this.getIndexService().isOutdated();
+    }
+
     isReferenceUsageIndexingEnabled(): boolean {
         return this.context.settings.referenceUsageIndexingEnabled;
     }
@@ -186,12 +190,15 @@ export class ReferenceUsageService {
                 () => this.context.dataDirectoryPath,
                 (text) => this.context.parseMatches(text),
                 () => this.context.settings.referenceUsageExcludedFolders,
-                this.context.isMobile
-                    ? {
-                        maxMarkdownFileSizeBytes: REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
-                        buildYieldEveryFiles: REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES,
-                    }
-                    : {},
+                {
+                    getParserSignature: () => this.context.parserSignature,
+                    ...(this.context.isMobile
+                        ? {
+                            maxMarkdownFileSizeBytes: REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
+                            buildYieldEveryFiles: REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES,
+                        }
+                        : {}),
+                },
             );
         }
         return this.indexService;

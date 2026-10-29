@@ -195,5 +195,5 @@ export class EditorService {
 }
 
 function isFocusedEditorView(view: EditorView): boolean {
-    return view.hasFocus || view.dom.contains(document.activeElement);
+    return view.hasFocus || view.dom.contains(view.dom.ownerDocument.activeElement);
 }
