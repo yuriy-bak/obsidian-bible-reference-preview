@@ -39,7 +39,7 @@ export class BiblePreviewContentBuilder {
             parseMatches: (text) => context.parseMatches(text),
             getBibleTextBlocks: (references, translationId, sourceText) => getBibleTextBlocks(references, bibleIndex, translationId, sourceText),
             formatBibleTextBlocks: (blocks) => formatBibleTextBlocks(blocks, bookMapping, context.t("preview.missingVerse")),
-            formatBibleComparisonTextBlocks: (inputs) => formatBibleComparisonTextBlocks(inputs, bookMapping, context.t("preview.missingVerse")),
+            formatBibleComparisonTextBlocks: (inputs) => formatBibleComparisonTextBlocks(inputs, context.t("preview.missingVerse")),
             getComparisonTranslationIds: () => TranslationController.getComparisonTranslationIds(translationState),
             getTranslationPreviewTitle: (translationId) => TranslationController.getTranslationPreviewTitle(translationState, translationId),
             getComparisonMapping: (translationId) => v2Data === null

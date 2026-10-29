@@ -1,6 +1,6 @@
 import { Platform, type App, type Plugin } from "obsidian";
 import { t, type I18nKey, type I18nParams } from "../i18n/I18n";
-import type { BibleIndex } from "../infrastructure/BibleIndex";
+import { EMPTY_BIBLE_INDEX, type BibleIndex } from "../infrastructure/BibleIndex";
 import { getBibleIndexDataDirectoryPath } from "../infrastructure/PluginDirectoryPath";
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
 import { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
@@ -8,12 +8,6 @@ import { createBookMappingFromBibleIndexV2Data } from "../infrastructure/v2/crea
 import { BibleReferenceParser, type BibleReferenceMatch } from "../parsing/BibleReferenceParser";
 import { createBookMapping, type BookMapping } from "../parsing/BookMapping";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BiblePluginSettings } from "../settings/PluginSettings";
-
-const EMPTY_BIBLE_INDEX: BibleIndex = {
-    async getBibleText() {
-        return null;
-    },
-};
 
 type RefreshableSettingsTab = {
     update(): void;
