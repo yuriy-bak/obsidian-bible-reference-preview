@@ -6,6 +6,7 @@ const {
   createChapterUsageQuery,
   groupReferenceUsagesByChapterVerses,
 } = require("../helpers");
+const { ReferenceUsageBuildQueue } = require("../../.test-build/src/reference-usage/ReferenceUsageBuildQueue.js");
 
 module.exports = async () => {
   function createReferenceUsageTestFile(path, size, mtime) {
@@ -316,4 +317,26 @@ module.exports = async () => {
   const legacyBuildResult = await legacyIndexService.build([createReferenceUsageTestFile("notes/a.md", 10, 1)], false);
   assert.strictEqual(legacyBuildResult.updatedFileCount, 1);
   assert.strictEqual(legacyBuildResult.referenceCount, 1);
+
+  // Build queue: requests during a build collapse into one extra run, a busy queue refuses tryRun.
+  const queue = new ReferenceUsageBuildQueue();
+  const runs = [];
+  let releaseFirstBuild;
+  const firstBuildDone = new Promise((resolve) => { releaseFirstBuild = resolve; });
+  const firstRun = queue.tryRun(async () => {
+    runs.push("first");
+    await firstBuildDone;
+  });
+  assert.strictEqual(queue.isRunning, true);
+  assert.strictEqual(await queue.tryRun(async () => { runs.push("refused"); }), false);
+  queue.request(async () => { runs.push("pending-1"); });
+  queue.request(async () => { runs.push("pending-2"); });
+  releaseFirstBuild();
+  assert.strictEqual(await firstRun, true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepStrictEqual(runs, ["first", "pending-2"]);
+  assert.strictEqual(queue.isRunning, false);
+  queue.request(async () => { runs.push("idle"); });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepStrictEqual(runs, ["first", "pending-2", "idle"]);
 };

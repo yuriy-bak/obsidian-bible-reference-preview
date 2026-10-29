@@ -5,6 +5,7 @@ import { EditorService } from "./src/editor/EditorService";
 import { BibleLibraryService } from "./src/import/BibleLibraryService";
 import { registerPluginCommands } from "./src/lifecycle/PluginCommandRegistration";
 import { processReadingModeBibleReferences } from "./src/reading-mode/ReadingModeBibleReferenceProcessor";
+import { rerenderReadingModeViews } from "./src/reading-mode/ReadingModeRerender";
 import { ReferenceUsageService } from "./src/reference-usage/ReferenceUsageService";
 import { SettingsService } from "./src/settings/SettingsService";
 import { TranslationService } from "./src/translations/TranslationService";
@@ -46,9 +47,16 @@ export default class BiblePlugin extends Plugin {
     private readingModePreviewController: BibleReadingModePreviewController | null = null;
     private readonly windowListenerDisposers = new Map<Window, () => void>();
     private pluginActiveRibbonIconEl: HTMLElement | null = null;
+    private layoutReady = false;
+    private parserChangeTimeout: number | null = null;
 
     async onload() {
-        this.context.onBookMappingChanged(() => this.editor.refreshLinks());
+        // Enabled in a running app (or reloaded after an update): open reading views were rendered without the plugin.
+        const enabledAfterLayoutReady = this.app.workspace.layoutReady;
+        this.context.onBookMappingChanged(() => {
+            this.editor.refreshLinks();
+            this.scheduleParserChangeHandling();
+        });
         await this.context.loadSettings();
         await this.library.loadBibleIndex();
         await this.referenceUsage.load();
@@ -105,9 +113,29 @@ export default class BiblePlugin extends Plugin {
         }));
         this.registerEditorExtension(this.editor.createExtension());
         this.referenceUsage.registerVaultEvents(this);
+        this.register(() => {
+            if (this.parserChangeTimeout !== null) window.clearTimeout(this.parserChangeTimeout);
+        });
+        this.app.workspace.onLayoutReady(() => {
+            this.layoutReady = true;
+            if (enabledAfterLayoutReady) rerenderReadingModeViews(this.app);
+            // The index may be outdated after a plugin update that changed the parser.
+            this.referenceUsage.handleParserChanged();
+        });
     }
 
     onunload() { }
+
+    // One pass for a burst of changes (an import sets the data, the order and the active translation in a row).
+    // Skipped while loading: the startup check runs on layout ready.
+    private scheduleParserChangeHandling(): void {
+        if (!this.layoutReady || this.parserChangeTimeout !== null) return;
+        this.parserChangeTimeout = window.setTimeout(() => {
+            this.parserChangeTimeout = null;
+            rerenderReadingModeViews(this.app);
+            this.referenceUsage.handleParserChanged();
+        }, 0);
+    }
 
     private registerViews(): void {
         this.registerView(BIBLE_PREVIEW_VIEW_TYPE, (leaf) => {
