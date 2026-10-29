@@ -121,7 +121,7 @@ export class ReferenceUsageController {
     // Full reparse in the background after the book names changed. Queued behind a running build,
     // and checked again when it starts, since that build may already have used the new parser.
     public requestRebuildAfterParserChange(): void {
-        this.buildQueue.request(async () => {
+        this.buildQueue.schedule(async () => {
             if (!this.input.shouldAutoProcessEvents() || !this.input.getService().isOutdated()) return;
             new Notice(this.input.translate("notice.referenceUsageIndexAutoRebuildStarted"), 4000);
             try {
