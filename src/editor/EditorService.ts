@@ -2,7 +2,7 @@ import type { Extension } from "@codemirror/state";
 import { ViewPlugin, type DecorationSet, type EditorView } from "@codemirror/view";
 import { Notice } from "obsidian";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
-import type { BiblePreviewContent } from "../application/formatBibleTexts";
+import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
 import type { BibleReference } from "../domain/BibleReference";
 import type { SettingsService } from "../settings/SettingsService";

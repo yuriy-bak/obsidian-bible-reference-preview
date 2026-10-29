@@ -1,4 +1,4 @@
-import type { BiblePreviewContent } from "../application/formatBibleTexts";
+import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 
 export type BibleReadingModePreviewControllerInput = {
     showBiblePreviewContent: (content: BiblePreviewContent, anchor: { type: "element"; element: HTMLElement }, options: { reveal?: boolean }) => void;

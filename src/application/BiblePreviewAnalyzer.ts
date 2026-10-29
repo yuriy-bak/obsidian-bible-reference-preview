@@ -9,7 +9,7 @@ import {
     type BiblePreviewComparisonInput,
     type BiblePreviewContent,
     type BiblePreviewReferenceBlock,
-} from "./formatBibleTexts";
+} from "./BiblePreviewModel";
 
 export type BiblePreviewReferenceMatch = {
     text: string;

@@ -1,6 +1,7 @@
 import { MarkdownView, Notice, type Component, type View, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation } from "../application/BibleChapterNavigation";
-import { refreshChapterUsageCounts, type BiblePreviewUsageTarget } from "../application/formatBibleTexts";
+import type { BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
+import { refreshChapterUsageCounts } from "../ui/BiblePreviewRenderer";
 import type { PluginContext } from "../core/PluginContext";
 import type { BibleReference } from "../domain/BibleReference";
 import type { EditorReferenceUnderCursor, EditorService } from "../editor/EditorService";

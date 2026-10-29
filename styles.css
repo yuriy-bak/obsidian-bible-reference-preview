@@ -242,7 +242,7 @@ button.bible-reference-usage-results-open-button {
     background: var(--background-secondary-alt);
 }
 
-.bible-preview-pane-title {
+.bible-preview-header-title {
     flex: 1;
     min-width: 0;
     font-weight: 600;
@@ -253,7 +253,7 @@ button.bible-reference-usage-results-open-button {
     text-overflow: ellipsis;
 }
 
-.bible-preview-pane-comparison-selector-host {
+.bible-preview-header-selector-host {
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -283,6 +283,188 @@ button.bible-preview-pane-icon-button {
     font-size: 13px;
     line-height: 1;
     padding: 0;
+}
+
+/* Floating preview window. Position, size and visibility are set from JS; the background comes from the setting. */
+.bible-preview-floating-panel {
+    position: fixed;
+    flex-direction: column;
+    box-sizing: border-box;
+    z-index: 1000;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 10px;
+    background: var(--bible-preview-floating-background);
+    color: var(--text-normal);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    overflow: hidden;
+    min-width: 260px;
+    min-height: 140px;
+    pointer-events: auto;
+}
+
+.bible-preview-floating-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 26px;
+    flex: 0 0 auto;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    background: color-mix(in srgb, var(--background-secondary-alt) 92%, black 8%);
+    cursor: move;
+    touch-action: none;
+}
+
+/* Higher specificity than Obsidian's button rules, including :hover. */
+.bible-preview-floating-panel .bible-preview-floating-header button.bible-preview-floating-icon-button {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    border: 1px solid var(--background-modifier-border);
+    background: color-mix(in srgb, var(--background-secondary) 94%, black 6%);
+    color: var(--text-normal);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+}
+
+.bible-preview-floating-panel .bible-preview-floating-header button.bible-preview-floating-close-button {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.bible-preview-floating-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px 10px 18px;
+    white-space: pre-wrap;
+    overflow: auto;
+    user-select: text;
+    line-height: 1.45;
+    font-size: var(--font-text-size);
+}
+
+button.bible-preview-floating-collapsed-button,
+button.bible-preview-floating-collapsed-button:hover {
+    position: fixed;
+    z-index: 1000;
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--bible-preview-floating-background);
+    color: var(--text-normal);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    font-size: 20px;
+    line-height: 1;
+    padding: 0;
+}
+
+button.bible-preview-floating-collapsed-button.is-dragging {
+    cursor: grabbing;
+}
+
+/* Desktop: 8px edges and 16px dotted corners. */
+.bible-preview-floating-resize-handle {
+    position: absolute;
+    display: block;
+    box-sizing: border-box;
+    z-index: 2;
+    touch-action: none;
+    background: transparent;
+    background-size: 5px 5px;
+    background-repeat: repeat;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="top"],
+.bible-preview-floating-resize-handle[data-resize-edge="bottom"] {
+    left: 16px;
+    right: 16px;
+    height: 8px;
+    cursor: ns-resize;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="top"] {
+    top: 0;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="bottom"] {
+    bottom: 0;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="left"],
+.bible-preview-floating-resize-handle[data-resize-edge="right"] {
+    top: 16px;
+    bottom: 16px;
+    width: 8px;
+    cursor: ew-resize;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="left"] {
+    left: 0;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="right"] {
+    right: 0;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge*="-"] {
+    z-index: 3;
+    width: 16px;
+    height: 16px;
+    background: radial-gradient(circle at center, color-mix(in srgb, var(--color-accent) 68%, transparent) 0 1px, transparent 2px);
+    background-size: 5px 5px;
+    background-repeat: repeat;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="top-left"] {
+    top: 0;
+    left: 0;
+    cursor: nwse-resize;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="top-right"] {
+    top: 0;
+    right: 0;
+    cursor: nesw-resize;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="bottom-right"] {
+    bottom: 0;
+    right: 0;
+    cursor: nwse-resize;
+}
+
+.bible-preview-floating-resize-handle[data-resize-edge="bottom-left"] {
+    bottom: 0;
+    left: 0;
+    cursor: nesw-resize;
+}
+
+/* Mobile: only a full-width grip at the bottom. */
+.bible-preview-floating-panel.is-mobile-layout .bible-preview-floating-resize-handle {
+    display: none;
+}
+
+.bible-preview-floating-panel.is-mobile-layout .bible-preview-floating-resize-handle[data-resize-edge="bottom"] {
+    display: block;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 22px;
+    cursor: ns-resize;
+    background: linear-gradient(to bottom, transparent 0 7px, color-mix(in srgb, var(--color-accent) 55%, transparent) 8px 10px, transparent 11px);
+    background-size: 64px 18px;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 /* Comparison translation selector */

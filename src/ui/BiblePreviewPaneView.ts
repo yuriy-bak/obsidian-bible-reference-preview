@@ -1,28 +1,18 @@
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
-import { applyBiblePreviewScroll, BiblePreviewChapterViewInput, BiblePreviewContent, BiblePreviewUsageTarget, createChapterRenderOptions, renderBiblePreviewContent } from "../application/formatBibleTexts";
-import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
-import { renderComparisonTranslationSelector as renderComparisonTranslationSelectorView } from "./ComparisonTranslationSelector";
+import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
+import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
+import { BiblePreviewHeader, scrollPreviewElement, setHeaderButtonLabel, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
-export type BiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
-
-export type BiblePreviewPaneViewInput = BiblePreviewChapterViewInput & {
-    getTitle: () => string;
+export type BiblePreviewPaneViewInput = BiblePreviewChapterViewInput & BiblePreviewHeaderInput & {
     getOpenFloatingAria: () => string;
     getOpenFloatingIcon: () => string;
-    getCopyAria: () => string;
     getCopyIcon: () => string;
     getCopyNoticeText: () => string;
     getFindUsagesButtonText?: () => string;
     getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
     onFindUsages?: (target: BiblePreviewUsageTarget) => void;
-    getComparisonButtonText?: () => string;
-    getComparisonButtonAria?: () => string;
-    getComparisonTranslationsTitle?: () => string;
-    getComparisonTranslations?: () => PreviewComparisonTranslationOption[];
-    onToggleComparisonTranslation?: (translationId: string, enabled: boolean) => void;
-    onToggleComparison?: (content: BiblePreviewContent) => void;
     onOpenFloating: (content: BiblePreviewContent) => void;
 };
 
@@ -30,10 +20,7 @@ export class BiblePreviewPaneView extends ItemView {
     private rootEl: HTMLDivElement | null = null;
     private contentContainerEl: HTMLDivElement | null = null;
     private contentScrollEl: HTMLElement | null = null;
-    private titleEl: HTMLDivElement | null = null;
-    private comparisonSelectorEl: HTMLDivElement | null = null;
-    private copyButtonEl: HTMLButtonElement | null = null;
-    private comparisonButtonEl: HTMLButtonElement | null = null;
+    private header: BiblePreviewHeader | null = null;
     private openFloatingButtonEl: HTMLButtonElement | null = null;
     private currentContent: BiblePreviewContent | null = null;
     private lastScrolledContent: BiblePreviewContent | null = null;
@@ -59,10 +46,7 @@ export class BiblePreviewPaneView extends ItemView {
         this.rootEl = null;
         this.contentContainerEl = null;
         this.contentScrollEl = null;
-        this.titleEl = null;
-        this.comparisonSelectorEl = null;
-        this.copyButtonEl = null;
-        this.comparisonButtonEl = null;
+        this.header = null;
         this.openFloatingButtonEl = null;
     }
 
@@ -82,22 +66,8 @@ export class BiblePreviewPaneView extends ItemView {
         if (scrollEl === null || scrollEl.clientHeight <= 0 || !this.canScrollPreview()) {
             return false;
         }
-
-        const delta = Math.max(120, scrollEl.clientHeight * 0.8);
-        switch (command) {
-            case "page-down":
-                scrollEl.scrollTop += delta;
-                return true;
-            case "page-up":
-                scrollEl.scrollTop -= delta;
-                return true;
-            case "top":
-                scrollEl.scrollTop = 0;
-                return true;
-            case "bottom":
-                scrollEl.scrollTop = scrollEl.scrollHeight;
-                return true;
-        }
+        scrollPreviewElement(scrollEl, command);
+        return true;
     }
 
     clearContent(): void {
@@ -109,11 +79,8 @@ export class BiblePreviewPaneView extends ItemView {
 
     refreshInput(input: BiblePreviewPaneViewInput): void {
         this.input = input;
-        if (this.titleEl !== null) this.titleEl.textContent = this.input.getTitle();
-        this.updateIconButton(this.copyButtonEl, this.input.getCopyIcon(), this.input.getCopyAria());
-        this.renderComparisonTranslationSelector();
-        this.updateComparisonButton();
-        this.updateIconButton(this.openFloatingButtonEl, this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria());
+        this.header?.refresh(input);
+        if (this.openFloatingButtonEl !== null) setHeaderButtonLabel(this.openFloatingButtonEl, input.getOpenFloatingIcon(), input.getOpenFloatingAria());
         if (this.currentContent !== null) this.scheduleRender();
     }
 
@@ -140,87 +107,16 @@ export class BiblePreviewPaneView extends ItemView {
         const rootEl = this.rootEl;
         if (rootEl === null) return;
 
-        const headerEl = rootEl.createDiv();
-        this.styleHeader(headerEl);
-
-        this.buildTitle(headerEl);
-        this.buildComparisonSelectorHost(headerEl);
-
-        this.buildCopyButton(headerEl);
-        this.buildComparisonButton(headerEl);
-        this.buildOpenFloatingButton(headerEl);
-    }
-
-    private styleHeader(headerEl: HTMLElement): void {
-        headerEl.addClass("bible-preview-pane-header");
-    }
-
-    private buildTitle(headerEl: HTMLElement): void {
-        this.titleEl = headerEl.createDiv({ text: this.input.getTitle() });
-        this.styleTitle(this.titleEl);
-    }
-
-    private styleTitle(titleEl: HTMLElement): void {
-        titleEl.addClass("bible-preview-pane-title");
-    }
-
-    private buildComparisonSelectorHost(headerEl: HTMLElement): void {
-        this.comparisonSelectorEl = headerEl.createDiv();
-        this.styleComparisonSelectorHost(this.comparisonSelectorEl);
-        this.comparisonSelectorEl.addEventListener("click", (event) => this.stopEventPropagation(event));
-    }
-
-    private styleComparisonSelectorHost(hostEl: HTMLElement): void {
-        hostEl.addClass("bible-preview-pane-comparison-selector-host");
-    }
-
-    private buildCopyButton(headerEl: HTMLElement): void {
-        this.copyButtonEl = this.createIconButton(this.input.getCopyIcon(), this.input.getCopyAria());
-        this.appendHeaderButton(headerEl, this.copyButtonEl, (event) => this.handleCopyButtonClick(event));
-    }
-
-    private buildComparisonButton(headerEl: HTMLElement): void {
-        this.comparisonButtonEl = this.createIconButton(this.input.getComparisonButtonText?.() ?? "⇄", this.input.getComparisonButtonAria?.() ?? this.input.getComparisonButtonText?.() ?? "Compare translations");
-        this.updateComparisonButton();
-        this.appendHeaderButton(headerEl, this.comparisonButtonEl, (event) => this.handleComparisonButtonClick(event));
-    }
-
-    private buildOpenFloatingButton(headerEl: HTMLElement): void {
-        this.openFloatingButtonEl = this.createIconButton(this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria());
-        this.appendHeaderButton(headerEl, this.openFloatingButtonEl, (event) => this.handleOpenFloatingButtonClick(event));
-    }
-
-    private appendHeaderButton(
-        headerEl: HTMLElement,
-        buttonEl: HTMLButtonElement,
-        onClick: (event: MouseEvent) => void,
-    ): void {
-        buttonEl.addEventListener("click", onClick);
-        headerEl.appendChild(buttonEl);
-    }
-
-    private handleCopyButtonClick(event: MouseEvent): void {
-        this.stopHeaderButtonClick(event);
-        void this.copyCurrentText();
-    }
-
-    private handleComparisonButtonClick(event: MouseEvent): void {
-        this.stopHeaderButtonClick(event);
-        if (this.currentContent !== null) this.input.onToggleComparison?.(this.currentContent);
-    }
-
-    private handleOpenFloatingButtonClick(event: MouseEvent): void {
-        this.stopHeaderButtonClick(event);
-        if (this.currentContent !== null) this.input.onOpenFloating(this.currentContent);
-    }
-
-    private stopEventPropagation(event: Event): void {
-        event.stopPropagation();
-    }
-
-    private stopHeaderButtonClick(event: MouseEvent): void {
-        event.preventDefault();
-        this.stopEventPropagation(event);
+        this.header = new BiblePreviewHeader(rootEl, this.input, {
+            variant: "pane",
+            onCopy: () => void this.copyCurrentText(),
+            onToggleComparison: () => {
+                if (this.currentContent !== null) this.input.onToggleComparison?.(this.currentContent);
+            },
+        });
+        this.openFloatingButtonEl = this.header.addButton(this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria(), () => {
+            if (this.currentContent !== null) this.input.onOpenFloating(this.currentContent);
+        });
     }
 
     private buildContentContainer(): void {
@@ -234,34 +130,6 @@ export class BiblePreviewPaneView extends ItemView {
 
     private styleContentContainer(contentContainerEl: HTMLElement): void {
         contentContainerEl.addClass("bible-preview-pane-content");
-    }
-
-    private createIconButton(text: string, label: string): HTMLButtonElement {
-        const buttonEl = createEl("button");
-        buttonEl.type = "button";
-        this.updateIconButton(buttonEl, text, label);
-        this.styleIconButton(buttonEl);
-        return buttonEl;
-    }
-
-    private styleIconButton(buttonEl: HTMLButtonElement): void {
-        buttonEl.addClass("bible-preview-pane-icon-button");
-    }
-
-    private updateIconButton(buttonEl: HTMLButtonElement | null, text: string, label: string): void {
-        if (buttonEl === null) return;
-        buttonEl.textContent = text;
-        buttonEl.setAttribute("aria-label", label);
-        buttonEl.title = label;
-    }
-
-    private updateComparisonButton(): void {
-        const buttonEl = this.comparisonButtonEl;
-        if (buttonEl === null) return;
-        const text = this.input.getComparisonButtonText?.() ?? "⇄";
-        const label = this.input.getComparisonButtonAria?.() ?? text;
-        this.updateIconButton(buttonEl, text, label);
-        buttonEl.toggle(this.input.onToggleComparison !== undefined);
     }
 
     private getContentRootElement(): HTMLElement {
@@ -320,7 +188,7 @@ export class BiblePreviewPaneView extends ItemView {
                 onFindUsages: this.input.onFindUsages,
             });
             this.applyScrollOnce(contentContainerEl, this.currentContent);
-            this.renderComparisonTranslationSelector();
+            this.header?.renderComparisonSelector();
         } else {
             this.contentContainerEl.replaceChildren();
         }
@@ -331,27 +199,6 @@ export class BiblePreviewPaneView extends ItemView {
         if (content === this.lastScrolledContent || contentContainerEl.clientHeight <= 0) return;
         this.lastScrolledContent = content;
         applyBiblePreviewScroll(contentContainerEl, content);
-    }
-
-    private renderComparisonTranslationSelector(): void {
-        const hostEl = this.comparisonSelectorEl;
-        if (hostEl === null) return;
-
-        hostEl.replaceChildren();
-        const options = this.input.getComparisonTranslations?.() ?? [];
-        if (options.length <= 1 || this.input.onToggleComparisonTranslation === undefined) {
-            hostEl.hide();
-            this.titleEl?.show();
-            return;
-        }
-
-        hostEl.show();
-        this.titleEl?.hide();
-        hostEl.appendChild(renderComparisonTranslationSelectorView({
-            options,
-            getTitle: () => this.input.getComparisonTranslationsTitle?.() ?? "Compare:",
-            onToggleTranslation: (translationId, enabled) => this.input.onToggleComparisonTranslation?.(translationId, enabled),
-        }));
     }
 
     private async copyCurrentText(): Promise<void> {

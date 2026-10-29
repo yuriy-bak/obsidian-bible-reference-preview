@@ -1,7 +1,7 @@
 import { MarkdownView, type View, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
-import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/formatBibleTexts";
+import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
 import {
     backFromBiblePreviewChapter,
@@ -28,7 +28,8 @@ import {
     revealLeafWithoutStealingEditorFocus,
 } from "../workspace/BiblePreviewWorkspace";
 import { ensureLeafViewLoaded } from "../workspace/WorkspaceLeafViewLoading";
-import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, type BiblePreviewPaneViewInput, type BiblePreviewScrollCommand } from "./BiblePreviewPaneView";
+import type { BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, type BiblePreviewPaneViewInput } from "./BiblePreviewPaneView";
 import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./FloatingBiblePreviewWindow";
 
 export type ClosePreviewPaneOptions = {
