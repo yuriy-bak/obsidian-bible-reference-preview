@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.6 - Fresh previews, faster parsing, integration tests
 
+- Typing around a reference in the paragraph no longer rebuilds the preview or reopens the side panel; the preview updates when the reference itself changes.
 - Fixed: an open preview kept the text of the previous translation after switching the active translation, importing or re-importing one; after deleting the last translation it kept the deleted text. It now shows the current translation, or closes.
 - Fixed: the preview from the editor used the translations loaded at startup. After the first import, importing or re-importing a translation, switching the active translation or changing the comparison set, it showed nothing or stale text until Obsidian was restarted.
 - One-chapter books accept the "1:N" form: "Jude 1:5" / «Иуд 1:5» is verse 5 (it used to be verse 1). A different chapter number («Иуд 2:3») is no longer treated as a reference.
