@@ -24,10 +24,14 @@ export class TranslationService {
         };
     }
 
-    /** Picks the active translation from the current order and rebuilds the book mapping. */
+    /**
+     * Picks the active translation from the current order and rebuilds the book mapping.
+     * The open preview is rebuilt too: it may show another translation or data replaced by a re-import.
+     */
     activateTopTranslation(): void {
         this.context.setActiveTranslationId(TranslationController.selectActiveTranslationId(this.getControllerState()));
         this.context.updateBookMapping();
+        void this.effects.refreshVisibleBiblePreviewContent();
     }
 
     async syncTranslationOrder(preferredTranslationId?: string): Promise<void> {

@@ -121,6 +121,12 @@ export class BiblePreviewService {
         if (content === null) {
             return;
         }
+        // The last translation was deleted: the open text is gone with it.
+        if (!this.context.hasImportedTranslations()) {
+            this.hideFloating();
+            await this.closeActivePane();
+            return;
+        }
 
         const nextContent = await this.contentBuilder.rebuild(content);
         if (nextContent !== null) {
