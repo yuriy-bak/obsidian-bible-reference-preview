@@ -1,5 +1,6 @@
 import { MarkdownView, type View, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
+import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/formatBibleTexts";
 import type { PluginContext } from "../core/PluginContext";
 import {
@@ -35,11 +36,8 @@ export type ClosePreviewPaneOptions = {
     requireActivePreview?: boolean;
 };
 
-/** What the preview needs from the editor and the reference usages. */
+/** What the preview needs from the reference usages. */
 export type BiblePreviewServiceEffects = {
-    rebuildContent: (content: BiblePreviewContent) => Promise<BiblePreviewContent | null>;
-    buildChapterContent: (target: BibleChapterTarget) => Promise<BiblePreviewContent | null>;
-    toggleComparison: (content: BiblePreviewContent) => Promise<void>;
     showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget) => void;
     getChapterUsageCount: (location: BibleChapterLocation) => number | null;
     showReferenceUsagesForChapter: (location: BibleChapterLocation, title: string) => void;
@@ -58,7 +56,7 @@ export class BiblePreviewService {
         setState: (state) => {
             this.chapterState = state;
         },
-        buildChapterContent: (target) => this.effects.buildChapterContent(target),
+        buildChapterContent: (target) => this.contentBuilder.buildChapter(target),
         showBiblePreviewContent: (content) => this.show(content, { type: "default" }, { reveal: true }),
     };
 
@@ -66,6 +64,7 @@ export class BiblePreviewService {
         private readonly context: PluginContext,
         private readonly settings: SettingsService,
         private readonly translations: TranslationService,
+        private readonly contentBuilder: BiblePreviewContentBuilder,
         private readonly effects: BiblePreviewServiceEffects,
     ) {}
 
@@ -118,9 +117,17 @@ export class BiblePreviewService {
             return;
         }
 
-        const nextContent = await this.effects.rebuildContent(content);
+        const nextContent = await this.contentBuilder.rebuild(content);
         if (nextContent !== null) {
             this.show(nextContent, { type: "default" }, { reveal: false });
+        }
+    }
+
+    async toggleComparison(content: BiblePreviewContent): Promise<void> {
+        await this.settings.setPreviewComparisonEnabled(!this.settings.isPreviewComparisonEnabled());
+        const nextContent = await this.contentBuilder.rebuild(content);
+        if (nextContent !== null) {
+            this.show(nextContent, { type: "default" }, { reveal: true });
         }
     }
 
@@ -268,7 +275,7 @@ export class BiblePreviewService {
             getComparisonTranslations: () => isComparisonEnabled() ? this.translations.getPreviewComparisonTranslationOptions() : [],
             onToggleComparisonTranslation: (translationId: string, enabled: boolean) =>
                 void this.translations.setComparisonTranslationEnabled(translationId, enabled),
-            onToggleComparison: (content: BiblePreviewContent) => void this.effects.toggleComparison(content),
+            onToggleComparison: (content: BiblePreviewContent) => void this.toggleComparison(content),
             getOpenChapterAria: (title: string) => t("preview.openChapterAria", { reference: title }),
             onOpenChapter: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) =>
                 void openBiblePreviewChapter(this.chapterFlowInput, target, returnContent, returnScrollTop),
