@@ -2,7 +2,7 @@
 
 Bible Reference Preview finds Bible references in notes and shows verse previews from EPUB Bible translations that you import into the plugin.
 
-!For now plugin work only for EPUB from jw.org
+Supported sources: Bible EPUB files from [jw.org](https://www.jw.org/) and [eBible.org](https://ebible.org/find/).
 
 ## Features
 
@@ -58,9 +58,13 @@ BRAT checks for newer versions on startup or with **BRAT: Check for updates to a
 
 1. Open Settings → Bible Reference Preview.
 2. Click **Import** next to **Import Bible**.
-3. Choose a Bible file. Supported: Bible EPUB files from jw.org.
+3. Choose a Bible file. Supported: Bible EPUB files from jw.org and eBible.org (on eBible.org, open a translation and download its ePub).
 4. Check the detected translation name and language.
 5. Click **Import**.
+
+The plugin detects the verse numbering scheme of the translation from its contents (for example, the Synodal Psalm 22 is Psalm 23 in English Bibles). If the scheme cannot be detected reliably, the plugin asks you to choose it. The scheme of each translation can be changed later in the translation list in the settings.
+
+From eBible.org, only the 66 books of the Protestant canon are imported; other books of the file are skipped with a warning. eBible.org files contain full book names only, so references are recognized by these names. For Russian translations that use the Synodal book names and English translations, the usual abbreviations (`Мф`, `1Цар`, `Matt`, `1 Sam`) are added too.
 
 Reimporting the same translation replaces its previous data. A file in another format is rejected with "file format not recognized" and the list of supported sources.
 
@@ -133,7 +137,7 @@ The plugin makes no network requests and sends no data anywhere.
 1. Установи `main.js`, `manifest.json` и `styles.css` в `.obsidian/plugins/bible-reference-preview/`.
 2. Включи плагин в Community plugins.
 3. Открой настройки Bible Reference Preview.
-4. Импортируй Библию (поддерживаются EPUB Библии с jw.org).
+4. Импортируй Библию (поддерживаются EPUB Библии с jw.org и eBible.org). Схема нумерации стихов определяется автоматически; если не получилось уверенно, плагин спросит. Сменить её можно в списке переводов в настройках.
 5. Используй ссылки вроде `Ин3:16` или `Авд2-4`.
 6. Для сравнения переводов включи режим сравнения в предпросмотре и выбери переводы через выпадающий список `Переводы 2/4` в заголовке предпросмотра.
 7. При необходимости назначь hotkey для команды открытия ссылки под курсором.

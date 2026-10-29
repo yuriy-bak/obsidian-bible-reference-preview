@@ -10,9 +10,13 @@ export function assertBibleImportNotAborted(options: BibleImportOptions): void {
     if (options.signal?.aborted !== true) {
         return;
     }
+    throw createBibleImportAbortError();
+}
+
+export function createBibleImportAbortError(): Error {
     const error = new Error("EPUB import was cancelled.");
     error.name = BIBLE_IMPORT_ABORT_ERROR_NAME;
-    throw error;
+    return error;
 }
 
 export async function yieldBibleImportIfNeeded(processedCount: number, everyCount: number): Promise<void> {

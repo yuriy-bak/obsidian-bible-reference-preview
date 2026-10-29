@@ -47,6 +47,14 @@ export type BibleImportReport = {
     booksBytes: number;
 };
 
+/** The numbering scheme found by the builder; `scores` lists every scheme, best match first. */
+export type BibleImportVersificationDetection = {
+    key: string;
+    confident: boolean;
+    totalChapters: number;
+    scores: { key: string; matchedChapters: number }[];
+};
+
 export type BibleImportResult = {
     translationId: string;
     translationName: string;
@@ -56,6 +64,7 @@ export type BibleImportResult = {
     compactBooks: Record<string, CompactBibleBookData>;
     report: BibleImportReport;
     warnings: string[];
+    versificationDetection: BibleImportVersificationDetection;
 };
 
 export type BibleSourceFile = {

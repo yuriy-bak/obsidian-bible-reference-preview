@@ -1,10 +1,11 @@
 import JSZip from "jszip";
-import { EPUB_IMPORT_LIMITS, normalizeZipPath, readContainerOpfPath, readZipText, resolveZipPath, validateZipArchive } from "../../epub/EpubContainerReader";
+import { EPUB_IMPORT_LIMITS, readContainerOpfPath, readZipText, validateZipArchive } from "../../epub/EpubContainerReader";
 import { EpubImportError } from "../../epub/EpubImportError";
-import { getSpineXhtmlItems, parseOpfDocument, parseOpfMetadata } from "../../epub/EpubOpfReader";
+import { parseOpfMetadata } from "../../epub/EpubOpfReader";
 import { parseXhtmlDocument } from "../../epub/MarkupDocument";
-import { assertBibleImportNotAborted, createBibleImportTimeSlicer, yieldBibleImportIfNeeded } from "../BibleImportCancellation";
+import { assertBibleImportNotAborted, createBibleImportTimeSlicer } from "../BibleImportCancellation";
 import { BibleIndexBuilder, normalizeLanguage } from "../BibleIndexBuilder";
+import { extractSourceMetadataFromOpf, getDocumentPathsInReadingOrder, readAllXhtmlDocuments, type EpubTextDocument } from "../EpubBibleDocuments";
 import { BibleImportInput, BibleImportOptions, BibleImportResult, BibleSource, BibleSourceFile, BibleSourceMetadata } from "../BibleSource";
 import {
     canonicalVerseDocumentFileName,
@@ -15,13 +16,6 @@ import {
     ExtractedBookTable,
     ExtractedVerse,
 } from "./jwEpubHtml";
-
-const EPUB_IMPORT_READ_DOCUMENTS_YIELD_EVERY_FILES = 10;
-
-type EpubTextDocument = {
-    path: string;
-    html: string;
-};
 
 /** EPUB Bible as published on jw.org: a 66-book table, chapter navigation pages and `chapterN_verseM` verse markers. */
 export class JwEpubBibleSource implements BibleSource {
@@ -136,59 +130,6 @@ export class JwEpubBibleSource implements BibleSource {
     }
 }
 
-/** Spine documents first, in reading order, then any other markup files of the archive sorted by path. */
-function getDocumentPathsInReadingOrder(zip: JSZip, opfPath: string, opfXml: string): string[] {
-    const isReadableFile = (path: string): boolean => zip.files[path] !== undefined && !zip.files[path].dir;
-    const spinePaths: string[] = [];
-    const seen = new Set<string>();
-
-    for (const item of getSpineXhtmlItems(parseOpfDocument(opfXml))) {
-        const path = resolveManifestHref(opfPath, item.href);
-        if (path !== null && isReadableFile(path) && !seen.has(path)) {
-            seen.add(path);
-            spinePaths.push(path);
-        }
-    }
-
-    const otherPaths = Object.keys(zip.files)
-        .map((path) => normalizeZipPath(path))
-        .filter((path) => isReadableFile(path) && !seen.has(path) && /\.(?:xhtml|html|xml)$/i.test(path))
-        .sort((left, right) => left.localeCompare(right));
-
-    return [...spinePaths, ...otherPaths];
-}
-
-function resolveManifestHref(opfPath: string, href: string): string | null {
-    try {
-        return resolveZipPath(opfPath, decodeURIComponent(href.split("#")[0]));
-    } catch {
-        return null;
-    }
-}
-
-async function readAllXhtmlDocuments(zip: JSZip, paths: string[], options: BibleImportOptions): Promise<EpubTextDocument[]> {
-    const documents: EpubTextDocument[] = [];
-    let totalHtmlTextBytes = 0;
-    options.onProgress?.({ stage: "reading-documents", processedCount: 0, totalCount: paths.length });
-
-    for (let pathIndex = 0; pathIndex < paths.length; pathIndex += 1) {
-        assertBibleImportNotAborted(options);
-        const path = paths[pathIndex];
-        const html = await readZipText(zip, path, EPUB_IMPORT_LIMITS.maxSingleHtmlTextBytes);
-        totalHtmlTextBytes += byteLength(html);
-
-        if (totalHtmlTextBytes > EPUB_IMPORT_LIMITS.maxTotalHtmlTextBytes) {
-            throw new EpubImportError(`EPUB HTML/XML text content is too large. Size: ${totalHtmlTextBytes} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxTotalHtmlTextBytes} bytes.`);
-        }
-
-        documents.push({ path, html });
-        options.onProgress?.({ stage: "reading-documents", processedCount: pathIndex + 1, totalCount: paths.length });
-        await yieldBibleImportIfNeeded(pathIndex + 1, EPUB_IMPORT_READ_DOCUMENTS_YIELD_EVERY_FILES);
-    }
-
-    return documents;
-}
-
 async function findBookTable(documents: EpubTextDocument[], options: BibleImportOptions): Promise<ExtractedBookTable | null> {
     const yieldIfSliceElapsed = createBibleImportTimeSlicer();
     for (let documentIndex = 0; documentIndex < documents.length; documentIndex += 1) {
@@ -224,17 +165,4 @@ function mergeNavigationAliases(sources: Array<Record<number, string[]>>): Recor
     }
 
     return result;
-}
-
-function extractSourceMetadataFromOpf(opfXml: string): BibleSourceMetadata {
-    const metadata = parseOpfMetadata(opfXml);
-
-    return {
-        title: metadata.title,
-        language: normalizeLanguage(metadata.language ?? "") || null,
-    };
-}
-
-function byteLength(value: string): number {
-    return new TextEncoder().encode(value).length;
 }

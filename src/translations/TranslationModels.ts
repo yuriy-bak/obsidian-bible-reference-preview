@@ -4,6 +4,8 @@ export type TranslationSettingsItem = {
     language: string;
     sourceFileName: string;
     bookCount: number;
+    /** Key of the translation's numbering scheme. */
+    versification: string;
     isActive: boolean;
     isComparisonEnabled: boolean;
 };

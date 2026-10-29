@@ -10,6 +10,7 @@ const TEST_FILES = [
   "epub-import",
   "workspace",
   "versification",
+  "ebible-import",
 ];
 
 (async () => {

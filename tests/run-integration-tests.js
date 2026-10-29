@@ -16,12 +16,24 @@ const TEST_FILES = [
   "translation-switch",
   "reference-usage",
   "plugin-context",
+  "versification-choice",
 ];
+
+// A test that waits on a promise nobody resolves (say, a modal it does not answer) leaves nothing
+// for the event loop to run, and Node would exit with code 0 in the middle of the run.
+let finished = false;
+process.on("exit", (code) => {
+  if (!finished && code === 0) {
+    console.error("Integration tests stopped before finishing: a test is waiting on a promise that never settles.");
+    process.exitCode = 1;
+  }
+});
 
 (async () => {
   for (const name of TEST_FILES) {
     await require(`./integration/${name}.test.js`)();
   }
+  finished = true;
   console.log("All integration tests passed.");
   // Timers left by the plugin (debounced saves, notices) must not keep the process alive.
   process.exit(0);

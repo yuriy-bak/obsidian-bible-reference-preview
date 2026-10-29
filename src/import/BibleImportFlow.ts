@@ -5,6 +5,8 @@ import { createBibleSources, getMaxBibleFileBytes, selectBibleSource } from "../
 import type { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createImportSettingsDefaults, openBibleTranslationImportSettingsModal, type BibleTranslationImportSettings } from "../ui/BibleTranslationImportModal";
 import { ProgressCancelModal } from "../ui/ProgressCancelModal";
+import { openVersificationChoiceModal } from "../ui/VersificationChoiceModal";
+import { createBibleImportAbortError } from "../infrastructure/sources/BibleImportCancellation";
 import { importBible } from "../application/importBible";
 import { formatBibleImportProgress, type BibleImportTranslate } from "./BibleImportMessages";
 import { readBibleFile } from "./BibleFileValidation";
@@ -83,6 +85,13 @@ export async function executePreparedBibleImport(input: ExecutePreparedBibleImpo
             importOptions: {
                 signal: abortController.signal,
                 onProgress: (progress) => progressModal.updateMessage(formatBibleImportProgress(progress, input.translate)),
+            },
+            chooseVersification: async (detection) => {
+                const key = await openVersificationChoiceModal(input.app, input.preparedImport.importSettings.translationName, detection, input.translate);
+                if (key === null) {
+                    throw createBibleImportAbortError();
+                }
+                return key;
             },
         });
 

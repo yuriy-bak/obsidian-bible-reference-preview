@@ -9,6 +9,7 @@ import type { TranslationService } from "../translations/TranslationService";
 import { createColorSettingDefinitions } from "./ColorSettingsSection";
 import { createReferenceUsageIndexSettingsGroup, type ReferenceUsageIndexSettingKey } from "./ReferenceUsageIndexSettingsSection";
 import { createTranslationSettingsList } from "./TranslationSettingsList";
+import { getVersificationOptions } from "./VersificationLabels";
 
 export type BiblePluginSettingTabServices = {
     context: PluginContext;
@@ -49,6 +50,8 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             createTranslationSettingsList({
                 translations: this.services.translations.getTranslationSettingsItems(),
                 translate: (key, params) => this.services.context.t(key, params),
+                versificationOptions: getVersificationOptions((key, params) => this.services.context.t(key, params)),
+                onVersificationChange: (translationId, versification) => this.services.translations.setTranslationVersification(translationId, versification),
                 onDelete: (translationId) => this.services.translations.deleteImportedTranslation(translationId),
                 onReorder: (nextOrder) => this.services.translations.setTranslationOrder(nextOrder),
                 refresh: () => this.update(),
