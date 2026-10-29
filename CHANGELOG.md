@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed: an open preview kept the text of the previous translation after switching the active translation, importing or re-importing one; after deleting the last translation it kept the deleted text. It now shows the current translation, or closes.
 - Fixed: the preview from the editor used the translations loaded at startup. After the first import, importing or re-importing a translation, switching the active translation or changing the comparison set, it showed nothing or stale text until Obsidian was restarted.
 - One-chapter books accept the "1:N" form: "Jude 1:5" / «Иуд 1:5» is verse 5 (it used to be verse 1). A different chapter number («Иуд 2:3») is no longer treated as a reference.
 - Verse and chapter ranges are capped at the end of the chapter and of the book. A typo like «Ин 3:1-2000000» no longer freezes Obsidian, and «Ин 3:16-180» no longer lists "[verse not found]" past the last verse.
@@ -19,6 +20,7 @@
 - Internal: one module for vault paths and one empty Bible index instead of copies; book aliases and note text share one set of normalization rules; `noUnusedLocals`/`noUnusedParameters` are on; the unit tests are split into files by module. No behavior change.
 - Internal: the floating window and the side panel share one preview header (title, translations selector, copy and comparison buttons); the floating window's static styles moved from inline styles to `styles.css`; `formatBibleTexts.ts` is split into the preview model and the DOM renderer. No visual or behavior change.
 - Internal: dragging, resizing and the collapsed button drag of the floating preview moved from `FloatingBiblePreviewWindow` (1253 lines, now 880) to `FloatingPreviewPointerController`. No behavior change.
+- Internal: integration tests run the real plugin against a stub of the `obsidian` module in `npm test`: first import, switching, re-importing and deleting translations, the editor links and preview, the reading mode, the usage index and `PluginContext` notifications.
 - The usage index remembers which book names it was built with. After switching to a translation with other book names, the next build or update scans all notes again instead of only changed ones; settings and index stats say when the index is outdated. Indexes from earlier versions are scanned in full once.
 - A new install uses the Obsidian interface language: Russian when Obsidian is in Russian, English otherwise. Existing settings are kept.
 - The floating preview opens in popout windows: it moves to the window with the reference or the active note. Escape, the link-open shortcut and click-outside hiding in reading mode work there too.
