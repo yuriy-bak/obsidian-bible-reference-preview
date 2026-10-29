@@ -1,5 +1,6 @@
 import type { DataAdapter } from "obsidian";
-import { BibleIndex } from "../BibleIndex";
+import { BibleIndex, EMPTY_BIBLE_INDEX } from "../BibleIndex";
+import { ensureVaultDirectoryExists, getDirectoryPath, normalizePath } from "../VaultPathUtils";
 import { BibleImportReport } from "../sources/BibleSource";
 import { BibleBookV2Loader } from "./BibleBookV2Loader";
 import { BibleIndexV2Data } from "./BibleIndexV2Data";
@@ -11,12 +12,6 @@ const BIBLES_INDEX_FILE_NAME = "bibles-index.json";
 const OLD_BIBLE_INDEX_V2_FILE_NAME = "bible-index-v2.json";
 const IMPORT_REPORT_FILE_NAME = "import-report.json";
 const SAVE_BIBLE_INDEX_YIELD_EVERY_BOOKS = 10;
-
-const EMPTY_BIBLE_INDEX: BibleIndex = {
-    async getBibleText() {
-        return null;
-    },
-};
 
 export type SaveBibleIndexV2Input = {
     metadata: BibleIndexV2Data;
@@ -51,7 +46,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
     }
 
     async saveV2(input: SaveBibleIndexV2Input): Promise<void> {
-        await this.ensureDirectoryExists(this.dataDirectoryPath);
+        await ensureVaultDirectoryExists(this.adapter, this.dataDirectoryPath);
 
         const translationId = input.report.translationId;
         const incomingTranslation = input.metadata.translations[translationId];
@@ -71,7 +66,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         let savedBookCount = 0;
         for (const [path, book] of Object.entries(input.books)) {
             const fullPath = normalizePath(`${this.dataDirectoryPath}/${path}`);
-            await this.ensureDirectoryExists(getDirectoryPath(fullPath));
+            await ensureVaultDirectoryExists(this.adapter, getDirectoryPath(fullPath));
             await this.adapter.write(fullPath, JSON.stringify(book));
             savedBookCount += 1;
             await yieldSaveBibleIndexIfNeeded(savedBookCount);
@@ -95,7 +90,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
 
         delete nextData.translations[translationId];
         await this.removeTranslationDirectory(translationId);
-        await this.ensureDirectoryExists(this.dataDirectoryPath);
+        await ensureVaultDirectoryExists(this.adapter, this.dataDirectoryPath);
         await this.adapter.write(this.getMetadataPath(), JSON.stringify(nextData));
         this.currentV2Data = nextData;
     }
@@ -168,24 +163,6 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
 
         await this.adapter.rmdir(path, true);
     }
-
-    private async ensureDirectoryExists(path: string): Promise<void> {
-        const normalized = normalizePath(path);
-
-        if (normalized.length === 0 || await this.adapter.exists(normalized)) {
-            return;
-        }
-
-        const parent = getDirectoryPath(normalized);
-
-        if (parent !== normalized && parent.length > 0) {
-            await this.ensureDirectoryExists(parent);
-        }
-
-        if (!(await this.adapter.exists(normalized))) {
-            await this.adapter.mkdir(normalized);
-        }
-    }
 }
 
 function isBibleIndexV2Data(value: unknown): value is BibleIndexV2Data {
@@ -212,14 +189,4 @@ async function yieldSaveBibleIndexIfNeeded(savedBookCount: number): Promise<void
         return;
     }
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-}
-
-function normalizePath(path: string): string {
-    return path.split("\\").join("/").replace(/\/+/g, "/");
-}
-
-function getDirectoryPath(path: string): string {
-    const normalized = normalizePath(path);
-    const slashIndex = normalized.lastIndexOf("/");
-    return slashIndex < 0 ? "" : normalized.slice(0, slashIndex);
 }

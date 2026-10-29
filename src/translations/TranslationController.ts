@@ -67,7 +67,7 @@ export class TranslationController {
         const order = state.translationOrder.filter((translationId) => translations[translationId] !== undefined);
         const comparisonTranslationIds = new Set(this.getComparisonTranslationIds(state));
 
-        return order.map((translationId, index) => {
+        return order.map((translationId) => {
             const translation = translations[translationId];
             return {
                 id: translationId,

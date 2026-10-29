@@ -1,5 +1,6 @@
 import { BibleReference } from "../domain/BibleReference";
 import { BookMapping, normalizeBookAlias } from "./BookMapping";
+import { normalizeSearchText } from "./searchTextNormalization";
 
 type BookAliasCandidate = {
     alias: string;
@@ -472,15 +473,7 @@ function normalizeSearchCharacter(character: string): string {
 }
 
 function normalizeNonAsciiSearchCharacter(character: string): string {
-    if (/^[؜‎‏‪-‮⁦-⁩]$/u.test(character)) {
-        return "";
-    }
-
-    const normalizedCharacter = replaceArabicIndicDigit(character
-        .normalize("NFC")
-        .toLowerCase()
-        .replace(/̇/g, "")
-        .replace(/ё/g, "е"));
+    const normalizedCharacter = normalizeSearchText(character);
 
     if (normalizedCharacter === ".") {
         return "";
@@ -489,18 +482,6 @@ function normalizeNonAsciiSearchCharacter(character: string): string {
     const punctuation = normalizeReferencePunctuation(normalizedCharacter);
 
     return /^\s$/u.test(punctuation) ? " " : punctuation;
-}
-
-function replaceArabicIndicDigit(character: string): string {
-    if (/^[٠-٩]$/u.test(character)) {
-        return String(character.charCodeAt(0) - 0x0660);
-    }
-
-    if (/^[۰-۹]$/u.test(character)) {
-        return String(character.charCodeAt(0) - 0x06F0);
-    }
-
-    return character;
 }
 
 function normalizeReferencePunctuation(character: string): string {

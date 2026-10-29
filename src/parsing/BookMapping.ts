@@ -1,4 +1,5 @@
 import { BibleBook } from "../domain/BibleBook";
+import { normalizeSearchText } from "./searchTextNormalization";
 
 export type BookMapping = {
     nameToId: Map<string, number>;
@@ -107,21 +108,6 @@ export function normalizeBookAlias(value: string): string {
 // from EPUB navigation ("Иов 1"). Kept as is, it breaks "Иов 14:1" into "Иов 1" + "4:1".
 export function removeChapterNumberFromAlias(alias: string): string {
     return alias.replace(/\s*[0-9٠-٩۰-۹]+$/, "");
-}
-
-function normalizeSearchText(value: string): string {
-    return replaceArabicIndicDigits(value)
-        .normalize("NFC")
-        .toLowerCase()
-        .replace(/\u0307/g, "")
-        .replace(/ё/g, "е")
-        .replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "");
-}
-
-function replaceArabicIndicDigits(value: string): string {
-    return value
-        .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
-        .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06F0));
 }
 
 function createAliasVariants(value: string): Set<string> {

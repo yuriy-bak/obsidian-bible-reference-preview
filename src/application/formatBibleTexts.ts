@@ -139,7 +139,6 @@ export type BiblePreviewChapterNavigationLabels = {
 
 export function formatBibleComparisonTextBlocks(
     inputs: BiblePreviewComparisonInput[],
-    mapping: BookMapping,
     missingVerseText = DEFAULT_MISSING_VERSE_TEXT,
 ): BiblePreviewContent {
     const previewBlocks: BiblePreviewBlock[] = [];

@@ -1,5 +1,6 @@
 import type { App, TFile } from "obsidian";
 import type { BibleReference } from "../domain/BibleReference";
+import { ensureVaultDirectoryExists, normalizePath } from "../infrastructure/VaultPathUtils";
 import type { BibleReferenceMatch } from "../parsing/BibleReferenceParser";
 
 export const REFERENCE_USAGE_INDEX_VERSION = 1;
@@ -110,7 +111,7 @@ export class ReferenceUsageIndexService {
 
     public async save(): Promise<void> {
         this.index.updatedAt = Date.now();
-        await ensureAdapterDirectoryExists(this.app, this.getDataDirectoryPath());
+        await ensureVaultDirectoryExists(this.app.vault.adapter, this.getDataDirectoryPath());
         await this.app.vault.adapter.write(this.getIndexPath(), JSON.stringify(this.index));
     }
 
@@ -429,30 +430,6 @@ async function yieldReferenceUsageBuildIfNeeded(processedFileCount: number, ever
         return;
     }
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-}
-
-async function ensureAdapterDirectoryExists(app: App, path: string): Promise<void> {
-    const normalizedPath = normalizePath(path);
-    if (normalizedPath.length === 0 || await app.vault.adapter.exists(normalizedPath)) {
-        return;
-    }
-    const parentPath = getDirectoryPath(normalizedPath);
-    if (parentPath.length > 0 && parentPath !== normalizedPath) {
-        await ensureAdapterDirectoryExists(app, parentPath);
-    }
-    if (!(await app.vault.adapter.exists(normalizedPath))) {
-        await app.vault.adapter.mkdir(normalizedPath);
-    }
-}
-
-function normalizePath(path: string): string {
-    return path.split("\\").join("/").replace(/\/+/g, "/");
-}
-
-function getDirectoryPath(path: string): string {
-    const normalizedPath = normalizePath(path);
-    const slashIndex = normalizedPath.lastIndexOf("/");
-    return slashIndex < 0 ? "" : normalizedPath.slice(0, slashIndex);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
