@@ -26,7 +26,7 @@ export class ReferenceUsageBuildQueue {
     }
 
     /** Runs the task now, or after the current build when one is in progress. */
-    request(task: BuildTask): void {
+    schedule(task: BuildTask): void {
         if (this.running) {
             this.pendingTask = task;
             return;

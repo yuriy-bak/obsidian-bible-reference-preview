@@ -329,14 +329,14 @@ module.exports = async () => {
   });
   assert.strictEqual(queue.isRunning, true);
   assert.strictEqual(await queue.tryRun(async () => { runs.push("refused"); }), false);
-  queue.request(async () => { runs.push("pending-1"); });
-  queue.request(async () => { runs.push("pending-2"); });
+  queue.schedule(async () => { runs.push("pending-1"); });
+  queue.schedule(async () => { runs.push("pending-2"); });
   releaseFirstBuild();
   assert.strictEqual(await firstRun, true);
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(runs, ["first", "pending-2"]);
   assert.strictEqual(queue.isRunning, false);
-  queue.request(async () => { runs.push("idle"); });
+  queue.schedule(async () => { runs.push("idle"); });
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(runs, ["first", "pending-2", "idle"]);
 };
