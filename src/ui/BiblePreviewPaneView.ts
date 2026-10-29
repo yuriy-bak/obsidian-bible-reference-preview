@@ -136,7 +136,7 @@ export class BiblePreviewPaneView extends ItemView {
         const viewWithContentEl = this as ItemView & { contentEl?: HTMLElement };
         if (viewWithContentEl.contentEl?.instanceOf(HTMLElement)) return viewWithContentEl.contentEl;
         const secondChild = this.containerEl.children.item(1);
-        if (secondChild instanceof HTMLElement) return secondChild;
+        if (secondChild?.instanceOf(HTMLElement)) return secondChild;
         return this.containerEl;
     }
 

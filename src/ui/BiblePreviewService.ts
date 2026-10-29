@@ -97,6 +97,10 @@ export class BiblePreviewService {
         this.floatingWindow?.show(content, anchor, { reveal });
     }
 
+    handleWindowClose(closedWindow: Window): void {
+        this.floatingWindow?.handleWindowClose(closedWindow);
+    }
+
     hideFloating(resetPosition = false): void {
         this.floatingWindow?.hide(resetPosition);
     }

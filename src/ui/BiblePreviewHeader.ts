@@ -1,5 +1,6 @@
 import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
+import { getHTMLElementTarget } from "../utils/EventTargetElement";
 import { renderComparisonTranslationSelector } from "./ComparisonTranslationSelector";
 
 export type BiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
@@ -126,8 +127,8 @@ export function scrollPreviewElement(scrollEl: HTMLElement, command: BiblePrevie
 }
 
 function stopSelectorEventPropagation(event: Event): void {
-    const target = event.target;
-    if (target instanceof Node && target.instanceOf(HTMLElement) && target.closest(".bible-preview-comparison-selector") !== null) {
+    const target = getHTMLElementTarget(event.target);
+    if (target !== null && target.closest(".bible-preview-comparison-selector") !== null) {
         event.stopPropagation();
     }
 }

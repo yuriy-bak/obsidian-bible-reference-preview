@@ -1,4 +1,5 @@
 import type { BiblePreviewContent } from "../application/BiblePreviewModel";
+import { getHTMLElementTarget } from "../utils/EventTargetElement";
 
 export type BibleReadingModePreviewControllerInput = {
     showBiblePreviewContent: (content: BiblePreviewContent, anchor: { type: "element"; element: HTMLElement }, options: { reveal?: boolean }) => void;
@@ -38,8 +39,8 @@ export class BibleReadingModePreviewController {
 
     /** Pointer down anywhere in an Obsidian window (main.ts listens in every window, capture phase). */
     public handlePointerDown(event: Event): void {
-        const target = event.target;
-        if (!(target instanceof Node) || !target.instanceOf(HTMLElement)) {
+        const target = getHTMLElementTarget(event.target);
+        if (target === null) {
             return;
         }
         // Like cursor moves in the editor: only clicks inside a note in reading mode hide the preview,
