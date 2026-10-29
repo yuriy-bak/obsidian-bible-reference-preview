@@ -1,6 +1,6 @@
 const {
   assert,
-  readAndValidateEpubFile,
+  readBibleFile,
   EPUB_IMPORT_LIMITS,
   normalizeZipPath,
   readContainerOpfPath,
@@ -94,9 +94,18 @@ module.exports = async () => {
   new Uint8Array(foreignBuffer).set(foreignZipBytes);
   assert(!(foreignBuffer instanceof ArrayBuffer));
   const foreignFile = { name: "foreign.epub", size: foreignBuffer.byteLength, arrayBuffer: async () => foreignBuffer };
-  const realmContent = await readAndValidateEpubFile(foreignFile, (key) => key);
+  const realmContent = await readBibleFile(foreignFile, 1024 * 1024, (key) => key);
   assert(realmContent instanceof ArrayBuffer);
   assert((await JSZip.loadAsync(realmContent)).file("a.txt") !== null);
+
+  // The common file check leaves the format to the sources: a non-ZIP file passes, an empty or too large one does not.
+  const textFile = (text) => {
+    const bytes = new TextEncoder().encode(text);
+    return { name: "bible.txt", size: bytes.byteLength, arrayBuffer: async () => bytes.buffer };
+  };
+  assert.strictEqual((await readBibleFile(textFile("plain text"), 1024, (key) => key)).byteLength, 10);
+  await assert.rejects(() => readBibleFile(textFile(""), 1024, (key) => key), /import\.error\.emptyFile/);
+  await assert.rejects(() => readBibleFile(textFile("plain text"), 4, (key) => key), /too large/);
 
   function assertEpubImportError(action, expectedMessagePart) {
     assert.throws(action, (error) => {
@@ -228,17 +237,23 @@ module.exports = async () => {
   const {
     selectBibleSource,
     createBibleSources,
+    getBibleFilePickerAccept,
+    getMaxBibleFileBytes,
+    UnsupportedBibleFileError,
   } = require("../../.test-build/src/infrastructure/sources/BibleSourceRegistry.js");
+  const {
+    localizeImportErrorMessage,
+  } = require("../../.test-build/src/import/BibleImportMessages.js");
   const {
     isBibleImportAbortError,
   } = require("../../.test-build/src/infrastructure/sources/BibleImportCancellation.js");
 
-  async function createJwLikeEpub(spineHrefs) {
+  async function createJwLikeEpub(spineHrefs, metadataXml = "<dc:creator>WATCHTOWER</dc:creator>") {
     const zip = new JSZip();
     zip.file("META-INF/container.xml", `<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
     const manifest = spineHrefs.map((href, index) => `<item id="doc${index}" href="${href}" media-type="application/xhtml+xml"/>`).join("");
     const spine = spineHrefs.map((_href, index) => `<itemref idref="doc${index}"/>`).join("");
-    zip.file("OEBPS/content.opf", `<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Test &amp; Bible</dc:title><dc:language>en_US</dc:language></metadata><manifest>${manifest}</manifest><spine>${spine}</spine></package>`);
+    zip.file("OEBPS/content.opf", `<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Test &amp; Bible</dc:title><dc:language>en_US</dc:language>${metadataXml}</metadata><manifest>${manifest}</manifest><spine>${spine}</spine></package>`);
     const rows = Array.from({ length: 66 }, (_unused, index) =>
       `<tr><td><a href="${index + 1}.xhtml">Book ${index + 1}</a></td><td></td><td>Bk${index + 1}</td></tr>`).join("");
     zip.file("OEBPS/table.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><table>${rows}</table></body></html>`);
@@ -250,8 +265,49 @@ module.exports = async () => {
 
   const jwSource = new JwEpubBibleSource();
   const spineFirstOrderEpub = await createJwLikeEpub(["1-split2.xhtml", "1.xhtml"]);
-  assert.strictEqual(selectBibleSource(createBibleSources(), "test.epub", spineFirstOrderEpub).id, "jw-epub");
-  assert.throws(() => selectBibleSource(createBibleSources(), "test.txt", new TextEncoder().encode("text").buffer), /Unsupported Bible file format/);
+  assert.strictEqual((await selectBibleSource(createBibleSources(), { fileName: "test.epub", content: spineFirstOrderEpub })).id, "jw-epub");
+  await assert.rejects(
+    () => selectBibleSource(createBibleSources(), { fileName: "test.txt", content: new TextEncoder().encode("text").buffer }),
+    (error) => error instanceof UnsupportedBibleFileError && /Unsupported Bible file format/.test(error.message),
+  );
+
+  // canHandle looks inside the file: a jw.org EPUB is recognized by the book navigation page or by Watchtower in its metadata.
+  const canHandle = (content) => jwSource.canHandle({ fileName: "test.epub", content });
+  assert.strictEqual(await canHandle(await createJwLikeEpub(["1.xhtml"], "<dc:publisher>Watchtower Bible and Tract Society</dc:publisher>")), true);
+  const navigationZip = await JSZip.loadAsync(await createJwLikeEpub(["biblebooknav.xhtml", "1.xhtml"], "<dc:creator>Someone</dc:creator>"));
+  navigationZip.file("OEBPS/biblebooknav.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body></body></html>");
+  assert.strictEqual(await canHandle(await navigationZip.generateAsync({ type: "arraybuffer" })), true);
+  const otherEpub = await createJwLikeEpub(["1.xhtml"], "<dc:creator>Someone</dc:creator>");
+  assert.strictEqual(await canHandle(otherEpub), false);
+  assert.strictEqual(await canHandle(await new JSZip().file("a.txt", "x").generateAsync({ type: "arraybuffer" })), false);
+  assert.strictEqual(await canHandle(new TextEncoder().encode("PK broken zip").buffer), false);
+  assert.strictEqual(await canHandle(new TextEncoder().encode("plain text").buffer), false);
+
+  // Sources are asked in order and the first one that recognizes the file wins.
+  const fakeSource = (id, accepts) => ({
+    id,
+    label: `${id}.example`,
+    fileTypes: { extensions: [`.${id}`], mimeTypes: ["application/epub+zip"] },
+    maxFileBytes: id.length * 1000,
+    canHandle: async () => accepts,
+  });
+  const fakeSources = [fakeSource("first", false), fakeSource("second", true), fakeSource("third", true)];
+  assert.strictEqual((await selectBibleSource(fakeSources, { fileName: "x", content: new ArrayBuffer(1) })).id, "second");
+  assert.strictEqual(getBibleFilePickerAccept(fakeSources), ".first,application/epub+zip,.second,.third");
+  assert.strictEqual(getMaxBibleFileBytes(fakeSources), 6000);
+  assert.strictEqual(getBibleFilePickerAccept(createBibleSources()), ".epub,application/epub+zip");
+
+  // An unrecognized file lists the supported sources.
+  let unsupportedError = null;
+  try {
+    await selectBibleSource([fakeSource("first", false), fakeSource("other", false)], { fileName: "x", content: otherEpub });
+  } catch (error) {
+    unsupportedError = error;
+  }
+  assert.strictEqual(
+    localizeImportErrorMessage(unsupportedError, (key) => key),
+    "import.error.unsupportedFormat\n\n• first.example\n• other.example",
+  );
   assert.deepStrictEqual(await jwSource.readMetadata(spineFirstOrderEpub), { title: "Test & Bible", language: "en-us" });
 
   const importJwLikeEpub = (content, options) => jwSource.importBible({

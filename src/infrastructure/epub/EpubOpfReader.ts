@@ -18,6 +18,8 @@ export type EpubOpfDocument = {
 export type EpubOpfMetadata = {
     title: string | null;
     language: string | null;
+    creator: string | null;
+    publisher: string | null;
 };
 
 export function parseOpfDocument(opfXml: string): EpubOpfDocument {
@@ -35,6 +37,8 @@ export function parseOpfMetadata(opfXml: string): EpubOpfMetadata {
     return {
         title: getElementText(document, "dc:title") ?? getElementText(document, "title"),
         language: getElementText(document, "dc:language") ?? getElementText(document, "language"),
+        creator: getElementText(document, "dc:creator") ?? getElementText(document, "creator"),
+        publisher: getElementText(document, "dc:publisher") ?? getElementText(document, "publisher"),
     };
 }
 

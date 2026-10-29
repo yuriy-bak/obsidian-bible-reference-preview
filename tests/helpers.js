@@ -82,7 +82,7 @@ const {
 const { ensureLeafViewLoaded } = require("../.test-build/src/workspace/WorkspaceLeafViewLoading.js");
 const JSZip = require("jszip");
 const vm = require("vm");
-const { readAndValidateEpubFile } = require("../.test-build/src/import/EpubFileValidation.js");
+const { readBibleFile } = require("../.test-build/src/import/BibleFileValidation.js");
 const {
   EPUB_IMPORT_LIMITS,
   normalizeZipPath,
@@ -145,7 +145,7 @@ module.exports = {
   createChapterUsageQuery,
   groupReferenceUsagesByChapterVerses,
   ensureLeafViewLoaded,
-  readAndValidateEpubFile,
+  readBibleFile,
   EPUB_IMPORT_LIMITS,
   normalizeZipPath,
   readContainerOpfPath,

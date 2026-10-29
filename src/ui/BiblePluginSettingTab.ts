@@ -148,7 +148,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     setting.addButton((button) => button
                         .setButtonText(this.services.context.t("settings.import.button"))
                         .setCta()
-                        .onClick(() => this.services.library.openEpubFilePicker(setting.settingEl)));
+                        .onClick(() => this.services.library.openBibleFilePicker(setting.settingEl)));
                 },
             },
         ];

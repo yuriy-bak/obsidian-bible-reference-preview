@@ -57,12 +57,12 @@ BRAT checks for newer versions on startup or with **BRAT: Check for updates to a
 ## Importing a translation
 
 1. Open Settings → Bible Reference Preview.
-2. Click **Import EPUB**.
-3. Choose an EPUB file.
+2. Click **Import** next to **Import Bible**.
+3. Choose a Bible file. Supported: Bible EPUB files from jw.org.
 4. Check the detected translation name and language.
 5. Click **Import**.
 
-Reimporting the same translation replaces its previous data.
+Reimporting the same translation replaces its previous data. A file in another format is rejected with "file format not recognized" and the list of supported sources.
 
 ## Comparing translations
 
@@ -133,7 +133,7 @@ The plugin makes no network requests and sends no data anywhere.
 1. Установи `main.js`, `manifest.json` и `styles.css` в `.obsidian/plugins/bible-reference-preview/`.
 2. Включи плагин в Community plugins.
 3. Открой настройки Bible Reference Preview.
-4. Импортируй EPUB.
+4. Импортируй Библию (поддерживаются EPUB Библии с jw.org).
 5. Используй ссылки вроде `Ин3:16` или `Авд2-4`.
 6. Для сравнения переводов включи режим сравнения в предпросмотре и выбери переводы через выпадающий список `Переводы 2/4` в заголовке предпросмотра.
 7. При необходимости назначь hotkey для команды открытия ссылки под курсором.
@@ -205,7 +205,7 @@ Releasing:
 
 Import and indexing notes:
 
-- The supported import flow is EPUB-only: translations are imported through the plugin settings with **Import EPUB**.
+- Translations are imported through the plugin settings (**Import Bible**) or the **Import Bible file** command. Each supported format is a Bible source in `src/infrastructure/sources/` (`BibleSource`): it recognizes its own files (`canHandle`), declares its file types and size limit, and reads books and verses for `BibleIndexBuilder`. `createBibleSources()` lists the sources; the first one that recognizes a file takes it, so a narrower format goes before a more general one. Adding a format means adding a source and one line to that list; the file picker and the "not recognized" error pick it up.
 - The Reference Usage Index scans Markdown files in the vault to find Bible reference usages.
 - Large Markdown files can be skipped by the Reference Usage Index according to its size limit to avoid slow indexing and UI freezes.
 - Long Reference Usage Index builds and the safe in-memory part of EPUB import show progress and can be cancelled.
