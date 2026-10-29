@@ -187,7 +187,7 @@ Script overview:
 - `npm run build` type-checks the project and builds the production Obsidian plugin bundle.
 - `npm run build:dev` type-checks the project and builds a larger development bundle with an inline source map for debugging.
 - `npm run build:analyze` builds the production bundle and writes `meta.json` for bundle-size analysis.
-- `npm test` runs the production build, builds CommonJS test modules into `.test-build/`, and runs parser/importer tests.
+- `npm test` runs the production build, builds CommonJS test modules into `.test-build/`, and runs parser/importer tests and the integration tests: `tests/integration/` loads the real plugin from `main.ts` against a stub of the `obsidian` module (`tests/obsidian-stub/`: plugin API, an in-memory vault and workspace, a jsdom DOM) and checks import, translation switching, the editor, the reading mode and the usage index together.
 
 Build and repository hygiene notes:
 
