@@ -1,5 +1,9 @@
 # Third-party notices
 
+## Brotli decoder
+
+The HTML Study Bible pages of dbs.org are compressed with Brotli; `main.js` includes the JavaScript decoder of [brotli.js](https://github.com/foliojs/brotli.js) (MIT, by Devon Govett; a port of the Google Brotli decoder, Copyright 2013 Google Inc., Apache License 2.0) and [base64-js](https://github.com/beatgammit/base64-js) (MIT, Copyright (c) 2014 Jameson Little).
+
 ## Paratext versification files
 
 `src/versification/schemes/*.vrs` (and the data generated from them in `src/versification/builtinVersificationData.ts`) are copied from [sillsdev/machine.py](https://github.com/sillsdev/machine.py), `machine/scripture/*.vrs.txt`, commit `abe37186223b3b2f6908e466b03cc20687fe8027`.

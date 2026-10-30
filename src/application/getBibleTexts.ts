@@ -50,7 +50,7 @@ export async function getBibleChapterTextBlock(
         return null;
     }
 
-    const lastVerse = Math.max(...bibleText.verses.map((verse) => verse.number));
+    const lastVerse = Math.max(...bibleText.verses.map((verse) => verse.numberEnd ?? verse.number));
     return {
         reference: { book, chapterStart: chapter, verseStart: 1, chapterEnd: chapter, verseEnd: lastVerse },
         parts: [{ range: { book, chapter, verseStart: 1 }, bibleText }],

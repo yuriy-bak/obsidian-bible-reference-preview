@@ -20,6 +20,8 @@ export type BibleImportVerse = {
     text: string;
     footnotes: string[];
     paragraphStart?: boolean;
+    /** Last number of verses joined into this one (Acts 1:16–17); verse 17 is not given separately. */
+    verseEnd?: number;
 };
 
 export type BibleIndexBuilderInput = {
@@ -201,6 +203,7 @@ function toCompactVerseData(verse: BibleImportVerse): CompactVerseData {
         text: verse.text,
         footnotes: [...verse.footnotes],
         paragraphStart: verse.paragraphStart ?? true,
+        ...(verse.verseEnd === undefined ? {} : { verseEnd: verse.verseEnd }),
     };
 }
 

@@ -12,6 +12,8 @@ const TEST_FILES = [
   "versification",
   "ebible-import",
   "translation-codes",
+  "dbs-import",
+  "dbs-aleph-import",
 ];
 
 (async () => {

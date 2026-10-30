@@ -120,7 +120,8 @@ export class BibleTranslationImportModal extends Modal {
 }
 
 export function createImportSettingsDefaults(fileName: string, sourceMetadata: BibleSourceMetadata): BibleTranslationImportSettings {
-    const fileNameWithoutExtension = fileName.replace(/\.epub$/i, "").trim();
+    // dbs.org names its HTML archives "html_<ID>.zip".
+    const fileNameWithoutExtension = fileName.replace(/\.(?:epub|zip|html?)$/i, "").replace(/^html_(?=.)/i, "").trim();
     const detectedTranslationName = sourceMetadata.title?.trim() ?? "";
     const translationNameForId = detectedTranslationName || fileNameWithoutExtension || "Imported EPUB Bible";
     const language = normalizeLanguageInput(sourceMetadata.language ?? "") || "und";
