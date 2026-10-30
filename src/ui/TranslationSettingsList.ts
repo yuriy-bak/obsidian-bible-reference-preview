@@ -42,17 +42,21 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
             name: `${translation.isActive ? "✓ " : ""}${translation.name || translation.id}`,
             desc: createTranslationDescription(translation, translate),
             // The numbering and the code sit under the description: beside the name they get squeezed on a phone.
+            // Obsidian may render the same row again (on mobile it does), so the previous controls go first.
             render: (setting) => {
+                setting.infoEl.querySelectorAll(".bible-translation-setting-controls").forEach((element) => element.remove());
                 const controlsEl = setting.infoEl.createDiv({ cls: "bible-translation-setting-controls" });
 
                 const versificationEl = controlsEl.createEl("label", { cls: "bible-translation-setting-control" });
                 versificationEl.createSpan({ text: translate("settings.translations.versification") });
-                new DropdownComponent(versificationEl)
-                    .addOptions(getOptionsWith(input.versificationOptions, translation.versification))
+                const versificationOptions = getOptionsWith(input.versificationOptions, translation.versification);
+                const versificationDropdown = new DropdownComponent(versificationEl)
+                    .addOptions(getShortOptions(versificationOptions))
                     .setValue(translation.versification)
                     .onChange((value) => {
                         void input.onVersificationChange(translation.id, value).then(() => input.refresh());
                     });
+                versificationDropdown.selectEl.title = versificationOptions[translation.versification] ?? "";
 
                 const codeEl = controlsEl.createEl("label", { cls: "bible-translation-setting-control" });
                 codeEl.createSpan({ text: translate("settings.translations.code") });
@@ -73,6 +77,8 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
                         input.refresh();
                     });
                 });
+
+                return () => controlsEl.remove();
             },
         })),
         onReorder: (oldIndex, newIndex) => {
@@ -105,6 +111,11 @@ function createTranslationDescription(translation: TranslationSettingsItem, tran
 // A stored key the registry no longer knows still shows up instead of silently selecting another scheme.
 function getOptionsWith(options: Record<string, string>, key: string): Record<string, string> {
     return key in options ? options : { ...options, [key]: key };
+}
+
+// The list is narrow on a phone: "English (KJV, NWT, …)" is shown as "English", the full name is the tooltip.
+function getShortOptions(options: Record<string, string>): Record<string, string> {
+    return Object.fromEntries(Object.entries(options).map(([key, label]) => [key, label.replace(/\s*\(.*\)\s*$/u, "") || label]));
 }
 
 function moveItem(items: string[], oldIndex: number, newIndex: number): string[] | null {
