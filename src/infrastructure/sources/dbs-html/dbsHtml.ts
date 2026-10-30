@@ -194,7 +194,7 @@ function readFootnote(element: Element): string {
 
 // The first word of a verse is followed by a no-break space even before punctuation ("Господи&nbsp;, как"),
 // and quotes are spaced apart from the words in them ("« Авва! »").
-function normalizeInline(text: string): string {
+export function normalizeInline(text: string): string {
     return text
         .replace(/\u00a0\s*(?=[,.;:!?…»”)\]])/gu, "")
         .replace(/[\s\u00a0]+/gu, " ")
@@ -204,7 +204,7 @@ function normalizeInline(text: string): string {
         .trim();
 }
 
-function normalizeVerseText(text: string): string {
+export function normalizeVerseText(text: string): string {
     return text
         .split("\n")
         .map(normalizeInline)

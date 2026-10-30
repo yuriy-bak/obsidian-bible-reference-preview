@@ -4,14 +4,10 @@ import { BibleIndexBuilder, normalizeLanguage } from "../BibleIndexBuilder";
 import { BibleImportInput, BibleImportOptions, BibleImportResult, BibleSource, BibleSourceFile, BibleSourceMetadata } from "../BibleSource";
 import { findTraditionalBookAbbreviations } from "../ebible-epub/bookAbbreviationTables";
 import { getBookIdByDbsCode } from "./dbsBookCodes";
+import { toTwoLetterLanguage } from "./dbsLanguage";
 import { decompressDbsChapters, extractVersesFromDbsChapter, isDbsBiblePage, readDbsBiblePage } from "./dbsHtml";
 
 const MAX_PAGE_BYTES = 50 * 1024 * 1024;
-
-/** ISO 639-3 codes of the page's `lang` attribute as the two-letter codes the plugin uses elsewhere. */
-const TWO_LETTER_LANGUAGES: Record<string, string> = {
-    rus: "ru", eng: "en", ukr: "uk", bel: "be", deu: "de", fra: "fr", spa: "es", por: "pt", ita: "it", pol: "pl", tur: "tr",
-};
 
 /**
  * "HTML Study Bible" of the Digital Bible Society (dbs.org), saved from the browser as one HTML page:
@@ -85,9 +81,4 @@ export class DbsHtmlBibleSource implements BibleSource {
 
 function decodeText(content: ArrayBuffer): string {
     return new TextDecoder("utf-8").decode(content);
-}
-
-function toTwoLetterLanguage(language: string): string {
-    const normalized = normalizeLanguage(language);
-    return TWO_LETTER_LANGUAGES[normalized] ?? normalized;
 }
