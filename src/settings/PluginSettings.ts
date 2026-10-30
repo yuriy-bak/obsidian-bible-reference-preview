@@ -1,5 +1,6 @@
 import { Platform, getLanguage } from "obsidian";
 import { BiblePluginLocale, getBiblePluginLocaleForLanguage, normalizeBiblePluginLocale } from "../i18n/I18n";
+import { isValidTranslationCode } from "../translations/translationCodes";
 import { normalizeReferenceUsageExcludedFolders } from "../reference-usage/ReferenceUsageIndexService";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "../ui/cssColorValidation";
 
@@ -13,6 +14,8 @@ export type BiblePluginSettings = {
     interfaceLanguage: BiblePluginLocale;
     translationOrder: string[];
     comparisonTranslationIds: string[];
+    /** Codes the user gave translations, by translation id (see translations/translationCodes). */
+    translationCodes: Record<string, string>;
     bibleReferenceLinkColor: string;
     floatingPreviewBackgroundColor: string;
     previewTriggerMode: BiblePreviewTriggerMode;
@@ -36,6 +39,7 @@ export const DEFAULT_SETTINGS: BiblePluginSettings = {
     interfaceLanguage: "en",
     translationOrder: [],
     comparisonTranslationIds: [],
+    translationCodes: {},
     bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
     floatingPreviewBackgroundColor: DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
     previewTriggerMode: "current-paragraph",
@@ -68,6 +72,7 @@ export function normalizePluginSettings(value: unknown): BiblePluginSettings {
         interfaceLanguage: normalizeBiblePluginLocale(value.interfaceLanguage, getDefaultInterfaceLanguage()),
         translationOrder: [...new Set(translationOrder)],
         comparisonTranslationIds: [...new Set(comparisonTranslationIds)],
+        translationCodes: normalizeTranslationCodes(value.translationCodes),
         bibleReferenceLinkColor: typeof value.bibleReferenceLinkColor === "string"
             ? normalizeBibleReferenceLinkColor(value.bibleReferenceLinkColor)
             : DEFAULT_SETTINGS.bibleReferenceLinkColor,
@@ -112,6 +117,14 @@ export function normalizePluginSettings(value: unknown): BiblePluginSettings {
             )
             : DEFAULT_SETTINGS.referenceUsageExcludedFolders,
     };
+}
+
+function normalizeTranslationCodes(value: unknown): Record<string, string> {
+    if (!isRecord(value)) {
+        return {};
+    }
+    return Object.fromEntries(Object.entries(value)
+        .filter((entry): entry is [string, string] => typeof entry[1] === "string" && isValidTranslationCode(entry[1])));
 }
 
 function getDefaultInterfaceLanguage(): BiblePluginLocale {

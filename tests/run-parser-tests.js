@@ -11,6 +11,7 @@ const TEST_FILES = [
   "workspace",
   "versification",
   "ebible-import",
+  "translation-codes",
 ];
 
 (async () => {

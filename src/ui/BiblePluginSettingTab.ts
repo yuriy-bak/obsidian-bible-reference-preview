@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
+import { App, Notice, Plugin, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
 import type { BiblePluginLocale } from "../i18n/I18n";
 import type { BibleLibraryService } from "../import/BibleLibraryService";
@@ -52,6 +52,8 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 translate: (key, params) => this.services.context.t(key, params),
                 versificationOptions: getVersificationOptions((key, params) => this.services.context.t(key, params)),
                 onVersificationChange: (translationId, versification) => this.services.translations.setTranslationVersification(translationId, versification),
+                onCodeChange: (translationId, code) => this.services.translations.setTranslationCode(translationId, code),
+                showError: (message) => new Notice(message),
                 onDelete: (translationId) => this.services.translations.deleteImportedTranslation(translationId),
                 onReorder: (nextOrder) => this.services.translations.setTranslationOrder(nextOrder),
                 refresh: () => this.update(),

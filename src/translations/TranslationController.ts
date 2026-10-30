@@ -59,7 +59,7 @@ export class TranslationController {
         ];
     }
 
-    public static getTranslationSettingsItems(state: TranslationControllerState): TranslationSettingsItem[] {
+    public static getTranslationSettingsItems(state: TranslationControllerState): Omit<TranslationSettingsItem, "code">[] {
         if (state.v2Data === null) {
             return [];
         }

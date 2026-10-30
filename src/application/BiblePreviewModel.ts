@@ -46,11 +46,20 @@ export type BiblePreviewComparisonTranslation = {
     footnotes: string[];
 };
 
+/** The translation a reference names with a code ("Пс 22:1 (СП)") and the reference in its numbering. */
+export type BiblePreviewPrimaryTranslation = {
+    translationId: string;
+    references: BibleReference[];
+};
+
 export type BiblePreviewComparisonBlock = {
     type: "comparison";
     title: string;
+    /** In the active translation's numbering, like the references of every other block. */
     references: BibleReference[];
     translations: BiblePreviewComparisonTranslation[];
+    /** Set for a reference with a translation code: that translation is shown first. */
+    primary?: BiblePreviewPrimaryTranslation;
 };
 
 export type BiblePreviewBlock =
@@ -77,6 +86,7 @@ export type BiblePreviewComparisonInput = {
         references?: BibleReference[];
     }[];
     formatReferenceTitle?: (mapping: BookMapping) => string;
+    primary?: BiblePreviewPrimaryTranslation;
 };
 
 export function formatBibleComparisonTextBlocks(
@@ -115,6 +125,7 @@ export function formatBibleComparisonTextBlocks(
             title: formatSourceReferenceTitle(input.title),
             references: input.references,
             translations,
+            ...(input.primary === undefined ? {} : { primary: input.primary }),
         });
     }
 
@@ -122,6 +133,12 @@ export function formatBibleComparisonTextBlocks(
         blocks: previewBlocks,
         plainText: buildPlainText(previewBlocks),
     };
+}
+
+/** Contents built separately, shown one after another. */
+export function concatBiblePreviewContents(contents: BiblePreviewContent[]): BiblePreviewContent {
+    const blocks = contents.flatMap((content) => content.blocks);
+    return { blocks, plainText: buildPlainText(blocks) };
 }
 
 export type BiblePreviewParagraph = {

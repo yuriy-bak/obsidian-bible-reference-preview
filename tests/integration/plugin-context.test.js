@@ -20,10 +20,12 @@ module.exports = async function runPluginContextTests() {
   await importBible(plugin, "en");
   assert.strictEqual(notifications, 2, "another language notifies once per import");
   assert.notStrictEqual(context.parserSignature, russianSignature);
+  const englishSignature = context.parserSignature;
 
+  // Back to the Russian names; the signature now also covers the code of the English translation.
   await activateTranslation(plugin, "ru");
   assert.strictEqual(notifications, 3);
-  assert.strictEqual(context.parserSignature, russianSignature);
+  assert.notStrictEqual(context.parserSignature, englishSignature);
   await activateTranslation(plugin, "ru");
   assert.strictEqual(notifications, 3, "an order that keeps the active translation does not notify");
 
