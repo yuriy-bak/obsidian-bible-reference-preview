@@ -93,9 +93,17 @@ type FootnoteReference = {
     id: string;
 };
 
+/** A psalm title (`<p class="sw">`), out of the verse text: the heading of the verse 1 after it. */
+type Superscription = {
+    start: number;
+    end: number;
+    text: string;
+};
+
 type FlattenedDocument = {
     pieces: string[];
     markers: VerseMarker[];
+    superscriptions: Superscription[];
     footnoteReferences: FootnoteReference[];
     paragraphOpenIndexes: number[];
     paragraphCloseIndexes: number[];
@@ -110,10 +118,18 @@ export function extractVersesFromDocument(document: Document): ExtractedVerse[] 
     for (let index = 0; index < markers.length; index += 1) {
         const marker = markers[index];
         const contentStart = marker.pieceIndex + 1;
+        const nextMarkerIndex = markers[index + 1]?.pieceIndex ?? pieces.length;
         const contentEnd = Math.min(
-            markers[index + 1]?.pieceIndex ?? pieces.length,
+            nextMarkerIndex,
             footnoteGroupIndex !== null && footnoteGroupIndex > marker.pieceIndex ? footnoteGroupIndex : pieces.length,
+            ...flattened.superscriptions
+                .filter((superscription) => superscription.start > marker.pieceIndex && superscription.start < nextMarkerIndex)
+                .map((superscription) => superscription.start),
         );
+        const previousMarkerIndex = markers[index - 1]?.pieceIndex ?? -1;
+        const superscription = marker.verse === 1
+            ? flattened.superscriptions.filter((item) => item.start > previousMarkerIndex && item.end <= marker.pieceIndex).pop()
+            : undefined;
 
         const text = normalizeVerseText(joinVersePieces(pieces.slice(contentStart, contentEnd)));
         if (text.length === 0) {
@@ -124,8 +140,12 @@ export function extractVersesFromDocument(document: Document): ExtractedVerse[] 
             chapter: marker.chapter,
             verse: marker.verse,
             text,
-            footnotes: extractFootnotes(document, flattened.footnoteReferences, contentStart, contentEnd),
+            footnotes: [
+                ...(superscription === undefined ? [] : extractFootnotes(document, flattened.footnoteReferences, superscription.start, superscription.end)),
+                ...extractFootnotes(document, flattened.footnoteReferences, contentStart, contentEnd),
+            ],
             paragraphStart: isParagraphStart(flattened, marker.pieceIndex, markers[index - 1]?.pieceIndex),
+            ...(superscription === undefined || superscription.text.length === 0 ? {} : { heading: superscription.text }),
         });
     }
 
@@ -136,6 +156,7 @@ function flattenDocument(document: Document): FlattenedDocument {
     const flattened: FlattenedDocument = {
         pieces: [],
         markers: [],
+        superscriptions: [],
         footnoteReferences: [],
         paragraphOpenIndexes: [],
         paragraphCloseIndexes: [],
@@ -175,6 +196,12 @@ function flattenNode(node: Node, flattened: FlattenedDocument, suppressed: boole
         flattened.paragraphOpenIndexes.push(openIndex);
     }
 
+    const isSuperscription = !suppressed && name === "p" && (node.getAttribute("class") ?? "").split(/\s+/).includes("sw")
+        && !/\bid="chapter\d+_verse\d+"/i.test(node.innerHTML ?? "");
+    if (isSuperscription) {
+        openPiece = "";
+    }
+
     const footnoteId = getFootnoteReferenceId(node, name);
     if (footnoteId !== null) {
         flattened.footnoteReferences.push({ pieceIndex: openIndex, id: footnoteId });
@@ -187,7 +214,10 @@ function flattenNode(node: Node, flattened: FlattenedDocument, suppressed: boole
 
     flattened.pieces.push(suppressed ? "" : openPiece);
     for (let child = node.firstChild; child !== null; child = child.nextSibling) {
-        flattenNode(child, flattened, suppressChildren);
+        flattenNode(child, flattened, suppressChildren || isSuperscription);
+    }
+    if (isSuperscription) {
+        flattened.superscriptions.push({ start: openIndex, end: flattened.pieces.length, text: readSuperscriptionText(node) });
     }
 
     if (name === "p") {
@@ -195,6 +225,19 @@ function flattenNode(node: Node, flattened: FlattenedDocument, suppressed: boole
     }
     const closePiece = name === "p" ? PARAGRAPH_CLOSE : name === "br" ? "" : TAG_BOUNDARY;
     flattened.pieces.push(suppressChildren || suppressed ? "" : closePiece);
+}
+
+/** The title text without footnote markers and page numbers. */
+function readSuperscriptionText(element: Element): string {
+    let text = "";
+    for (let child = element.firstChild; child !== null; child = child.nextSibling) {
+        if (isTextNode(child)) {
+            text += child.data;
+        } else if (isElementNode(child) && getFootnoteReferenceId(child, getElementName(child)) === null) {
+            text += readSuperscriptionText(child);
+        }
+    }
+    return text.replace(/\s+/g, " ").trim();
 }
 
 function getVerseMarker(element: Element, name: string): { chapter: number; verse: number } | null {

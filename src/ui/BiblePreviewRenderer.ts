@@ -1,4 +1,4 @@
-import { BOOK_ICON, type BiblePreviewChapterView, type BiblePreviewContent, type BiblePreviewUsageTarget, type BiblePreviewVerse, formatVerseNumber } from "../application/BiblePreviewModel";
+import { BOOK_ICON, type BiblePreviewChapterView, type BiblePreviewContent, type BiblePreviewParagraph, type BiblePreviewUsageTarget, type BiblePreviewVerse, formatVerseNumber } from "../application/BiblePreviewModel";
 import { type BibleChapterLocation, type BibleChapterTarget, getChapterTargetFromReferences } from "../application/BibleChapterNavigation";
 
 const CHAPTER_USAGES_BUTTON_CLASS = "bible-preview-chapter-usages-button";
@@ -130,6 +130,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
                 comparisonEl.appendChild(titleRowEl);
 
                 translation.paragraphs.forEach((paragraph) => {
+                    appendParagraphHeading(comparisonEl, paragraph);
                     const paragraphEl = createDiv();
                     paragraphEl.className = "bible-preview-paragraph";
 
@@ -163,6 +164,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         }
 
         block.paragraphs.forEach((paragraph) => {
+            appendParagraphHeading(referenceEl, paragraph);
             const paragraphEl = createDiv();
             paragraphEl.className = "bible-preview-paragraph";
 
@@ -399,6 +401,16 @@ function handleFindUsagesButtonClick(event: MouseEvent, target: BiblePreviewUsag
     event.preventDefault();
     event.stopPropagation();
     options.onFindUsages?.(target);
+}
+
+function appendParagraphHeading(containerEl: HTMLElement, paragraph: BiblePreviewParagraph): void {
+    if (paragraph.heading === undefined) {
+        return;
+    }
+    const headingEl = createDiv();
+    headingEl.className = "bible-preview-verse-heading";
+    headingEl.textContent = paragraph.heading;
+    containerEl.appendChild(headingEl);
 }
 
 function appendPreviewVerses(containerEl: HTMLElement, verses: BiblePreviewVerse[]): void {

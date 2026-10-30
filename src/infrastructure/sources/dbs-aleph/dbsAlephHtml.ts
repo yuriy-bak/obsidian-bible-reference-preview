@@ -20,11 +20,14 @@ export const DBS_EPUB_CHAPTER_FILE_PATTERN = /(?:^|\/)([0-9A-Z]{3})(\d+)\.xhtml$
 const NON_VERSE_CLASSES = new Set([
     "c", "ca", "cl", "cd", "cp",
     "mt", "mt1", "mt2", "mt3", "mt4", "imt", "imt1", "imt2", "imt3", "imt4", "ms", "ms1", "ms2", "ms3", "ms4", "mr",
-    "s", "s1", "s2", "s3", "s4", "sr", "r", "rq", "sp", "d", "h", "sd", "sd1", "sd2", "sd3", "sd4",
+    "s", "s1", "s2", "s3", "s4", "sr", "r", "rq", "sp", "h", "sd", "sd1", "sd2", "sd3", "sd4",
     "x", "va", "vp", "is", "is1", "is2", "ip", "ipi", "im", "imi", "io", "io1", "io2", "iot",
 ]);
 
 const SKIPPED_ELEMENTS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "nav", "aside", "section", "head", "style", "script"]);
+
+/** Psalm titles without a verse number (`<p class="d">`): kept as the heading of the verse 1 that follows. */
+const VERSE_HEADING_CLASS = "d";
 
 /** Paragraphs that continue the previous one without a line break. */
 const CONTINUATION_CLASSES = new Set(["m", "mi", "nb", "pmc"]);
@@ -38,6 +41,7 @@ type VerseInProgress = {
     text: string;
     footnotes: string[];
     paragraphStart: boolean;
+    heading: string | undefined;
 };
 
 type ExtractionState = {
@@ -46,6 +50,11 @@ type ExtractionState = {
     current: VerseInProgress | null;
     paragraphHasText: boolean;
     elementsById: Map<string, Element>;
+    /**
+     * Text outside any verse: a psalm title. The archive marks it `<p class="d">`; the EPUB leaves it as
+     * plain text between the chapter labels and verse 1.
+     */
+    pendingHeading: string;
 };
 
 /** Book names by USFM code from the table of contents (`<a href="chapters/GEN1.xhtml" class="book-title">`). */
@@ -112,7 +121,7 @@ export function extractVersesFromAlephDocument(document: Document, chapter: numb
         return [];
     }
 
-    const state: ExtractionState = { chapter, verses: [], current: null, paragraphHasText: false, elementsById };
+    const state: ExtractionState = { chapter, verses: [], current: null, paragraphHasText: false, elementsById, pendingHeading: "" };
     walk(content, state);
     finishVerse(state);
 
@@ -142,6 +151,10 @@ function walk(node: Node, state: ExtractionState): void {
             if (state.current !== null && footnote !== null) {
                 state.current.footnotes.push(footnote);
             }
+        } else if (classes.includes(VERSE_HEADING_CLASS)) {
+            finishVerse(state);
+            state.pendingHeading += " ";
+            walk(child, state);
         } else if (SKIPPED_ELEMENTS.has(name) || classes.some((value) => NON_VERSE_CLASSES.has(value))) {
             continue;
         } else if (BLOCK_ELEMENTS.has(name)) {
@@ -178,6 +191,11 @@ function startVerse(state: ExtractionState, marker: Element): void {
     const verse = Number(id !== null ? id[2] : range?.[1]);
     const endText = id !== null ? id[3] : range?.[2];
     const verseEnd = endText === undefined ? undefined : Number(endText);
+    // A title goes to the next verse: verse 1 of a psalm, or a verse of the same chapter (the letters of
+    // Psalm 119). Text left at the end of a chapter does not move to the next chapter.
+    const lastVerse = state.verses[state.verses.length - 1];
+    const heading = verse === 1 || lastVerse?.chapter === chapter ? normalizeInline(state.pendingHeading) : "";
+    state.pendingHeading = "";
     state.current = {
         chapter,
         verse,
@@ -185,6 +203,7 @@ function startVerse(state: ExtractionState, marker: Element): void {
         text: "",
         footnotes: [],
         paragraphStart: !state.paragraphHasText,
+        heading: heading.length > 0 ? heading : undefined,
     };
 }
 
@@ -205,6 +224,7 @@ function finishVerse(state: ExtractionState): void {
         text,
         footnotes: current.footnotes,
         paragraphStart: current.paragraphStart,
+        ...(current.heading === undefined ? {} : { heading: current.heading }),
     });
 }
 
@@ -214,6 +234,8 @@ function appendText(state: ExtractionState, text: string): void {
     }
     if (state.current !== null) {
         state.current.text += text.replace(/[ \t\r\n]+/g, " ");
+    } else {
+        state.pendingHeading += text;
     }
 }
 

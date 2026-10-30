@@ -142,6 +142,8 @@ export function concatBiblePreviewContents(contents: BiblePreviewContent[]): Bib
 }
 
 export type BiblePreviewParagraph = {
+    /** A title without a verse number above the paragraph (a psalm title). */
+    heading?: string;
     verses: BiblePreviewVerse[];
 };
 
@@ -217,6 +219,7 @@ export function formatBibleChapterTitle(location: BibleChapterLocation, mapping:
 
 export function toBibleChapterPreviewContent(content: BiblePreviewContent, chapterView: BiblePreviewChapterView): BiblePreviewContent {
     const highlightParagraphs = (paragraphs: BiblePreviewParagraph[]): BiblePreviewParagraph[] => paragraphs.map((paragraph) => ({
+        ...paragraph,
         verses: paragraph.verses.map((verse) => ({
             ...verse,
             highlighted: verse.highlighted ?? createNumberRange(verse.number, verse.numberEnd ?? verse.number)
@@ -492,7 +495,9 @@ function formatPartParagraphs(part: BibleTextPart, missingVerseText: string, hig
                 .some((number) => isVerseInReference(reference, part.range.chapter, number)));
         }
 
-        if (paragraphs.length === 0 || verse === undefined || verse.paragraphStart !== false) {
+        if (verse?.heading !== undefined) {
+            paragraphs.push({ heading: verse.heading, verses: [previewVerse] });
+        } else if (paragraphs.length === 0 || verse === undefined || verse.paragraphStart !== false) {
             paragraphs.push({ verses: [previewVerse] });
         } else {
             paragraphs[paragraphs.length - 1].verses.push(previewVerse);
@@ -666,7 +671,8 @@ function formatReferenceBlockPlainText(block: Extract<BiblePreviewBlock, { type:
 }
 
 function formatParagraphPlainText(paragraph: BiblePreviewParagraph): string {
-    return paragraph.verses
+    const text = paragraph.verses
         .map((verse) => `${formatVerseNumber(verse)} ${verse.text}`)
         .join(" ");
+    return paragraph.heading === undefined ? text : `${paragraph.heading}\n${text}`;
 }

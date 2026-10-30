@@ -5,6 +5,8 @@ export type Verse = {
     text: string;
     footnotes: string[];
     paragraphStart?: boolean;
+    /** A title without a verse number shown above the verse (a psalm title). */
+    heading?: string;
 };
 
 export type BibleText = {

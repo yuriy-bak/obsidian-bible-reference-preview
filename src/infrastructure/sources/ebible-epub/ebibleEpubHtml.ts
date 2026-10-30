@@ -9,10 +9,13 @@ import type { BibleImportVerse } from "../BibleIndexBuilder";
 /** Classes whose text is not verse text: titles, headings, chapter labels, psalm titles, navigation. */
 const NON_VERSE_CLASSES = new Set([
     "mt", "mt1", "mt2", "mt3", "mt4", "mte", "ms", "ms1", "ms2", "ms3", "mr",
-    "s", "s1", "s2", "s3", "s4", "sr", "r", "sp", "d", "cl", "cd", "psalmlabel", "chapterlabel",
+    "s", "s1", "s2", "s3", "s4", "sr", "r", "sp", "cl", "cd", "psalmlabel", "chapterlabel",
     "tnav", "footnote", "qa", "rem", "toc1", "toc2", "toc3",
     "is", "is1", "is2", "ip", "ipi", "im", "imi", "imt", "imt1", "imt2", "io", "io1", "io2", "iot", "ie",
 ]);
+
+/** Psalm titles without a verse number: kept as the heading of the verse 1 that follows. */
+const VERSE_HEADING_CLASS = "d";
 
 /** Paragraphs that continue the previous one without a line break (Haiola splits long lines into them). */
 const CONTINUATION_CLASSES = new Set(["m", "mi", "nb", "pmc"]);
@@ -41,6 +44,7 @@ type VerseInProgress = {
     text: string;
     footnoteIds: string[];
     paragraphStart: boolean;
+    heading: string | undefined;
 };
 
 type ExtractionState = {
@@ -50,6 +54,8 @@ type ExtractionState = {
     /** Text seen since the current paragraph started: a verse marker after it is not a paragraph start. */
     paragraphHasText: boolean;
     footnotes: Map<string, string>;
+    /** A psalm title waiting for its verse 1, with the footnotes marked in it. */
+    pendingHeading: { text: string; footnoteIds: string[] } | null;
 };
 
 /** The verses of one book file, in document order. */
@@ -70,6 +76,7 @@ export function extractVersesFromBookDocument(document: Document): BibleImportVe
         current: null,
         paragraphHasText: false,
         footnotes: extractFootnotes(elements.filter((element) => getElementName(element) === "aside")),
+        pendingHeading: null,
     };
     walk(document.body, state);
     finishVerse(state);
@@ -97,6 +104,13 @@ function walk(node: Node, state: ExtractionState): void {
             if (state.current !== null && id.length > 0) {
                 state.current.footnoteIds.push(id);
             }
+        } else if (classes.includes(VERSE_HEADING_CLASS) && !containsVerseMarker(child)) {
+            finishVerse(state);
+            const heading = readHeading(child);
+            state.pendingHeading = state.pendingHeading === null ? heading : {
+                text: `${state.pendingHeading.text} ${heading.text}`.trim(),
+                footnoteIds: [...state.pendingHeading.footnoteIds, ...heading.footnoteIds],
+            };
         } else if (name === "aside" || name === "ul" || name === "hr" || classes.some((value) => NON_VERSE_CLASSES.has(value))) {
             continue;
         } else if (name === "div" || name === "p") {
@@ -122,13 +136,53 @@ function startParagraph(state: ExtractionState, continuation: boolean): void {
 function startVerse(state: ExtractionState, marker: VerseMarker): void {
     finishVerse(state);
     const chapterText = marker.stem.slice(state.chapterPrefix.length);
+    const chapter = chapterText.length === 0 ? 1 : Number(chapterText);
+    // A title goes to the next verse: verse 1 of a psalm, or a verse of the same chapter (the letters of
+    // Psalm 119). A title left at the end of a chapter does not move to the next chapter.
+    const lastVerse = state.verses[state.verses.length - 1];
+    const heading = marker.verse === 1 || lastVerse?.chapter === chapter ? state.pendingHeading : null;
+    state.pendingHeading = null;
     state.current = {
-        chapter: chapterText.length === 0 ? 1 : Number(chapterText),
+        chapter,
         verse: marker.verse,
         text: "",
-        footnoteIds: [],
+        footnoteIds: heading?.footnoteIds ?? [],
         paragraphStart: !state.paragraphHasText,
+        heading: heading === null || normalizeInlineText(heading.text).length === 0 ? undefined : normalizeInlineText(heading.text),
     };
+}
+
+function containsVerseMarker(element: Element): boolean {
+    for (let child = element.firstElementChild; child !== null; child = child.nextElementSibling) {
+        if (getVerseMarker(child, getClasses(child)) !== null || containsVerseMarker(child)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** The title text without footnote markers; the footnotes go to the verse. */
+function readHeading(element: Element): { text: string; footnoteIds: string[] } {
+    let text = "";
+    const footnoteIds: string[] = [];
+    const visit = (node: Node): void => {
+        for (let child = node.firstChild; child !== null; child = child.nextSibling) {
+            if (isTextNode(child)) {
+                text += child.data;
+            } else if (isElementNode(child)) {
+                if (getElementName(child) === "a" && getClasses(child).includes("noteref")) {
+                    const id = (child.getAttribute("href") ?? "").replace(/^#/, "");
+                    if (id.length > 0) {
+                        footnoteIds.push(id);
+                    }
+                } else {
+                    visit(child);
+                }
+            }
+        }
+    };
+    visit(element);
+    return { text: normalizeInlineText(text), footnoteIds };
 }
 
 function finishVerse(state: ExtractionState): void {
@@ -153,6 +207,7 @@ function finishVerse(state: ExtractionState): void {
             .map((id) => state.footnotes.get(id))
             .filter((footnote): footnote is string => footnote !== undefined),
         paragraphStart: current.paragraphStart || pilcrow !== null,
+        ...(current.heading === undefined ? {} : { heading: current.heading }),
     });
 }
 
@@ -163,6 +218,9 @@ function appendText(state: ExtractionState, text: string): void {
     // Line breaks of the markup source are spaces; only paragraph boundaries become "\n".
     if (state.current !== null) {
         state.current.text += text.replace(/\s+/g, " ");
+    } else if (state.pendingHeading !== null) {
+        // Haiola may continue a title in a following paragraph (`<div class='m'>Псалом Давида.</div>`).
+        state.pendingHeading.text += ` ${text}`;
     }
 }
 
