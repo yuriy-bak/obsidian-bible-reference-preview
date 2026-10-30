@@ -21,6 +21,11 @@ module.exports = async () => {
     { chapter: 3, verse: 2, text: "Он пришел к Иисусу ночью.", footnotes: [], paragraphStart: true },
   ]);
 
+  // A psalm title is plain text between the chapter labels and verse 1 in the EPUB: the heading of verse 1.
+  assert.deepStrictEqual(extractVersesFromAlephDocument(parseXhtmlDocument(xhtml("Bible | Псалтирь 22",
+    `<div id="chapter_content"><h4 class="c">22</h4>Псалом Давида.<b class="c c22" title="22">22</b>${verse("PSA22", 1)}  Господь - Пастырь мой;${verse("PSA22", 2)}  Он покоит меня.</div>`)), 22)
+    .map((item) => [item.verse, item.heading]), [[1, "Псалом Давида."], [2, undefined]]);
+
   // Paragraphs and poetry lines are kept, headings are not verse text; footnotes come from the endnotes
   // without their back link and verse reference, cross references are left out; a range is a joined verse.
   const psalm = verses(3, `<p class="d">Псалом Давида.</p>`
@@ -86,7 +91,7 @@ module.exports = async () => {
     + `<p class="p">${archiveVerse("PSA", 2, 1)} Зачем мятутся народы? ${archiveVerse("PSA", 2, "2-3")} Восстают цари.</p>`)), 0), [
     { chapter: 1, verse: 1, text: "Блажен муж, который не ходит", footnotes: [], paragraphStart: true },
     { chapter: 1, verse: 2, text: "но в законе Господа", footnotes: [], paragraphStart: true },
-    { chapter: 2, verse: 1, text: "Зачем мятутся народы?", footnotes: [], paragraphStart: true },
+    { chapter: 2, verse: 1, text: "Зачем мятутся народы?", footnotes: [], paragraphStart: true, heading: "Псалом Давида." },
     { chapter: 2, verse: 2, verseEnd: 3, text: "Восстают цари.", footnotes: [], paragraphStart: false },
   ]);
 

@@ -52,6 +52,11 @@
     text-align: justify;
 }
 
+.bible-preview-verse-heading {
+    font-style: italic;
+    color: var(--text-muted);
+}
+
 .bible-preview-reference-title-row {
     display: flex;
     align-items: center;

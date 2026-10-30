@@ -128,5 +128,6 @@ function toVerse(number: number, compactVerse: CompactVerseData): Verse {
         text: compactVerse.text,
         footnotes: compactVerse.footnotes ?? [],
         paragraphStart: compactVerse.paragraphStart ?? true,
+        ...(compactVerse.heading === undefined ? {} : { heading: compactVerse.heading }),
     };
 }

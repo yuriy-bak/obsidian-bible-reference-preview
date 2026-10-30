@@ -14,6 +14,7 @@ const TEST_FILES = [
   "translation-codes",
   "dbs-import",
   "dbs-aleph-import",
+  "verse-headings",
 ];
 
 (async () => {
