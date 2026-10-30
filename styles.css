@@ -723,6 +723,7 @@ button.bible-reference-usage-pane-open-button {
 }
 
 .bible-translation-setting-control {
+    flex: 1 1 14em;
     display: flex;
     align-items: center;
     gap: var(--size-4-2);
@@ -732,7 +733,13 @@ button.bible-reference-usage-pane-open-button {
     font-size: var(--font-ui-small);
 }
 
+.bible-translation-setting-control > span {
+    flex: 0 0 auto;
+}
+
+/* The scheme names are long: the dropdown takes the rest of the line instead of cutting the name. */
 .bible-translation-setting-control .dropdown {
+    flex: 1 1 auto;
     min-width: 0;
     max-width: 100%;
 }

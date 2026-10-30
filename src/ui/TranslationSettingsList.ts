@@ -42,7 +42,9 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
             name: `${translation.isActive ? "✓ " : ""}${translation.name || translation.id}`,
             desc: createTranslationDescription(translation, translate),
             // The numbering and the code sit under the description: beside the name they get squeezed on a phone.
+            // Obsidian may render the same row again (on mobile it does), so the previous controls go first.
             render: (setting) => {
+                setting.infoEl.querySelectorAll(".bible-translation-setting-controls").forEach((element) => element.remove());
                 const controlsEl = setting.infoEl.createDiv({ cls: "bible-translation-setting-controls" });
 
                 const versificationEl = controlsEl.createEl("label", { cls: "bible-translation-setting-control" });
@@ -73,6 +75,8 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
                         input.refresh();
                     });
                 });
+
+                return () => controlsEl.remove();
             },
         })),
         onReorder: (oldIndex, newIndex) => {
