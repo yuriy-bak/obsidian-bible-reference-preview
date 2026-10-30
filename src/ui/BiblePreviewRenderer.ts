@@ -1,4 +1,4 @@
-import { BOOK_ICON, type BiblePreviewChapterView, type BiblePreviewContent, type BiblePreviewUsageTarget, type BiblePreviewVerse } from "../application/BiblePreviewModel";
+import { BOOK_ICON, type BiblePreviewChapterView, type BiblePreviewContent, type BiblePreviewUsageTarget, type BiblePreviewVerse, formatVerseNumber } from "../application/BiblePreviewModel";
 import { type BibleChapterLocation, type BibleChapterTarget, getChapterTargetFromReferences } from "../application/BibleChapterNavigation";
 
 const CHAPTER_USAGES_BUTTON_CLASS = "bible-preview-chapter-usages-button";
@@ -416,7 +416,7 @@ function appendPreviewVerses(containerEl: HTMLElement, verses: BiblePreviewVerse
 
         const numberEl = createEl("strong");
         numberEl.className = "bible-preview-verse-number";
-        numberEl.textContent = String(verse.number);
+        numberEl.textContent = formatVerseNumber(verse);
         verseEl.appendChild(numberEl);
         verseEl.appendChild(document.createTextNode(" "));
         appendTextWithLineBreaks(verseEl, verse.text);

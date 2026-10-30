@@ -75,6 +75,18 @@ module.exports = { Readable: UnsupportedReadableStream };
     },
 };
 
+// The Brotli decoder's dictionary is 750 KB of source; its browser build unpacks a 70 KB compressed copy instead.
+const brotliBrowserDictionaryPlugin = {
+    name: "brotli-browser-dictionary",
+    setup(build) {
+        build.onResolve({ filter: /^\.\/dictionary-data(\.js)?$/ }, (args) => (
+            /[\\/]brotli[\\/]dec$/.test(args.resolveDir)
+                ? { path: resolve(args.resolveDir, "dictionary-browser.js") }
+                : undefined
+        ));
+    },
+};
+
 const result = await esbuild.build({
     entryPoints: ["main.ts"],
     bundle: true,
@@ -97,7 +109,7 @@ const result = await esbuild.build({
         "@codemirror/state",
         "@codemirror/view",
     ],
-    plugins: [legacyBrowserPolyfillShimPlugin],
+    plugins: [legacyBrowserPolyfillShimPlugin, brotliBrowserDictionaryPlugin],
 });
 
 if (shouldWriteMetafile && result.metafile !== undefined) {

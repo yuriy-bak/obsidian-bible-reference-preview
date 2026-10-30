@@ -43,7 +43,7 @@ export function extractBibleTextFromCompactBook(
     const verses: Verse[] = [];
     const verseEnd = Math.min(input.verseEnd ?? chapter.length - 1, chapter.length - 1);
 
-    for (let verseNumber = input.verseStart; verseNumber <= verseEnd; verseNumber += 1) {
+    for (let verseNumber = findJoinedVerseStart(chapter, input.verseStart); verseNumber <= verseEnd; verseNumber += 1) {
         const compactVerse = chapter[verseNumber];
         if (compactVerse === undefined || compactVerse === null) {
             continue;
@@ -59,6 +59,22 @@ export function extractBibleTextFromCompactBook(
         chapter: input.chapter,
         verses,
     };
+}
+
+/** A verse number inside joined verses (17 of "16–17") starts the text at the joined verse. */
+function findJoinedVerseStart(chapter: Array<CompactVerseData | null>, verseStart: number): number {
+    if (chapter[verseStart] !== undefined && chapter[verseStart] !== null) {
+        return verseStart;
+    }
+    for (let verseNumber = verseStart - 1; verseNumber > 0; verseNumber -= 1) {
+        const compactVerse = chapter[verseNumber];
+        if (compactVerse !== undefined && compactVerse !== null) {
+            return typeof compactVerse === "object" && !Array.isArray(compactVerse) && (compactVerse.verseEnd ?? 0) >= verseStart
+                ? verseNumber
+                : verseStart;
+        }
+    }
+    return verseStart;
 }
 
 function isExtractBibleTextInput(value: ExtractBibleTextInput | BibleIndexV2Data): value is ExtractBibleTextInput {
@@ -108,6 +124,7 @@ function toVerse(number: number, compactVerse: CompactVerseData): Verse {
 
     return {
         number,
+        ...(compactVerse.verseEnd === undefined ? {} : { numberEnd: compactVerse.verseEnd }),
         text: compactVerse.text,
         footnotes: compactVerse.footnotes ?? [],
         paragraphStart: compactVerse.paragraphStart ?? true,

@@ -7,6 +7,11 @@ export function parseXhtmlDocument(text: string): Document {
     return parseMarkup(text, "application/xhtml+xml");
 }
 
+/** Parses an HTML fragment or page with the lenient HTML parser. */
+export function parseHtmlDocument(text: string): Document {
+    return new DOMParser().parseFromString(text, "text/html");
+}
+
 /** Parses an EPUB package or container document. Falls back to the lenient HTML parser when the XML is not well-formed. */
 export function parseXmlDocument(text: string): Document {
     return parseMarkup(text, "application/xml");

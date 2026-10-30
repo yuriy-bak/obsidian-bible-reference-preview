@@ -1,4 +1,5 @@
 import { BibleSource, BibleSourceFile } from "./BibleSource";
+import { DbsHtmlBibleSource } from "./dbs-html/DbsHtmlBibleSource";
 import { EbibleEpubBibleSource } from "./ebible-epub/EbibleEpubBibleSource";
 import { JwEpubBibleSource } from "./jw-epub/JwEpubBibleSource";
 
@@ -7,7 +8,7 @@ import { JwEpubBibleSource } from "./jw-epub/JwEpubBibleSource";
  * recognizes it, so a narrower format goes before a more general one that would also accept its files.
  */
 export function createBibleSources(): BibleSource[] {
-    return [new JwEpubBibleSource(), new EbibleEpubBibleSource()];
+    return [new JwEpubBibleSource(), new EbibleEpubBibleSource(), new DbsHtmlBibleSource()];
 }
 
 export class UnsupportedBibleFileError extends Error {

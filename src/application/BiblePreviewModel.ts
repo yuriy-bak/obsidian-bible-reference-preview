@@ -147,6 +147,8 @@ export type BiblePreviewParagraph = {
 
 export type BiblePreviewVerse = {
     number: number;
+    /** Joined verses: "16–17". */
+    numberEnd?: number;
     text: string;
     highlighted?: boolean;
 };
@@ -217,7 +219,8 @@ export function toBibleChapterPreviewContent(content: BiblePreviewContent, chapt
     const highlightParagraphs = (paragraphs: BiblePreviewParagraph[]): BiblePreviewParagraph[] => paragraphs.map((paragraph) => ({
         verses: paragraph.verses.map((verse) => ({
             ...verse,
-            highlighted: verse.highlighted ?? isVerseInRanges(verse.number, chapterView.highlightedRanges),
+            highlighted: verse.highlighted ?? createNumberRange(verse.number, verse.numberEnd ?? verse.number)
+                .some((number) => isVerseInRanges(number, chapterView.highlightedRanges)),
         })),
     }));
 
@@ -471,13 +474,22 @@ function formatPartParagraphs(part: BibleTextPart, missingVerseText: string, hig
     }
 
     const paragraphs: BiblePreviewParagraph[] = [];
+    const shownVerses = new Set<Verse>();
     for (const verseNumber of getVerseNumbersToShow(part)) {
-        const verse = versesByNumber.get(verseNumber);
+        const verse = versesByNumber.get(verseNumber) ?? findJoinedVerse(part, verseNumber);
+        if (verse !== undefined && shownVerses.has(verse)) {
+            continue;
+        }
+        if (verse !== undefined) {
+            shownVerses.add(verse);
+        }
         const previewVerse: BiblePreviewVerse = verse === undefined
             ? { number: verseNumber, text: missingVerseText }
-            : { number: verse.number, text: verse.text };
+            : { number: verse.number, ...(verse.numberEnd === undefined ? {} : { numberEnd: verse.numberEnd }), text: verse.text };
         if (highlightedReferences !== undefined) {
-            previewVerse.highlighted = highlightedReferences.some((reference) => isVerseInReference(reference, part.range.chapter, verseNumber));
+            const lastNumber = verse?.numberEnd ?? previewVerse.number;
+            previewVerse.highlighted = highlightedReferences.some((reference) => createNumberRange(previewVerse.number, lastNumber)
+                .some((number) => isVerseInReference(reference, part.range.chapter, number)));
         }
 
         if (paragraphs.length === 0 || verse === undefined || verse.paragraphStart !== false) {
@@ -490,6 +502,16 @@ function formatPartParagraphs(part: BibleTextPart, missingVerseText: string, hig
     return paragraphs;
 }
 
+/** The verse that holds a number joined into it (17 of "16–17"). */
+function findJoinedVerse(part: BibleTextPart, verseNumber: number): Verse | undefined {
+    return part.bibleText?.verses.find((verse) => verse.numberEnd !== undefined && verse.number < verseNumber && verseNumber <= verse.numberEnd);
+}
+
+/** "16" or, for joined verses, "16–17". */
+export function formatVerseNumber(verse: Pick<BiblePreviewVerse, "number" | "numberEnd">): string {
+    return verse.numberEnd === undefined ? String(verse.number) : `${verse.number}–${verse.numberEnd}`;
+}
+
 function isVerseInReference(reference: BibleReference, chapter: number, verse: number): boolean {
     const afterStart = chapter > reference.chapterStart || (chapter === reference.chapterStart && verse >= reference.verseStart);
     const beforeEnd = chapter < reference.chapterEnd || (chapter === reference.chapterEnd && verse <= reference.verseEnd);
@@ -499,7 +521,7 @@ function isVerseInReference(reference: BibleReference, chapter: number, verse: n
 function getVerseNumbersToShow(part: BibleTextPart): number[] {
     if (part.range.verseEnd !== undefined) {
         // Missing verses inside the chapter stay visible as gaps; nothing is shown past its last verse.
-        const lastVerse = Math.max(0, ...(part.bibleText?.verses ?? []).map((verse) => verse.number));
+        const lastVerse = Math.max(0, ...(part.bibleText?.verses ?? []).map((verse) => verse.numberEnd ?? verse.number));
         return createNumberRange(part.range.verseStart, Math.min(part.range.verseEnd, lastVerse));
     }
 
@@ -523,9 +545,14 @@ function collectPartFootnotes(part: BibleTextPart, mapping: BookMapping): string
         versesByNumber.set(verse.number, verse);
     }
 
+    const shownVerses = new Set<Verse>();
     return getVerseNumbersToShow(part).flatMap((verseNumber) => {
-        const verse = versesByNumber.get(verseNumber);
-        return verse === undefined ? [] : formatVerseFootnotes(part.range, verse, mapping);
+        const verse = versesByNumber.get(verseNumber) ?? findJoinedVerse(part, verseNumber);
+        if (verse === undefined || shownVerses.has(verse)) {
+            return [];
+        }
+        shownVerses.add(verse);
+        return formatVerseFootnotes(part.range, verse, mapping);
     });
 }
 
@@ -640,6 +667,6 @@ function formatReferenceBlockPlainText(block: Extract<BiblePreviewBlock, { type:
 
 function formatParagraphPlainText(paragraph: BiblePreviewParagraph): string {
     return paragraph.verses
-        .map((verse) => `${verse.number} ${verse.text}`)
+        .map((verse) => `${formatVerseNumber(verse)} ${verse.text}`)
         .join(" ");
 }
