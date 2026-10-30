@@ -713,3 +713,30 @@ button.bible-reference-usage-pane-open-button {
     gap: 8px;
     margin-top: 6px;
 }
+
+/* Translation list: numbering and code under the description */
+.bible-translation-setting-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--size-4-2) var(--size-4-4);
+    margin-top: var(--size-4-2);
+}
+
+.bible-translation-setting-control {
+    display: flex;
+    align-items: center;
+    gap: var(--size-4-2);
+    min-width: 0;
+    max-width: 100%;
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+}
+
+.bible-translation-setting-control .dropdown {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.bible-translation-setting-code {
+    width: 8em;
+}

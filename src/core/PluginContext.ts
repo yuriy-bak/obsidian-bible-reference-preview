@@ -8,6 +8,9 @@ import { createBookMappingFromBibleIndexV2Data } from "../infrastructure/v2/crea
 import { BibleReferenceParser, getBibleReferenceParserSignature, type BibleReferenceMatch } from "../parsing/BibleReferenceParser";
 import { createBookMapping, type BookMapping } from "../parsing/BookMapping";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BiblePluginSettings } from "../settings/PluginSettings";
+import { mapBibleReferences } from "../application/mapBibleReferences";
+import { normalizeTranslationCode, resolveTranslationCodes } from "../translations/translationCodes";
+import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../versification/VersificationRegistry";
 
 type RefreshableSettingsTab = {
     update(): void;
@@ -76,13 +79,64 @@ export class PluginContext {
     /** Signature of the current parser, see getBibleReferenceParserSignature. */
     get parserSignature(): string {
         if (this.currentParserSignature === null) {
-            this.currentParserSignature = getBibleReferenceParserSignature(this.currentBookMapping);
+            this.currentParserSignature = getBibleReferenceParserSignature(this.currentBookMapping, this.getTranslationCodeSignature());
         }
         return this.currentParserSignature;
     }
 
+    /**
+     * References with a translation code come in that translation's numbering; they are mapped to the
+     * active translation's numbering, which everything but the preview of the coded passage works with.
+     */
     parseMatches(text: string): BibleReferenceMatch[] {
-        return this.currentParser.parseMatches(text);
+        const matches = this.currentParser.parseMatches(text);
+        const activeTranslationId = this.currentActiveTranslationId;
+        return matches.map((match) => {
+            if (match.translationId === undefined || activeTranslationId === null) {
+                return match;
+            }
+            if (match.translationId === activeTranslationId) {
+                const { translationId: _translationId, ...plainMatch } = match;
+                return plainMatch;
+            }
+            return {
+                ...match,
+                references: mapBibleReferences(
+                    match.references,
+                    this.getTranslationVersification(match.translationId),
+                    this.getTranslationVersification(activeTranslationId),
+                    getVersificationRegistry(),
+                ),
+                translationReferences: match.references,
+            };
+        });
+    }
+
+    /** The code of every imported translation, in the translation order (see translations/translationCodes). */
+    getTranslationCodes(): Map<string, string> {
+        const translations = this.currentV2Data?.translations ?? {};
+        const order = [
+            ...this.currentSettings.translationOrder.filter((translationId) => translations[translationId] !== undefined),
+            ...Object.keys(translations).filter((translationId) => !this.currentSettings.translationOrder.includes(translationId)),
+        ];
+        return resolveTranslationCodes(
+            order.map((translationId) => ({ id: translationId, name: translations[translationId].name })),
+            this.currentSettings.translationCodes,
+        );
+    }
+
+    private getTranslationVersification(translationId: string): string {
+        return this.currentV2Data?.translations[translationId]?.versification ?? DEFAULT_VERSIFICATION_KEY;
+    }
+
+    // The coded references of indexed notes depend on the codes and on the numbering of every translation.
+    private getTranslationCodeSignature(): string {
+        return [...this.getTranslationCodes()]
+            .map(([translationId, code]) => `${normalizeTranslationCode(code)}=${translationId}:${this.getTranslationVersification(translationId)}`)
+            // The translation order alone must not look like a parser change.
+            .sort()
+            .concat(`active:${this.currentActiveTranslationId === null ? "" : this.getTranslationVersification(this.currentActiveTranslationId)}`)
+            .join("\n");
     }
 
     createRepository(): ObsidianBibleIndexV2Repository {
@@ -104,13 +158,19 @@ export class PluginContext {
             && this.currentV2Data.translations[this.currentActiveTranslationId] !== undefined;
     }
 
-    /** Rebuilds the book names and the parser for the active translation; notifies listeners when the parser changed. */
+    /**
+     * Rebuilds the book names and the parser for the active translation (and the translation codes);
+     * notifies listeners when the parser changed.
+     */
     updateBookMapping(): void {
         const previousParserSignature = this.parserSignature;
         this.currentBookMapping = this.currentV2Data !== null && this.currentActiveTranslationId !== null
             ? createBookMappingFromBibleIndexV2Data(this.currentV2Data, this.currentActiveTranslationId)
             : createBookMapping([]);
-        this.currentParser = new BibleReferenceParser(this.currentBookMapping);
+        this.currentParser = new BibleReferenceParser(
+            this.currentBookMapping,
+            new Map([...this.getTranslationCodes()].map(([translationId, code]) => [normalizeTranslationCode(code), translationId])),
+        );
         this.currentParserSignature = null;
         if (this.parserSignature === previousParserSignature) {
             return;

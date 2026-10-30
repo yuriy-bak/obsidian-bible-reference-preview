@@ -1,4 +1,5 @@
-import type { SettingDefinitionList } from "obsidian";
+import { DropdownComponent, TextComponent, type SettingDefinitionList } from "obsidian";
+import { MAX_TRANSLATION_CODE_LENGTH } from "../translations/translationCodes";
 import type { TranslationSettingsItem } from "../translations/TranslationModels";
 
 type TranslationSettingsListI18nKey =
@@ -7,7 +8,11 @@ type TranslationSettingsListI18nKey =
     | "settings.translations.language"
     | "settings.translations.books"
     | "settings.translations.file"
-    | "settings.translations.versification";
+    | "settings.translations.versification"
+    | "settings.translations.code"
+    | "settings.translations.codeHint"
+    | "settings.translations.codeInvalid"
+    | "settings.translations.codeTaken";
 
 type TranslationSettingsListI18nParams = Record<string, string | number>;
 
@@ -17,6 +22,9 @@ export type TranslationSettingsListInput = {
     /** Scheme names by key, offered in each translation's numbering dropdown. */
     versificationOptions: Record<string, string>;
     onVersificationChange: (translationId: string, versification: string) => Promise<void>;
+    /** Resolves with why the code was not accepted, or null. */
+    onCodeChange: (translationId: string, code: string) => Promise<"invalid" | "taken" | null>;
+    showError: (message: string) => void;
     onDelete: (translationId: string) => Promise<void>;
     onReorder: (nextOrder: string[]) => Promise<void>;
     refresh: () => void;
@@ -33,16 +41,37 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
         items: translations.map((translation) => ({
             name: `${translation.isActive ? "✓ " : ""}${translation.name || translation.id}`,
             desc: createTranslationDescription(translation, translate),
+            // The numbering and the code sit under the description: beside the name they get squeezed on a phone.
             render: (setting) => {
-                setting.addDropdown((dropdown) => {
-                    dropdown
-                        .addOptions(getOptionsWith(input.versificationOptions, translation.versification))
-                        .setValue(translation.versification)
-                        .onChange((value) => {
-                            void input.onVersificationChange(translation.id, value).then(() => input.refresh());
-                        });
-                    dropdown.selectEl.setAttribute("aria-label", translate("settings.translations.versification"));
-                    dropdown.selectEl.title = translate("settings.translations.versification");
+                const controlsEl = setting.infoEl.createDiv({ cls: "bible-translation-setting-controls" });
+
+                const versificationEl = controlsEl.createEl("label", { cls: "bible-translation-setting-control" });
+                versificationEl.createSpan({ text: translate("settings.translations.versification") });
+                new DropdownComponent(versificationEl)
+                    .addOptions(getOptionsWith(input.versificationOptions, translation.versification))
+                    .setValue(translation.versification)
+                    .onChange((value) => {
+                        void input.onVersificationChange(translation.id, value).then(() => input.refresh());
+                    });
+
+                const codeEl = controlsEl.createEl("label", { cls: "bible-translation-setting-control" });
+                codeEl.createSpan({ text: translate("settings.translations.code") });
+                const codeInput = new TextComponent(codeEl).setValue(translation.code);
+                codeInput.inputEl.addClass("bible-translation-setting-code");
+                codeInput.inputEl.maxLength = MAX_TRANSLATION_CODE_LENGTH;
+                codeInput.inputEl.title = translate("settings.translations.codeHint", { code: translation.code });
+                // Saved when the field is left, not on every key: each code change rebuilds the parser.
+                codeInput.inputEl.addEventListener("change", () => {
+                    const code = codeInput.getValue();
+                    if (code.trim() === translation.code) {
+                        return;
+                    }
+                    void input.onCodeChange(translation.id, code).then((error) => {
+                        if (error !== null) {
+                            input.showError(translate(error === "invalid" ? "settings.translations.codeInvalid" : "settings.translations.codeTaken", { code: code.trim() }));
+                        }
+                        input.refresh();
+                    });
                 });
             },
         })),

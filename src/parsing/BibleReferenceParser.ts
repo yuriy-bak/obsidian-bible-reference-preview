@@ -1,6 +1,7 @@
 import { BibleReference } from "../domain/BibleReference";
 import { BookMapping, normalizeBookAlias } from "./BookMapping";
 import { normalizeSearchText } from "./searchTextNormalization";
+import { normalizeTranslationCode } from "../translations/translationCodes";
 
 type BookAliasCandidate = {
     alias: string;
@@ -22,18 +23,18 @@ type NormalizedLine = {
 };
 
 // Bump when the parsing rules change, so indexes built by the old rules are rebuilt.
-export const BIBLE_REFERENCE_PARSER_VERSION = 1;
+export const BIBLE_REFERENCE_PARSER_VERSION = 2;
 
 /**
  * Identifies what the parser recognizes: the rules version and the book aliases.
  * Stored with the reference usage index; a different signature means the notes must be parsed again.
  */
-export function getBibleReferenceParserSignature(mapping: BookMapping): string {
+export function getBibleReferenceParserSignature(mapping: BookMapping, extra = ""): string {
     const aliasEntries = [...mapping.nameToId.entries()]
         .map(([alias, bookId]) => `${alias}=${bookId}${mapping.shortBooks.has(alias) ? "s" : mapping.bigBooks.has(alias) ? "b" : ""}`)
         .sort();
     const oneChapterBooks = [...mapping.oneChapterBooks].sort((left, right) => left - right);
-    const source = `${aliasEntries.join("\n")}\n#${oneChapterBooks.join(",")}`;
+    const source = `${aliasEntries.join("\n")}\n#${oneChapterBooks.join(",")}\n${extra}`;
     return `${BIBLE_REFERENCE_PARSER_VERSION}:${aliasEntries.length}:${hashFnv1a(source)}`;
 }
 
@@ -51,13 +52,24 @@ export type BibleReferenceMatch = {
     to: number;
     text: string;
     references: BibleReference[];
+    /**
+     * Set when a translation code follows the reference ("Пс 22:1 (СП)"): the translation it names and the
+     * references in that translation's numbering. `references` are in the active translation's numbering
+     * once PluginContext has mapped them.
+     */
+    translationId?: string;
+    translationReferences?: BibleReference[];
 };
+
+/** A translation code in brackets right after a reference: "Пс 22:1 (СП)", "Ps 23:1(KJV)". */
+const TRANSLATION_CODE_SUFFIX_PATTERN = /^[ \t]?\(([^()\s]{1,12})\)/u;
 
 export class BibleReferenceParser {
     // Aliases grouped by their first character, longest first within each group.
     private readonly aliasesByFirstCharacter: Map<string, BookAliasCandidate[]>;
 
-    constructor(mapping: BookMapping) {
+    /** @param translationCodes translation ids by normalized code (normalizeTranslationCode) */
+    constructor(mapping: BookMapping, private readonly translationCodes: ReadonlyMap<string, string> = new Map()) {
         this.aliasesByFirstCharacter = this.groupAliasesByFirstCharacter(this.createBookAliases(mapping));
     }
 
@@ -88,11 +100,14 @@ export class BibleReferenceParser {
                     continue;
                 }
 
+                const codeSuffix = this.readTranslationCodeSuffix(text, lastOffset + 1);
+                const to = lastOffset + 1 + (codeSuffix?.length ?? 0);
                 matches.push({
                     from,
-                    to: lastOffset + 1,
-                    text: text.slice(from, lastOffset + 1),
+                    to,
+                    text: text.slice(from, to),
                     references,
+                    ...(codeSuffix === null ? {} : { translationId: codeSuffix.translationId }),
                 });
             }
 
@@ -100,6 +115,15 @@ export class BibleReferenceParser {
         } catch {
             return [];
         }
+    }
+
+    private readTranslationCodeSuffix(text: string, index: number): { length: number; translationId: string } | null {
+        if (this.translationCodes.size === 0) {
+            return null;
+        }
+        const match = TRANSLATION_CODE_SUFFIX_PATTERN.exec(text.slice(index, index + 16));
+        const translationId = match === null ? undefined : this.translationCodes.get(normalizeTranslationCode(match[1]));
+        return match === null || translationId === undefined ? null : { length: match[0].length, translationId };
     }
 
     private normalizeLineWithOffsets(text: string): NormalizedLine {

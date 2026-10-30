@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
 import { openConfirmModal } from "../ui/ConfirmModal";
 import { areStringArraysEqual } from "../utils/ArrayEquality";
+import { isValidTranslationCode, normalizeTranslationCode } from "./translationCodes";
 import { TranslationController, type TranslationControllerState } from "./TranslationController";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./TranslationModels";
 
@@ -50,7 +51,35 @@ export class TranslationService {
     }
 
     getTranslationSettingsItems(): TranslationSettingsItem[] {
-        return TranslationController.getTranslationSettingsItems(this.getControllerState());
+        const codes = this.context.getTranslationCodes();
+        return TranslationController.getTranslationSettingsItems(this.getControllerState())
+            .map((item) => ({ ...item, code: codes.get(item.id) ?? "" }));
+    }
+
+    /**
+     * Stores the code the user gave a translation; an empty code brings back the default one.
+     * Returns why the code was not accepted, or null.
+     */
+    async setTranslationCode(translationId: string, code: string): Promise<"invalid" | "taken" | null> {
+        const trimmedCode = code.trim();
+        const { [translationId]: _previousCode, ...otherCodes } = this.context.settings.translationCodes;
+        if (trimmedCode.length > 0) {
+            if (!isValidTranslationCode(trimmedCode)) {
+                return "invalid";
+            }
+            const normalizedCode = normalizeTranslationCode(trimmedCode);
+            const isTaken = [...this.context.getTranslationCodes()]
+                .some(([otherId, otherCode]) => otherId !== translationId && normalizeTranslationCode(otherCode) === normalizedCode);
+            if (isTaken) {
+                return "taken";
+            }
+        }
+
+        this.context.updateSettings({ translationCodes: trimmedCode.length > 0 ? { ...otherCodes, [translationId]: trimmedCode } : otherCodes });
+        await this.context.saveSettings();
+        this.context.updateBookMapping();
+        await this.effects.refreshVisibleBiblePreviewContent();
+        return null;
     }
 
     /** Stores the numbering scheme the user picked for a translation and redraws the open preview. */

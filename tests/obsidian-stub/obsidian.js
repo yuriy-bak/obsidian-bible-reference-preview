@@ -257,6 +257,10 @@ class ToggleComponent {
 }
 
 class DropdownComponent extends ValueComponent {
+  constructor(containerEl) {
+    super(containerEl.createEl("select", { cls: "dropdown" }));
+  }
+
   get selectEl() {
     return this.inputEl;
   }
@@ -269,6 +273,12 @@ class DropdownComponent extends ValueComponent {
   addOptions(options) {
     for (const [value, display] of Object.entries(options)) this.addOption(value, display);
     return this;
+  }
+}
+
+class TextComponent extends ValueComponent {
+  constructor(containerEl) {
+    super(containerEl.createEl("input", { type: "text" }));
   }
 }
 
@@ -364,7 +374,7 @@ class Setting {
   }
 
   addText(callback) {
-    return this._add(new ValueComponent(this.controlEl.createEl("input", { type: "text" })), callback);
+    return this._add(new TextComponent(this.controlEl), callback);
   }
 
   addTextArea(callback) {
@@ -372,7 +382,7 @@ class Setting {
   }
 
   addDropdown(callback) {
-    return this._add(new DropdownComponent(this.controlEl.createEl("select")), callback);
+    return this._add(new DropdownComponent(this.controlEl), callback);
   }
 
   addToggle(callback) {
@@ -550,6 +560,7 @@ module.exports = {
   TAbstractFile,
   TFile,
   TFolder,
+  TextComponent,
   ToggleComponent,
   View,
   WorkspaceLeaf,

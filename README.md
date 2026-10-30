@@ -82,6 +82,7 @@ Notes:
 - Up to four translations can be selected for comparison.
 - Each translation uses its own book names and reference formatting.
 - References in notes follow the verse numbering of the active translation. A compared translation with another numbering shows the same passage under its own reference: with the Synodal translation active, `Пс 22:1` is shown as `Ps 23:1` in an English Bible. In the chapter view, Psalm 9 of the Synodal numbering is Psalms 9 and 10 in English.
+- To show a passage in a particular translation and its numbering, write the translation code in brackets right after the reference: `Пс 23:1 (NWT)`. The preview shows that translation first, then the compared ones. Codes are made from the translation name and can be changed in the translation list in the settings; an unknown code is ordinary text. The book name must still be one the active translation recognizes. For the usage index, such a reference counts as the same verse in the active numbering.
 - Chapter navigation follows the book order of the active translation (in the Synodal translation, James comes after Acts).
 - Footnotes are shown directly after the text of the corresponding translation.
 - The comparison selector works in both the floating preview and the side panel.
@@ -155,7 +156,7 @@ Reference Usage Index строит локальный индекс Markdown-фа
 
 В режиме сравнения предпросмотр показывает выбранные переводы отдельными блоками. Можно выбрать до четырёх переводов. Заголовки отрывков и сноски используют названия книг конкретного перевода. Сноски выводятся сразу после текста соответствующего перевода.
 
-Ссылки в заметках понимаются в нумерации стихов активного перевода. Перевод с другой нумерацией показывает тот же отрывок под своей ссылкой: при активном Синодальном `Пс 22:1` в английском переводе будет `Ps 23:1`. Переход по главам идёт в порядке книг активного перевода (в Синодальном после Деяний идут соборные послания).
+Ссылки в заметках понимаются в нумерации стихов активного перевода. Перевод с другой нумерацией показывает тот же отрывок под своей ссылкой: при активном Синодальном `Пс 22:1` в английском переводе будет `Ps 23:1`. Чтобы показать отрывок в конкретном переводе и его нумерации, напиши код перевода в скобках сразу после ссылки: `Пс 22:1 (СП)`. Этот перевод показывается первым, за ним переводы сравнения. Код берётся из названия перевода, сменить его можно в списке переводов в настройках; неизвестный код остаётся обычным текстом. Название книги при этом должно распознаваться активным переводом. Для поиска использований такая ссылка считается тем же стихом в нумерации активного перевода. Переход по главам идёт в порядке книг активного перевода (в Синодальном после Деяний идут соборные послания).
 
 Сравнение работает в плавающем окне и в боковой панели. На мобильных устройствах выпадающий список переводов адаптирован под ширину экрана.
 
