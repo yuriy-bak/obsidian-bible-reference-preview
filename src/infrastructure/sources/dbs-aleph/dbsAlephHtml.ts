@@ -2,12 +2,16 @@ import { findElementsByName, getElementName, isElementNode, isTextNode } from ".
 import type { BibleImportVerse } from "../BibleIndexBuilder";
 import { normalizeInline, normalizeVerseText } from "../dbs-html/dbsHtml";
 
-// Markup of the EPUB files that the Digital Bible Society generates with Aleph (bibles.dbs.org): one XHTML
-// file per chapter named by the USFM book code and the chapter number (`chapters/JHN3.xhtml`), a book page
-// without a number (`JHN.xhtml`) with links to its chapters, the chapter in `<div id="chapter_content">`
-// after `<h4 class="c">3</h4><b class="c c3">3</b>`, verse markers `<sup class="v v3" data-verse="3"
-// data-sid="JHN3">3</sup>`, paragraph classes named after USFM markers (`p`, `m`, `q1`…), footnote markers
-// `<a role="doc-noteref" href="#…">` with the notes in `<section role="doc-endnotes">` at the end.
+// Markup that the Digital Bible Society generates with Aleph (bibles.dbs.org) from USFM, in two packagings:
+// - EPUB: one XHTML file per chapter named by the USFM book code and the chapter number (`chapters/JHN3.xhtml`),
+//   a book page without a number (`JHN.xhtml`) with links to its chapters, the chapter in
+//   `<div id="chapter_content">` after `<h4 class="c">3</h4><b class="c c3">3</b>`, verse markers
+//   `<sup class="v v3" data-verse="3" data-sid="JHN3">3</sup>`, footnote markers `<a role="doc-noteref" href="#…">`
+//   with the notes in `<section role="doc-endnotes">` at the end;
+// - HTML archive: one page per book (`html/books/PSA.html`) with the whole book in `<main>`, chapters
+//   `<b id="c2" class="c">2</b>`, verse markers `<sup data-id="PSA_2_1" class="v">1</sup>`, book names in the links
+//   of `html/index.html`.
+// Both use paragraph classes named after USFM markers (`p`, `m`, `q1`…).
 
 /** Book code and chapter number of a chapter file: `chapters/1CH12.xhtml` → 1CH, 12. */
 export const DBS_EPUB_CHAPTER_FILE_PATTERN = /(?:^|\/)([0-9A-Z]{3})(\d+)\.xhtml$/;
@@ -73,16 +77,37 @@ export function extractBookNameFromPage(document: Document): string | null {
     return name.length > 0 ? name : null;
 }
 
+/** Book code of a page of the HTML archive: `html/books/PSA.html` → PSA. */
+export const DBS_ARCHIVE_BOOK_FILE_PATTERN = /(?:^|\/)books\/([0-9A-Z]{3})\.html$/;
+
+/** Book names by USFM code from the links of the archive's `index.html` (`<a href="books/GEN.html">Бытие</a>`), in their order. */
+export function extractBookNamesFromArchiveIndex(document: Document): Map<string, string> {
+    const names = new Map<string, string>();
+
+    for (const link of findElementsByName(document, "a")) {
+        const code = DBS_ARCHIVE_BOOK_FILE_PATTERN.exec(link.getAttribute("href") ?? "")?.[1];
+        const name = normalizeInline(link.textContent ?? "");
+        if (code !== undefined && name.length > 0 && !names.has(code)) {
+            names.set(code, name);
+        }
+    }
+
+    return names;
+}
+
 /**
- * The verses of one chapter file. A chapter without paragraph markup (the verses directly in the chapter
- * container) has no paragraphs to keep, so each verse starts its own.
+ * The verses of one EPUB chapter file or one archive book page (`chapter` is then 0: every verse marker
+ * names its chapter). Text without paragraph markup (the verses directly in the chapter container) has no
+ * paragraphs to keep, so each verse starts its own.
  */
-export function extractVersesFromDbsEpubChapter(document: Document, chapter: number): BibleImportVerse[] {
+export function extractVersesFromAlephDocument(document: Document, chapter: number): BibleImportVerse[] {
     // One pass over the elements instead of getElementsByTagName("*"), whose collection is slow to copy.
     const elements: Element[] = [];
     collectElements(document.documentElement, elements);
     const elementsById = new Map(elements.filter((element) => element.hasAttribute("id")).map((element) => [element.getAttribute("id") ?? "", element]));
-    const content = elementsById.get("chapter_content") ?? elements.find((element) => getElementName(element) === "body");
+    const content = elementsById.get("chapter_content")
+        ?? elements.find((element) => getElementName(element) === "main")
+        ?? elements.find((element) => getElementName(element) === "body");
     if (content === undefined) {
         return [];
     }
@@ -110,7 +135,7 @@ function walk(node: Node, state: ExtractionState): void {
         const name = getElementName(child);
         const classes = getClasses(child);
 
-        if (name === "sup" && classes.includes("v") && child.hasAttribute("data-verse")) {
+        if (name === "sup" && classes.includes("v") && (child.hasAttribute("data-verse") || child.hasAttribute("data-id"))) {
             startVerse(state, child);
         } else if (isNoteReference(child)) {
             const footnote = readFootnote(state, child);
@@ -137,18 +162,24 @@ function walk(node: Node, state: ExtractionState): void {
     }
 }
 
-/** `data-verse="16"`, or a range for joined verses ("16-17"); the chapter comes from `data-sid` ("JHN3"). */
+/**
+ * EPUB: `data-verse="16"`, or a range for joined verses ("16-17"), the chapter from `data-sid` ("JHN3").
+ * Archive: `data-id="JHN_3_16"`, a range as "JHN_3_16-17".
+ */
 function startVerse(state: ExtractionState, marker: Element): void {
     finishVerse(state);
-    const range = /^(\d+)(?:\s*[-–]\s*(\d+))?/.exec(marker.getAttribute("data-verse") ?? "");
-    const sidChapter = /(\d+)$/.exec(marker.getAttribute("data-sid") ?? "")?.[1];
-    if (range === null) {
+    const id = /^[0-9A-Z]{3}_(\d+)_(\d+)(?:\s*[-–]\s*(\d+))?$/.exec(marker.getAttribute("data-id") ?? "");
+    const range = id === null ? /^(\d+)(?:\s*[-–]\s*(\d+))?/.exec(marker.getAttribute("data-verse") ?? "") : null;
+    if (id === null && range === null) {
         return;
     }
-    const verse = Number(range[1]);
-    const verseEnd = range[2] === undefined ? undefined : Number(range[2]);
+    const sidChapter = /(\d+)$/.exec(marker.getAttribute("data-sid") ?? "")?.[1];
+    const chapter = id !== null ? Number(id[1]) : sidChapter === undefined ? state.chapter : Number(sidChapter);
+    const verse = Number(id !== null ? id[2] : range?.[1]);
+    const endText = id !== null ? id[3] : range?.[2];
+    const verseEnd = endText === undefined ? undefined : Number(endText);
     state.current = {
-        chapter: sidChapter === undefined ? state.chapter : Number(sidChapter),
+        chapter,
         verse,
         verseEnd: verseEnd !== undefined && verseEnd > verse ? verseEnd : undefined,
         text: "",

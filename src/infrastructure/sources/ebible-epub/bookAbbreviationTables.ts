@@ -122,3 +122,8 @@ function readLeadingNumber(table: AbbreviationTable, name: string): number {
     // "Второзаконие" starts like "второй": an ordinal counts only as a separate word.
     return ordinal >= 0 && /^\S+ /u.test(name) && !/^второзакон/u.test(name) ? ordinal + 1 : 0;
 }
+
+/** The language of a table that the book names follow (see findTraditionalBookAbbreviations), for files that do not name their language. */
+export function detectLanguageFromBookNames(books: Pick<BibleBook, "id" | "name">[]): string | null {
+    return Object.keys(TABLES_BY_LANGUAGE).find((language) => findTraditionalBookAbbreviations(language, books).size > 0) ?? null;
+}

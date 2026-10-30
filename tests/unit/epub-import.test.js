@@ -295,7 +295,7 @@ module.exports = async () => {
   assert.strictEqual((await selectBibleSource(fakeSources, { fileName: "x", content: new ArrayBuffer(1) })).id, "second");
   assert.strictEqual(getBibleFilePickerAccept(fakeSources), ".first,application/epub+zip,.second,.third");
   assert.strictEqual(getMaxBibleFileBytes(fakeSources), 6000);
-  assert.strictEqual(getBibleFilePickerAccept(createBibleSources()), ".epub,application/epub+zip,.html,.htm,text/html");
+  assert.strictEqual(getBibleFilePickerAccept(createBibleSources()), ".epub,application/epub+zip,.zip,application/zip,.html,.htm,text/html");
 
   // An unrecognized file lists the supported sources.
   let unsupportedError = null;

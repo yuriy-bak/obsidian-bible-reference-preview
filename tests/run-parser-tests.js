@@ -13,7 +13,7 @@ const TEST_FILES = [
   "ebible-import",
   "translation-codes",
   "dbs-import",
-  "dbs-epub-import",
+  "dbs-aleph-import",
 ];
 
 (async () => {
