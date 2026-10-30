@@ -12,6 +12,8 @@ const { getBookIdByUsfmCode, getUsfmCodeByBookId } = require("../../.test-build/
 const { BibleIndexBuilder } = require("../../.test-build/src/infrastructure/sources/BibleIndexBuilder.js");
 const { sanitizeBibleIndexV2Data } = require("../../.test-build/src/infrastructure/v2/BibleIndexV2Validation.js");
 const { detectMissingVersifications } = require("../../.test-build/src/import/detectMissingVersifications.js");
+const { mapBibleReferences } = require("../../.test-build/src/application/mapBibleReferences.js");
+const { getBookIdsInTranslationOrder } = require("../../.test-build/src/application/BiblePreviewContentBuilder.js");
 
 const PSALMS = 19;
 const MALACHI = 39;
@@ -213,4 +215,20 @@ module.exports = async () => {
   assert.strictEqual(v2Data.translations.old.versification, "builtin:rsc");
   assert.deepStrictEqual(v2Data.translations.old.bookOrder, ALL_BOOKS);
   assert.strictEqual(await detectMissingVersifications(repository), false);
+
+  // References of notes in another translation's numbering, joined back into references.
+  const reference = (book, chapterStart, verseStart, chapterEnd, verseEnd) => ({ book, chapterStart, verseStart, chapterEnd, verseEnd });
+  const mapRefs = (references, from, to) => mapBibleReferences(references, `builtin:${from}`, `builtin:${to}`, registry);
+  assert.deepStrictEqual(mapRefs([reference(PSALMS, 22, 1, 22, 3)], "rsc", "eng"), [reference(PSALMS, 23, 1, 23, 3)]);
+  // A range that crosses into the next chapter of the other scheme stays one reference.
+  assert.deepStrictEqual(mapRefs([reference(PSALMS, 9, 20, 9, 23)], "rsc", "eng"), [reference(PSALMS, 9, 19, 10, 2)]);
+  assert.deepStrictEqual(mapRefs([reference(ROMANS, 14, 24, 14, 26)], "rsc", "eng"), [reference(ROMANS, 16, 25, 16, 27)]);
+  const same = [reference(JOHN, 3, 16, 3, 16)];
+  assert.strictEqual(mapRefs(same, "eng", "eng"), same);
+  assert.strictEqual(mapBibleReferences(same, "builtin:eng", "user:unknown", registry), same);
+
+  // Navigation follows the translation's book order; books it does not list come after, by number.
+  assert.deepStrictEqual(getBookIdsInTranslationOrder([45, 44, 59, 1], [1, 44, 59, 45]), [1, 44, 59, 45]);
+  assert.deepStrictEqual(getBookIdsInTranslationOrder([45, 44, 59, 1], undefined), [1, 44, 45, 59]);
+  assert.deepStrictEqual(getBookIdsInTranslationOrder([45, 44, 59, 1], [44, 99]), [44, 1, 45, 59]);
 };

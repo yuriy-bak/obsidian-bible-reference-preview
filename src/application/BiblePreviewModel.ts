@@ -73,6 +73,8 @@ export type BiblePreviewComparisonInput = {
         isMain?: boolean;
         blocks: BibleTextBlock[];
         mapping: BookMapping;
+        /** The passage in this translation's numbering, when it differs from `references`; titles the translation. */
+        references?: BibleReference[];
     }[];
     formatReferenceTitle?: (mapping: BookMapping) => string;
 };
@@ -90,8 +92,10 @@ export function formatBibleComparisonTextBlocks(
                 return {
                     translationName: translation.translationName,
                     isMain: translation.isMain,
-                    referenceTitle: input.formatReferenceTitle?.(translation.mapping)
-                        ?? formatComparisonReferenceTitle(input.references, translation.mapping),
+                    referenceTitle: translation.references !== undefined
+                        ? formatComparisonReferenceTitle(translation.references, translation.mapping)
+                        : input.formatReferenceTitle?.(translation.mapping)
+                            ?? formatComparisonReferenceTitle(input.references, translation.mapping),
                     paragraphs: content.blocks
                         .filter((block): block is BiblePreviewReferenceBlock => block.type === "reference")
                         .flatMap((block) => block.paragraphs),
@@ -196,7 +200,7 @@ export function toBibleChapterPreviewContent(content: BiblePreviewContent, chapt
     const highlightParagraphs = (paragraphs: BiblePreviewParagraph[]): BiblePreviewParagraph[] => paragraphs.map((paragraph) => ({
         verses: paragraph.verses.map((verse) => ({
             ...verse,
-            highlighted: isVerseInRanges(verse.number, chapterView.highlightedRanges),
+            highlighted: verse.highlighted ?? isVerseInRanges(verse.number, chapterView.highlightedRanges),
         })),
     }));
 
@@ -370,7 +374,7 @@ function buildReferenceBlocks(
     }
 
     return block.parts
-        .map((part) => buildPartReferenceBlock(block.reference, part, mapping, missingVerseText))
+        .map((part) => buildPartReferenceBlock(block.reference, part, mapping, missingVerseText, block.highlightedReferences))
         .filter((block): block is BuiltReferenceBlock => block !== null);
 }
 
@@ -385,7 +389,7 @@ function buildSingleChapterBlock(
         return null;
     }
 
-    const paragraphs = formatPartParagraphs(part, missingVerseText);
+    const paragraphs = formatPartParagraphs(part, missingVerseText, block.highlightedReferences);
     if (paragraphs.length === 0) {
         return null;
     }
@@ -409,8 +413,9 @@ function buildPartReferenceBlock(
     part: BibleTextPart,
     mapping: BookMapping,
     missingVerseText: string,
+    highlightedReferences?: BibleReference[],
 ): BuiltReferenceBlock | null {
-    const paragraphs = formatPartParagraphs(part, missingVerseText);
+    const paragraphs = formatPartParagraphs(part, missingVerseText, highlightedReferences);
     if (paragraphs.length === 0) {
         return null;
     }
@@ -442,7 +447,7 @@ function getLastVerseNumber(part: BibleTextPart): number {
     return verseNumbers[verseNumbers.length - 1] ?? part.range.verseStart;
 }
 
-function formatPartParagraphs(part: BibleTextPart, missingVerseText: string): BiblePreviewParagraph[] {
+function formatPartParagraphs(part: BibleTextPart, missingVerseText: string, highlightedReferences?: BibleReference[]): BiblePreviewParagraph[] {
     const versesByNumber = new Map<number, Verse>();
     for (const verse of part.bibleText?.verses ?? []) {
         versesByNumber.set(verse.number, verse);
@@ -454,6 +459,9 @@ function formatPartParagraphs(part: BibleTextPart, missingVerseText: string): Bi
         const previewVerse: BiblePreviewVerse = verse === undefined
             ? { number: verseNumber, text: missingVerseText }
             : { number: verse.number, text: verse.text };
+        if (highlightedReferences !== undefined) {
+            previewVerse.highlighted = highlightedReferences.some((reference) => isVerseInReference(reference, part.range.chapter, verseNumber));
+        }
 
         if (paragraphs.length === 0 || verse === undefined || verse.paragraphStart !== false) {
             paragraphs.push({ verses: [previewVerse] });
@@ -463,6 +471,12 @@ function formatPartParagraphs(part: BibleTextPart, missingVerseText: string): Bi
     }
 
     return paragraphs;
+}
+
+function isVerseInReference(reference: BibleReference, chapter: number, verse: number): boolean {
+    const afterStart = chapter > reference.chapterStart || (chapter === reference.chapterStart && verse >= reference.verseStart);
+    const beforeEnd = chapter < reference.chapterEnd || (chapter === reference.chapterEnd && verse <= reference.verseEnd);
+    return afterStart && beforeEnd;
 }
 
 function getVerseNumbersToShow(part: BibleTextPart): number[] {
