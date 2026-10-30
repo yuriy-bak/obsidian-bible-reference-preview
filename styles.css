@@ -714,7 +714,7 @@ button.bible-reference-usage-pane-open-button {
     margin-top: 6px;
 }
 
-/* Translation list: numbering and code under the description */
+/* Translation list: numbering and code under the description, each label above its field */
 .bible-translation-setting-controls {
     display: flex;
     flex-wrap: wrap;
@@ -723,25 +723,31 @@ button.bible-reference-usage-pane-open-button {
 }
 
 .bible-translation-setting-control {
-    flex: 1 1 14em;
     display: flex;
-    align-items: center;
-    gap: var(--size-4-2);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--size-2-1);
+    margin: 0;
+    padding: 0;
     min-width: 0;
-    max-width: 100%;
     color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+
+/* The scheme names are long: the dropdown takes the whole width instead of cutting the name. */
+.bible-translation-setting-control:first-child {
+    flex: 1 1 100%;
+}
+
+.bible-translation-setting-control .dropdown,
+.bible-translation-setting-control input {
+    margin: 0;
     font-size: var(--font-ui-small);
 }
 
-.bible-translation-setting-control > span {
-    flex: 0 0 auto;
-}
-
-/* The scheme names are long: the dropdown takes the rest of the line instead of cutting the name. */
 .bible-translation-setting-control .dropdown {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: 100%;
+    width: 100%;
+    max-width: none;
 }
 
 .bible-translation-setting-code {
