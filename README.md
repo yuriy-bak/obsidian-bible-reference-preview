@@ -2,19 +2,19 @@
 
 **English** | [Русский](README.ru.md)
 
-Write `John 3:16` in a note and read the verse right next to it, in a floating window or in a side panel. Works offline with Bible translations you import once from free EPUB and HTML files, in any language they are published in.
+Write `John 3:16` in a note and read the verse right next to it, in a floating window or in a side panel. Works offline on desktop and on phones (Android, iOS), with Bible translations you import once from free EPUB and HTML files, in any language they are published in.
 
 > **GIF placeholder: `docs/images/en/hero.gif`** (10–15 s)
 > Type `John 3:16` in a note → the floating preview opens → press `⇄` and pick a second translation → both translations are shown side by side.
 
 ## Why this plugin
 
-- **Works offline.** Translations are stored in your vault; the plugin makes no network requests.
+- **Works offline.** Translations are stored locally on your device; the plugin makes no network requests.
 - **Your translations.** Import Bibles from jw.org, eBible.org (hundreds of translations in many languages) and the Digital Bible Society (dbs.org).
 - **Compare up to four translations** side by side. Verse numbering is converted between translations: the Synodal Psalm 22 is shown as Psalm 23 in an English Bible.
 - **Read the whole chapter** from any reference, with the cited verses highlighted, and move between chapters and books.
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
-- **Desktop and mobile**, Russian and English interface.
+- **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
 ## Screenshots
 
@@ -54,7 +54,9 @@ More sources and details are in [Importing a translation](#importing-a-translati
 
 ## Installation
 
-**From the catalog.** Install **Bible Reference Preview** from Settings → Community plugins (Obsidian 1.13 or later).
+**From the catalog.** Install **Bible Reference Preview** from Settings → Community plugins (Obsidian 1.13 or later), on desktop or on a phone.
+
+Translations are stored in the plugin folder (`.obsidian/plugins/bible-reference-preview/data`), not in your notes. To use a translation on another device, import the file there too, or use a sync tool that copies plugin folders.
 
 **Beta versions** are GitHub pre-releases. Install them with [BRAT](https://github.com/TfTHacker/obsidian42-brat):
 
@@ -92,7 +94,7 @@ The verse numbering scheme is detected from the text. If detection is not certai
    3. Choose the type **Webpage, HTML only** (Chrome, Edge) or **Web Page, HTML only** (Firefox), and save.
    4. Import the saved `.html` file. Type the translation name in the import dialog. The page stores only its short code, for example `RUSERV`.
 
-   A phone browser cannot save the page this way. Make the file on a computer, then copy it to the phone or import it in Obsidian on the computer: the imported translation syncs with the vault.
+   A phone browser cannot save the page this way. Make the file on a computer, copy it to the phone and import it there.
 
 Verses that the translation joins together are shown under one number ("16–17"). Some dbs.org files have lost lists, such as genealogies (1 Chronicles 1–2, Matthew 1:2–17, Romans 16:3–16); those verses are shown as missing. The plugin only reads the file for you and shares nothing; check the license of the translation before sharing the file.
 
