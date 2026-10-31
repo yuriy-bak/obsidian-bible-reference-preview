@@ -1,8 +1,8 @@
-import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
+import { ItemView, type Menu, Notice, WorkspaceLeaf } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
 import { ICONS, stripBookIcon } from "./Icons";
-import { BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { addOpenSettingsMenuItem, BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
@@ -33,6 +33,11 @@ export class BiblePreviewPaneView extends ItemView {
     getViewType(): string { return BIBLE_PREVIEW_VIEW_TYPE; }
     getDisplayText(): string { return stripBookIcon(this.input.getTitle()); }
     getIcon(): string { return "book-open"; }
+
+    onPaneMenu(menu: Menu, source: string): void {
+        super.onPaneMenu(menu, source);
+        addOpenSettingsMenuItem(menu, this.input);
+    }
 
     async onOpen(): Promise<void> {
         this.buildLayout();

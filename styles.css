@@ -512,6 +512,11 @@ button.bible-preview-pane-icon-button.is-active,
     font-size: var(--font-text-size);
 }
 
+/* The header's context menu must be above the floating window (z-index 1000). */
+body.bible-preview-floating-menu-open > .menu {
+    z-index: 1003;
+}
+
 button.bible-preview-floating-collapsed-button,
 button.bible-preview-floating-collapsed-button:hover {
     position: fixed;

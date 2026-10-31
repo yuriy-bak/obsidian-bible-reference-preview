@@ -1,8 +1,8 @@
-import { Notice, Platform, setIcon } from "obsidian";
+import { Menu, Notice, Platform, setIcon } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
 import { ICONS } from "./Icons";
-import { BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { addOpenSettingsMenuItem, BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 import {
     clampNumber,
     COLLAPSED_BUTTON_SIZE,
@@ -35,6 +35,7 @@ type PreviewSizeBounds = { maxWidth: number; maxHeight: number };
 type PreviewPositionBounds = { minLeft: number; maxLeft: number; minTop: number; maxTop: number };
 
 const HEADER_HEIGHT = 34;
+const FLOATING_MENU_OPEN_CLASS = "bible-preview-floating-menu-open";
 const DEFAULT_DESKTOP_WIDTH = 430;
 const DEFAULT_DESKTOP_HEIGHT = 320;
 const DEFAULT_MOBILE_HEIGHT = 220;
@@ -283,6 +284,27 @@ export class FloatingBiblePreviewWindow {
         return panelEl;
     }
 
+    private showHeaderContextMenu(event: MouseEvent): void {
+        if (this.labels.onOpenSettings === undefined) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const onOpenSettings = this.labels.onOpenSettings;
+        const menu = new Menu();
+        addOpenSettingsMenuItem(menu, {
+            ...this.labels,
+            // The settings modal sits below the floating window (z-index), so the window steps aside.
+            onOpenSettings: () => {
+                this.hide();
+                onOpenSettings();
+            },
+        });
+        // Obsidian menus are also below the floating window; this body class lifts them while the menu is open.
+        const bodyEl = this.hostDocument.body;
+        bodyEl.addClass(FLOATING_MENU_OPEN_CLASS);
+        menu.onHide(() => bodyEl.removeClass(FLOATING_MENU_OPEN_CLASS));
+        menu.showAtMouseEvent(event);
+    }
+
     private buildPreviewHeader(panelEl: HTMLElement): void {
         const header = new BiblePreviewHeader(panelEl, this.labels, {
             variant: "floating",
@@ -293,6 +315,7 @@ export class FloatingBiblePreviewWindow {
         });
         this.header = header;
         header.el.addEventListener("pointerdown", (event) => this.pointer.startPreviewDrag(event));
+        header.el.addEventListener("contextmenu", (event) => this.showHeaderContextMenu(event));
 
         this.openInPanelButtonEl = header.addIconButton(ICONS.openInPanel, this.getOpenInPanelAriaLabel(), () => this.handleOpenInPanelButtonClick());
         this.updateOpenInPanelButtonText();
