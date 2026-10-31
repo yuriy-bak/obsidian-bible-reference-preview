@@ -448,7 +448,76 @@ class View extends Component {
   async setState() {}
 }
 
+class MenuItem {
+  constructor() {
+    this.title = "";
+    this.icon = null;
+    this.callback = null;
+  }
+
+  setTitle(title) {
+    this.title = title;
+    return this;
+  }
+
+  setIcon(icon) {
+    this.icon = icon;
+    return this;
+  }
+
+  onClick(callback) {
+    this.callback = callback;
+    return this;
+  }
+}
+
+class Menu extends Component {
+  constructor() {
+    super();
+    this.items = [];
+    this.hideCallbacks = [];
+    this.shown = false;
+  }
+
+  addItem(cb) {
+    const item = new MenuItem();
+    cb(item);
+    this.items.push(item);
+    return this;
+  }
+
+  addSeparator() {
+    return this;
+  }
+
+  showAtMouseEvent() {
+    this.shown = true;
+    state.lastMenu = this;
+    return this;
+  }
+
+  showAtPosition() {
+    return this.showAtMouseEvent();
+  }
+
+  onHide(callback) {
+    this.hideCallbacks.push(callback);
+  }
+
+  hide() {
+    this.shown = false;
+    for (const callback of this.hideCallbacks) callback();
+    return this;
+  }
+
+  close() {
+    this.hide();
+  }
+}
+
 class ItemView extends View {
+  onPaneMenu() {}
+
   addAction(icon, title, callback) {
     const el = this.containerEl.createEl("button", { attr: { "aria-label": title, "data-icon": icon } });
     el.addEventListener("click", callback);
@@ -561,6 +630,8 @@ module.exports = {
   Events,
   ItemView,
   MarkdownView,
+  Menu,
+  MenuItem,
   Modal,
   Notice,
   Platform,

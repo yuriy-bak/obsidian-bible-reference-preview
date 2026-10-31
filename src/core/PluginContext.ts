@@ -12,6 +12,14 @@ import { mapBibleReferences } from "../application/mapBibleReferences";
 import { normalizeTranslationCode, resolveTranslationCodes } from "../translations/translationCodes";
 import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../versification/VersificationRegistry";
 
+// app.setting is not part of the public API, but it is the usual way for plugins to open their settings tab.
+type AppWithSettingModal = App & {
+    setting?: {
+        open(): void;
+        openTabById(id: string): unknown;
+    };
+};
+
 type RefreshableSettingsTab = {
     update(): void;
 };
@@ -70,6 +78,14 @@ export class PluginContext {
 
     async saveSettings(): Promise<void> {
         await this.plugin.saveData(this.currentSettings);
+    }
+
+    /** Opens Obsidian settings on this plugin's tab. */
+    openPluginSettings(): void {
+        const setting = (this.app as AppWithSettingModal).setting;
+        if (setting === undefined) return;
+        setting.open();
+        setting.openTabById(this.plugin.manifest.id);
     }
 
     t(key: I18nKey, params?: I18nParams): string {

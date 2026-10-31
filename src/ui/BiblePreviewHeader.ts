@@ -1,4 +1,4 @@
-import { setIcon } from "obsidian";
+import { setIcon, type Menu } from "obsidian";
 import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
 import { getHTMLElementTarget } from "../utils/EventTargetElement";
@@ -12,6 +12,8 @@ export type BiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "botto
 export type BiblePreviewHeaderInput = {
     getTitle: () => string;
     getCopyAria: () => string;
+    getOpenSettingsText?: () => string;
+    onOpenSettings?: () => void;
     isComparisonEnabled?: () => boolean;
     getComparisonButtonAria?: () => string;
     getComparisonTranslationsTitle?: () => string;
@@ -154,4 +156,14 @@ function stopSelectorEventPropagation(event: Event): void {
     if (target !== null && target.closest(".bible-preview-comparison-selector") !== null) {
         event.stopPropagation();
     }
+}
+
+/** Adds "Plugin settings" to a menu of the preview (the side panel's "More options" or the floating header's context menu). */
+export function addOpenSettingsMenuItem(menu: Menu, input: BiblePreviewHeaderInput): void {
+    const onOpenSettings = input.onOpenSettings;
+    if (onOpenSettings === undefined) return;
+    menu.addItem((item) => item
+        .setTitle(input.getOpenSettingsText?.() ?? "Plugin settings")
+        .setIcon("settings")
+        .onClick(() => onOpenSettings()));
 }

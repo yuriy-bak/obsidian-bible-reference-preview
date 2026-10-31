@@ -274,6 +274,8 @@ export class BiblePreviewService {
             getTitle: () => `📖 ${this.translations.getActiveTranslationPreviewTitle()}`,
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
             getCopyAria: () => t("preview.copyAria"),
+            getOpenSettingsText: () => t("preview.openSettings"),
+            onOpenSettings: () => this.context.openPluginSettings(),
             getFindUsagesButtonAria: (target: BiblePreviewUsageTarget) => t("preview.findUsagesAria", { reference: target.title }),
             onFindUsages: (target: BiblePreviewUsageTarget) => this.effects.showReferenceUsagesForPreviewBlock(target, this.captureReturnPoint()),
             isComparisonEnabled,

@@ -1,4 +1,5 @@
 const assert = require("assert");
+const obsidian = require("obsidian");
 const { activateTranslation, importBible, startPlugin, stopPlugin } = require("./helpers.js");
 
 // PluginContext tells its listeners (editor links, reading views, usage index) only about a real parser change.
@@ -31,6 +32,26 @@ module.exports = async function runPluginContextTests() {
   assert.strictEqual(context.parserSignature, withEnglishCodeSignature);
   await activateTranslation(plugin, "ru");
   assert.strictEqual(notifications, 4, "an order that keeps the active translation does not notify");
+
+  // "Plugin settings" in the preview menus opens Obsidian settings on this plugin's tab.
+  const settingCalls = [];
+  plugin.app.setting = {
+    open: () => settingCalls.push("open"),
+    openTabById: (id) => settingCalls.push(`tab:${id}`),
+  };
+  const paneInput = plugin.preview.createPaneViewInput();
+  const floatingInput = plugin.preview.createFloatingWindowInput();
+  assert.strictEqual(paneInput.getOpenSettingsText(), "Plugin settings");
+  assert.strictEqual(typeof floatingInput.onOpenSettings, "function");
+  const menu = new obsidian.Menu();
+  require("../../.test-build/src/ui/BiblePreviewHeader.js").addOpenSettingsMenuItem(menu, paneInput);
+  assert.strictEqual(menu.items.length, 1);
+  assert.strictEqual(menu.items[0].icon, "settings");
+  menu.items[0].callback();
+  assert.deepStrictEqual(settingCalls, ["open", `tab:${plugin.manifest.id}`]);
+
+  delete plugin.app.setting;
+  context.openPluginSettings();
 
   stopPlugin(plugin);
 };
