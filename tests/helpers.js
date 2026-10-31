@@ -31,6 +31,7 @@ const {
 } = require("../.test-build/src/infrastructure/v2/LazyBibleIndexV2.js");
 const {
   createBookMappingFromBibleIndexV2Data,
+  createCombinedBookMappingFromBibleIndexV2Data,
 } = require("../.test-build/src/infrastructure/v2/createBookMappingFromBibleIndexV2Data.js");
 const { JSDOM } = require("jsdom");
 global.DOMParser = new JSDOM("").window.DOMParser;
@@ -114,6 +115,7 @@ module.exports = {
   BiblePreviewAnalyzer,
   LazyBibleIndexV2,
   createBookMappingFromBibleIndexV2Data,
+  createCombinedBookMappingFromBibleIndexV2Data,
   JSDOM,
   enrichBookTableFromNavigationDocument,
   extractBookNavigationAliasesFromDocument,
