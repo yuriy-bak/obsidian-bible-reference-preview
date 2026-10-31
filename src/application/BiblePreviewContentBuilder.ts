@@ -3,11 +3,13 @@ import { createBookMappingFromBibleIndexV2Data } from "../infrastructure/v2/crea
 import { TranslationController } from "../translations/TranslationController";
 import type { TranslationService } from "../translations/TranslationService";
 import { BiblePreviewAnalyzer } from "./BiblePreviewAnalyzer";
-import type { BibleChapterTarget } from "./BibleChapterNavigation";
+import type { BibleChapterLocation, BibleChapterTarget } from "./BibleChapterNavigation";
 import { getBibleChapterTextBlock, getBibleTextBlocks } from "./getBibleTexts";
 import { type BiblePreviewContent, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./BiblePreviewModel";
 import { mapBibleReferences } from "./mapBibleReferences";
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
+import type { BibleReference } from "../domain/BibleReference";
+import type { BookMapping } from "../parsing/BookMapping";
 import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../versification/VersificationRegistry";
 
 /** Builds preview content from the current Bible data. Each call reads the data anew, so imports and translation changes apply at once. */
@@ -25,8 +27,40 @@ export class BiblePreviewContentBuilder {
         return this.createAnalyzer().rebuildContent(content);
     }
 
-    buildChapter(target: BibleChapterTarget): Promise<BiblePreviewContent | null> {
-        return this.createAnalyzer().buildChapterContent(target);
+    /** A whole chapter in `translationId` (the active translation by default). */
+    buildChapter(target: BibleChapterTarget, translationId?: string): Promise<BiblePreviewContent | null> {
+        return this.createAnalyzer().buildChapterContent(target, translationId);
+    }
+
+    hasTranslation(translationId: string): boolean {
+        return this.context.v2Data?.translations[translationId] !== undefined;
+    }
+
+    /** The first chapter of the translation's first book. */
+    getFirstChapter(translationId: string): BibleChapterLocation | null {
+        const book = getTranslationBookIds(this.context.v2Data, translationId, this.context.bookMapping)[0];
+        return book === undefined ? null : { book, chapter: 1 };
+    }
+
+    /** The references in another translation's numbering; the same array when both use the same scheme. */
+    mapReferences(references: BibleReference[], fromTranslationId: string, toTranslationId: string): BibleReference[] {
+        const v2Data = this.context.v2Data;
+        return mapBibleReferences(
+            references,
+            getTranslationVersification(v2Data, fromTranslationId),
+            getTranslationVersification(v2Data, toTranslationId),
+            getVersificationRegistry(),
+        );
+    }
+
+    /** The chapter in another translation's numbering, by its first verse (Ps 22 of the Synodal numbering is Ps 23 in English). */
+    mapChapterLocation(location: BibleChapterLocation, fromTranslationId: string, toTranslationId: string): BibleChapterLocation {
+        const [mapped] = this.mapReferences(
+            [{ book: location.book, chapterStart: location.chapter, verseStart: 1, chapterEnd: location.chapter, verseEnd: 1 }],
+            fromTranslationId,
+            toTranslationId,
+        );
+        return mapped === undefined ? location : { book: mapped.book, chapter: mapped.chapterStart };
     }
 
     private createAnalyzer(): BiblePreviewAnalyzer {
@@ -41,7 +75,7 @@ export class BiblePreviewContentBuilder {
             isPreviewComparisonEnabled: () => context.settings.previewComparisonEnabled,
             parseMatches: (text) => context.parseMatches(text),
             getBibleTextBlocks: (references, translationId, sourceText) => getBibleTextBlocks(references, bibleIndex, translationId, sourceText),
-            formatBibleTextBlocks: (blocks) => formatBibleTextBlocks(blocks, bookMapping, context.t("preview.missingVerse")),
+            formatBibleTextBlocks: (blocks, mapping) => formatBibleTextBlocks(blocks, mapping ?? bookMapping, context.t("preview.missingVerse")),
             formatBibleComparisonTextBlocks: (inputs) => formatBibleComparisonTextBlocks(inputs, context.t("preview.missingVerse")),
             getComparisonTranslationIds: () => TranslationController.getComparisonTranslationIds(translationState),
             getTranslationPreviewTitle: (translationId) => TranslationController.getTranslationPreviewTitle(translationState, translationId),
@@ -55,18 +89,19 @@ export class BiblePreviewContentBuilder {
                 getVersificationRegistry(),
             ),
             getBibleChapterTextBlock: (book, chapter, translationId) => getBibleChapterTextBlock(book, chapter, bibleIndex, translationId),
-            getBookIds: () => getBookIdsInTranslationOrder(
-                [...bookMapping.idToDisplayName.keys()],
-                context.activeTranslationId === null ? undefined : v2Data?.translations[context.activeTranslationId]?.bookOrder,
-            ),
-            getChapterCount: (book) => {
-                const activeTranslationId = context.activeTranslationId;
-                return activeTranslationId === null
-                    ? undefined
-                    : v2Data?.translations[activeTranslationId]?.books[String(book)]?.chapterCount;
-            },
+            getBookIds: (translationId) => getTranslationBookIds(v2Data, translationId, bookMapping),
+            getChapterCount: (book, translationId) => v2Data?.translations[translationId]?.books[String(book)]?.chapterCount,
         });
     }
+}
+
+/** The translation's books in its order; the active translation's books for old data without books. */
+function getTranslationBookIds(v2Data: BibleIndexV2Data | null, translationId: string, activeMapping: BookMapping): number[] {
+    const translation = v2Data?.translations[translationId];
+    const bookIds = translation === undefined
+        ? [...activeMapping.idToDisplayName.keys()]
+        : Object.keys(translation.books).map(Number).filter(Number.isInteger);
+    return getBookIdsInTranslationOrder(bookIds, translation?.bookOrder);
 }
 
 function getTranslationVersification(v2Data: BibleIndexV2Data | null, translationId: string): string {

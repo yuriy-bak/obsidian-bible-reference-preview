@@ -6,12 +6,14 @@ import { BibleLibraryService } from "./src/import/BibleLibraryService";
 import { registerPluginCommands } from "./src/lifecycle/PluginCommandRegistration";
 import { processReadingModeBibleReferences } from "./src/reading-mode/ReadingModeBibleReferenceProcessor";
 import { rerenderReadingModeViews } from "./src/reading-mode/ReadingModeRerender";
-import { ReferenceUsageService } from "./src/reference-usage/ReferenceUsageService";
+import { ReferenceUsageService, type ReferenceUsageReturnPoint } from "./src/reference-usage/ReferenceUsageService";
 import { SettingsService } from "./src/settings/SettingsService";
 import { TranslationService } from "./src/translations/TranslationService";
 import { BiblePluginSettingTab } from "./src/ui/BiblePluginSettingTab";
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView } from "./src/ui/BiblePreviewPaneView";
-import { BiblePreviewService } from "./src/ui/BiblePreviewService";
+import { BiblePreviewService, type BiblePreviewReturnPoint } from "./src/ui/BiblePreviewService";
+import { BibleReaderService } from "./src/reader/BibleReaderService";
+import { BIBLE_READER_VIEW_TYPE, BibleReaderView } from "./src/ui/BibleReaderView";
 import { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
 import { FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView } from "./src/ui/ReferenceUsagePaneView";
@@ -25,6 +27,7 @@ export default class BiblePlugin extends Plugin {
         refreshFloatingPreviewLabels: () => this.preview.refreshFloatingLabels(),
         refreshBiblePreviewLocalizedLabels: () => {
             this.preview.refreshLocalizedLabels();
+            void this.reader.refreshAll();
             this.editor.refreshLocalizedLabels();
             this.readingModePreviewController?.refreshLocalizedLabels();
         },
@@ -34,14 +37,24 @@ export default class BiblePlugin extends Plugin {
         updatePluginActiveRibbonIcon: () => this.updatePluginActiveRibbonIcon(),
     });
     private readonly translations = new TranslationService(this.context, {
-        refreshVisibleBiblePreviewContent: () => this.preview.refreshVisibleContent(),
+        refreshVisibleBiblePreviewContent: async () => {
+            await this.preview.refreshVisibleContent();
+            await this.reader.refreshAll();
+        },
     });
     private readonly contentBuilder = new BiblePreviewContentBuilder(this.context, this.translations);
     private readonly library = new BibleLibraryService(this.context, this.translations);
     private readonly preview: BiblePreviewService = new BiblePreviewService(this.context, this.settingsService, this.translations, this.contentBuilder, {
-        showReferenceUsagesForPreviewBlock: (block, returnPoint) => void this.referenceUsage.showUsagesForPreviewBlock(block, returnPoint),
+        showReferenceUsagesForPreviewBlock: (block, returnPoint) => void this.referenceUsage.showUsagesForPreviewBlock(block, this.toUsagesReturnPoint(returnPoint)),
+        openChapterInReader: (target, translationId, newTab) => void this.reader.openChapter(target, translationId, { newTab }),
+        refreshReaders: () => void this.reader.refreshAll(),
+    });
+    private readonly reader: BibleReaderService = new BibleReaderService(this.context, this.settingsService, this.translations, this.contentBuilder, {
+        revealPreview: () => void this.preview.reveal(),
+        refreshPreview: () => void this.preview.refreshVisibleContent(),
+        showUsagesForPreviewBlock: (block, returnPoint) => void this.referenceUsage.showUsagesForPreviewBlock(block, returnPoint),
         getChapterUsageCount: (location) => this.referenceUsage.countUsagesInChapter(location),
-        showReferenceUsagesForChapter: (location, title, returnPoint) => void this.referenceUsage.showUsagesForChapter(location, title, returnPoint),
+        showUsagesForChapter: (location, title, returnPoint) => void this.referenceUsage.showUsagesForChapter(location, title, returnPoint),
     });
     private readonly editor = new EditorService(this.context, this.settingsService, this.contentBuilder, this.preview);
     private readonly referenceUsage = new ReferenceUsageService(this.context, this.editor, this.preview);
@@ -72,9 +85,11 @@ export default class BiblePlugin extends Plugin {
             settings: this.settingsService,
             library: this.library,
             preview: this.preview,
+            reader: this.reader,
             referenceUsage: this.referenceUsage,
             editor: this.editor,
         });
+        this.addRibbonIcon("book-open-text", this.context.t("command.openBibleReader"), () => void this.reader.openReader());
 
         this.pluginActiveRibbonIconEl = this.addRibbonIcon(
             "book-open",
@@ -95,7 +110,10 @@ export default class BiblePlugin extends Plugin {
         this.addSettingTab(settingsTab);
         this.context.setSettingsTab(settingsTab);
 
-        this.registerEvent(this.app.workspace.on("active-leaf-change", (activeLeaf) => this.preview.handleActiveLeafChange(activeLeaf)));
+        this.registerEvent(this.app.workspace.on("active-leaf-change", (activeLeaf) => {
+            this.reader.handleActiveLeafChange(activeLeaf);
+            this.preview.handleActiveLeafChange(activeLeaf);
+        }));
         // The main window and every popout window get the same keyboard and pointer listeners.
         this.registerWindowListeners(window);
         this.registerEvent(this.app.workspace.on("window-open", (_workspaceWindow, popoutWindow) => this.registerWindowListeners(popoutWindow)));
@@ -150,6 +168,7 @@ export default class BiblePlugin extends Plugin {
             }
             return view;
         });
+        this.registerView(BIBLE_READER_VIEW_TYPE, (leaf) => new BibleReaderView(leaf, this.reader.createViewInput()));
         this.registerView(REFERENCE_USAGE_VIEW_TYPE, (leaf) => new ReferenceUsagePaneView(leaf, this.referenceUsage.createPaneViewInput()));
     }
 
@@ -185,8 +204,11 @@ export default class BiblePlugin extends Plugin {
             refreshFloatingPreviewLabels: () => this.preview.refreshFloatingLabels(),
             isFloatingPreviewTarget: (target) => this.preview.isFloatingTarget(target),
             hideFloatingBiblePreview: () => this.preview.hideFloating(),
-            isBiblePreviewChapterModeActive: () => this.preview.isChapterModeActive(),
         });
+    }
+
+    private toUsagesReturnPoint(point: BiblePreviewReturnPoint | null): ReferenceUsageReturnPoint | null {
+        return point === null ? null : { kind: "reference", run: () => this.preview.returnTo(point) };
     }
 
     private updatePluginActiveRibbonIcon(): void {

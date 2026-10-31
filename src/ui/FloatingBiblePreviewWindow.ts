@@ -154,7 +154,7 @@ export class FloatingBiblePreviewWindow {
         this.previewContent = content;
         this.previewText = content.plainText;
         renderBiblePreviewContent(this.previewContentEl, content, {
-            ...createChapterRenderOptions(this.labels, content, () => this.previewContentEl.scrollTop),
+            ...createChapterRenderOptions(this.labels),
             getFindUsagesButtonText: this.labels.getFindUsagesButtonText,
             getFindUsagesButtonAria: this.labels.getFindUsagesButtonAria,
             onFindUsages: this.labels.onFindUsages,

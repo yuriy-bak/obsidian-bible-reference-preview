@@ -24,15 +24,6 @@ const {
   isVerseInRanges,
 } = require("../.test-build/src/application/BibleChapterNavigation.js");
 const {
-  backFromBiblePreviewChapter,
-  isBiblePreviewChapterModeActive,
-  navigateBiblePreviewChapter,
-  isBiblePreviewChapterHighlightHidden,
-  setBiblePreviewChapterHighlightHidden,
-  openBiblePreviewChapter,
-  trackShownBiblePreviewContent,
-} = require("../.test-build/src/preview-navigation/BiblePreviewChapterFlow.js");
-const {
   BiblePreviewAnalyzer,
 } = require("../.test-build/src/application/BiblePreviewAnalyzer.js");
 const {
@@ -118,13 +109,6 @@ module.exports = {
   findAdjacentChapter,
   getChapterTargetFromReferences,
   isVerseInRanges,
-  backFromBiblePreviewChapter,
-  isBiblePreviewChapterModeActive,
-  navigateBiblePreviewChapter,
-  isBiblePreviewChapterHighlightHidden,
-  setBiblePreviewChapterHighlightHidden,
-  openBiblePreviewChapter,
-  trackShownBiblePreviewContent,
   BiblePreviewAnalyzer,
   LazyBibleIndexV2,
   createBookMappingFromBibleIndexV2Data,

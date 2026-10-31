@@ -295,6 +295,20 @@ button.bible-preview-pane-icon-button {
     padding: 0;
 }
 
+/* Bible reader: the pane layout; in a wide tab the text keeps the note line width */
+.bible-reader-root {
+    background: var(--background-primary);
+}
+
+.bible-reader-content {
+    padding-left: max(10px, calc((100% - var(--file-line-width, 700px)) / 2));
+    padding-right: max(10px, calc((100% - var(--file-line-width, 700px)) / 2));
+}
+
+.bible-reader-empty {
+    color: var(--text-muted);
+}
+
 /* Floating preview window. Position, size and visibility are set from JS; the background comes from the setting. */
 .bible-preview-floating-panel {
     position: fixed;

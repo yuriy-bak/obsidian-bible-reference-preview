@@ -20,6 +20,8 @@ export type BiblePreviewContent = {
 };
 
 export type BiblePreviewChapterView = BibleChapterTarget & {
+    /** The translation the chapter is shown in; the location is in its numbering. */
+    translationId: string;
     title: string;
     previous: BibleChapterLocation | null;
     next: BibleChapterLocation | null;
@@ -39,9 +41,12 @@ export type BiblePreviewUsageTarget = {
 };
 
 export type BiblePreviewComparisonTranslation = {
+    translationId: string;
     translationName: string;
     isMain?: boolean;
     referenceTitle: string;
+    /** The passage in this translation's numbering. */
+    references: BibleReference[];
     paragraphs: BiblePreviewParagraph[];
     footnotes: string[];
 };
@@ -78,6 +83,7 @@ export type BiblePreviewComparisonInput = {
     title: string;
     references: BibleReference[];
     translations: {
+        translationId: string;
         translationName: string;
         isMain?: boolean;
         blocks: BibleTextBlock[];
@@ -100,8 +106,10 @@ export function formatBibleComparisonTextBlocks(
             .map((translation) => {
                 const content = formatBibleTextBlocks(translation.blocks, translation.mapping, missingVerseText);
                 return {
+                    translationId: translation.translationId,
                     translationName: translation.translationName,
                     isMain: translation.isMain,
+                    references: translation.references ?? input.references,
                     referenceTitle: translation.references !== undefined
                         ? formatComparisonReferenceTitle(translation.references, translation.mapping)
                         : input.formatReferenceTitle?.(translation.mapping)

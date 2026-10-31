@@ -10,7 +10,6 @@ export type BibleReadingModePreviewControllerInput = {
     refreshFloatingPreviewLabels: () => void;
     isFloatingPreviewTarget: (target: Node) => boolean;
     hideFloatingBiblePreview: () => void;
-    isBiblePreviewChapterModeActive: () => boolean;
 };
 
 export class BibleReadingModePreviewController {
@@ -44,11 +43,11 @@ export class BibleReadingModePreviewController {
             return;
         }
         // Like cursor moves in the editor: only clicks inside a note in reading mode hide the preview,
-        // so side panes, settings and an open chapter keep it visible.
+        // so side panes and settings keep it visible.
         if (target.closest(".markdown-reading-view") === null || target.closest(".bible-reference-reading-link") !== null) {
             return;
         }
-        if (this.input.isFloatingPreviewTarget(target) || this.input.isBiblePreviewChapterModeActive()) {
+        if (this.input.isFloatingPreviewTarget(target)) {
             return;
         }
         this.input.hideFloatingBiblePreview();

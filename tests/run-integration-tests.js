@@ -18,6 +18,7 @@ const TEST_FILES = [
   "plugin-context",
   "versification-choice",
   "versification-comparison",
+  "bible-reader",
 ];
 
 // A test that waits on a promise nobody resolves (say, a modal it does not answer) leaves nothing

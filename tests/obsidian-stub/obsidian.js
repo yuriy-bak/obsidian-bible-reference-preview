@@ -491,12 +491,15 @@ class WorkspaceLeaf {
     this.view = view;
   }
 
+  // Like Obsidian: the same view type keeps its view and only gets the new state.
   async setViewState(viewState) {
     const creator = this.app.workspace.viewCreators?.get(viewState.type);
-    if (creator !== undefined) {
+    if (creator !== undefined && this.view?.getViewType?.() !== viewState.type) {
       this.view = creator(this);
       await this.view.onOpen?.();
     }
+    if (viewState.state !== undefined) await this.view?.setState?.(viewState.state, { history: false });
+    if (viewState.active === true) this.app.workspace.setActiveLeaf(this);
   }
 
   getViewState() {

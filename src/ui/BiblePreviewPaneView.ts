@@ -185,7 +185,7 @@ export class BiblePreviewPaneView extends ItemView {
         if (this.currentContent !== null) {
             const contentContainerEl = this.contentContainerEl;
             renderBiblePreviewContent(contentContainerEl, this.currentContent, {
-                ...createChapterRenderOptions(this.input, this.currentContent, () => contentContainerEl.scrollTop),
+                ...createChapterRenderOptions(this.input),
                 getFindUsagesButtonText: this.input.getFindUsagesButtonText,
                 getFindUsagesButtonAria: this.input.getFindUsagesButtonAria,
                 onFindUsages: this.input.onFindUsages,

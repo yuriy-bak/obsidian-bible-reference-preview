@@ -120,6 +120,11 @@ class Workspace extends Events {
 
   async revealLeaf() {}
 
+  // The stub has one root split: the last note opened.
+  getMostRecentLeaf() {
+    return [...this.leaves].reverse().find((leaf) => leaf.view?.getViewType?.() === "markdown") ?? null;
+  }
+
   setActiveLeaf(leaf) {
     this.activeLeaf = leaf;
     this.trigger("active-leaf-change", leaf);

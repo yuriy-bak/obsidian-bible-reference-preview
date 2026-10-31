@@ -7,13 +7,6 @@ const {
   findAdjacentChapter,
   getChapterTargetFromReferences,
   isVerseInRanges,
-  backFromBiblePreviewChapter,
-  isBiblePreviewChapterModeActive,
-  navigateBiblePreviewChapter,
-  isBiblePreviewChapterHighlightHidden,
-  setBiblePreviewChapterHighlightHidden,
-  openBiblePreviewChapter,
-  trackShownBiblePreviewContent,
   BiblePreviewAnalyzer,
   formatBibleComparisonTextBlocks,
   formatBibleTextBlocks,
@@ -212,50 +205,25 @@ module.exports = async () => {
   );
   chapterComparisonEnabled = false;
 
-  // Chapter view: open, navigate, go back
-  let chapterState = null;
-  const shownContents = [];
-  const chapterFlowInput = {
-    getState: () => chapterState,
-    setState: (state) => { chapterState = state; },
-    buildChapterContent: (target) => chapterAnalyzer.buildChapterContent(target),
-    showBiblePreviewContent: (content) => {
-      chapterState = trackShownBiblePreviewContent(chapterState, content);
-      shownContents.push(content);
-    },
-  };
-  await openBiblePreviewChapter(chapterFlowInput, chapterTarget, referenceContent, 120);
-  const openedChapter = shownContents[shownContents.length - 1];
-  assert.strictEqual(openedChapter.chapterView.chapter, 7);
-  assert(isBiblePreviewChapterModeActive(chapterState, openedChapter));
-  assert(!isBiblePreviewChapterModeActive(chapterState, referenceContent));
-  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), false);
-  setBiblePreviewChapterHighlightHidden(chapterFlowInput, true);
-  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), true);
-
-  await navigateBiblePreviewChapter(chapterFlowInput, openedChapter.chapterView.next);
-  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), true);
-  const navigatedChapter = shownContents[shownContents.length - 1];
-  assert.strictEqual(navigatedChapter.chapterView.chapter, 8);
-  assert.deepStrictEqual(navigatedChapter.chapterView.highlightedRanges, []);
-  assert(isBiblePreviewChapterModeActive(chapterState, navigatedChapter));
-
-  await navigateBiblePreviewChapter(chapterFlowInput, navigatedChapter.chapterView.previous);
-  assert.deepStrictEqual(shownContents[shownContents.length - 1].chapterView.highlightedRanges, chapterTarget.highlightedRanges);
-  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), true);
-
-  backFromBiblePreviewChapter(chapterFlowInput);
-  const returnedContent = shownContents[shownContents.length - 1];
-  assert.strictEqual(returnedContent.plainText, referenceContent.plainText);
-  assert.strictEqual(returnedContent.scrollTop, 120);
-  assert.strictEqual(chapterState, null);
-
-  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), false);
-  setBiblePreviewChapterHighlightHidden(chapterFlowInput, true);
-  assert.strictEqual(chapterState, null);
-
-  await openBiblePreviewChapter(chapterFlowInput, chapterTarget, referenceContent, 0);
-  assert.strictEqual(isBiblePreviewChapterHighlightHidden(chapterState), false);
-  chapterFlowInput.showBiblePreviewContent(referenceContent);
-  assert.strictEqual(chapterState, null);
+  // Chapter in another translation (the Bible reader): that translation is the main one and titles the chapter
+  const chapterInB = await chapterAnalyzer.buildChapterContent({ book: 7, chapter: 7, highlightedRanges: [] }, "b");
+  assert.strictEqual(chapterInB.chapterView.translationId, "b");
+  assert(chapterInB.plainText.includes("1 b 7:1"));
+  assert.strictEqual(chapterContent.chapterView.translationId, "a");
+  chapterComparisonEnabled = true;
+  const comparisonChapterInB = await chapterAnalyzer.buildChapterContent({ book: 7, chapter: 7, highlightedRanges: [] }, "b");
+  assert.deepStrictEqual(
+    comparisonChapterInB.blocks.find((block) => block.type === "comparison").translations
+      .map((translation) => [translation.translationId, translation.isMain]),
+    [["b", true], ["a", false]]
+  );
+  // Each compared translation carries its passage, so its 📖 opens the chapter in that translation.
+  assert.deepStrictEqual(
+    comparisonReferenceContent.blocks[0].translations.map((translation) => [translation.translationId, translation.references]),
+    [
+      ["b", [{ book: 7, chapterStart: 7, verseStart: 22, chapterEnd: 7, verseEnd: 22 }]],
+      ["a", [{ book: 7, chapterStart: 7, verseStart: 22, chapterEnd: 7, verseEnd: 22 }]],
+    ]
+  );
+  chapterComparisonEnabled = false;
 };
