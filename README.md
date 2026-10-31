@@ -4,8 +4,10 @@
 
 Write `John 3:16` in a note and read the verse right next to it, in a floating window or in a side panel. Works offline on desktop and on phones (Android, iOS), with Bible translations you import once from free EPUB and HTML files, in any language they are published in.
 
-> **GIF placeholder: `docs/images/en/hero.gif`** (10–15 s)
-> Type `John 3:16` in a note → the floating preview opens → press `⇄` and pick a second translation → both translations are shown side by side.
+<!--
+GIF placeholder: `docs/images/en/hero.gif` (10–15 s)
+Type `John 3:16` in a note → the floating preview opens → press `⇄` and pick a second translation → both translations are shown side by side.
+-->
 
 ## Why this plugin
 
@@ -17,16 +19,20 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
-## Screenshots
+<!--
+Screenshot placeholder: `docs/images/en/side-panel-comparison.png`
+The side panel with two or three translations compared, a reference highlighted in the note next to it.
+-->
 
-> **Screenshot placeholder: `docs/images/en/side-panel-comparison.png`**
-> The side panel with two or three translations compared, a reference highlighted in the note next to it.
+<!--
+Screenshot placeholder: `docs/images/en/chapter-view.png`
+The chapter view: a full chapter with the cited verses highlighted and the `↩` `←` `→` `🖍` `🔎` buttons in the header.
+-->
 
-> **Screenshot placeholder: `docs/images/en/chapter-view.png`**
-> The chapter view: a full chapter with the cited verses highlighted and the `↩` `←` `→` `🖍` `🔎` buttons in the header.
-
-> **Screenshot placeholder: `docs/images/en/usages.png`**
-> The usages list for a passage: several notes with the context of each quote.
+<!--
+Screenshot placeholder: `docs/images/en/usages.png`
+The usages list for a passage: several notes with the context of each quote.
+-->
 
 ## Quick start
 
@@ -51,8 +57,10 @@ More sources and details are in [Importing a translation](#importing-a-translati
 - **Commands:** open the reference under the cursor (with an optional shortcut), find its usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
 - **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, numbering scheme and code, and the usage index.
 
-> **Screenshot placeholder: `docs/images/en/settings.png`**
-> Settings → Bible Reference Preview: the translation list with two or three imported Bibles.
+<!--
+Screenshot placeholder: `docs/images/en/settings.png`
+Settings → Bible Reference Preview: the translation list with two or three imported Bibles.
+-->
 
 ## Roadmap
 
