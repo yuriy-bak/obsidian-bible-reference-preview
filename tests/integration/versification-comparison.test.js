@@ -43,15 +43,23 @@ module.exports = async function runVersificationComparisonTests() {
   // Books with the same numbering keep the reference.
   assert.deepStrictEqual((await translations("Ин 3:16")).map(([title]) => title), ["📖 Ин 3:16", "📖 Joh 3:16"]);
 
-  // The chapter view of the Synodal Ps 9 shows Ps 9 and Ps 10 in English, highlighting the same verse.
-  const chapter = await plugin.contentBuilder.buildChapter({ book: 19, chapter: 9, highlightedRanges: [{ verseStart: 22, verseEnd: 22 }] });
-  const [ru, en] = chapter.blocks.find((block) => block.type === "comparison").translations;
-  const highlighted = (translation) => translation.paragraphs.flatMap((paragraph) => paragraph.verses)
-    .filter((verse) => verse.highlighted).map((verse) => verse.text);
-  assert.deepStrictEqual(highlighted(ru), ["Пс 9:22."]);
-  assert.match(en.referenceTitle, /Ps 9:1-20; 10:1-18|Ps 9:1-10:18/);
-  assert.deepStrictEqual(highlighted(en), ["Ps 10:1."]);
-  assert.strictEqual(en.paragraphs.flatMap((paragraph) => paragraph.verses).length, 38);
+  // The Bible reader shows one translation; switching it maps the chapter and its highlights:
+  // the second half of the Synodal Ps 9 is Ps 10 in English.
+  const ruChapterId = translationIdByLanguage(plugin, "ru");
+  const chapter = await plugin.contentBuilder.buildChapter({ book: 19, chapter: 9, highlightedRanges: [{ verseStart: 22, verseEnd: 22 }] }, ruChapterId);
+  assert.strictEqual(chapter.blocks.some((block) => block.type === "comparison"), false);
+  assert.deepStrictEqual(
+    chapter.blocks.flatMap((block) => block.paragraphs ?? []).flatMap((paragraph) => paragraph.verses).filter((verse) => verse.highlighted).map((verse) => verse.text),
+    ["Пс 9:22."]
+  );
+  assert.deepStrictEqual(
+    plugin.contentBuilder.mapChapterTarget({ book: 19, chapter: 9, highlightedRanges: [{ verseStart: 22, verseEnd: 22 }] }, ruId, enId),
+    { book: 19, chapter: 9, highlightedRanges: [] }
+  );
+  assert.deepStrictEqual(
+    plugin.contentBuilder.mapChapterTarget({ book: 19, chapter: 22, highlightedRanges: [{ verseStart: 1, verseEnd: 2 }] }, ruId, enId),
+    { book: 19, chapter: 23, highlightedRanges: [{ verseStart: 1, verseEnd: 2 }] }
+  );
 
   // A translation code names the numbering of the reference: Ps 23 of the English text is shown first,
   // then the Synodal Ps 22; anything else works with the active numbering.

@@ -50,8 +50,11 @@ module.exports = async function runBibleReaderTests() {
   assert.strictEqual(reader().getLocation().translationId, enId);
   assert.strictEqual(reader().getDisplayText(), "Ps 23");
   assert.match(reader().containerEl.querySelector(".bible-preview-header-title").textContent, /Test Bible/);
-  // Compared translations keep their order; the same verse is highlighted in each numbering.
-  assert.deepStrictEqual(highlightedVerses(), ["1 Пс 22:1.", "1 Ps 23:1."]);
+  // The reader shows one translation: no compared text, no comparison button, even with comparison on.
+  assert.deepStrictEqual(highlightedVerses(), ["1 Ps 23:1."]);
+  assert.doesNotMatch(readerText(), /Пс 22/);
+  assert.strictEqual(reader().containerEl.querySelectorAll(".bible-preview-comparison-block").length, 0);
+  assert.strictEqual(reader().containerEl.querySelector(".bible-preview-header-selector-host").style.display, "none");
   // The saved state keeps the chapter in the active numbering and no translation.
   assert.deepStrictEqual(reader().getState(), { book: 19, chapter: 22 });
 
@@ -111,13 +114,38 @@ module.exports = async function runBibleReaderTests() {
   assert.deepStrictEqual(usageLocations.slice(-1), [{ book: 19, chapter: 22 }]);
   plugin.referenceUsage.countUsagesInChapter = countUsagesInChapter;
 
-  // Back shows the preview as it is now: the note and the floating window with the last reference.
-  const noteView = app.workspace.openMarkdownView("note.md", "source");
-  navigationButton(plugin.context.t("preview.chapterBackAria")).click();
+  // History: back and forward through the chapters the reader showed, translations included.
+  const headerButton = (label) => Array.from(reader().containerEl.querySelectorAll(".bible-preview-header button"))
+    .find((button) => button.getAttribute("aria-label") === label);
+  const historyBack = () => headerButton(plugin.context.t("reader.historyBackAria"));
+  const historyForward = () => headerButton(plugin.context.t("reader.historyForwardAria"));
+  const shownChapter = () => [reader().getLocation().translationId, reader().getLocation().target.book, reader().getLocation().target.chapter];
+  assert.deepStrictEqual(shownChapter(), [enId, 19, 23]);
+  assert.strictEqual(historyForward().disabled, true);
+  historyBack().click();
   await flush();
-  assert.strictEqual(app.workspace.activeLeaf, noteView.leaf);
-  assert(plugin.preview.getCurrentContent() !== null);
-  noteView.leaf.detach();
+  assert.deepStrictEqual(shownChapter(), [ruId, 19, 22]);
+  historyBack().click();
+  await flush();
+  assert.deepStrictEqual(shownChapter(), [ruId, 19, 23]);
+  historyForward().click();
+  await flush();
+  historyForward().click();
+  await flush();
+  assert.deepStrictEqual(shownChapter(), [enId, 19, 23]);
+  assert.strictEqual(historyForward().disabled, true);
+  // Opening a chapter after going back drops the forward entries.
+  historyBack().click();
+  await flush();
+  await plugin.reader.openChapter({ book: 43, chapter: 3, highlightedRanges: [] });
+  await flush();
+  assert.strictEqual(historyForward().disabled, true);
+  historyBack().click();
+  await flush();
+  assert.deepStrictEqual(shownChapter(), [ruId, 19, 22]);
+  // There is no Back to the preview any more.
+  assert.strictEqual(Array.from(reader().containerEl.querySelectorAll(".bible-preview-chapter-navigation-button"))
+    .some((button) => button.textContent === plugin.context.t("preview.chapterBack")), false);
 
   // Restored by Obsidian with the saved state: the active translation, the chapter in its numbering.
   const restoredLeaf = app.workspace.getLeaf("tab");
@@ -125,10 +153,9 @@ module.exports = async function runBibleReaderTests() {
   await flush();
   assert.strictEqual(restoredLeaf.view.getLocation().translationId, ruId);
   assert.strictEqual(restoredLeaf.view.getLocation().target.chapter, 22);
-  assert.strictEqual(restoredLeaf.view.getLocation().fromPreview, false);
   restoredLeaf.detach();
 
-  // The command reveals the open reader (a reader opened from it has no Back); without one it opens the first chapter of the active translation.
+  // The command reveals the open reader; without one it opens the first chapter of the active translation.
   const command = plugin.commands.find((candidate) => candidate.id === "open-bible-reader");
   await command.callback();
   await flush();
@@ -139,7 +166,6 @@ module.exports = async function runBibleReaderTests() {
   assert.strictEqual(readers().length, 1);
   assert.strictEqual(reader().getLocation().translationId, ruId);
   assert.deepStrictEqual(reader().getLocation().target, { book: 1, chapter: 1, highlightedRanges: [] });
-  assert.strictEqual(navigationButton(plugin.context.t("preview.chapterBackAria")), undefined);
   assert.match(readerText(), /В начале Бог сотворил небо и землю\./);
 
   // A first reader from the command opens with the book picker.
@@ -204,21 +230,11 @@ module.exports = async function runBibleReaderTests() {
   navigatorEl().querySelector("input").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   assert(!isNavigatorOpen());
 
-  // The comparison button of the reader switches the shared setting and shows the compared text.
-  await plugin.reader.openChapter({ book: 43, chapter: 3, highlightedRanges: [] });
+  // Another reader tab from the command, with the active translation and the book picker.
+  await plugin.commands.find((candidate) => candidate.id === "open-bible-reader-new-tab").callback();
   await flush();
-  const comparisonButton = reader().containerEl.querySelectorAll(".bible-preview-header button")[1];
-  comparisonButton.click();
-  await flush();
-  assert.strictEqual(plugin.context.settings.previewComparisonEnabled, true);
-  assert.match(readerText(), /For God loved the world so much\./);
-  // In the reader, 📖 stands only at the other translations and reads the chapter in that one.
-  const readerChapterButtons = () => Array.from(reader().containerEl.querySelectorAll(".bible-preview-open-chapter-button"));
-  assert.strictEqual(readerChapterButtons().length, 1);
-  readerChapterButtons()[0].click();
-  await flush();
-  assert.strictEqual(reader().getLocation().translationId, enId);
-  assert.strictEqual(reader().getLocation().target.chapter, 3);
+  assert.strictEqual(readers().length, 2);
+  readers()[1].leaf.detach();
 
   // Ctrl/Cmd-click in the preview opens another reader tab.
   await showPreview("Ин 3:16");

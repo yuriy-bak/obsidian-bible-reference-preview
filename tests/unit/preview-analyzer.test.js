@@ -183,39 +183,15 @@ module.exports = async () => {
   assert.deepStrictEqual(nextChapterContent.chapterView.previous, { book: 7, chapter: 7 });
   assert.strictEqual(nextChapterContent.chapterView.next, null);
 
+  // The chapter (the Bible reader) shows one translation even with comparison on.
   chapterComparisonEnabled = true;
-  const comparisonChapterContent = await chapterAnalyzer.rebuildContent(chapterContent);
-  assert.deepStrictEqual(comparisonChapterContent.chapterView, chapterContent.chapterView);
-  const comparisonChapterBlock = comparisonChapterContent.blocks.find((block) => block.type === "comparison");
-  assert.deepStrictEqual(
-    comparisonChapterBlock.translations.map((translation) => [translation.translationName, translation.isMain, translation.referenceTitle]),
-    [["B", false, "📖 Суд 7"], ["A", true, "📖 Суд 7"]]
-  );
-  assert.deepStrictEqual(
-    comparisonChapterBlock.translations[0].paragraphs
-      .flatMap((paragraph) => paragraph.verses)
-      .filter((verse) => verse.highlighted)
-      .map((verse) => verse.number),
-    [22, 24]
-  );
+  const chapterWithComparisonOn = await chapterAnalyzer.buildChapterContent(chapterTarget);
+  assert.strictEqual(chapterWithComparisonOn.blocks.some((block) => block.type === "comparison"), false);
+  assert.strictEqual(chapterWithComparisonOn.plainText, chapterContent.plainText);
   const comparisonReferenceContent = await chapterAnalyzer.analyzeParagraph("Суд 7:22");
   assert.deepStrictEqual(
     comparisonReferenceContent.blocks[0].translations.map((translation) => translation.isMain),
     [false, true]
-  );
-  chapterComparisonEnabled = false;
-
-  // Chapter in another translation (the Bible reader): that translation is the main one and titles the chapter
-  const chapterInB = await chapterAnalyzer.buildChapterContent({ book: 7, chapter: 7, highlightedRanges: [] }, "b");
-  assert.strictEqual(chapterInB.chapterView.translationId, "b");
-  assert(chapterInB.plainText.includes("1 b 7:1"));
-  assert.strictEqual(chapterContent.chapterView.translationId, "a");
-  chapterComparisonEnabled = true;
-  const comparisonChapterInB = await chapterAnalyzer.buildChapterContent({ book: 7, chapter: 7, highlightedRanges: [] }, "b");
-  assert.deepStrictEqual(
-    comparisonChapterInB.blocks.find((block) => block.type === "comparison").translations
-      .map((translation) => [translation.translationId, translation.isMain]),
-    [["b", true], ["a", false]]
   );
   // Each compared translation carries its passage, so its 📖 opens the chapter in that translation.
   assert.deepStrictEqual(
@@ -226,4 +202,10 @@ module.exports = async () => {
     ]
   );
   chapterComparisonEnabled = false;
+
+  // A chapter in another translation: in its numbering, titled with its book names.
+  const chapterInB = await chapterAnalyzer.buildChapterContent({ book: 7, chapter: 7, highlightedRanges: [] }, "b");
+  assert.strictEqual(chapterInB.chapterView.translationId, "b");
+  assert(chapterInB.plainText.includes("1 b 7:1"));
+  assert.strictEqual(chapterContent.chapterView.translationId, "a");
 };

@@ -29,8 +29,8 @@ export class BiblePreviewContentBuilder {
         return this.createAnalyzer().rebuildContent(content);
     }
 
-    /** A whole chapter in `translationId` (the active translation by default). */
-    buildChapter(target: BibleChapterTarget, translationId?: string): Promise<BiblePreviewContent | null> {
+    /** A whole chapter of one translation (the Bible reader), without compared translations. */
+    buildChapter(target: BibleChapterTarget, translationId: string): Promise<BiblePreviewContent | null> {
         return this.createAnalyzer().buildChapterContent(target, translationId);
     }
 

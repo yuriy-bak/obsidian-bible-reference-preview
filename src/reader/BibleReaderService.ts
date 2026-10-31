@@ -4,17 +4,14 @@ import type { BiblePreviewContentBuilder } from "../application/BiblePreviewCont
 import type { BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
 import type { ReferenceUsageReturnPoint } from "../reference-usage/ReferenceUsageService";
-import type { SettingsService } from "../settings/SettingsService";
 import { TranslationController } from "../translations/TranslationController";
 import type { TranslationService } from "../translations/TranslationService";
 import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
 import { BIBLE_READER_VIEW_TYPE, BibleReaderView, type BibleReaderOpenState, type BibleReaderViewInput } from "../ui/BibleReaderView";
 import { getWorkspaceLeavesOfType } from "../workspace/BiblePreviewWorkspace";
 
-/** What the reader needs from the preview and the reference usages. */
+/** What the reader needs from the reference usages. */
 export type BibleReaderServiceEffects = {
-    revealPreview: () => void;
-    refreshPreview: () => void;
     showUsagesForPreviewBlock: (target: BiblePreviewUsageTarget, returnPoint: ReferenceUsageReturnPoint) => void;
     getChapterUsageCount: (location: BibleChapterLocation) => number | null;
     showUsagesForChapter: (location: BibleChapterLocation, title: string, returnPoint: ReferenceUsageReturnPoint) => void;
@@ -26,7 +23,6 @@ export class BibleReaderService {
 
     constructor(
         private readonly context: PluginContext,
-        private readonly settings: SettingsService,
         private readonly translations: TranslationService,
         private readonly contentBuilder: BiblePreviewContentBuilder,
         private readonly effects: BibleReaderServiceEffects,
@@ -39,13 +35,12 @@ export class BibleReaderService {
             chapter: target.chapter,
             highlightedRanges: target.highlightedRanges,
             ...(translationId === undefined ? {} : { translationId }),
-            fromPreview: true,
         }, options.newTab === true);
     }
 
     /** The command and the ribbon icon: the last reader, or a new one with the book picker open. */
-    async openReader(): Promise<void> {
-        const leaf = this.getReaderLeaf();
+    async openReader(options: { newTab?: boolean } = {}): Promise<void> {
+        const leaf = options.newTab === true ? null : this.getReaderLeaf();
         if (leaf !== null) {
             await this.context.app.workspace.revealLeaf(leaf);
             this.context.app.workspace.setActiveLeaf(leaf, { focus: true });
@@ -54,10 +49,10 @@ export class BibleReaderService {
         const activeTranslationId = this.context.activeTranslationId;
         const first = activeTranslationId === null ? null : this.contentBuilder.getFirstChapter(activeTranslationId);
         if (first === null) {
-            await this.openState(null);
+            await this.openState(null, options.newTab === true);
             return;
         }
-        await this.openState({ ...first });
+        await this.openState({ ...first }, options.newTab === true);
         const view = this.getReaderLeaf()?.view;
         if (view instanceof BibleReaderView) view.openNavigator();
     }
@@ -85,7 +80,6 @@ export class BibleReaderService {
 
     createViewInput(): BibleReaderViewInput {
         const t = this.context.t.bind(this.context);
-        const isComparisonEnabled = (): boolean => this.context.settings.previewComparisonEnabled;
         const translationState = () => this.translations.getControllerState();
         return {
             getViewTitle: () => t("reader.title"),
@@ -93,12 +87,8 @@ export class BibleReaderService {
             getCopyAria: () => t("preview.copyAria"),
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
             getNoTranslationsText: () => t("notice.noImportedTranslations"),
-            isComparisonEnabled,
-            getComparisonButtonAria: () => isComparisonEnabled() ? t("preview.comparisonOffAria") : t("preview.comparisonOnAria"),
-            getComparisonTranslationsTitle: () => t("preview.comparisonTranslationsTitle"),
-            getComparisonTranslations: () => isComparisonEnabled() ? this.translations.getPreviewComparisonTranslationOptions() : [],
-            onToggleComparisonTranslation: (translationId, enabled) => void this.translations.setComparisonTranslationEnabled(translationId, enabled),
-            onToggleReaderComparison: () => void this.toggleComparison(),
+            getHistoryBackAria: () => t("reader.historyBackAria"),
+            getHistoryForwardAria: () => t("reader.historyForwardAria"),
             getActiveTranslationId: () => this.context.activeTranslationId,
             hasTranslation: (translationId) => this.contentBuilder.hasTranslation(translationId),
             getFirstChapter: (translationId) => this.contentBuilder.getFirstChapter(translationId),
@@ -106,14 +96,11 @@ export class BibleReaderService {
             buildChapter: (target, translationId) => this.contentBuilder.buildChapter(target, translationId),
             getTranslationTitle: (translationId) => TranslationController.getTranslationPreviewTitle(translationState(), translationId),
             getChapterNavigationLabels: () => ({
-                back: t("preview.chapterBack"),
-                backAria: t("preview.chapterBackAria"),
                 previousAria: t("preview.previousChapterAria"),
                 nextAria: t("preview.nextChapterAria"),
                 hideHighlightAria: t("preview.hideChapterHighlightAria"),
                 showHighlightAria: t("preview.showChapterHighlightAria"),
             }),
-            getOpenChapterAria: (title) => t("reader.openChapterInTranslationAria", { reference: title }),
             getFindUsagesButtonText: () => t("preview.findUsagesIcon"),
             getFindUsagesButtonAria: (target) => t("preview.findUsagesAria", { reference: target.title }),
             getFindChapterUsagesAria: (title) => t("preview.findChapterUsagesAria", { reference: title }),
@@ -125,7 +112,6 @@ export class BibleReaderService {
             getUsageLocation: (location, translationId) => this.toActiveLocation(location, translationId),
             onFindChapterUsages: (location, title, translationId, leaf) =>
                 this.effects.showUsagesForChapter(this.toActiveLocation(location, translationId), title, this.createReturnPoint(leaf)),
-            onBack: () => this.effects.revealPreview(),
             mapChapterTarget: (target, from, to) => this.contentBuilder.mapChapterTarget(target, from, to),
             getNavigatorBooks: (translationId) => this.contentBuilder.getNavigatorBooks(translationId),
             getNavigatorLabels: () => ({
@@ -160,12 +146,6 @@ export class BibleReaderService {
                 this.context.app.workspace.setActiveLeaf(leaf, { focus: true });
             },
         };
-    }
-
-    private async toggleComparison(): Promise<void> {
-        await this.settings.setPreviewComparisonEnabled(!this.settings.isPreviewComparisonEnabled());
-        await this.refreshAll();
-        this.effects.refreshPreview();
     }
 
     private getReaderLeaf(): WorkspaceLeaf | null {

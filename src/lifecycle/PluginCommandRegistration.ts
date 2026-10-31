@@ -56,6 +56,7 @@ export function registerPluginCommands(plugin: Plugin, services: PluginCommandSe
         callback: () => void settings.togglePluginActive(),
     });
     plugin.addCommand({ id: "open-bible-reader", name: t("command.openBibleReader"), callback: () => void reader.openReader() });
+    plugin.addCommand({ id: "open-bible-reader-new-tab", name: t("command.openBibleReaderNewTab"), callback: () => void reader.openReader({ newTab: true }) });
     plugin.addCommand({ id: "go-to-bible-chapter", name: t("command.goToBibleChapter"), callback: () => void reader.openNavigator() });
     plugin.addCommand({
         id: "open-bible-reference-under-cursor",

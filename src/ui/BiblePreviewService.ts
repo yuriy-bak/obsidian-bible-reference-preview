@@ -37,16 +37,12 @@ export type BiblePreviewServiceEffects = {
     showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget, returnPoint: BiblePreviewReturnPoint | null) => void;
     /** The target is in `translationId`'s numbering; no translation means the active one. */
     openChapterInReader: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) => void;
-    /** The comparison setting is shared with the readers. */
-    refreshReaders: () => void;
 };
 
 /** The floating preview window and the side panel preview. */
 export class BiblePreviewService {
     private floatingWindow: FloatingBiblePreviewWindow | null = null;
     private lastPaneContent: BiblePreviewContent | null = null;
-    // What the floating window showed last, also after it was hidden (switching to the Bible reader hides it).
-    private lastFloatingContent: BiblePreviewContent | null = null;
     private lastPanelEscapeTime = 0;
     private suppressActiveLeafChange = false;
     private paneIsActiveInSideDock = false;
@@ -83,7 +79,6 @@ export class BiblePreviewService {
             return;
         }
 
-        this.lastFloatingContent = content;
         this.floatingWindow?.show(content, anchor, { reveal });
     }
 
@@ -137,7 +132,6 @@ export class BiblePreviewService {
         }
         // The last translation was deleted: the open text is gone with it.
         if (!this.context.hasImportedTranslations()) {
-            this.lastFloatingContent = null;
             this.hideFloating();
             await this.closeActivePane();
             return;
@@ -151,7 +145,6 @@ export class BiblePreviewService {
 
     async toggleComparison(content: BiblePreviewContent): Promise<void> {
         await this.settings.setPreviewComparisonEnabled(!this.settings.isPreviewComparisonEnabled());
-        this.effects.refreshReaders();
         const nextContent = await this.contentBuilder.rebuild(content);
         if (nextContent !== null) {
             this.show(nextContent, { type: "default" }, { reveal: true });
@@ -252,30 +245,6 @@ export class BiblePreviewService {
         }
         this.hideFloating();
         void this.closeActivePane();
-    }
-
-    /** Shows the preview as it is now (the Bible reader's Back): the side panel, or the note with the floating window. */
-    async reveal(): Promise<void> {
-        const app = this.context.app;
-        if (this.context.settings.previewDisplayMode === "side-panel") {
-            const leaf = getFirstWorkspaceLeafOfType(app, BIBLE_PREVIEW_VIEW_TYPE);
-            if (leaf !== null) {
-                this.expandSideDock();
-                await app.workspace.revealLeaf(leaf);
-            } else if (this.lastPaneContent !== null) {
-                await this.showInPanel(this.lastPaneContent, true);
-            }
-            return;
-        }
-
-        const markdownLeaf = app.workspace.getMostRecentLeaf(app.workspace.rootSplit);
-        if (markdownLeaf !== null && markdownLeaf.view instanceof MarkdownView) {
-            app.workspace.setActiveLeaf(markdownLeaf, { focus: true });
-        }
-        const shown = this.floatingWindow?.getContent() ?? null;
-        // Hidden content is rebuilt: translations may have changed since.
-        const content = shown ?? (this.lastFloatingContent === null ? null : await this.contentBuilder.rebuild(this.lastFloatingContent));
-        if (content !== null) this.floatingWindow?.show(content, { type: "default" }, { reveal: true });
     }
 
     createFloatingWindowInput(): FloatingBiblePreviewWindowInput {

@@ -14,8 +14,6 @@ export type BiblePreviewRenderOptions = {
     // The chapter navigation bar of a chapter view (the Bible reader); without onNavigateChapter there is none.
     getChapterNavigationLabels?: () => BiblePreviewChapterNavigationLabels;
     onNavigateChapter?: (location: BibleChapterLocation) => void;
-    // Without it the bar has no Back button.
-    onBackFromChapter?: () => void;
     isChapterHighlightHidden?: () => boolean;
     onToggleChapterHighlight?: (hidden: boolean) => void;
     // Null hides the chapter's find-usages button.
@@ -40,8 +38,6 @@ export function createChapterRenderOptions(input: BiblePreviewChapterViewInput):
 }
 
 export type BiblePreviewChapterNavigationLabels = {
-    back: string;
-    backAria: string;
     previousAria: string;
     nextAria: string;
     hideHighlightAria: string;
@@ -244,8 +240,6 @@ function createOpenChapterButton(titleText: string, target: BibleChapterTarget, 
 
 function createChapterNavigation(containerEl: HTMLElement, chapterView: BiblePreviewChapterView, options: BiblePreviewRenderOptions): HTMLElement {
     const labels = options.getChapterNavigationLabels?.() ?? {
-        back: "↩ Back",
-        backAria: "Back to reference",
         previousAria: "Previous chapter",
         nextAria: "Next chapter",
         hideHighlightAria: "Hide highlighting",
@@ -255,10 +249,6 @@ function createChapterNavigation(containerEl: HTMLElement, chapterView: BiblePre
     const navigationEl = createDiv();
     navigationEl.className = "bible-preview-chapter-navigation";
 
-    const onBackFromChapter = options.onBackFromChapter;
-    if (onBackFromChapter !== undefined) {
-        navigationEl.appendChild(createChapterNavigationButton(labels.back, labels.backAria, true, onBackFromChapter));
-    }
 
     const titleEl = createDiv();
     titleEl.className = "bible-preview-chapter-navigation-title";
