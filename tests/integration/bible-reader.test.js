@@ -149,6 +149,14 @@ module.exports = async function runBibleReaderTests() {
   assert.strictEqual(Array.from(reader().containerEl.querySelectorAll(".bible-preview-chapter-navigation-button"))
     .some((button) => button.textContent === plugin.context.t("preview.chapterBack")), false);
 
+  // Each chapter change asks Obsidian to save the layout, so a restart opens the last chapter read.
+  const saveRequestsBefore = app.workspace.saveLayoutRequests ?? 0;
+  navigationButton(plugin.context.t("preview.nextChapterAria")).click();
+  await flush();
+  assert(app.workspace.saveLayoutRequests > saveRequestsBefore);
+  navigationButton(plugin.context.t("preview.previousChapterAria")).click();
+  await flush();
+
   // Restored by Obsidian with the saved state: the active translation, the chapter in its numbering.
   const restoredLeaf = app.workspace.getLeaf("tab");
   await restoredLeaf.setViewState({ type: BIBLE_READER_VIEW_TYPE, state: reader().getState() });
@@ -265,6 +273,41 @@ module.exports = async function runBibleReaderTests() {
   await plugin.commands.find((candidate) => candidate.id === "open-bible-reader-new-tab").callback();
   await flush();
   assert.strictEqual(readers().length, 2);
+  readers()[1].leaf.detach();
+
+  // Ctrl/Cmd-click on the ribbon icon opens another reader; a plain click reveals the open one.
+  const ribbonIcon = plugin.ribbonIcons.find((el) => el.getAttribute("data-icon") === "book-open-text");
+  ribbonIcon.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  await flush();
+  assert.strictEqual(readers().length, 1);
+  ribbonIcon.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true }));
+  await flush();
+  assert.strictEqual(readers().length, 2);
+  readers()[1].leaf.detach();
+
+  // The tab menu has "Open Bible reader in a new tab".
+  const menuItems = [];
+  const menu = {
+    addItem(build) {
+      const item = { title: "", onClickCallback: null };
+      const builder = {
+        setTitle(title) { item.title = title; return builder; },
+        setIcon() { return builder; },
+        setSection() { return builder; },
+        onClick(callback) { item.onClickCallback = callback; return builder; },
+      };
+      build(builder);
+      menuItems.push(item);
+      return menu;
+    },
+  };
+  reader().onPaneMenu(menu, "more-options");
+  const newTabItem = menuItems.find((item) => item.title === plugin.context.t("command.openBibleReaderNewTab"));
+  assert(newTabItem !== undefined);
+  newTabItem.onClickCallback();
+  await flush();
+  assert.strictEqual(readers().length, 2);
+  assert.strictEqual(readers()[1].getLocation(), null);
   readers()[1].leaf.detach();
 
   // Ctrl/Cmd-click in the preview opens another reader tab.

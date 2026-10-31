@@ -1,4 +1,4 @@
-import { ItemView, Notice, setIcon, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, setIcon, type Menu, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { BibleNavigatorPanel, type BibleNavigatorLabels } from "./BibleNavigatorPanel";
@@ -41,6 +41,9 @@ export type BibleReaderOpenState = Partial<BibleReaderSavedState> & {
 
 export type BibleReaderViewInput = {
     getViewTitle: () => string;
+    /** The tab menu item that opens another reader with the book picker. */
+    getNewReaderTabText: () => string;
+    onOpenNewReaderTab: () => void;
     getCopyAria: () => string;
     getChooseBookText: () => string;
     getHistoryBackAria: () => string;
@@ -100,6 +103,15 @@ export class BibleReaderView extends ItemView {
 
     getViewType(): string { return BIBLE_READER_VIEW_TYPE; }
     getIcon(): string { return "book-open-text"; }
+
+    // The tab's menu (right click or ⋯): another reader in a new tab, for another translation or book.
+    onPaneMenu(menu: Menu, source: string): void {
+        super.onPaneMenu(menu, source);
+        menu.addItem((item) => item
+            .setTitle(this.input.getNewReaderTabText())
+            .setIcon("plus")
+            .onClick(() => this.input.onOpenNewReaderTab()));
+    }
 
     getDisplayText(): string {
         const title = this.content?.chapterView?.title;
@@ -276,6 +288,8 @@ export class BibleReaderView extends ItemView {
         this.render();
         // The tab title follows the chapter.
         updateLeafHeader(this.leaf);
+        // Obsidian saves view states only with the layout; ask for it so a restart opens this chapter.
+        this.app.workspace.requestSaveLayout();
     }
 
     private render(): void {
