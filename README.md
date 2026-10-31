@@ -1,34 +1,94 @@
 # Bible Reference Preview
 
-Finds Bible references in your Obsidian notes and shows the verses right next to them: in a floating window or in a side panel. The text comes from Bible translations you import once from free EPUB and HTML files.
+**English** | [Русский](README.ru.md)
+
+Write `John 3:16` in a note and read the verse right next to it, in a floating window or in a side panel. Works offline on desktop and on phones (Android, iOS), with Bible translations you import once from free EPUB and HTML files, in any language they are published in.
+
+<!--
+GIF placeholder: `docs/images/en/hero.gif` (10–15 s)
+Type `John 3:16` in a note → the floating preview opens → press `⇄` and pick a second translation → both translations are shown side by side.
+-->
 
 ## Why this plugin
 
-- **Works offline.** Translations are stored in your vault; the plugin makes no network requests.
+- **Works with the notes you already have.** Open any note and every Bible reference in it is highlighted as a link, with no special syntax, code blocks or tags to add. The references get a dotted underline and a color of your choice, so they stand apart from ordinary links.
+- **Works offline.** Translations are stored locally on your device; the plugin makes no network requests.
 - **Your translations.** Import Bibles from jw.org, eBible.org (hundreds of translations in many languages) and the Digital Bible Society (dbs.org).
 - **Compare up to four translations** side by side. Verse numbering is converted between translations: the Synodal Psalm 22 is shown as Psalm 23 in an English Bible.
 - **Read the whole chapter** from any reference, with the cited verses highlighted, and move between chapters and books.
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
-- **Desktop and mobile**, Russian and English interface.
+- **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
+
+<!--
+Screenshot placeholder: `docs/images/en/side-panel-comparison.png`
+The side panel with two or three translations compared, a reference highlighted in the note next to it.
+-->
+
+<!--
+Screenshot placeholder: `docs/images/en/chapter-view.png`
+The chapter view: a full chapter with the cited verses highlighted and the `↩` `←` `→` `🖍` `🔎` buttons in the header.
+-->
+
+<!--
+Screenshot placeholder: `docs/images/en/usages.png`
+The usages list for a passage: several notes with the context of each quote.
+-->
+
+## Quick start
+
+1. Install **Bible Reference Preview** from Settings → Community plugins and enable it.
+2. Download a free Bible file, for example a translation's **ePub** from [ebible.org/find](https://ebible.org/find/) (the World English Bible is a good first choice).
+3. Open Settings → Bible Reference Preview → **Import Bible**, choose the file and click **Import**.
+4. Type a reference such as `John 3:16` or `Rom 8:28-30` in any note. The preview opens for the paragraph under the cursor.
+
+More sources and details are in [Importing a translation](#importing-a-translation).
 
 ## Features
 
-- **References** are recognized in the editor and in reading view, and are shown as links: `Ин3:16`, `John 3:16`, `Мк 4:12, 14-16`, `Иуд 1:3;1:5`, `Суд 7:24-8:1`, a whole chapter (`Пс 22`), one-chapter books (`Иуд 5` = `Иуд 1:5`). Book names and abbreviations come from the imported translation.
+- **References** are recognized in any note, new or old, in the editor and in reading view, and are shown as links: `John 3:16`, `Mark 4:12, 14-16`, `Jude 1:3;1:5`, `Judg 7:24-8:1`, a whole chapter (`Ps 23`), one-chapter books (`Jude 5` = `Jude 1:5`). Book names and abbreviations come from the imported translation, so references work in the language of that translation (`Ин3:16` with a Russian Bible). Bible references have a dotted underline, so they don't look like ordinary links, and you can give them their own color in the settings.
 - **Preview** opens for the reference in the current paragraph, or only when you click a reference. The floating window can be dragged, resized and collapsed; the side panel can sit on the left or right. Both work in popout windows.
+- **On a phone**, the side panel is the most convenient: set **Bible text display mode** to **Side panel**, and open or close the Bible text with a swipe from the screen edge.
 - **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
 - **Copy** the passage with its reference and footnotes, in comparison mode too.
 - **Chapter view:** 📖 in a passage title opens the full chapter. Use `↩` to go back, `←` / `→` for the previous or next chapter, 🖍 to hide or show the highlighting, and 🔎 to see all usages of the chapter.
 - **Comparison:** `⇄` in the preview header turns it on; choose the translations in the header list.
-- **A translation code** after a reference shows the passage in that translation and its numbering: `Пс 22:1 (СП)`. Codes can be changed in the translation list.
+- **A translation code** after a reference shows the passage in that translation and its numbering: `Ps 23:1 (WEB)`, where `WEB` is the code of an imported translation. Codes can be changed in the translation list.
 - **Usage index:** 🔎 next to a passage lists the notes that cite it. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
 - **Commands:** open the reference under the cursor (with an optional shortcut), find its usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
 - **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, numbering scheme and code, and the usage index.
 
+<!--
+Screenshot placeholder: `docs/images/en/settings.png`
+Settings → Bible Reference Preview: the translation list with two or three imported Bibles.
+-->
+
+## Roadmap
+
+Planned features, in no fixed order:
+
+- [Bible navigation](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/53): open any book and chapter without a reference in a note.
+- [Another translation in the chapter view](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/54) without changing the default one.
+- [Custom book names and abbreviations](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/55) for each translation.
+
+See [all planned features](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) and vote with 👍 on the ones you want.
+
 ## Installation
 
-Install **Bible Reference Preview** from Settings → Community plugins (Obsidian 1.13 or later).
+**From the catalog.** Install **Bible Reference Preview** from Settings → Community plugins (Obsidian 1.13 or later), on desktop or on a phone.
 
-Beta versions are GitHub pre-releases. Install them with [BRAT](https://github.com/TfTHacker/obsidian42-brat): **BRAT: Add a beta plugin for testing** → `https://github.com/yuriy-bak/obsidian-bible-reference-preview`. To install by hand, copy `main.js`, `manifest.json` and `styles.css` from a release into `.obsidian/plugins/bible-reference-preview/`.
+Translations are stored in the plugin folder (`.obsidian/plugins/bible-reference-preview/data`), not in your notes. To use a translation on another device, import the file there too, or use a sync tool that copies plugin folders.
+
+**Beta versions** are GitHub pre-releases. Install them with [BRAT](https://github.com/TfTHacker/obsidian42-brat):
+
+1. Install and enable **BRAT** from Community plugins.
+2. Run the command **BRAT: Add a beta plugin for testing**.
+3. Enter `https://github.com/yuriy-bak/obsidian-bible-reference-preview` and pick the latest version.
+
+**By hand:**
+
+1. Download `main.js`, `manifest.json` and `styles.css` from a [release](https://github.com/yuriy-bak/obsidian-bible-reference-preview/releases).
+2. Copy them into `.obsidian/plugins/bible-reference-preview/` in your vault.
+3. Enable **Bible Reference Preview** in Settings → Community plugins.
 
 ## Importing a translation
 
@@ -54,7 +114,7 @@ The verse numbering scheme is detected from the text. If detection is not certai
    3. Choose the type **Webpage, HTML only** (Chrome, Edge) or **Web Page, HTML only** (Firefox), and save.
    4. Import the saved `.html` file. Type the translation name in the import dialog. The page stores only its short code, for example `RUSERV`.
 
-   A phone browser cannot save the page this way. Make the file on a computer, then copy it to the phone or import it in Obsidian on the computer: the imported translation syncs with the vault.
+   A phone browser cannot save the page this way. Make the file on a computer, copy it to the phone and import it there.
 
 Verses that the translation joins together are shown under one number ("16–17"). Some dbs.org files have lost lists, such as genealogies (1 Chronicles 1–2, Matthew 1:2–17, Romans 16:3–16); those verses are shown as missing. The plugin only reads the file for you and shares nothing; check the license of the translation before sharing the file.
 
@@ -62,37 +122,9 @@ Verses that the translation joins together are shown under one number ("16–17"
 
 The plugin makes no network requests. It reads the list of Markdown files only to build the local usage index, and it writes to the clipboard only when you press copy.
 
-## Русский раздел
+## Feedback
 
-Плагин находит библейские ссылки в заметках Obsidian и показывает текст стихов в плавающем окне или в боковой панели. Переводы импортируются один раз из бесплатных файлов EPUB и HTML.
-
-**Почему он:**
-- Работает без интернета, переводы хранятся в хранилище.
-- Переводы с jw.org, eBible.org (сотни переводов) и dbs.org.
-- Сравнение до четырёх переводов с пересчётом нумерации: Синодальный Пс 22 в английском переводе показывается как Ps 23.
-- Чтение главы целиком с подсветкой процитированных стихов.
-- Поиск мест, где отрывок упоминается в заметках.
-- Компьютер и телефон, интерфейс на русском и английском.
-
-**Возможности:**
-- Ссылки: `Ин3:16`, `Мк 4:12, 14-16`, `Иуд 1:3;1:5`, `Суд 7:24-8:1`, глава целиком (`Пс 22`), книги из одной главы (`Иуд 5`). Код перевода после ссылки показывает отрывок в этом переводе и его нумерации: `Пс 22:1 (СП)`.
-- Текст с абзацами, поэтическими строками, сносками, надписаниями псалмов и слитыми стихами («16–17»). Копирование вместе со ссылкой и сносками.
-- Режим главы: 📖 в заголовке отрывка. Дальше `↩` возвращает назад, `←` / `→` переключают главы, 🖍 включает и выключает подсветку, 🔎 показывает места использования главы.
-- Сравнение включается кнопкой `⇄`, переводы выбираются в списке в заголовке.
-- Места использования: 🔎 у отрывка. Индекс обновляется сам; открытые заметки учитываются с несохранёнными правками.
-- Команды и горячие клавиши (Settings → Hotkeys), поиск по настройкам.
-
-**Импорт:** Настройки → Bible Reference Preview → «Импорт Библии». Где взять файл:
-- jw.org: EPUB Библии на странице публикаций.
-- eBible.org: [ebible.org/find](https://ebible.org/find/) → перевод → ePub.
-- dbs.org ([dbs.org/bibles](https://dbs.org/bibles)): лучше всего архив **HTML** (`html_<ID>.zip`), в нём есть абзацы, распаковывать его не нужно. Если архива нет, подойдёт **EPUB**. Если нет ни того, ни другого (так у «Современного перевода»):
-  1. На компьютере открой **HTML Study Bible** и дождись, пока появится текст.
-  2. Нажми **Ctrl+S** и выбери тип «Веб-страница, только HTML».
-  3. Импортируй сохранённый `.html` и впиши название перевода.
-
-  На телефоне так сохранить страницу нельзя: сделай файл на компьютере.
-
-Схема нумерации определяется сама, её можно сменить в списке переводов. Сети плагин не использует.
+Found a bug, a reference that is not recognized, or a Bible file that does not import? Have an idea? [Open an issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose): a few words are enough, in English or Russian. If the idea is already on the [roadmap](#roadmap), a 👍 on it helps too. If the plugin is useful to you, a star on GitHub helps other people find it.
 
 ## Development
 
