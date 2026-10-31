@@ -44,12 +44,6 @@ export class TranslationService {
         await this.context.saveSettings();
     }
 
-    async promoteTranslationToTop(translationId: string): Promise<void> {
-        this.context.updateSettings({ translationOrder: TranslationController.promoteTranslationToTop(this.getControllerState(), translationId) });
-        await this.context.saveSettings();
-        await this.syncTranslationOrder(translationId);
-    }
-
     getTranslationSettingsItems(): TranslationSettingsItem[] {
         const codes = this.context.getTranslationCodes();
         return TranslationController.getTranslationSettingsItems(this.getControllerState())

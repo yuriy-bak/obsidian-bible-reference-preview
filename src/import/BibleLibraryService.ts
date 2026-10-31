@@ -105,7 +105,9 @@ export class BibleLibraryService {
                 createRepository: this.createRepository,
                 onImported: async (repository, importResult) => {
                     this.context.setBibleData(repository.getIndex(), repository.getV2Data());
-                    await this.translations.promoteTranslationToTop(importResult.translationId);
+                    // A new translation goes to the end of the list: the main one (and the numbering of the
+                    // references in the notes) stays the same. The first import becomes the main translation.
+                    await this.translations.syncTranslationOrder(importResult.translationId);
                     this.translations.activateTopTranslation();
                     this.context.refreshSettingsTab();
                 },

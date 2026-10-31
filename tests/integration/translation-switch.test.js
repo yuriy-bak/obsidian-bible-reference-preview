@@ -9,6 +9,7 @@ const {
   moveCursor,
   startPlugin,
   stopPlugin,
+  translationIdByLanguage,
   waitForEditorLinks,
 } = require("./helpers.js");
 
@@ -24,8 +25,14 @@ module.exports = async function runTranslationSwitchTests() {
   await moveCursor(editor, 8);
   assert.match(floatingPanelText(), /Тестовая Библия.*Ин 3:16.*Ведь Бог так любит мир\.$/s);
 
-  // A new import becomes the active translation: English book names, and the open preview follows.
+  // Another import goes to the end of the list: the main translation, the links and the open preview stay.
   await importBible(plugin, "en");
+  assert.deepStrictEqual(plugin.context.settings.translationOrder, ["ru", "en"].map((language) => translationIdByLanguage(plugin, language)));
+  assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16"]);
+  assert.match(floatingPanelText(), /Тестовая Библия.*Ин 3:16.*Ведь Бог так любит мир\.$/s);
+
+  // Switching to it from the settings list: English book names, and the open preview follows.
+  await activateTranslation(plugin, "en");
   assert.deepStrictEqual(editorLinkTexts(editor), ["John 3:16"]);
   assert.match(floatingPanelText(), /Test Bible.*Joh 3:16.*For God loved the world so much\.$/s);
 
@@ -34,8 +41,11 @@ module.exports = async function runTranslationSwitchTests() {
   assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16"]);
   assert.match(floatingPanelText(), /Тестовая Библия.*Ин 3:16.*Ведь Бог так любит мир\.$/s);
 
-  // A re-import replaces the text, not only the book names.
+  // A re-import replaces the text, not only the book names, and keeps the translation's place in the list.
+  await importBible(plugin, "en");
+  assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16"]);
   await importBible(plugin, "ru", { revised: true });
+  assert.deepStrictEqual(plugin.context.settings.translationOrder, ["ru", "en"].map((language) => translationIdByLanguage(plugin, language)));
   assert.match(floatingPreviewText(), /Ведь Бог так любит мир\. \(rev\.\)$/);
 
   // Deleting another translation keeps the active one; deleting the last one turns everything off.

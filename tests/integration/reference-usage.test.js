@@ -1,6 +1,6 @@
 const assert = require("assert");
 const obsidian = require("obsidian");
-const { activateTranslation, clickButton, flush, importBible, noticeMessages, startPlugin, stopPlugin, waitFor } = require("./helpers.js");
+const { activateTranslation, clickButton, flush, importBible, noticeMessages, startPlugin, stopPlugin, translationIdByLanguage, waitFor } = require("./helpers.js");
 
 // A translation with other book names changes the parser: open reading views are redrawn once, and the
 // usage index built with the old parser is rebuilt in the background, or a notice offers the rebuild.
@@ -24,9 +24,17 @@ module.exports = async function runReferenceUsageTests() {
   assert.strictEqual(plugin.referenceUsage.isReferenceUsageIndexOutdated(), false);
   assert.deepStrictEqual(readingView.previewMode.rerenderCalls, [true]);
 
-  // Auto-update on: the import of the English translation rebuilds the index with the English book names.
-  obsidian.__state.notices.length = 0;
+  // Another translation goes to the end of the list: the main one stays, the index stays up to date.
   await importBible(plugin, "en");
+  await flush(10);
+  assert.strictEqual(plugin.context.activeTranslationId, translationIdByLanguage(plugin, "ru"));
+  assert.strictEqual(indexService.getStats().referenceCount, 1);
+  assert.strictEqual(plugin.referenceUsage.isReferenceUsageIndexOutdated(), false);
+
+  // Auto-update on: switching to the English translation rebuilds the index with the English book names.
+  obsidian.__state.notices.length = 0;
+  readingView.previewMode.rerenderCalls.length = 1;
+  await activateTranslation(plugin, "en");
   await waitFor(() => indexService.getStats().referenceCount === 2);
   assert.strictEqual(plugin.referenceUsage.isReferenceUsageIndexOutdated(), false);
   assert(noticeMessages().includes(t("notice.referenceUsageIndexAutoRebuildStarted")));
