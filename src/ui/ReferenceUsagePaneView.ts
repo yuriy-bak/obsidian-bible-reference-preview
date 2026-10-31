@@ -1,7 +1,7 @@
 import { ItemView, setIcon, WorkspaceLeaf } from "obsidian";
 import type { ReferenceUsageResultGroup } from "../reference-usage/ReferenceUsageChapterGroups";
 import type { ReferenceUsageSearchResult } from "../reference-usage/ReferenceUsageIndexService";
-import { renderReferenceUsageExcerpt, renderReferenceUsageHeading } from "./ReferenceUsageExcerpt";
+import { renderReferenceUsageExcerpt } from "./ReferenceUsageExcerpt";
 
 export const REFERENCE_USAGE_VIEW_TYPE = "bible-reference-usage-results";
 const REFERENCE_USAGE_REFRESH_PROGRESS_DELAY_MS = 1000;
@@ -206,8 +206,6 @@ export class ReferenceUsagePaneView extends ItemView {
             event.preventDefault();
             this.input.onOpenResult(result);
         });
-
-        renderReferenceUsageHeading(rowEl, result);
         rowEl.createDiv({ text: result.sourceText, cls: "bible-reference-usage-source-text" });
 
         renderReferenceUsageExcerpt(rowEl, result);

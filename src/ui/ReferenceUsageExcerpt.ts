@@ -1,16 +1,22 @@
 import type { ReferenceUsageSearchResult } from "../reference-usage/ReferenceUsageIndexService";
 
-export function renderReferenceUsageHeading(containerEl: HTMLElement, result: ReferenceUsageSearchResult): void {
+// The heading, the lines the reference sits under (indented by level) and the excerpt below them.
+export function renderReferenceUsageExcerpt(containerEl: HTMLElement, result: ReferenceUsageSearchResult): HTMLElement {
+    const blockEl = containerEl.createDiv({ cls: "bible-reference-usage-excerpt-block" });
     if (result.heading.length > 0) {
-        containerEl.createDiv({ text: result.heading, cls: "bible-reference-usage-heading" });
+        blockEl.createDiv({ text: result.heading, cls: "bible-reference-usage-heading" });
     }
+    for (const line of result.context) {
+        setLevel(blockEl.createDiv({ text: line.text, cls: "bible-reference-usage-context-line" }), line.level);
+    }
+    const excerptEl = blockEl.createDiv({ cls: "bible-reference-usage-excerpt" });
+    setLevel(excerptEl, result.context.length);
+    appendHighlightedExcerpt(excerptEl, result.excerpt, result.sourceText);
+    return blockEl;
 }
 
-export function renderReferenceUsageExcerpt(containerEl: HTMLElement, result: ReferenceUsageSearchResult): HTMLElement {
-    const excerptEl = containerEl.createDiv({ cls: "bible-reference-usage-excerpt" });
-
-    appendHighlightedExcerpt(excerptEl, result.excerpt, result.sourceText);
-    return excerptEl;
+function setLevel(el: HTMLElement, level: number): void {
+    el.setCssProps({ "--bible-reference-usage-level": String(level) });
 }
 
 function appendHighlightedExcerpt(containerEl: HTMLElement, excerpt: string, sourceText: string): void {

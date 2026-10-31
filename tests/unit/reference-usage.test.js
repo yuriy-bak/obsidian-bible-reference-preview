@@ -2,8 +2,7 @@ const {
   assert,
   ReferenceUsageIndexService,
   createReferenceUsageExcerpt,
-  findReferenceUsageHeading,
-  getReferenceUsageNoteStructure,
+  ReferenceUsageNoteOutline,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   createChapterUsageQuery,
@@ -151,92 +150,71 @@ module.exports = async () => {
   assert.strictEqual(referenceUsageResults[0].excerpt, "Ин 3:16 and Рим 8:28");
   assert.strictEqual(referenceUsageResults[0].heading, "");
 
-  // A line ending with a colon that introduces the reference goes before it; the heading is kept apart.
-  function position(line) {
-    return { start: { line, col: 0, offset: 0 }, end: { line, col: 0, offset: 0 } };
-  }
-  function heading(line, text, level = 2) {
-    return { heading: text, level, position: position(line) };
-  }
-  function listItem(line, parent, endLine = line) {
-    return { parent, position: { start: position(line).start, end: { line: endLine, col: 0, offset: 0 } } };
-  }
-  function usageAt(text, sourceText, cache = null) {
+  assert.deepStrictEqual(referenceUsageResults[0].context, []);
+
+  // The heading and the lines a reference sits under, as the editor folds them by indentation.
+  function usageAt(text, sourceText) {
     const lines = text.split("\n");
     const lineIndex = lines.findIndex((line) => line.includes(sourceText));
     const from = lines[lineIndex].indexOf(sourceText);
-    const structure = getReferenceUsageNoteStructure(cache, lines);
+    const context = new ReferenceUsageNoteOutline(lines).getContext(lineIndex);
     return {
-      excerpt: createReferenceUsageExcerpt(lines, lineIndex, from, from + sourceText.length, structure),
-      heading: findReferenceUsageHeading(structure, lineIndex),
+      heading: context.heading,
+      context: context.lines.map((line) => `${" ".repeat(line.level * 2)}${line.text}`),
+      excerpt: createReferenceUsageExcerpt(lines[lineIndex], from, from + sourceText.length),
     };
   }
-  function excerptAt(text, sourceText, cache = null) {
-    return usageAt(text, sourceText, cache).excerpt;
-  }
-  assert.strictEqual(excerptAt("About Happy:\nMat5:3-12", "Mat5:3-12"), "About Happy: Mat5:3-12");
-  assert.strictEqual(excerptAt("About Happy:\n\nMat5:3-12 text", "Mat5:3-12"), "About Happy: Mat5:3-12 text");
-  assert.strictEqual(excerptAt("About Happy:\n\n\nMat5:3-12", "Mat5:3-12"), "Mat5:3-12");
-  assert.strictEqual(excerptAt("Some text\nMat5:3-12", "Mat5:3-12"), "Mat5:3-12");
-  assert.strictEqual(excerptAt("Read this:\nSee also Mat5:3", "Mat5:3"), "Read this: See also Mat5:3");
-  assert.strictEqual(excerptAt("> About Happy:\n> Mat5:3", "Mat5:3"), "About Happy: > Mat5:3");
-  assert.strictEqual(excerptAt("Блаженства：\nMat5:3", "Mat5:3"), "Блаженства： Mat5:3");
-  assert.strictEqual(
-    excerptAt("These are the first words of the long sermon that Jesus gave on the mount:\nMat5:3", "Mat5:3"),
-    "…first words of the long sermon that Jesus gave on the mount: Mat5:3"
-  );
-  // A heading ending with a colon is shown as the heading, not repeated in the excerpt.
+  // A paragraph: the line above when it ends with a colon, at most one blank line between.
+  assert.deepStrictEqual(usageAt("About Happy:\nMat5:3-12", "Mat5:3-12"), { heading: "", context: ["About Happy:"], excerpt: "Mat5:3-12" });
+  assert.deepStrictEqual(usageAt("About Happy:\n\nMat5:3-12 text", "Mat5:3-12").context, ["About Happy:"]);
+  assert.deepStrictEqual(usageAt("About Happy:\n\n\nMat5:3-12", "Mat5:3-12").context, []);
+  assert.deepStrictEqual(usageAt("Some text\nMat5:3-12", "Mat5:3-12").context, []);
+  assert.deepStrictEqual(usageAt("Read this:\nSee also Mat5:3", "Mat5:3"), { heading: "", context: ["Read this:"], excerpt: "See also Mat5:3" });
+  assert.deepStrictEqual(usageAt("Блаженства：\nMat5:3", "Mat5:3").context, ["Блаженства："]);
+  // A line under a list item without indentation is text after the list; a list item is never an intro of it.
+  assert.deepStrictEqual(usageAt("About Happy:\n- some item:\nMat5:3-12", "Mat5:3-12").context, []);
+  // A top-level list item: the line right before the list, through a blank line only with a colon.
   assert.deepStrictEqual(
-    usageAt("## Beatitudes:\nMat5:3", "Mat5:3", { headings: [heading(0, "Beatitudes:")] }),
-    { excerpt: "Mat5:3", heading: "Beatitudes:" }
+    usageAt("About Happy:\nав ва ывавыаыва\n- first\n- Mat5:3-12", "Mat5:3-12"),
+    { heading: "", context: ["ав ва ывавыаыва"], excerpt: "Mat5:3-12" }
   );
-  // The nearest heading above, from Obsidian's cache.
+  assert.deepStrictEqual(usageAt("About Happy:\nав ва ывавыаыва\n\n* Mat5:3-12", "Mat5:3-12").context, []);
+  assert.deepStrictEqual(usageAt("Intro:\n\n- first\n\n- Mat5:3-12", "Mat5:3-12").context, ["Intro:"]);
+  // An indented line is nested under the line it is indented under, list item or not.
+  assert.deepStrictEqual(usageAt("About Happy:\nав ва ывавыаыва:\n - Mat5:3-12", "Mat5:3-12").context, ["ав ва ывавыаыва:"]);
   assert.deepStrictEqual(
-    usageAt("# Sermon\n## Beatitudes\nAbout Happy:\n\nMat5:3-12\n## Later", "Mat5:3-12", {
-      headings: [heading(0, "Sermon", 1), heading(1, "Beatitudes"), heading(5, "Later")],
-    }),
-    { excerpt: "About Happy: Mat5:3-12", heading: "Beatitudes" }
+    usageAt("## Нагорная проповедь\nБлаженства\n- Нищие духом\n  - о смирении\n    - Mat5:3 — текст\n  - Mat5:4", "Mat5:3"),
+    {
+      heading: "Нагорная проповедь",
+      context: ["Блаженства", "  - Нищие духом", "    - о смирении"],
+      excerpt: "Mat5:3 — текст",
+    }
   );
-  // A list: the line before the list, or a parent item ending with a colon.
-  const listText = "## Blessed\nAbout Happy:\n- first item\n- Mat5:3 poor\n- Others:\n  - Mat5:4 mourn\n  - Mat5:5 meek";
-  const listCache = {
-    headings: [heading(0, "Blessed")],
-    listItems: [listItem(2, -2), listItem(3, -2), listItem(4, -2, 6), listItem(5, 4), listItem(6, 4)],
-  };
-  assert.deepStrictEqual(usageAt(listText, "Mat5:3", listCache), { excerpt: "About Happy: - Mat5:3 poor", heading: "Blessed" });
-  assert.deepStrictEqual(usageAt(listText, "Mat5:5", listCache), { excerpt: "Others: - Mat5:5 meek", heading: "Blessed" });
-  // A nested item under a parent without a colon falls back to the line before the list.
-  const nestedText = "Notes:\n- plain item\n  - Mat5:4";
-  assert.strictEqual(
-    excerptAt(nestedText, "Mat5:4", { listItems: [listItem(1, -1, 2), listItem(2, 1)] }),
-    "Notes: - Mat5:4"
-  );
-  // A line right under a list item without indentation is read as text after the list.
-  assert.strictEqual(
-    excerptAt("About Happy:\n- some item\nMat5:3-12", "Mat5:3-12", { listItems: [listItem(1, -1, 2)] }),
-    "Mat5:3-12"
-  );
-  // Even when that item ends with a colon: it is not the reference's parent.
-  assert.strictEqual(
-    excerptAt("About Happy:\n- some item:\nMat5:3-12", "Mat5:3-12", { listItems: [listItem(1, -1, 2)] }),
-    "Mat5:3-12"
-  );
-  assert.strictEqual(excerptAt("- some item:\n\nMat5:3-12", "Mat5:3-12"), "Mat5:3-12");
-  // An indented continuation line stays in its item.
-  assert.strictEqual(
-    excerptAt("About Happy:\n- some item\n  Mat5:3-12", "Mat5:3-12", { listItems: [listItem(1, -1, 2)] }),
-    "About Happy: Mat5:3-12"
-  );
-  // Without the cache a list item only looks at the line right above it.
-  assert.strictEqual(excerptAt(nestedText, "Mat5:4"), "- Mat5:4");
-  // A stale cache (the editor text has unsaved edits) is not used.
+  // Siblings are not parents.
   assert.deepStrictEqual(
-    usageAt("New line\n## Beatitudes\nMat5:3", "Mat5:3", { headings: [heading(0, "Beatitudes")] }),
-    { excerpt: "Mat5:3", heading: "" }
+    usageAt("Блаженства\n- Нищие духом\n  - о смирении\n  - Mat5:4", "Mat5:4").context,
+    ["Блаженства", "  - Нищие духом"]
   );
-  // Text far from the start of the line: no intro.
+  // More than three parents: the first one, "…" and the nearest one.
+  assert.deepStrictEqual(
+    usageAt("Список\n- a\n  - b\n    - c\n      - d\n        - Mat5:3", "Mat5:3").context,
+    ["Список", "  - a", "    …", "      - d"]
+  );
+  // Headings, code fences and front matter end the nesting; the nearest heading is kept.
+  assert.deepStrictEqual(usageAt("# One\nText\n## Two\n  Mat5:3", "Mat5:3"), { heading: "Two", context: [], excerpt: "Mat5:3" });
+  assert.deepStrictEqual(usageAt("Text\n```\ncode:\n```\n  Mat5:3", "Mat5:3").context, []);
+  assert.deepStrictEqual(usageAt("---\ntags: x\n---\n  Mat5:3", "Mat5:3").context, []);
+  assert.deepStrictEqual(usageAt("```\n# not a heading\n```\nMat5:3", "Mat5:3").heading, "");
+  // Tasks, quotes and long lines.
+  assert.deepStrictEqual(usageAt("> Quote:\n> - Mat5:3", "Mat5:3"), { heading: "", context: ["Quote:"], excerpt: "Mat5:3" });
+  assert.deepStrictEqual(usageAt("Todo\n- [ ] Mat5:3", "Mat5:3"), { heading: "", context: ["Todo"], excerpt: "Mat5:3" });
+  assert.deepStrictEqual(
+    usageAt("These are the first words of the long sermon that Jesus gave on the mount:\nMat5:3", "Mat5:3").context,
+    ["These are the first words of the long sermon that Jesus…"]
+  );
+  // Text far from the start of the line keeps its own excerpt.
   assert.strictEqual(
-    excerptAt("About Happy:\n0123456789012345678901234567890 Mat5:3", "Mat5:3"),
+    usageAt("0123456789012345678901234567890 Mat5:3", "Mat5:3").excerpt,
     "…23456789012345678901234567890 Mat5:3"
   );
 
@@ -375,7 +353,7 @@ module.exports = async () => {
   await signatureService.build(signatureFiles, false);
   assert.deepStrictEqual(signatureApp.readPaths, ["notes/a.md", "notes/b.md"]);
   assert.strictEqual(signatureService.isOutdated(), false);
-  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names|excerpt:4");
+  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names|excerpt:5");
 
   signatureApp.readPaths.length = 0;
   const unchangedSignatureResult = await signatureService.build(signatureFiles, false);

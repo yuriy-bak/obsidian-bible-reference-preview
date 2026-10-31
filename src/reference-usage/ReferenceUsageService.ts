@@ -50,8 +50,6 @@ export class ReferenceUsageService {
         const controller = this.getController();
         owner.registerEvent(vault.on("create", (file) => controller.handleFileCreateOrModify(file)));
         owner.registerEvent(vault.on("modify", (file) => controller.handleFileCreateOrModify(file)));
-        // Headings come from Obsidian's cache, which is updated after the file: index the note again then.
-        owner.registerEvent(this.context.app.metadataCache.on("changed", (file) => controller.handleFileCreateOrModify(file)));
         owner.registerEvent(vault.on("delete", (file) => controller.handleFileDelete(file)));
         owner.registerEvent(vault.on("rename", (file, oldPath) => controller.handleFileRename(file, oldPath)));
         owner.register(() => controller.clearPendingUpdates());
@@ -210,7 +208,6 @@ export class ReferenceUsageService {
                 () => this.context.settings.referenceUsageExcludedFolders,
                 {
                     getParserSignature: () => this.context.parserSignature,
-                    getFileCache: (file) => this.context.app.metadataCache.getFileCache(file),
                     ...(this.context.isMobile
                         ? {
                             maxMarkdownFileSizeBytes: REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,

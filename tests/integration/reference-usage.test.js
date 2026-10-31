@@ -52,19 +52,16 @@ module.exports = async function runReferenceUsageTests() {
   assert.strictEqual(indexService.getStats().referenceCount, 2);
   assert.strictEqual(prompt.hidden, true);
 
-  // The heading above a reference comes from Obsidian's metadata cache.
-  app.vault.setMarkdown("headed.md", "## Gospel\nRead this:\n\nJohn 3:16");
-  const headedFile = app.vault.getAbstractFileByPath("headed.md");
-  app.metadataCache.fileCaches.set("headed.md", {
-    headings: [{ heading: "Gospel", level: 2, position: { start: { line: 0, col: 0, offset: 0 }, end: { line: 0, col: 9, offset: 9 } } }],
-  });
-  await indexService.updateFile(headedFile);
+  // A usage keeps the heading and the lines above the reference.
+  app.vault.setMarkdown("headed.md", "## Gospel\nRead this:\n\n- John 3:16");
+  await indexService.updateFile(app.vault.getAbstractFileByPath("headed.md"));
   const headedUsage = indexService
     .findUsages([{ book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 16 }])
     .find((result) => result.filePath === "headed.md");
   assert(headedUsage !== undefined, "usage in headed.md");
   assert.strictEqual(headedUsage.heading, "Gospel");
-  assert.strictEqual(headedUsage.excerpt, "Read this: John 3:16");
+  assert.deepStrictEqual(headedUsage.context, [{ text: "Read this:", level: 0 }]);
+  assert.strictEqual(headedUsage.excerpt, "John 3:16");
 
   stopPlugin(plugin);
 };
