@@ -75,7 +75,6 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     openCssColorDialog: (input) => this.services.settings.openCssColorDialog(input),
                     openFloatingPreviewBackgroundColorDialog: () => this.services.settings.openFloatingPreviewBackgroundColorDialog(),
                     getBibleReferenceLinkColor: () => this.services.settings.getBibleReferenceLinkColor(),
-                    getBibleReferenceLinkColorPickerValue: () => this.services.settings.getBibleReferenceLinkColorPickerValue(),
                     isBibleReferenceLinkColorDefault: () => this.services.settings.isBibleReferenceLinkColorDefault(),
                     setBibleReferenceLinkColor: (color) => this.services.settings.setBibleReferenceLinkColor(color),
                     resetBibleReferenceLinkColor: () => this.services.settings.resetBibleReferenceLinkColor(),

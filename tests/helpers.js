@@ -70,6 +70,7 @@ const {
   normalizeBibleReferenceLinkColor,
   normalizeFloatingPreviewBackgroundColor,
 } = require("../.test-build/src/ui/cssColorValidation.js");
+const { buildColorDialogPresets } = require("../.test-build/src/ui/colorDialogPresets.js");
 const {
   ReferenceUsageIndexService,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
@@ -139,6 +140,7 @@ module.exports = {
   isCssColor,
   normalizeBibleReferenceLinkColor,
   normalizeFloatingPreviewBackgroundColor,
+  buildColorDialogPresets,
   ReferenceUsageIndexService,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,

@@ -288,7 +288,7 @@ export class FloatingBiblePreviewWindow {
     private buildPreviewHeader(panelEl: HTMLElement): void {
         const header = new BiblePreviewHeader(panelEl, this.labels, {
             variant: "floating",
-            onCopy: () => void this.copyBiblePreviewText(),
+            onCopy: () => this.copyBiblePreviewText(),
             onToggleComparison: () => {
                 if (this.previewContent !== null) this.labels.onToggleComparison?.(this.previewContent);
             },
@@ -439,6 +439,19 @@ export class FloatingBiblePreviewWindow {
         this.disposables.push(addDisposableEventListener(hostWindow, "pointerup", this.pointerUpHandler as EventListener));
         this.disposables.push(addDisposableEventListener(hostWindow, "pointercancel", this.pointerUpHandler as EventListener));
         this.disposables.push(addDisposableEventListener(this.hostDocument, "keydown", this.keydownHandler as EventListener, true));
+        this.observeWorkspaceResize();
+    }
+
+    // Opening or closing a sidebar changes the workspace area without a window resize event.
+    private observeWorkspaceResize(): void {
+        const rootWorkspaceEl = this.hostDocument.querySelector<HTMLElement>(".workspace-split.mod-root");
+        const ResizeObserverCtor = (this.hostWindow as typeof window).ResizeObserver;
+        if (rootWorkspaceEl === null || ResizeObserverCtor === undefined) {
+            return;
+        }
+        const observer = new ResizeObserverCtor(this.viewportChangeHandler);
+        observer.observe(rootWorkspaceEl);
+        this.disposables.push(() => observer.disconnect());
     }
 
     private unregisterListeners(): void {
@@ -861,19 +874,22 @@ export class FloatingBiblePreviewWindow {
         };
     }
 
+    // Phone/tablet only: on desktop a narrow workspace (e.g. with sidebars open) keeps all resize handles.
     private isMobilePreviewLayout(viewportWidth: number): boolean {
-        return viewportWidth < 700;
+        return Platform.isMobile && viewportWidth < 700;
     }
 
-    private async copyBiblePreviewText(): Promise<void> {
+    private async copyBiblePreviewText(): Promise<boolean> {
         if (this.previewText.length === 0) {
-            return;
+            return false;
         }
         try {
             await navigator.clipboard.writeText(this.previewText);
             this.showCopyNotice();
+            return true;
         } catch (error) {
             console.error("Bible Reference Preview: failed to copy preview text", error);
+            return false;
         }
     }
 
