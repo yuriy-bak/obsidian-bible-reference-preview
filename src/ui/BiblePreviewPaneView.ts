@@ -55,6 +55,10 @@ export class BiblePreviewPaneView extends ItemView {
         this.scheduleRender();
     }
 
+    public getScrollTop(): number {
+        return this.contentContainerEl?.scrollTop ?? 0;
+    }
+
     public canScrollPreview(): boolean {
         const scrollEl = this.contentScrollEl;
         return scrollEl !== null && scrollEl.scrollHeight > scrollEl.clientHeight;

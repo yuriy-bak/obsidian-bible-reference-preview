@@ -679,11 +679,20 @@ button.bible-color-dialog-preset.is-active {
 }
 
 h3.bible-reference-usage-pane-title {
+    flex: 1 1 auto;
+    min-width: 0;
     margin: 0;
 }
 
 button.bible-reference-usage-pane-refresh-button {
     flex: 0 0 auto;
+}
+
+button.bible-reference-usage-pane-back-button {
+    flex: 0 0 auto;
+    height: 26px;
+    padding: 0 8px;
+    line-height: 1;
 }
 
 button.bible-reference-usage-pane-refresh-button.is-refreshing svg {

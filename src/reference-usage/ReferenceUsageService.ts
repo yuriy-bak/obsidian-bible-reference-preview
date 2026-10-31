@@ -6,8 +6,14 @@ import type { PluginContext } from "../core/PluginContext";
 import type { BibleReference } from "../domain/BibleReference";
 import type { EditorReferenceUnderCursor, EditorService } from "../editor/EditorService";
 import { BIBLE_PREVIEW_VIEW_TYPE } from "../ui/BiblePreviewPaneView";
-import type { BiblePreviewService } from "../ui/BiblePreviewService";
-import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView, type ReferenceUsagePaneQuery, type ReferenceUsagePaneViewInput } from "../ui/ReferenceUsagePaneView";
+import type { BiblePreviewReturnPoint, BiblePreviewService } from "../ui/BiblePreviewService";
+import {
+    REFERENCE_USAGE_VIEW_TYPE,
+    ReferenceUsagePaneView,
+    type ReferenceUsagePaneBackAction,
+    type ReferenceUsagePaneQuery,
+    type ReferenceUsagePaneViewInput,
+} from "../ui/ReferenceUsagePaneView";
 import { ReferenceUsageResultsModal } from "../ui/ReferenceUsageResultsModal";
 import { areStringArraysEqual } from "../utils/ArrayEquality";
 import { detachDuplicateWorkspaceLeavesOfType, getFirstWorkspaceLeafOfType, revealLeafWithoutStealingEditorFocus } from "../workspace/BiblePreviewWorkspace";
@@ -152,7 +158,7 @@ export class ReferenceUsageService {
         });
     }
 
-    async showUsagesForPreviewBlock(target: BiblePreviewUsageTarget): Promise<void> {
+    async showUsagesForPreviewBlock(target: BiblePreviewUsageTarget, returnPoint: BiblePreviewReturnPoint | null = null): Promise<void> {
         if (!this.ensureIndexingEnabled()) {
             return;
         }
@@ -160,6 +166,7 @@ export class ReferenceUsageService {
         await this.showResultsInPanel({
             titleText: this.formatTitle(target.title),
             run: () => ({ results: this.findUsages(target.references) }),
+            back: this.createBackAction(returnPoint),
         });
     }
 
@@ -168,7 +175,7 @@ export class ReferenceUsageService {
         return this.isReferenceUsageIndexingEnabled() ? this.findUsages([createChapterUsageQuery(location)]).length : null;
     }
 
-    async showUsagesForChapter(location: BibleChapterLocation, chapterTitle: string): Promise<void> {
+    async showUsagesForChapter(location: BibleChapterLocation, chapterTitle: string, returnPoint: BiblePreviewReturnPoint | null = null): Promise<void> {
         if (!this.ensureIndexingEnabled()) {
             return;
         }
@@ -179,13 +186,28 @@ export class ReferenceUsageService {
                 const results = this.findUsages([createChapterUsageQuery(location)]);
                 return { results, groups: groupReferenceUsagesByChapterVerses(results, location, (span) => this.formatChapterGroupTitle(span)) };
             },
+            back: this.createBackAction(returnPoint),
         });
+    }
+
+    // The panel's back button returns to the preview the search started from.
+    private createBackAction(returnPoint: BiblePreviewReturnPoint | null): ReferenceUsagePaneBackAction | undefined {
+        if (returnPoint === null) {
+            return undefined;
+        }
+        return {
+            ariaLabel: this.context.t(returnPoint.content.chapterView === undefined
+                ? "referenceUsages.panel.backToReferenceAria"
+                : "referenceUsages.panel.backToChapterAria"),
+            run: () => this.preview.returnTo(returnPoint),
+        };
     }
 
     createPaneViewInput(): ReferenceUsagePaneViewInput {
         const t = this.context.t.bind(this.context);
         return {
             getTitle: () => t("referenceUsages.panel.titleFallback"),
+            getBackText: () => t("preview.chapterBack"),
             getEmptyText: () => t("modal.referenceUsages.empty"),
             getCountText: (count) => t("modal.referenceUsages.count", { count }),
             getOpenResultAria: (result) => t("referenceUsages.openResultAria", { filePath: result.filePath, line: result.line }),

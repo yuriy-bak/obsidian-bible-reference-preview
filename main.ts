@@ -38,9 +38,9 @@ export default class BiblePlugin extends Plugin {
     private readonly contentBuilder = new BiblePreviewContentBuilder(this.context, this.translations);
     private readonly library = new BibleLibraryService(this.context, this.translations);
     private readonly preview: BiblePreviewService = new BiblePreviewService(this.context, this.settingsService, this.translations, this.contentBuilder, {
-        showReferenceUsagesForPreviewBlock: (block) => void this.referenceUsage.showUsagesForPreviewBlock(block),
+        showReferenceUsagesForPreviewBlock: (block, returnPoint) => void this.referenceUsage.showUsagesForPreviewBlock(block, returnPoint),
         getChapterUsageCount: (location) => this.referenceUsage.countUsagesInChapter(location),
-        showReferenceUsagesForChapter: (location, title) => void this.referenceUsage.showUsagesForChapter(location, title),
+        showReferenceUsagesForChapter: (location, title, returnPoint) => void this.referenceUsage.showUsagesForChapter(location, title, returnPoint),
     });
     private readonly editor = new EditorService(this.context, this.settingsService, this.contentBuilder, this.preview);
     private readonly referenceUsage = new ReferenceUsageService(this.context, this.editor, this.preview);
