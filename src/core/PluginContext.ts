@@ -4,7 +4,7 @@ import { EMPTY_BIBLE_INDEX, type BibleIndex } from "../infrastructure/BibleIndex
 import { getBibleIndexDataDirectoryPath } from "../infrastructure/PluginDirectoryPath";
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
 import { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
-import { createBookMappingFromBibleIndexV2Data } from "../infrastructure/v2/createBookMappingFromBibleIndexV2Data";
+import { createCombinedBookMappingFromBibleIndexV2Data } from "../infrastructure/v2/createBookMappingFromBibleIndexV2Data";
 import { BibleReferenceParser, getBibleReferenceParserSignature, type BibleReferenceMatch } from "../parsing/BibleReferenceParser";
 import { createBookMapping, type BookMapping } from "../parsing/BookMapping";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BiblePluginSettings } from "../settings/PluginSettings";
@@ -181,7 +181,7 @@ export class PluginContext {
     updateBookMapping(): void {
         const previousParserSignature = this.parserSignature;
         this.currentBookMapping = this.currentV2Data !== null && this.currentActiveTranslationId !== null
-            ? createBookMappingFromBibleIndexV2Data(this.currentV2Data, this.currentActiveTranslationId)
+            ? createCombinedBookMappingFromBibleIndexV2Data(this.currentV2Data, this.currentActiveTranslationId)
             : createBookMapping([]);
         this.currentParser = new BibleReferenceParser(
             this.currentBookMapping,

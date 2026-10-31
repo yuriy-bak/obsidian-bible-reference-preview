@@ -25,30 +25,31 @@ module.exports = async function runTranslationSwitchTests() {
   await moveCursor(editor, 8);
   assert.match(floatingPanelText(), /Тестовая Библия.*Ин 3:16.*Ведь Бог так любит мир\.$/s);
 
-  // Another import goes to the end of the list: the main translation, the links and the open preview stay.
+  // Another import goes to the end of the list: the main translation and the open preview stay,
+  // and its book names are recognized too.
   await importBible(plugin, "en");
   assert.deepStrictEqual(plugin.context.settings.translationOrder, ["ru", "en"].map((language) => translationIdByLanguage(plugin, language)));
-  assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16"]);
+  assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16", "John 3:16"]);
   assert.match(floatingPanelText(), /Тестовая Библия.*Ин 3:16.*Ведь Бог так любит мир\.$/s);
 
-  // Switching to it from the settings list: English book names, and the open preview follows.
+  // Switching to it from the settings list: the open preview follows.
   await activateTranslation(plugin, "en");
-  assert.deepStrictEqual(editorLinkTexts(editor), ["John 3:16"]);
+  assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16", "John 3:16"]);
   assert.match(floatingPanelText(), /Test Bible.*Joh 3:16.*For God loved the world so much\.$/s);
 
   // Back to the Russian translation from the settings list.
   await activateTranslation(plugin, "ru");
-  assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16"]);
+  assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16", "John 3:16"]);
   assert.match(floatingPanelText(), /Тестовая Библия.*Ин 3:16.*Ведь Бог так любит мир\.$/s);
 
   // A re-import replaces the text, not only the book names, and keeps the translation's place in the list.
   await importBible(plugin, "en");
-  assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16"]);
+  assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16", "John 3:16"]);
   await importBible(plugin, "ru", { revised: true });
   assert.deepStrictEqual(plugin.context.settings.translationOrder, ["ru", "en"].map((language) => translationIdByLanguage(plugin, language)));
   assert.match(floatingPreviewText(), /Ведь Бог так любит мир\. \(rev\.\)$/);
 
-  // Deleting another translation keeps the active one; deleting the last one turns everything off.
+  // Deleting another translation keeps the active one and drops its book names; deleting the last one turns everything off.
   await deleteTranslation(plugin, "en");
   assert.deepStrictEqual(editorLinkTexts(editor), ["Ин 3:16"]);
   assert.match(floatingPreviewText(), /\(rev\.\)$/);

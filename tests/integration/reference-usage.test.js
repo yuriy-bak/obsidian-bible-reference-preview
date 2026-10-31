@@ -1,8 +1,8 @@
 const assert = require("assert");
 const obsidian = require("obsidian");
-const { activateTranslation, clickButton, floatingPreviewText, flush, importBible, noticeMessages, startPlugin, stopPlugin, translationIdByLanguage, waitFor } = require("./helpers.js");
+const { activateTranslation, clickButton, deleteTranslation, floatingPreviewText, flush, importBible, noticeMessages, startPlugin, stopPlugin, translationIdByLanguage, waitFor } = require("./helpers.js");
 
-// A translation with other book names changes the parser: open reading views are redrawn once, and the
+// Importing or deleting a translation with other book names changes the parser: open reading views are redrawn once, and the
 // usage index built with the old parser is rebuilt in the background, or a notice offers the rebuild.
 module.exports = async function runReferenceUsageTests() {
   const { app, plugin } = await startPlugin({
@@ -24,40 +24,42 @@ module.exports = async function runReferenceUsageTests() {
   assert.strictEqual(plugin.referenceUsage.isReferenceUsageIndexOutdated(), false);
   assert.deepStrictEqual(readingView.previewMode.rerenderCalls, [true]);
 
-  // Another translation goes to the end of the list: the main one stays, the index stays up to date.
-  await importBible(plugin, "en");
-  await flush(10);
-  assert.strictEqual(plugin.context.activeTranslationId, translationIdByLanguage(plugin, "ru"));
-  assert.strictEqual(indexService.getStats().referenceCount, 1);
-  assert.strictEqual(plugin.referenceUsage.isReferenceUsageIndexOutdated(), false);
-
-  // Auto-update on: switching to the English translation rebuilds the index with the English book names.
+  // Auto-update on: another translation adds its book names, so the index is rebuilt with them;
+  // the main translation stays.
   obsidian.__state.notices.length = 0;
   readingView.previewMode.rerenderCalls.length = 1;
-  await activateTranslation(plugin, "en");
-  await waitFor(() => indexService.getStats().referenceCount === 2);
+  await importBible(plugin, "en");
+  await waitFor(() => indexService.getStats().referenceCount === 3);
+  assert.strictEqual(plugin.context.activeTranslationId, translationIdByLanguage(plugin, "ru"));
   assert.strictEqual(plugin.referenceUsage.isReferenceUsageIndexOutdated(), false);
   assert(noticeMessages().includes(t("notice.referenceUsageIndexAutoRebuildStarted")));
   assert.deepStrictEqual(readingView.previewMode.rerenderCalls, [true, true]);
   assert.deepStrictEqual(sourceView.previewMode.rerenderCalls, [], "the editor view is not redrawn");
 
-  // A switch while a build is running is rebuilt after it, with the parser of the new translation.
-  const runningBuild = plugin.referenceUsage.rebuildReferenceUsageIndex();
+  // Switching the main translation keeps every name recognized.
+  await activateTranslation(plugin, "en");
+  await waitFor(() => !plugin.referenceUsage.isReferenceUsageIndexOutdated());
+  assert.strictEqual(indexService.getStats().referenceCount, 3);
   await activateTranslation(plugin, "ru");
+  await waitFor(() => !plugin.referenceUsage.isReferenceUsageIndexOutdated());
+
+  // A deletion while a build is running is rebuilt after it, without the deleted translation's names.
+  const runningBuild = plugin.referenceUsage.rebuildReferenceUsageIndex();
+  await deleteTranslation(plugin, "en");
   await runningBuild;
   await waitFor(() => indexService.getStats().referenceCount === 1 && !plugin.referenceUsage.isReferenceUsageIndexOutdated());
 
   // Auto-update off: the index stays outdated until the rebuild button of the notice.
   await plugin.referenceUsage.setReferenceUsageAutoUpdate(false);
   obsidian.__state.notices.length = 0;
-  await activateTranslation(plugin, "en");
+  await importBible(plugin, "en");
   await flush(10);
   assert.strictEqual(plugin.referenceUsage.isReferenceUsageIndexOutdated(), true);
   const prompt = obsidian.__state.notices.find((notice) => notice.message.includes(t("notice.referenceUsageIndexOutdatedPrompt")));
   assert(prompt !== undefined, "outdated notice");
   clickButton(prompt.noticeEl, t("notice.referenceUsageIndexOutdatedRebuildButton"));
   await waitFor(() => !plugin.referenceUsage.isReferenceUsageIndexOutdated());
-  assert.strictEqual(indexService.getStats().referenceCount, 2);
+  assert.strictEqual(indexService.getStats().referenceCount, 3);
   assert.strictEqual(prompt.hidden, true);
 
   // A usage keeps the heading and the lines above the reference.

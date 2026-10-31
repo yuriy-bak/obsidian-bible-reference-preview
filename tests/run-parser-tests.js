@@ -3,6 +3,7 @@ const TEST_FILES = [
   "colors",
   "settings",
   "parser",
+  "multilang-books",
   "bible-text",
   "preview-format",
   "preview-analyzer",

@@ -9,7 +9,13 @@ export type BookMapping = {
     oneChapterBooks: Set<number>;
 };
 
-export function createBookMapping(books: BibleBook[]): BookMapping {
+/**
+ * @param books the books of the main translation: all their names, abbreviations and generated prefixes.
+ * @param otherTranslationsBooks books of the other imported translations: only their own names, abbreviations
+ *   and aliases, added where they do not clash with the main translation; an alias pointing to different books
+ *   in different other translations is dropped.
+ */
+export function createBookMapping(books: BibleBook[], otherTranslationsBooks: BibleBook[][] = []): BookMapping {
     const nameToId = new Map<string, number>();
     const idToDisplayName = new Map<number, string>();
     const bigBooks = new Set<string>();
@@ -88,6 +94,14 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
         getBookAliasSet(bookId, oneChapterBooks, bigBooks, shortBooks).add(alias);
     }
 
+    addOtherTranslationsAliases(otherTranslationsBooks, {
+        nameToId,
+        idToDisplayName,
+        bigBooks,
+        shortBooks,
+        oneChapterBooks,
+    }, ambiguousAliases);
+
     return {
         nameToId,
         idToDisplayName,
@@ -95,6 +109,54 @@ export function createBookMapping(books: BibleBook[]): BookMapping {
         shortBooks,
         oneChapterBooks,
     };
+}
+
+function addOtherTranslationsAliases(
+    translationsBooks: BibleBook[][],
+    mapping: BookMapping,
+    mainAmbiguousAliases: ReadonlySet<string>,
+): void {
+    const otherAliases = new Map<string, Set<number>>();
+    const otherBooks = new Map<number, BibleBook>();
+
+    for (const books of translationsBooks) {
+        for (const book of books) {
+            if (!otherBooks.has(book.id)) {
+                otherBooks.set(book.id, book);
+            }
+            const aliases = [book.name, book.abbreviation, ...(book.aliases ?? [])];
+            for (const alias of aliases) {
+                for (const normalized of createAliasVariants(removeChapterNumberFromAlias(alias))) {
+                    if (normalized.length > 0) {
+                        addGeneratedAlias(otherAliases, normalized, book.id);
+                    }
+                }
+            }
+        }
+    }
+
+    // A book missing from the main translation (deuterocanon) still needs its kind and a display name.
+    for (const [bookId, book] of otherBooks) {
+        if (mapping.idToDisplayName.has(bookId)) {
+            continue;
+        }
+        if (book.chapterCount === 1) {
+            mapping.oneChapterBooks.add(bookId);
+        }
+        const displayName = createDisplayName(removeChapterNumberFromAlias(book.abbreviation) || removeChapterNumberFromAlias(book.name));
+        if (displayName.length > 0) {
+            mapping.idToDisplayName.set(bookId, displayName);
+        }
+    }
+
+    for (const [alias, bookIds] of otherAliases) {
+        if (bookIds.size !== 1 || mapping.nameToId.has(alias) || mainAmbiguousAliases.has(alias)) {
+            continue;
+        }
+        const bookId = [...bookIds][0];
+        mapping.nameToId.set(alias, bookId);
+        getBookAliasSet(bookId, mapping.oneChapterBooks, mapping.bigBooks, mapping.shortBooks).add(alias);
+    }
 }
 
 export function normalizeBookAlias(value: string): string {
