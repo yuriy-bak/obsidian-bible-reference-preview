@@ -4,10 +4,7 @@
 
 Write `John 3:16` in a note and read the verse right next to it, in a floating window or in a side panel. Works offline on desktop and on phones (Android, iOS), with Bible translations you import once from free EPUB and HTML files, in any language they are published in.
 
-<!--
-GIF placeholder: `docs/images/en/hero.gif` (10–15 s)
-Type `John 3:16` in a note → the floating preview opens → press the comparison button (books on a shelf) and pick a second translation → both translations are shown side by side.
--->
+![Typing a reference opens the Bible text; the comparison shows four translations](https://raw.githubusercontent.com/yuriy-bak/obsidian-bible-reference-preview/main/docs/images/hero.gif)
 
 ## Why this plugin
 
@@ -19,20 +16,13 @@ Type `John 3:16` in a note → the floating preview opens → press the comparis
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
-<!--
-Screenshot placeholder: `docs/images/en/side-panel-comparison.png`
-The side panel with two or three translations compared, a reference highlighted in the note next to it.
--->
+## Screenshots
 
-<!--
-Screenshot placeholder: `docs/images/en/chapter-view.png`
-The chapter view: a full chapter with the cited verses highlighted and buttons for back, previous / next chapter, highlighting and usages in the header.
--->
-
-<!--
-Screenshot placeholder: `docs/images/en/usages.png`
-The usages list for a passage: several notes with the context of each quote.
--->
+<table>
+<tr><td width="50%"><img src="https://raw.githubusercontent.com/yuriy-bak/obsidian-bible-reference-preview/main/docs/images/comparison.png" alt="Comparison of up to four translations in the side panel" width="100%"><br><sub>Comparison of up to four translations in the side panel</sub></td><td width="50%"><img src="https://raw.githubusercontent.com/yuriy-bak/obsidian-bible-reference-preview/main/docs/images/floating-window.png" alt="Floating window" width="100%"><br><sub>Floating window</sub></td></tr>
+<tr><td width="50%"><img src="https://raw.githubusercontent.com/yuriy-bak/obsidian-bible-reference-preview/main/docs/images/chapter-view.png" alt="Chapter view with the cited verse highlighted" width="100%"><br><sub>Chapter view with the cited verse highlighted</sub></td><td width="50%"><img src="https://raw.githubusercontent.com/yuriy-bak/obsidian-bible-reference-preview/main/docs/images/usages.png" alt="Where a passage is quoted in your notes" width="100%"><br><sub>Where a passage is quoted in your notes</sub></td></tr>
+<tr><td width="50%"><img src="https://raw.githubusercontent.com/yuriy-bak/obsidian-bible-reference-preview/main/docs/images/translation-code.png" alt="A translation code after a reference: (ПНМ) shows a Russian translation" width="100%"><br><sub>A translation code after a reference: (ПНМ) shows a Russian translation</sub></td><td></td></tr>
+</table>
 
 ## Quick start
 
@@ -56,11 +46,6 @@ More sources and details are in [Importing a translation](#importing-a-translati
 - **Usage index:** the magnifier next to a passage lists the notes that cite it. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
 - **Commands:** open the reference under the cursor (with an optional shortcut), find its usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
 - **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, numbering scheme and code, and the usage index.
-
-<!--
-Screenshot placeholder: `docs/images/en/settings.png`
-Settings → Bible Reference Preview: the translation list with two or three imported Bibles.
--->
 
 ## Roadmap
 
