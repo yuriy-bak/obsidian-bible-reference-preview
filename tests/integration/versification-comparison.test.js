@@ -12,8 +12,8 @@ const { normalizePluginSettings } = require("../../.test-build/src/settings/Plug
 // numbering shows the same passage under its own reference.
 module.exports = async function runVersificationComparisonTests() {
   const { plugin } = await startPlugin();
-  await importBible(plugin, "en", { withPsalms: true }, { versification: "builtin:eng" });
   await importBible(plugin, "ru", { withPsalms: true }, { versification: "builtin:rsc" });
+  await importBible(plugin, "en", { withPsalms: true }, { versification: "builtin:eng" });
   const ruId = translationIdByLanguage(plugin, "ru");
   const enId = translationIdByLanguage(plugin, "en");
   assert.strictEqual(plugin.context.activeTranslationId, ruId);
