@@ -263,7 +263,6 @@ export class BiblePreviewService {
             ...this.createCommonViewInput(),
             getOpenFloatingAria: () => this.context.t("preview.openFloatingAria"),
             getOpenFloatingIcon: () => this.context.t("preview.openFloatingIcon"),
-            getCopyIcon: () => this.context.t("preview.copyIcon"),
             onOpenFloating: (content) => void this.switchToFloating(content),
         };
     }
@@ -278,7 +277,7 @@ export class BiblePreviewService {
             getFindUsagesButtonText: () => t("preview.findUsagesIcon"),
             getFindUsagesButtonAria: (target: BiblePreviewUsageTarget) => t("preview.findUsagesAria", { reference: target.title }),
             onFindUsages: (target: BiblePreviewUsageTarget) => this.effects.showReferenceUsagesForPreviewBlock(target),
-            getComparisonButtonText: () => isComparisonEnabled() ? "1" : "⇄",
+            isComparisonEnabled,
             getComparisonButtonAria: () => isComparisonEnabled()
                 ? t("preview.comparisonOffAria")
                 : t("preview.comparisonOnAria"),

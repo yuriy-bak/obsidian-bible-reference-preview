@@ -6,7 +6,7 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 
 <!--
 GIF placeholder: `docs/images/en/hero.gif` (10–15 s)
-Type `John 3:16` in a note → the floating preview opens → press `⇄` and pick a second translation → both translations are shown side by side.
+Type `John 3:16` in a note → the floating preview opens → press the comparison button (books on a shelf) and pick a second translation → both translations are shown side by side.
 -->
 
 ## Why this plugin
@@ -51,7 +51,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 - **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
 - **Copy** the passage with its reference and footnotes, in comparison mode too.
 - **Chapter view:** 📖 in a passage title opens the full chapter. Use `↩` to go back, `←` / `→` for the previous or next chapter, 🖍 to hide or show the highlighting, and 🔎 to see all usages of the chapter.
-- **Comparison:** `⇄` in the preview header turns it on; choose the translations in the header list.
+- **Comparison:** the books-on-a-shelf button in the preview header turns it on (it stays highlighted while comparison is on); choose the translations in the header list.
 - **A translation code** after a reference shows the passage in that translation and its numbering: `Ps 23:1 (WEB)`, where `WEB` is the code of an imported translation. Codes can be changed in the translation list.
 - **Usage index:** 🔎 next to a passage lists the notes that cite it. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
 - **Commands:** open the reference under the cursor (with an optional shortcut), find its usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.

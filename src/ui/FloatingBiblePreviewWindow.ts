@@ -284,7 +284,7 @@ export class FloatingBiblePreviewWindow {
     private buildPreviewHeader(panelEl: HTMLElement): void {
         const header = new BiblePreviewHeader(panelEl, this.labels, {
             variant: "floating",
-            onCopy: () => void this.copyBiblePreviewText(),
+            onCopy: () => this.copyBiblePreviewText(),
             onToggleComparison: () => {
                 if (this.previewContent !== null) this.labels.onToggleComparison?.(this.previewContent);
             },
@@ -875,15 +875,17 @@ export class FloatingBiblePreviewWindow {
         return Platform.isMobile && viewportWidth < 700;
     }
 
-    private async copyBiblePreviewText(): Promise<void> {
+    private async copyBiblePreviewText(): Promise<boolean> {
         if (this.previewText.length === 0) {
-            return;
+            return false;
         }
         try {
             await navigator.clipboard.writeText(this.previewText);
             this.showCopyNotice();
+            return true;
         } catch (error) {
             console.error("Bible Reference Preview: failed to copy preview text", error);
+            return false;
         }
     }
 

@@ -342,6 +342,20 @@ button.bible-preview-pane-icon-button {
     padding: 0;
 }
 
+/* Lucide icons in header buttons (copy, comparison). */
+button.bible-preview-header-lucide-button {
+    --icon-size: 15px;
+    --icon-stroke: 2px;
+}
+
+/* The comparison button stays pressed while comparison is on. */
+button.bible-preview-pane-icon-button.is-active,
+.bible-preview-floating-panel .bible-preview-floating-header button.bible-preview-floating-icon-button.is-active {
+    background: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
 .bible-preview-floating-panel .bible-preview-floating-header button.bible-preview-floating-close-button {
     font-size: 18px;
     font-weight: 700;
