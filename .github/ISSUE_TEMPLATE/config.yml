@@ -1,5 +1,5 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
 contact_links:
   - name: Roadmap
     url: https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap
-    about: Planned features. Vote with 👍 on the ones you want instead of opening a new request.
+    about: Planned features. If your idea is there, a 👍 on it is enough.

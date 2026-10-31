@@ -1,20 +1,10 @@
-name: Feature request
-description: Suggest an idea that is not on the roadmap yet.
+name: Idea
+description: Suggest a feature or an improvement.
 labels: ["enhancement"]
 body:
-  - type: checkboxes
-    attributes:
-      label: Before you start
-      options:
-        - label: I checked the [roadmap](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) and the [existing ideas](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+label%3Aenhancement). If the idea is there, I voted with 👍 instead.
-          required: true
   - type: textarea
     attributes:
-      label: What you want to do
-      description: The task you are trying to solve, not only the solution. For example "compare a verse in two languages while writing a sermon".
+      label: Your idea
+      description: A few words are enough. Any language is fine.
     validations:
       required: true
-  - type: textarea
-    attributes:
-      label: How it could work
-      description: Optional. Your idea of the solution.

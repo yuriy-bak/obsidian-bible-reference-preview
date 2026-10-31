@@ -115,7 +115,7 @@ The plugin makes no network requests. It reads the list of Markdown files only t
 
 ## Feedback
 
-Found a reference that is not recognized, or a Bible file that does not import? [Report a bug](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose) with the reference or a link to the file. For a new idea, check the [roadmap](#roadmap) first: if it is there, vote with 👍; if not, suggest it with the feature request form. If the plugin is useful to you, a star on GitHub helps other people find it.
+Found a bug, a reference that is not recognized, or a Bible file that does not import? Have an idea? [Open an issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose): a few words are enough, in English or Russian. If the idea is already on the [roadmap](#roadmap), a 👍 on it helps too. If the plugin is useful to you, a star on GitHub helps other people find it.
 
 ## Development
 

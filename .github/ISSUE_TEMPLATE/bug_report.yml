@@ -2,40 +2,9 @@ name: Bug report
 description: Something does not work, a reference is not recognized, or a Bible file does not import.
 labels: ["bug"]
 body:
-  - type: checkboxes
-    attributes:
-      label: Before you start
-      options:
-        - label: I searched the [existing issues](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue) and this is not reported yet.
-          required: true
   - type: textarea
     attributes:
       label: What happened
-      description: What you did, what you expected and what you got. For a reference, paste the exact text from the note.
+      description: A few words are enough. If you can, add the reference as you typed it, the translation, and your device. Any language is fine.
     validations:
       required: true
-  - type: input
-    attributes:
-      label: Translation
-      description: The imported translation and where the file came from (jw.org, eBible.org, dbs.org), with a link if you have one.
-  - type: input
-    attributes:
-      label: Plugin and Obsidian versions
-      placeholder: "Plugin 0.3.0, Obsidian 1.13.2"
-    validations:
-      required: true
-  - type: dropdown
-    attributes:
-      label: Device
-      options:
-        - Windows
-        - macOS
-        - Linux
-        - Android
-        - iOS / iPadOS
-    validations:
-      required: true
-  - type: textarea
-    attributes:
-      label: Screenshots or console errors
-      description: Optional. Errors are in Ctrl+Shift+I (Cmd+Option+I on macOS) → Console.
