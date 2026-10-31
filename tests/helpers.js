@@ -73,6 +73,8 @@ const {
 const {
   ReferenceUsageIndexService,
   createReferenceUsageExcerpt,
+  findReferenceUsageHeading,
+  getReferenceUsageNoteStructure,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
 } = require("../.test-build/src/reference-usage/ReferenceUsageIndexService.js");
@@ -142,6 +144,8 @@ module.exports = {
   normalizeFloatingPreviewBackgroundColor,
   ReferenceUsageIndexService,
   createReferenceUsageExcerpt,
+  findReferenceUsageHeading,
+  getReferenceUsageNoteStructure,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   createChapterUsageQuery,

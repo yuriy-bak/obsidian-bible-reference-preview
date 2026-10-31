@@ -222,6 +222,12 @@ button.bible-reference-usage-results-open-button {
     margin-bottom: 6px;
 }
 
+.bible-reference-usage-heading {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+
 .bible-reference-usage-source-text {
     font-weight: 600;
 }

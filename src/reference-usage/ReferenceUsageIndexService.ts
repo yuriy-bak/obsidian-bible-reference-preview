@@ -1,4 +1,4 @@
-import type { App, TFile } from "obsidian";
+import type { App, CachedMetadata, TFile } from "obsidian";
 import type { BibleReference } from "../domain/BibleReference";
 import { ensureVaultDirectoryExists, normalizePath } from "../infrastructure/VaultPathUtils";
 import type { BibleReferenceMatch } from "../parsing/BibleReferenceParser";
@@ -12,8 +12,10 @@ const REFERENCE_USAGE_EXCERPT_BEFORE_CHARS = 30;
 const REFERENCE_USAGE_EXCERPT_AFTER_CHARS = 140;
 const REFERENCE_USAGE_EXCERPT_ELLIPSIS = "…";
 // Bump when the excerpt format changes, so indexes with excerpts in the old format are rebuilt.
-const REFERENCE_USAGE_EXCERPT_FORMAT_VERSION = 2;
+const REFERENCE_USAGE_EXCERPT_FORMAT_VERSION = 3;
+const REFERENCE_USAGE_INTRO_MAX_CHARS = 60;
 // Quote markers, then a heading, list item (with an optional task box) or ordered list marker.
+const LIST_ITEM_PATTERN = /^[\s>]*(?:[-*+]|\d+[.)])(?:\s|$)/u;
 const MARKDOWN_LINE_PREFIX_PATTERN = /^(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+(?:\[.\]\s+)?|\d+[.)]\s+)?/u;
 const REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES = 25;
 export const REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES = 10;
@@ -24,6 +26,8 @@ export type ReferenceUsageIndexServiceOptions = {
     buildYieldEveryFiles?: number;
     // Signature of the parser that produces the matches (getBibleReferenceParserSignature).
     getParserSignature?: () => string;
+    // Obsidian's parsed structure of a note (headings, list items); null when it is not available.
+    getFileCache?: (file: TFile) => CachedMetadata | null;
 };
 
 export type ReferenceUsageIndexBuildProgress = {
@@ -65,6 +69,8 @@ export type IndexedReferenceUsage = {
     chStart: number;
     chEnd: number;
     excerpt: string;
+    // The nearest heading above the reference; "" when there is none.
+    heading: string;
 };
 
 export type ReferenceUsageSearchResult = IndexedReferenceUsage & {
@@ -94,6 +100,7 @@ export class ReferenceUsageIndexService {
     private readonly maxMarkdownFileSizeBytes: number;
     private readonly buildYieldEveryFiles: number;
     private readonly getParserSignature: () => string;
+    private readonly getFileCache: (file: TFile) => CachedMetadata | null;
 
     constructor(
         private readonly app: App,
@@ -105,6 +112,7 @@ export class ReferenceUsageIndexService {
         this.maxMarkdownFileSizeBytes = options.maxMarkdownFileSizeBytes ?? REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES;
         this.buildYieldEveryFiles = options.buildYieldEveryFiles ?? REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES;
         this.getParserSignature = options.getParserSignature ?? (() => "");
+        this.getFileCache = options.getFileCache ?? (() => null);
     }
 
     public getIndexPath(): string {
@@ -321,6 +329,7 @@ export class ReferenceUsageIndexService {
     private createIndexedFile(file: TFile, content: string): IndexedReferenceUsageFile {
         const references: IndexedReferenceUsage[] = [];
         const lines = content.split(/\r?\n/u);
+        const structure = getReferenceUsageNoteStructure(this.getFileCache(file), lines);
         for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
             const line = lines[lineIndex];
             const matches = this.parseMatches(line);
@@ -338,7 +347,8 @@ export class ReferenceUsageIndexService {
                         line: lineIndex + 1,
                         chStart: match.from,
                         chEnd: match.to,
-                        excerpt: createReferenceUsageExcerpt(lines, lineIndex, match.from, match.to),
+                        excerpt: createReferenceUsageExcerpt(lines, lineIndex, match.from, match.to, structure),
+                        heading: findReferenceUsageHeading(structure, lineIndex),
                     });
                 }
             }
@@ -370,7 +380,53 @@ function createEmptyReferenceUsageIndex(): ReferenceUsageIndex {
     return { version: REFERENCE_USAGE_INDEX_VERSION, updatedAt: 0, parserSignature: null, files: {} };
 }
 
-export function createReferenceUsageExcerpt(lines: readonly string[], lineIndex: number, from: number, to: number): string {
+/** Headings and list items of a note, taken from Obsidian's metadata cache. */
+export type ReferenceUsageNoteStructure = {
+    headings: { line: number; text: string }[];
+    listItems: { line: number; endLine: number; parent: number }[];
+};
+
+/**
+ * The structure from Obsidian's cache, or null when there is none or it is stale: the cache follows the
+ * saved file, while an open note is indexed from its editor text, which may hold unsaved edits.
+ */
+export function getReferenceUsageNoteStructure(cache: CachedMetadata | null, lines: readonly string[]): ReferenceUsageNoteStructure | null {
+    if (cache === null) {
+        return null;
+    }
+    const headings = (cache.headings ?? []).map((heading) => ({ line: heading.position.start.line, text: heading.heading.trim() }));
+    if (headings.some((heading) => !(lines[heading.line] ?? "").includes(heading.text))) {
+        return null;
+    }
+    const listItems = (cache.listItems ?? []).map((item) => ({
+        line: item.position.start.line,
+        endLine: item.position.end.line,
+        parent: item.parent,
+    }));
+    if (listItems.some((item) => !LIST_ITEM_PATTERN.test(lines[item.line] ?? ""))) {
+        return null;
+    }
+    return { headings, listItems };
+}
+
+export function findReferenceUsageHeading(structure: ReferenceUsageNoteStructure | null, lineIndex: number): string {
+    let heading = "";
+    for (const candidate of structure?.headings ?? []) {
+        if (candidate.line >= lineIndex) {
+            break;
+        }
+        heading = candidate.text;
+    }
+    return heading;
+}
+
+export function createReferenceUsageExcerpt(
+    lines: readonly string[],
+    lineIndex: number,
+    from: number,
+    to: number,
+    structure: ReferenceUsageNoteStructure | null = null,
+): string {
     const line = lines[lineIndex];
     const excerptStart = Math.max(0, from - REFERENCE_USAGE_EXCERPT_BEFORE_CHARS);
     const excerptEnd = Math.min(line.length, to + REFERENCE_USAGE_EXCERPT_AFTER_CHARS);
@@ -379,33 +435,59 @@ export function createReferenceUsageExcerpt(lines: readonly string[], lineIndex:
         return `${REFERENCE_USAGE_EXCERPT_ELLIPSIS}${line.slice(excerptStart, excerptEnd).trim()}${suffix}`;
     }
     const lineText = line.slice(0, excerptEnd).trim();
-    // Little or no text before the reference on its line (e.g. "About Happy:" on the line above): fill up with the end of the previous line.
-    const missingChars = REFERENCE_USAGE_EXCERPT_BEFORE_CHARS - line.slice(0, from).trim().length;
-    const context = missingChars > 0 ? getPreviousLineContext(lines, lineIndex, missingChars) : "";
-    return `${context.length > 0 ? `${context} ` : ""}${lineText}${suffix}`;
+    const intro = findReferenceUsageIntro(lines, lineIndex, structure);
+    return `${intro.length > 0 ? `${intro} ` : ""}${lineText}${suffix}`;
 }
 
-// The end of the nearest non-empty line above, within the same block: at most one blank line between,
-// and not across a code fence or a front matter / horizontal rule line.
-function getPreviousLineContext(lines: readonly string[], lineIndex: number, maxChars: number): string {
-    let previousIndex = lineIndex - 1;
+/**
+ * A line ending with a colon that introduces the reference ("About Happy:"): for a list item, the nearest
+ * parent item or the line before the list; otherwise the line above. At most one blank line in between.
+ */
+function findReferenceUsageIntro(lines: readonly string[], lineIndex: number, structure: ReferenceUsageNoteStructure | null): string {
+    const listItems = structure?.listItems ?? [];
+    const itemsByLine = new Map(listItems.map((item) => [item.line, item]));
+    // The innermost item holding the line: a parent item's range covers its nested items.
+    let item: ReferenceUsageNoteStructure["listItems"][number] | undefined;
+    for (const candidate of listItems) {
+        if (candidate.line <= lineIndex && lineIndex <= candidate.endLine && (item === undefined || candidate.line > item.line)) {
+            item = candidate;
+        }
+    }
+    let lineAbove = lineIndex;
+    while (item !== undefined) {
+        // A top-level item's parent is minus the line of the list's first item.
+        const parent = item.parent >= 0 ? itemsByLine.get(item.parent) : undefined;
+        if (parent === undefined) {
+            lineAbove = item.parent < 0 ? -item.parent : item.line;
+            break;
+        }
+        const parentText = getIntroText(lines[parent.line]);
+        if (parentText.length > 0) {
+            return parentText;
+        }
+        item = parent;
+    }
+    let previousIndex = lineAbove - 1;
     if (previousIndex >= 0 && lines[previousIndex].trim().length === 0) {
         previousIndex -= 1;
     }
-    if (previousIndex < 0) {
+    return previousIndex >= 0 ? getIntroText(lines[previousIndex]) : "";
+}
+
+// The text of a line ending with a colon, without its Markdown prefix; "" for other lines and headings
+// (the heading is shown on its own).
+function getIntroText(line: string): string {
+    const trimmed = line.trim();
+    if (!/[:：]$/u.test(trimmed) || /^#{1,6}\s/u.test(trimmed)) {
         return "";
     }
-    const previousLine = lines[previousIndex].trim();
-    if (previousLine.length === 0 || /^(?:```|~~~|---\s*$)/u.test(previousLine)) {
-        return "";
-    }
-    const text = previousLine.replace(MARKDOWN_LINE_PREFIX_PATTERN, "").trim();
-    if (text.length <= maxChars) {
+    const text = trimmed.replace(MARKDOWN_LINE_PREFIX_PATTERN, "").trim();
+    if (text.length <= REFERENCE_USAGE_INTRO_MAX_CHARS) {
         return text;
     }
-    let tail = text.slice(text.length - maxChars);
+    let tail = text.slice(text.length - REFERENCE_USAGE_INTRO_MAX_CHARS);
     // Start at a word boundary when the cut falls inside a word.
-    if (!/\s/u.test(text[text.length - maxChars - 1])) {
+    if (!/\s/u.test(text[text.length - REFERENCE_USAGE_INTRO_MAX_CHARS - 1])) {
         const spaceIndex = tail.search(/\s/u);
         tail = spaceIndex >= 0 ? tail.slice(spaceIndex) : "";
     }
@@ -426,7 +508,7 @@ function normalizeReferenceUsageIndex(value: unknown): ReferenceUsageIndex {
             path: typeof file.path === "string" ? file.path : path,
             mtime: typeof file.mtime === "number" ? file.mtime : 0,
             size: typeof file.size === "number" ? file.size : 0,
-            references: file.references.filter(isIndexedReferenceUsage),
+            references: file.references.filter(isIndexedReferenceUsage).map((reference) => ({ ...reference, heading: reference.heading ?? "" })),
         };
     }
     return {
@@ -437,7 +519,8 @@ function normalizeReferenceUsageIndex(value: unknown): ReferenceUsageIndex {
     };
 }
 
-function isIndexedReferenceUsage(value: unknown): value is IndexedReferenceUsage {
+// Indexes from before headings have no heading field.
+function isIndexedReferenceUsage(value: unknown): value is Omit<IndexedReferenceUsage, "heading"> & { heading?: string } {
     return isRecord(value)
         && typeof value.id === "string"
         && typeof value.sourceText === "string"
@@ -449,7 +532,8 @@ function isIndexedReferenceUsage(value: unknown): value is IndexedReferenceUsage
         && typeof value.line === "number"
         && typeof value.chStart === "number"
         && typeof value.chEnd === "number"
-        && typeof value.excerpt === "string";
+        && typeof value.excerpt === "string"
+        && (value.heading === undefined || typeof value.heading === "string");
 }
 
 function doBibleReferenceRangesIntersect(left: BibleReference, right: IndexedReferenceUsage): boolean {

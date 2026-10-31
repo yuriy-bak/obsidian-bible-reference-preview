@@ -1,5 +1,11 @@
 import type { ReferenceUsageSearchResult } from "../reference-usage/ReferenceUsageIndexService";
 
+export function renderReferenceUsageHeading(containerEl: HTMLElement, result: ReferenceUsageSearchResult): void {
+    if (result.heading.length > 0) {
+        containerEl.createDiv({ text: result.heading, cls: "bible-reference-usage-heading" });
+    }
+}
+
 export function renderReferenceUsageExcerpt(containerEl: HTMLElement, result: ReferenceUsageSearchResult): HTMLElement {
     const excerptEl = containerEl.createDiv({ cls: "bible-reference-usage-excerpt" });
 

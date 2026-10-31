@@ -2,6 +2,8 @@ const {
   assert,
   ReferenceUsageIndexService,
   createReferenceUsageExcerpt,
+  findReferenceUsageHeading,
+  getReferenceUsageNoteStructure,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   createChapterUsageQuery,
@@ -146,34 +148,80 @@ module.exports = async () => {
   assert.strictEqual(referenceUsageResults[0].filePath, "notes/one.md");
   assert.strictEqual(referenceUsageResults[0].sourceText, "Ин 3:16");
   assert.strictEqual(referenceUsageResults[0].line, 2);
-  assert.strictEqual(referenceUsageResults[0].excerpt, "Intro Ин 3:16 and Рим 8:28");
+  assert.strictEqual(referenceUsageResults[0].excerpt, "Ин 3:16 and Рим 8:28");
+  assert.strictEqual(referenceUsageResults[0].heading, "");
 
-  // Text before a reference at the start of its line comes from the line above.
-  function excerptAt(text, sourceText) {
+  // A line ending with a colon that introduces the reference goes before it; the heading is kept apart.
+  function position(line) {
+    return { start: { line, col: 0, offset: 0 }, end: { line, col: 0, offset: 0 } };
+  }
+  function heading(line, text, level = 2) {
+    return { heading: text, level, position: position(line) };
+  }
+  function listItem(line, parent, endLine = line) {
+    return { parent, position: { start: position(line).start, end: { line: endLine, col: 0, offset: 0 } } };
+  }
+  function usageAt(text, sourceText, cache = null) {
     const lines = text.split("\n");
     const lineIndex = lines.findIndex((line) => line.includes(sourceText));
     const from = lines[lineIndex].indexOf(sourceText);
-    return createReferenceUsageExcerpt(lines, lineIndex, from, from + sourceText.length);
+    const structure = getReferenceUsageNoteStructure(cache, lines);
+    return {
+      excerpt: createReferenceUsageExcerpt(lines, lineIndex, from, from + sourceText.length, structure),
+      heading: findReferenceUsageHeading(structure, lineIndex),
+    };
+  }
+  function excerptAt(text, sourceText, cache = null) {
+    return usageAt(text, sourceText, cache).excerpt;
   }
   assert.strictEqual(excerptAt("About Happy:\nMat5:3-12", "Mat5:3-12"), "About Happy: Mat5:3-12");
   assert.strictEqual(excerptAt("About Happy:\n\nMat5:3-12 text", "Mat5:3-12"), "About Happy: Mat5:3-12 text");
   assert.strictEqual(excerptAt("About Happy:\n\n\nMat5:3-12", "Mat5:3-12"), "Mat5:3-12");
-  assert.strictEqual(excerptAt("## Beatitudes\n- [ ] Mat5:3", "Mat5:3"), "Beatitudes - [ ] Mat5:3");
-  assert.strictEqual(excerptAt("> - About Happy:\n> Mat5:3", "Mat5:3"), "About Happy: > Mat5:3");
-  assert.strictEqual(excerptAt("```\nMat5:3", "Mat5:3"), "Mat5:3");
-  assert.strictEqual(excerptAt("---\nMat5:3", "Mat5:3"), "Mat5:3");
+  assert.strictEqual(excerptAt("Some text\nMat5:3-12", "Mat5:3-12"), "Mat5:3-12");
+  assert.strictEqual(excerptAt("Read this:\nSee also Mat5:3", "Mat5:3"), "Read this: See also Mat5:3");
+  assert.strictEqual(excerptAt("> About Happy:\n> Mat5:3", "Mat5:3"), "About Happy: > Mat5:3");
+  assert.strictEqual(excerptAt("Блаженства：\nMat5:3", "Mat5:3"), "Блаженства： Mat5:3");
   assert.strictEqual(
-    excerptAt("The first words of the long sermon on the mount:\nMat5:3", "Mat5:3"),
-    "…the long sermon on the mount: Mat5:3"
+    excerptAt("These are the first words of the long sermon that Jesus gave on the mount:\nMat5:3", "Mat5:3"),
+    "…first words of the long sermon that Jesus gave on the mount: Mat5:3"
   );
-  assert.strictEqual(
-    excerptAt("Read this:\nSee also Mat5:3", "Mat5:3"),
-    "Read this: See also Mat5:3"
+  // A heading ending with a colon is shown as the heading, not repeated in the excerpt.
+  assert.deepStrictEqual(
+    usageAt("## Beatitudes:\nMat5:3", "Mat5:3", { headings: [heading(0, "Beatitudes:")] }),
+    { excerpt: "Mat5:3", heading: "Beatitudes:" }
   );
-  // Enough text before the reference on its own line: the line above is not used.
+  // The nearest heading above, from Obsidian's cache.
+  assert.deepStrictEqual(
+    usageAt("# Sermon\n## Beatitudes\nAbout Happy:\n\nMat5:3-12\n## Later", "Mat5:3-12", {
+      headings: [heading(0, "Sermon", 1), heading(1, "Beatitudes"), heading(5, "Later")],
+    }),
+    { excerpt: "About Happy: Mat5:3-12", heading: "Beatitudes" }
+  );
+  // A list: the line before the list, or a parent item ending with a colon.
+  const listText = "## Blessed\nAbout Happy:\n- first item\n- Mat5:3 poor\n- Others:\n  - Mat5:4 mourn\n  - Mat5:5 meek";
+  const listCache = {
+    headings: [heading(0, "Blessed")],
+    listItems: [listItem(2, -2), listItem(3, -2), listItem(4, -2, 6), listItem(5, 4), listItem(6, 4)],
+  };
+  assert.deepStrictEqual(usageAt(listText, "Mat5:3", listCache), { excerpt: "About Happy: - Mat5:3 poor", heading: "Blessed" });
+  assert.deepStrictEqual(usageAt(listText, "Mat5:5", listCache), { excerpt: "Others: - Mat5:5 meek", heading: "Blessed" });
+  // A nested item under a parent without a colon falls back to the line before the list.
+  const nestedText = "Notes:\n- plain item\n  - Mat5:4";
   assert.strictEqual(
-    excerptAt("Line above\n01234567890123456789012345678 Mat5:3", "Mat5:3"),
-    "01234567890123456789012345678 Mat5:3"
+    excerptAt(nestedText, "Mat5:4", { listItems: [listItem(1, -1, 2), listItem(2, 1)] }),
+    "Notes: - Mat5:4"
+  );
+  // Without the cache a list item only looks at the line right above it.
+  assert.strictEqual(excerptAt(nestedText, "Mat5:4"), "- Mat5:4");
+  // A stale cache (the editor text has unsaved edits) is not used.
+  assert.deepStrictEqual(
+    usageAt("New line\n## Beatitudes\nMat5:3", "Mat5:3", { headings: [heading(0, "Beatitudes")] }),
+    { excerpt: "Mat5:3", heading: "" }
+  );
+  // Text far from the start of the line: no intro.
+  assert.strictEqual(
+    excerptAt("About Happy:\n0123456789012345678901234567890 Mat5:3", "Mat5:3"),
+    "…23456789012345678901234567890 Mat5:3"
   );
 
   const referenceUsageOpenNoteApp = createReferenceUsageTestApp({});
@@ -311,7 +359,7 @@ module.exports = async () => {
   await signatureService.build(signatureFiles, false);
   assert.deepStrictEqual(signatureApp.readPaths, ["notes/a.md", "notes/b.md"]);
   assert.strictEqual(signatureService.isOutdated(), false);
-  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names|excerpt:2");
+  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names|excerpt:3");
 
   signatureApp.readPaths.length = 0;
   const unchangedSignatureResult = await signatureService.build(signatureFiles, false);

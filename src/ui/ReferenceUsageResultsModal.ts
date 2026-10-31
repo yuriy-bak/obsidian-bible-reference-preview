@@ -1,7 +1,7 @@
 import { App, Modal } from "obsidian";
 import { BiblePluginLocale, t } from "../i18n/I18n";
 import type { ReferenceUsageSearchResult } from "../reference-usage/ReferenceUsageIndexService";
-import { renderReferenceUsageExcerpt } from "./ReferenceUsageExcerpt";
+import { renderReferenceUsageExcerpt, renderReferenceUsageHeading } from "./ReferenceUsageExcerpt";
 
 export class ReferenceUsageResultsModal extends Modal {
     constructor(
@@ -32,6 +32,7 @@ export class ReferenceUsageResultsModal extends Modal {
                 this.openResult(result);
                 this.close();
             });
+            renderReferenceUsageHeading(rowEl, result);
             rowEl.createDiv({ text: result.sourceText, cls: "bible-reference-usage-source-text" });
             renderReferenceUsageExcerpt(rowEl, result);
         }

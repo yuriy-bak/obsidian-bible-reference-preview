@@ -149,6 +149,9 @@ function createTestApp() {
   app.vault = new Vault();
   app.workspace = new Workspace(app);
   app.metadataCache = new Events();
+  // Tests set a note's parsed structure (headings, listItems) by its path.
+  app.metadataCache.fileCaches = new Map();
+  app.metadataCache.getFileCache = (file) => app.metadataCache.fileCaches.get(file.path) ?? null;
   return app;
 }
 
