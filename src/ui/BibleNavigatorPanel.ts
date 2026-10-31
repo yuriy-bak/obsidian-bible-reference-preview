@@ -27,6 +27,10 @@ export class BibleNavigatorPanel {
     private readonly bodyEl: HTMLDivElement;
     private currentBookId: number | null = null;
     private chosenBook: NavigatorBook | null = null;
+    /** The search text left at the last close; it comes back selected, so typing replaces it. */
+    private lastQuery = "";
+    /** The books are filtered only once the search text is edited, not by the query brought back. */
+    private filtering = false;
 
     constructor(parentEl: HTMLElement, private readonly input: BibleNavigatorPanelInput) {
         this.el = parentEl.createDiv({ cls: "bible-reader-navigator" });
@@ -35,6 +39,7 @@ export class BibleNavigatorPanel {
         this.searchEl = searchRowEl.createEl("input", { cls: "bible-reader-navigator-search", type: "search" });
         this.searchEl.addEventListener("input", () => {
             this.chosenBook = null;
+            this.filtering = true;
             this.render();
         });
         this.searchEl.addEventListener("keydown", (event) => this.handleSearchKeydown(event));
@@ -54,19 +59,29 @@ export class BibleNavigatorPanel {
         return this.el.isShown();
     }
 
-    /** Opens on the book list with the reader's book marked; the search field gets the focus. */
+    /**
+     * Opens on the whole book list with the reader's book marked. The last search is back in the field,
+     * selected: typing replaces it, End or a click continues it. Already open, only the books are redrawn.
+     */
     open(currentBookId: number | null): void {
         this.currentBookId = currentBookId;
+        if (this.isOpen()) {
+            this.render();
+            return;
+        }
         this.chosenBook = null;
-        this.searchEl.value = "";
+        this.filtering = false;
+        this.searchEl.value = this.lastQuery;
         this.el.show();
         this.input.onVisibilityChange(true);
         this.render();
         this.searchEl.focus();
+        this.searchEl.select();
     }
 
     close(): void {
         if (!this.isOpen()) return;
+        this.lastQuery = this.searchEl.value.trim();
         this.el.hide();
         this.input.onVisibilityChange(false);
     }
@@ -88,7 +103,7 @@ export class BibleNavigatorPanel {
             return;
         }
 
-        const books = filterNavigatorBooks(this.input.getBooks(), this.searchEl.value);
+        const books = filterNavigatorBooks(this.input.getBooks(), this.filtering ? this.searchEl.value : "");
         if (books.length === 0) {
             this.bodyEl.createDiv({ cls: "bible-reader-navigator-empty", text: labels.noBooks });
             return;

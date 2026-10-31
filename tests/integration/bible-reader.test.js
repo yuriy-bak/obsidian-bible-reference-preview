@@ -213,6 +213,21 @@ module.exports = async function runBibleReaderTests() {
   reader().containerEl.querySelector(".bible-reader-navigator-toggle").click();
   assert(isNavigatorOpen());
   assert(navigatorButton("Ин").classList.contains("is-current"));
+  // The last search comes back selected, with every book shown; editing it filters again.
+  const navigatorSearchEl = () => navigatorEl().querySelector("input");
+  const bookButtonCount = () => navigatorEl().querySelectorAll(".bible-reader-navigator-books .bible-reader-navigator-button").length;
+  assert.strictEqual(navigatorSearchEl().value, "Ин 3:16");
+  assert.strictEqual(navigatorSearchEl().selectionStart, 0);
+  assert.strictEqual(navigatorSearchEl().selectionEnd, "Ин 3:16".length);
+  assert(navigatorButton("Пс") !== undefined);
+  const allBookCount = bookButtonCount();
+  navigatorSearchEl().value = "Ин";
+  navigatorSearchEl().dispatchEvent(new Event("input"));
+  assert(bookButtonCount() < allBookCount);
+  assert(navigatorButton("Ин") !== undefined);
+  navigatorSearchEl().value = "";
+  navigatorSearchEl().dispatchEvent(new Event("input"));
+  assert.strictEqual(bookButtonCount(), allBookCount);
   navigatorButton("Пс").click();
   assert(navigatorButton("22") !== undefined);
   navigatorButton("22").click();
