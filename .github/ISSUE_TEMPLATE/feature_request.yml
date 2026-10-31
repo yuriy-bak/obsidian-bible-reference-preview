@@ -5,6 +5,6 @@ body:
   - type: textarea
     attributes:
       label: Your idea
-      description: A few words are enough. Any language is fine.
+      description: A few words are enough. English or Russian.
     validations:
       required: true

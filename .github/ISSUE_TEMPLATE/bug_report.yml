@@ -5,6 +5,6 @@ body:
   - type: textarea
     attributes:
       label: What happened
-      description: A few words are enough. If you can, add the reference as you typed it, the translation, and your device. Any language is fine.
+      description: A few words are enough. If you can, add the reference as you typed it, the translation, and your device. English or Russian.
     validations:
       required: true
