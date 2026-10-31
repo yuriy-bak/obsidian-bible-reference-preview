@@ -337,11 +337,14 @@ input.bible-reader-navigator-search {
     min-width: 0;
 }
 
-.bible-reader-navigator-section-title {
-    margin: 12px 0 6px;
-    font-size: var(--font-ui-small);
-    font-weight: 600;
-    color: var(--text-muted);
+.bible-reader-navigator-books {
+    margin-top: 12px;
+}
+
+hr.bible-reader-navigator-separator {
+    margin: 12px 0 0;
+    border: none;
+    border-top: 1px solid var(--background-modifier-border);
 }
 
 .bible-reader-navigator-grid {

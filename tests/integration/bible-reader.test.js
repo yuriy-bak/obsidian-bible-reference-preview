@@ -182,10 +182,9 @@ module.exports = async function runBibleReaderTests() {
   const navigatorButton = (text) => Array.from(navigatorEl().querySelectorAll(".bible-reader-navigator-button"))
     .find((button) => button.textContent === text);
   assert(isNavigatorOpen());
-  assert.deepStrictEqual(
-    Array.from(navigatorEl().querySelectorAll(".bible-reader-navigator-section-title")).map((el) => el.textContent),
-    [plugin.context.t("reader.navigator.oldTestament"), plugin.context.t("reader.navigator.newTestament")]
-  );
+  // Two groups of books parted by a line, with no Testament names.
+  assert.strictEqual(navigatorEl().querySelectorAll(".bible-reader-navigator-books").length, 2);
+  assert.strictEqual(navigatorEl().querySelectorAll(".bible-reader-navigator-separator").length, 1);
 
   // The translation can be chosen before any chapter: the navigator lists that translation's books.
   const pickerSelect = reader().containerEl.querySelector(".bible-reader-translation-select");

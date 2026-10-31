@@ -105,8 +105,6 @@ export class BibleReaderService {
             getNavigatorBooks: (translationId) => this.contentBuilder.getNavigatorBooks(translationId),
             getNavigatorLabels: () => ({
                 searchPlaceholder: t("reader.navigator.searchPlaceholder"),
-                oldTestament: t("reader.navigator.oldTestament"),
-                newTestament: t("reader.navigator.newTestament"),
                 backToBooks: t("reader.navigator.backToBooks"),
                 close: t("reader.navigator.close"),
                 noBooks: t("reader.navigator.noBooks"),

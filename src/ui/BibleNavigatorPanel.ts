@@ -3,8 +3,6 @@ import { filterNavigatorBooks, parseNavigatorQuery, type NavigatorBook } from ".
 
 export type BibleNavigatorLabels = {
     searchPlaceholder: string;
-    oldTestament: string;
-    newTestament: string;
     backToBooks: string;
     close: string;
     noBooks: string;
@@ -19,7 +17,7 @@ export type BibleNavigatorPanelInput = {
 
 /**
  * The reader's book and chapter picker, shown over the text: a search field, the books as a grid
- * (Old and New Testament), then the chapters of the chosen book. Enter opens what is typed: "Ин 3:16".
+ * (two groups parted by a line), then the chapters of the chosen book. Enter opens what is typed: "Ин 3:16".
  */
 export class BibleNavigatorPanel {
     readonly el: HTMLDivElement;
@@ -108,13 +106,17 @@ export class BibleNavigatorPanel {
             this.bodyEl.createDiv({ cls: "bible-reader-navigator-empty", text: labels.noBooks });
             return;
         }
-        this.renderBookSection(labels.oldTestament, books.filter((book) => book.testament === "old"));
-        this.renderBookSection(labels.newTestament, books.filter((book) => book.testament === "new"));
+        // The two groups of books (ids 1-39 and the rest) are parted by a line, with no names:
+        // "Old/New Testament" does not fit every translation.
+        const oldBooks = books.filter((book) => book.testament === "old");
+        const newBooks = books.filter((book) => book.testament === "new");
+        this.renderBookGrid(oldBooks);
+        if (oldBooks.length > 0 && newBooks.length > 0) this.bodyEl.createEl("hr", { cls: "bible-reader-navigator-separator" });
+        this.renderBookGrid(newBooks);
     }
 
-    private renderBookSection(title: string, books: NavigatorBook[]): void {
+    private renderBookGrid(books: NavigatorBook[]): void {
         if (books.length === 0) return;
-        this.bodyEl.createDiv({ cls: "bible-reader-navigator-section-title", text: title });
         const gridEl = this.bodyEl.createDiv({ cls: ["bible-reader-navigator-grid", "bible-reader-navigator-books"] });
         for (const book of books) {
             const buttonEl = this.createGridButton(gridEl, book.shortName, book.name, () => this.chooseBook(book));
