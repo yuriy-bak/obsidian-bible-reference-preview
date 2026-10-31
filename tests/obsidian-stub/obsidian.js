@@ -446,6 +446,8 @@ class View extends Component {
   }
 
   async setState() {}
+
+  onPaneMenu() {}
 }
 
 class ItemView extends View {

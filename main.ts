@@ -86,7 +86,9 @@ export default class BiblePlugin extends Plugin {
             referenceUsage: this.referenceUsage,
             editor: this.editor,
         });
-        this.addRibbonIcon("book-open-text", this.context.t("command.openBibleReader"), () => void this.reader.openReader());
+        // Ctrl/Cmd-click opens another reader tab, as with links.
+        this.addRibbonIcon("book-open-text", this.context.t("command.openBibleReader"), (event) =>
+            void this.reader.openReader({ newTab: event.ctrlKey || event.metaKey }));
 
         this.pluginActiveRibbonIconEl = this.addRibbonIcon(
             "book-open",

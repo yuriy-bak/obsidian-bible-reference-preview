@@ -74,6 +74,8 @@ export class BibleReaderService {
         const t = this.context.t.bind(this.context);
         return {
             getViewTitle: () => t("reader.title"),
+            getNewReaderTabText: () => t("command.openBibleReaderNewTab"),
+            onOpenNewReaderTab: () => void this.openReader({ newTab: true }),
             getChooseBookText: () => `📖 ${t("reader.chooseBook")}`,
             getCopyAria: () => t("preview.copyAria"),
             getCopyNoticeText: () => t("notice.bibleTextCopied"),

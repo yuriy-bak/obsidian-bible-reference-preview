@@ -275,6 +275,41 @@ module.exports = async function runBibleReaderTests() {
   assert.strictEqual(readers().length, 2);
   readers()[1].leaf.detach();
 
+  // Ctrl/Cmd-click on the ribbon icon opens another reader; a plain click reveals the open one.
+  const ribbonIcon = plugin.ribbonIcons.find((el) => el.getAttribute("data-icon") === "book-open-text");
+  ribbonIcon.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  await flush();
+  assert.strictEqual(readers().length, 1);
+  ribbonIcon.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true }));
+  await flush();
+  assert.strictEqual(readers().length, 2);
+  readers()[1].leaf.detach();
+
+  // The tab menu has "Open Bible reader in a new tab".
+  const menuItems = [];
+  const menu = {
+    addItem(build) {
+      const item = { title: "", onClickCallback: null };
+      const builder = {
+        setTitle(title) { item.title = title; return builder; },
+        setIcon() { return builder; },
+        setSection() { return builder; },
+        onClick(callback) { item.onClickCallback = callback; return builder; },
+      };
+      build(builder);
+      menuItems.push(item);
+      return menu;
+    },
+  };
+  reader().onPaneMenu(menu, "more-options");
+  const newTabItem = menuItems.find((item) => item.title === plugin.context.t("command.openBibleReaderNewTab"));
+  assert(newTabItem !== undefined);
+  newTabItem.onClickCallback();
+  await flush();
+  assert.strictEqual(readers().length, 2);
+  assert.strictEqual(readers()[1].getLocation(), null);
+  readers()[1].leaf.detach();
+
   // Ctrl/Cmd-click in the preview opens another reader tab.
   await showPreview("Ин 3:16");
   openChapterButtons()[0].dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true }));
