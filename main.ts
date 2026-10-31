@@ -15,6 +15,7 @@ import { BiblePreviewService } from "./src/ui/BiblePreviewService";
 import { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
 import { FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView } from "./src/ui/ReferenceUsagePaneView";
+import { getWorkspaceLeavesOfType } from "./src/workspace/BiblePreviewWorkspace";
 
 export default class BiblePlugin extends Plugin {
     private readonly context = new PluginContext(this);
@@ -66,6 +67,10 @@ export default class BiblePlugin extends Plugin {
         this.preview.setFloatingWindow(floatingWindow);
 
         this.registerViews();
+        // Search results are not worth keeping across a disable: the pane is reopened by every search.
+        this.register(() => {
+            for (const leaf of getWorkspaceLeavesOfType(this.app, REFERENCE_USAGE_VIEW_TYPE)) leaf.detach();
+        });
         registerPluginCommands(this, {
             context: this.context,
             settings: this.settingsService,
