@@ -43,7 +43,7 @@ export class BibleReaderService {
         }, options.newTab === true);
     }
 
-    /** The command and the ribbon icon: the last reader, or a new one at the start of the active translation. */
+    /** The command and the ribbon icon: the last reader, or a new one with the book picker open. */
     async openReader(): Promise<void> {
         const leaf = this.getReaderLeaf();
         if (leaf !== null) {
@@ -58,6 +58,15 @@ export class BibleReaderService {
             return;
         }
         await this.openState({ ...first });
+        const view = this.getReaderLeaf()?.view;
+        if (view instanceof BibleReaderView) view.openNavigator();
+    }
+
+    /** The command "Go to book and chapter": the navigator of the last reader, or of a new one. */
+    async openNavigator(): Promise<void> {
+        await this.openReader();
+        const view = this.getReaderLeaf()?.view;
+        if (view instanceof BibleReaderView) view.openNavigator();
     }
 
     handleActiveLeafChange(leaf: WorkspaceLeaf | null): void {
@@ -117,6 +126,19 @@ export class BibleReaderService {
             onFindChapterUsages: (location, title, translationId, leaf) =>
                 this.effects.showUsagesForChapter(this.toActiveLocation(location, translationId), title, this.createReturnPoint(leaf)),
             onBack: () => this.effects.revealPreview(),
+            mapChapterTarget: (target, from, to) => this.contentBuilder.mapChapterTarget(target, from, to),
+            getNavigatorBooks: (translationId) => this.contentBuilder.getNavigatorBooks(translationId),
+            getNavigatorLabels: () => ({
+                searchPlaceholder: t("reader.navigator.searchPlaceholder"),
+                oldTestament: t("reader.navigator.oldTestament"),
+                newTestament: t("reader.navigator.newTestament"),
+                backToBooks: t("reader.navigator.backToBooks"),
+                close: t("reader.navigator.close"),
+                noBooks: t("reader.navigator.noBooks"),
+            }),
+            getOpenNavigatorAria: () => t("reader.navigator.openAria"),
+            getTranslationOptions: () => this.translations.getTranslationSettingsItems().map((item) => ({ id: item.id, name: item.name })),
+            getTranslationSelectAria: () => t("reader.translationSelectAria"),
         };
     }
 

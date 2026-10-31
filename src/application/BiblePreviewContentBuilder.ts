@@ -10,6 +10,8 @@ import { mapBibleReferences } from "./mapBibleReferences";
 import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
 import type { BibleReference } from "../domain/BibleReference";
 import type { BookMapping } from "../parsing/BookMapping";
+import { getLanguageBookAliases } from "../parsing/languageBookAliases";
+import { createNavigatorBooks, type NavigatorBook } from "../reader/BibleNavigatorModel";
 import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../versification/VersificationRegistry";
 
 /** Builds preview content from the current Bible data. Each call reads the data anew, so imports and translation changes apply at once. */
@@ -40,6 +42,43 @@ export class BiblePreviewContentBuilder {
     getFirstChapter(translationId: string): BibleChapterLocation | null {
         const book = getTranslationBookIds(this.context.v2Data, translationId, this.context.bookMapping)[0];
         return book === undefined ? null : { book, chapter: 1 };
+    }
+
+    /** The translation's books for the reader's navigator, in its order. */
+    getNavigatorBooks(translationId: string): NavigatorBook[] {
+        const translation = this.context.v2Data?.translations[translationId];
+        if (translation === undefined) return [];
+        const sources = Object.entries(translation.books)
+            .map(([id, book]) => ({
+                id: Number(id),
+                name: book.name,
+                abbreviation: book.abbreviation,
+                aliases: [...book.aliases, ...getLanguageBookAliases(translation.language, Number(id))],
+                ...(book.chapterCount === undefined ? {} : { chapterCount: book.chapterCount }),
+            }))
+            .filter((book) => Number.isInteger(book.id) && book.id > 0);
+        return createNavigatorBooks(sources, translation.bookOrder ?? []);
+    }
+
+    /**
+     * The chapter and its highlighted verses in another translation's numbering; highlights that fall into
+     * another chapter there are dropped.
+     */
+    mapChapterTarget(target: BibleChapterTarget, fromTranslationId: string, toTranslationId: string): BibleChapterTarget {
+        const location = this.mapChapterLocation(target, fromTranslationId, toTranslationId);
+        const highlightedRanges = this.mapReferences(target.highlightedRanges.map((range) => ({
+            book: target.book,
+            chapterStart: target.chapter,
+            verseStart: range.verseStart,
+            chapterEnd: target.chapter,
+            verseEnd: range.verseEnd ?? range.verseStart,
+        })), fromTranslationId, toTranslationId)
+            .filter((reference) => reference.book === location.book && reference.chapterStart === location.chapter)
+            .map((reference) => ({
+                verseStart: reference.verseStart,
+                verseEnd: reference.chapterEnd === location.chapter ? reference.verseEnd : undefined,
+            }));
+        return { ...location, highlightedRanges };
     }
 
     /** The references in another translation's numbering; the same array when both use the same scheme. */

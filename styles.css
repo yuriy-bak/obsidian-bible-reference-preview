@@ -309,6 +309,91 @@ button.bible-preview-pane-icon-button {
     color: var(--text-muted);
 }
 
+.bible-reader-navigator-toggle {
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.bible-reader-navigator-toggle:hover,
+.bible-reader-navigator-toggle:focus-visible {
+    background-color: var(--background-modifier-hover);
+}
+
+.bible-reader-navigator-caret {
+    color: var(--text-muted);
+}
+
+select.bible-reader-translation-select {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 40%;
+    height: 26px;
+    font-size: var(--font-ui-small);
+}
+
+/* The navigator takes the place of the text: search, books by testament, chapters */
+.bible-reader-navigator {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 10px max(10px, calc((100% - var(--file-line-width, 700px)) / 2));
+}
+
+.bible-reader-navigator-search-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+input.bible-reader-navigator-search {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bible-reader-navigator-section-title {
+    margin: 12px 0 6px;
+    font-size: var(--font-ui-small);
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.bible-reader-navigator-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 6px;
+}
+
+.bible-reader-navigator-chapters {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+}
+
+button.bible-reader-navigator-button {
+    height: 34px;
+    padding: 0 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+button.bible-reader-navigator-button.is-current {
+    border: 1px solid var(--interactive-accent);
+}
+
+.bible-reader-navigator-chapters-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.bible-reader-navigator-book-name {
+    font-weight: 600;
+}
+
+.bible-reader-navigator-empty {
+    color: var(--text-muted);
+}
+
 /* Floating preview window. Position, size and visibility are set from JS; the background comes from the setting. */
 .bible-preview-floating-panel {
     position: fixed;

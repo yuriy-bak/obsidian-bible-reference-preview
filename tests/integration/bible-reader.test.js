@@ -142,6 +142,68 @@ module.exports = async function runBibleReaderTests() {
   assert.strictEqual(navigationButton(plugin.context.t("preview.chapterBackAria")), undefined);
   assert.match(readerText(), /В начале Бог сотворил небо и землю\./);
 
+  // A first reader from the command opens with the book picker.
+  const navigatorEl = () => reader().containerEl.querySelector(".bible-reader-navigator");
+  const isNavigatorOpen = () => navigatorEl().style.display !== "none";
+  const searchNavigator = (text) => {
+    const searchEl = navigatorEl().querySelector("input");
+    searchEl.value = text;
+    searchEl.dispatchEvent(new Event("input"));
+    searchEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  };
+  const navigatorButton = (text) => Array.from(navigatorEl().querySelectorAll(".bible-reader-navigator-button"))
+    .find((button) => button.textContent === text);
+  assert(isNavigatorOpen());
+  assert.deepStrictEqual(
+    Array.from(navigatorEl().querySelectorAll(".bible-reader-navigator-section-title")).map((el) => el.textContent),
+    [plugin.context.t("reader.navigator.oldTestament"), plugin.context.t("reader.navigator.newTestament")]
+  );
+
+  // A typed reference opens its chapter with the verse highlighted.
+  searchNavigator("Ин 3:16");
+  await flush();
+  assert(!isNavigatorOpen());
+  assert.deepStrictEqual(reader().getLocation().target, { book: 43, chapter: 3, highlightedRanges: [{ verseStart: 16, verseEnd: 16 }] });
+  assert.deepStrictEqual(highlightedVerses(), ["16 Ведь Бог так любит мир."]);
+
+  // The chapter title opens the navigator: a book, then a chapter from the grid.
+  reader().containerEl.querySelector(".bible-reader-navigator-toggle").click();
+  assert(isNavigatorOpen());
+  assert(navigatorButton("Ин").classList.contains("is-current"));
+  navigatorButton("Пс").click();
+  assert(navigatorButton("22") !== undefined);
+  navigatorButton("22").click();
+  await flush();
+  assert.deepStrictEqual(reader().getLocation().target, { book: 19, chapter: 22, highlightedRanges: [] });
+
+  // The translation selector reads the same passage in another numbering; the default translation stays.
+  reader().openNavigator();
+  searchNavigator("Пс 22:1");
+  await flush();
+  const translationSelect = () => reader().containerEl.querySelector(".bible-reader-translation-select");
+  assert.strictEqual(translationSelect().value, ruId);
+  translationSelect().value = enId;
+  translationSelect().dispatchEvent(new Event("change"));
+  await flush();
+  assert.strictEqual(reader().getLocation().translationId, enId);
+  assert.deepStrictEqual(reader().getLocation().target, { book: 19, chapter: 23, highlightedRanges: [{ verseStart: 1, verseEnd: 1 }] });
+  assert.deepStrictEqual(highlightedVerses(), ["1 Ps 23:1."]);
+  assert.strictEqual(plugin.context.activeTranslationId, ruId);
+  // Back to its first chapter in the reader's translation keeps the highlight in that numbering.
+  navigationButton(plugin.context.t("preview.previousChapterAria")).click();
+  await flush();
+  assert.deepStrictEqual(highlightedVerses(), []);
+  navigationButton(plugin.context.t("preview.nextChapterAria")).click();
+  await flush();
+  assert.deepStrictEqual(highlightedVerses(), ["1 Ps 23:1."]);
+
+  // "Go to book and chapter" opens the navigator of the open reader.
+  await plugin.commands.find((candidate) => candidate.id === "go-to-bible-chapter").callback();
+  await flush();
+  assert(isNavigatorOpen());
+  navigatorEl().querySelector("input").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  assert(!isNavigatorOpen());
+
   // The comparison button of the reader switches the shared setting and shows the compared text.
   await plugin.reader.openChapter({ book: 43, chapter: 3, highlightedRanges: [] });
   await flush();

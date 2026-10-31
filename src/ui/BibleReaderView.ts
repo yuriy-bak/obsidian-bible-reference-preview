@@ -1,6 +1,8 @@
 import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
+import { BibleNavigatorPanel, type BibleNavigatorLabels } from "./BibleNavigatorPanel";
+import type { NavigatorBook } from "../reader/BibleNavigatorModel";
 import { BiblePreviewHeader, scrollPreviewElement, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 import { applyBiblePreviewScroll, CHAPTER_USAGES_BUTTON_CLASS, type BiblePreviewChapterNavigationLabels, renderBiblePreviewContent } from "./BiblePreviewRenderer";
 
@@ -53,12 +55,20 @@ export type BibleReaderViewInput = BiblePreviewHeaderInput & {
     onFindChapterUsages: (location: BibleChapterLocation, title: string, translationId: string, leaf: WorkspaceLeaf) => void;
     onToggleReaderComparison: () => void;
     onBack: () => void;
+    mapChapterTarget: (target: BibleChapterTarget, fromTranslationId: string, toTranslationId: string) => BibleChapterTarget;
+    getNavigatorBooks: (translationId: string) => NavigatorBook[];
+    getNavigatorLabels: () => BibleNavigatorLabels;
+    getOpenNavigatorAria: () => string;
+    /** The imported translations in the settings order. */
+    getTranslationOptions: () => { id: string; name: string }[];
+    getTranslationSelectAria: () => string;
 };
 
 /** "Bible reader": a whole chapter, read only, with the chapter navigation bar. Several readers can be open. */
 export class BibleReaderView extends ItemView {
     private rootEl: HTMLDivElement | null = null;
     private textEl: HTMLDivElement | null = null;
+    private navigator: BibleNavigatorPanel | null = null;
     private header: BiblePreviewHeader | null = null;
     private location: BibleReaderLocation | null = null;
     private content: BiblePreviewContent | null = null;
@@ -91,7 +101,14 @@ export class BibleReaderView extends ItemView {
         this.loadId += 1;
         this.rootEl = null;
         this.textEl = null;
+        this.navigator = null;
         this.header = null;
+    }
+
+    /** The book and chapter picker, with the focus in its search field. */
+    openNavigator(): void {
+        this.buildLayout();
+        this.navigator?.open(this.location?.target.book ?? null);
     }
 
     getState(): Record<string, unknown> {
@@ -164,7 +181,69 @@ export class BibleReaderView extends ItemView {
             onCopy: () => this.copyText(),
             onToggleComparison: () => this.input.onToggleReaderComparison(),
         });
+        this.navigator = new BibleNavigatorPanel(this.rootEl, {
+            getBooks: () => {
+                const translationId = this.location?.translationId ?? this.input.getActiveTranslationId();
+                return translationId === null ? [] : this.input.getNavigatorBooks(translationId);
+            },
+            getLabels: () => this.input.getNavigatorLabels(),
+            onOpenChapter: (target) => void this.openTarget(target),
+            // The navigator takes the place of the text while it is open.
+            onVisibilityChange: (open) => this.textEl?.toggle(!open),
+        });
         this.textEl = this.rootEl.createDiv({ cls: ["bible-preview-pane-content", "bible-reader-content"] });
+    }
+
+    // A chapter picked in the navigator: in the reader's translation, highlighted verses become its origin.
+    private async openTarget(target: BibleChapterTarget): Promise<void> {
+        const translationId = this.location?.translationId ?? this.input.getActiveTranslationId();
+        if (translationId === null) return;
+        this.origin = { target, translationId };
+        this.highlightsHidden = false;
+        await this.show({ target, translationId, fromPreview: this.location?.fromPreview === true });
+    }
+
+    // The same passage in another translation's numbering (Ps 22 Synodal → Ps 23 English), with its highlights.
+    private async switchTranslation(translationId: string): Promise<void> {
+        const location = this.location;
+        if (location === null || translationId === location.translationId) return;
+        const target = this.input.mapChapterTarget(location.target, location.translationId, translationId);
+        const origin = this.origin;
+        if (origin !== null && origin.translationId === location.translationId) {
+            this.origin = { target: this.input.mapChapterTarget(origin.target, origin.translationId, translationId), translationId };
+        }
+        await this.show({ target, translationId, fromPreview: location.fromPreview });
+    }
+
+    private decorateChapterNavigation(titleEl: HTMLElement, translationId: string): void {
+        titleEl.addClass("bible-reader-navigator-toggle");
+        titleEl.setAttribute("role", "button");
+        titleEl.setAttribute("tabindex", "0");
+        titleEl.setAttribute("aria-label", this.input.getOpenNavigatorAria());
+        titleEl.title = this.input.getOpenNavigatorAria();
+        titleEl.createSpan({ cls: "bible-reader-navigator-caret", text: " ▾" });
+        const toggle = (): void => this.navigator?.toggle(this.location?.target.book ?? null);
+        titleEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            toggle();
+        });
+        titleEl.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            toggle();
+        });
+
+        const options = this.input.getTranslationOptions();
+        if (options.length <= 1) return;
+        const selectEl = createEl("select", { cls: ["dropdown", "bible-reader-translation-select"] });
+        selectEl.setAttribute("aria-label", this.input.getTranslationSelectAria());
+        selectEl.title = this.input.getTranslationSelectAria();
+        for (const option of options) {
+            selectEl.createEl("option", { text: option.name, value: option.id });
+        }
+        selectEl.value = translationId;
+        selectEl.addEventListener("change", () => void this.switchTranslation(selectEl.value));
+        titleEl.insertAdjacentElement("afterend", selectEl);
     }
 
     // The header names the reader's own translation.
@@ -227,6 +306,7 @@ export class BibleReaderView extends ItemView {
             getChapterUsageCount: (chapter) => this.input.getChapterUsageCount(chapter, translationId),
             getFindChapterUsagesAria: this.input.getFindChapterUsagesAria,
             onFindChapterUsages: (chapter, title) => this.input.onFindChapterUsages(chapter, title, translationId, this.leaf),
+            decorateChapterNavigation: (_navigationEl, titleEl) => this.decorateChapterNavigation(titleEl, translationId),
         });
         this.setUsageCountLocation(containerEl, location);
         applyBiblePreviewScroll(containerEl, content);

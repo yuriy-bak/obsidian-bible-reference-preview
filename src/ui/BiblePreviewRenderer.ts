@@ -22,6 +22,8 @@ export type BiblePreviewRenderOptions = {
     getChapterUsageCount?: (location: BibleChapterLocation) => number | null;
     getFindChapterUsagesAria?: (title: string) => string;
     onFindChapterUsages?: (location: BibleChapterLocation, title: string) => void;
+    /** Adds the reader's own controls to the built navigation bar (the navigator title, the translation selector). */
+    decorateChapterNavigation?: (navigationEl: HTMLElement, titleEl: HTMLElement) => void;
 };
 
 // The open-chapter action as the preview views receive it.
@@ -282,6 +284,7 @@ function createChapterNavigation(containerEl: HTMLElement, chapterView: BiblePre
         if (next !== null) options.onNavigateChapter?.(next);
     }));
 
+    options.decorateChapterNavigation?.(navigationEl, titleEl);
     return navigationEl;
 }
 
