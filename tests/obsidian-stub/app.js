@@ -120,6 +120,11 @@ class Workspace extends Events {
 
   async revealLeaf() {}
 
+  // Obsidian debounces it; the stub counts the requests.
+  requestSaveLayout() {
+    this.saveLayoutRequests = (this.saveLayoutRequests ?? 0) + 1;
+  }
+
   // The stub has one root split: the last note opened.
   getMostRecentLeaf() {
     return [...this.leaves].reverse().find((leaf) => leaf.view?.getViewType?.() === "markdown") ?? null;

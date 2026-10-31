@@ -276,6 +276,8 @@ export class BibleReaderView extends ItemView {
         this.render();
         // The tab title follows the chapter.
         updateLeafHeader(this.leaf);
+        // Obsidian saves view states only with the layout; ask for it so a restart opens this chapter.
+        this.app.workspace.requestSaveLayout();
     }
 
     private render(): void {

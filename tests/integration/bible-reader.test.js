@@ -149,6 +149,14 @@ module.exports = async function runBibleReaderTests() {
   assert.strictEqual(Array.from(reader().containerEl.querySelectorAll(".bible-preview-chapter-navigation-button"))
     .some((button) => button.textContent === plugin.context.t("preview.chapterBack")), false);
 
+  // Each chapter change asks Obsidian to save the layout, so a restart opens the last chapter read.
+  const saveRequestsBefore = app.workspace.saveLayoutRequests ?? 0;
+  navigationButton(plugin.context.t("preview.nextChapterAria")).click();
+  await flush();
+  assert(app.workspace.saveLayoutRequests > saveRequestsBefore);
+  navigationButton(plugin.context.t("preview.previousChapterAria")).click();
+  await flush();
+
   // Restored by Obsidian with the saved state: the active translation, the chapter in its numbering.
   const restoredLeaf = app.workspace.getLeaf("tab");
   await restoredLeaf.setViewState({ type: BIBLE_READER_VIEW_TYPE, state: reader().getState() });
