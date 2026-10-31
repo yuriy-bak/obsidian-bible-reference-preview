@@ -12,7 +12,7 @@ const REFERENCE_USAGE_EXCERPT_BEFORE_CHARS = 30;
 const REFERENCE_USAGE_EXCERPT_AFTER_CHARS = 140;
 const REFERENCE_USAGE_EXCERPT_ELLIPSIS = "…";
 // Bump when the excerpt format changes, so indexes with excerpts in the old format are rebuilt.
-const REFERENCE_USAGE_EXCERPT_FORMAT_VERSION = 3;
+const REFERENCE_USAGE_EXCERPT_FORMAT_VERSION = 4;
 const REFERENCE_USAGE_INTRO_MAX_CHARS = 60;
 // Quote markers, then a heading, list item (with an optional task box) or ordered list marker.
 const LIST_ITEM_PATTERN = /^[\s>]*(?:[-*+]|\d+[.)])(?:\s|$)/u;
@@ -449,7 +449,8 @@ function findReferenceUsageIntro(lines: readonly string[], lineIndex: number, st
     // The innermost item holding the line: a parent item's range covers its nested items.
     let item: ReferenceUsageNoteStructure["listItems"][number] | undefined;
     for (const candidate of listItems) {
-        if (candidate.line <= lineIndex && lineIndex <= candidate.endLine && (item === undefined || candidate.line > item.line)) {
+        if (candidate.line <= lineIndex && lineIndex <= candidate.endLine && (item === undefined || candidate.line > item.line)
+            && (candidate.line === lineIndex || !isLazyContinuationLine(lines[lineIndex]))) {
             item = candidate;
         }
     }
@@ -471,7 +472,17 @@ function findReferenceUsageIntro(lines: readonly string[], lineIndex: number, st
     if (previousIndex >= 0 && lines[previousIndex].trim().length === 0) {
         previousIndex -= 1;
     }
-    return previousIndex >= 0 ? getIntroText(lines[previousIndex]) : "";
+    // A list item above is not an intro of text outside it, even with a colon: only its nested items are.
+    if (previousIndex < 0 || LIST_ITEM_PATTERN.test(lines[previousIndex])) {
+        return "";
+    }
+    return getIntroText(lines[previousIndex]);
+}
+
+// A line under a list item without indentation belongs to the item in Markdown ("lazy continuation"),
+// but reads as the text after the list: it is not treated as part of the list.
+function isLazyContinuationLine(line: string): boolean {
+    return !/^[\s>]/u.test(line);
 }
 
 // The text of a line ending with a colon, without its Markdown prefix; "" for other lines and headings

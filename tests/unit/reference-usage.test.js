@@ -211,6 +211,22 @@ module.exports = async () => {
     excerptAt(nestedText, "Mat5:4", { listItems: [listItem(1, -1, 2), listItem(2, 1)] }),
     "Notes: - Mat5:4"
   );
+  // A line right under a list item without indentation is read as text after the list.
+  assert.strictEqual(
+    excerptAt("About Happy:\n- some item\nMat5:3-12", "Mat5:3-12", { listItems: [listItem(1, -1, 2)] }),
+    "Mat5:3-12"
+  );
+  // Even when that item ends with a colon: it is not the reference's parent.
+  assert.strictEqual(
+    excerptAt("About Happy:\n- some item:\nMat5:3-12", "Mat5:3-12", { listItems: [listItem(1, -1, 2)] }),
+    "Mat5:3-12"
+  );
+  assert.strictEqual(excerptAt("- some item:\n\nMat5:3-12", "Mat5:3-12"), "Mat5:3-12");
+  // An indented continuation line stays in its item.
+  assert.strictEqual(
+    excerptAt("About Happy:\n- some item\n  Mat5:3-12", "Mat5:3-12", { listItems: [listItem(1, -1, 2)] }),
+    "About Happy: Mat5:3-12"
+  );
   // Without the cache a list item only looks at the line right above it.
   assert.strictEqual(excerptAt(nestedText, "Mat5:4"), "- Mat5:4");
   // A stale cache (the editor text has unsaved edits) is not used.
@@ -359,7 +375,7 @@ module.exports = async () => {
   await signatureService.build(signatureFiles, false);
   assert.deepStrictEqual(signatureApp.readPaths, ["notes/a.md", "notes/b.md"]);
   assert.strictEqual(signatureService.isOutdated(), false);
-  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names|excerpt:3");
+  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names|excerpt:4");
 
   signatureApp.readPaths.length = 0;
   const unchangedSignatureResult = await signatureService.build(signatureFiles, false);
