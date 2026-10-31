@@ -16,7 +16,7 @@ import {
 } from "../ui/ReferenceUsagePaneView";
 import { ReferenceUsageResultsModal } from "../ui/ReferenceUsageResultsModal";
 import { areStringArraysEqual } from "../utils/ArrayEquality";
-import { detachDuplicateWorkspaceLeavesOfType, getFirstWorkspaceLeafOfType, revealLeafWithoutStealingEditorFocus } from "../workspace/BiblePreviewWorkspace";
+import { detachDuplicateWorkspaceLeavesOfType, getFirstWorkspaceLeafOfType, getWorkspaceLeavesOfType, revealLeafWithoutStealingEditorFocus } from "../workspace/BiblePreviewWorkspace";
 import { ensureLeafViewLoaded } from "../workspace/WorkspaceLeafViewLoading";
 import { createChapterUsageQuery, groupReferenceUsagesByChapterVerses, isWholeChapterUsageSpan, type ChapterUsageVerseSpan } from "./ReferenceUsageChapterGroups";
 import { ReferenceUsageController } from "./ReferenceUsageController";
@@ -345,6 +345,10 @@ export class ReferenceUsageService {
         }
         view.refreshInput(this.createPaneViewInput());
         view.setQuery(query);
+    }
+
+    closePane(): void {
+        for (const leaf of getWorkspaceLeavesOfType(this.context.app, REFERENCE_USAGE_VIEW_TYPE)) leaf.detach();
     }
 
     private async getOrCreatePaneView(): Promise<ReferenceUsagePaneView | null> {

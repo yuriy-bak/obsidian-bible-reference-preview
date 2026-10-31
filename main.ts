@@ -30,6 +30,7 @@ export default class BiblePlugin extends Plugin {
         },
         hideFloatingBiblePreview: (resetPosition) => this.preview.hideFloating(resetPosition),
         closeBiblePreviewPane: (options) => this.preview.closePane(options),
+        closeReferenceUsagePane: () => this.referenceUsage.closePane(),
         updatePluginActiveRibbonIcon: () => this.updatePluginActiveRibbonIcon(),
     });
     private readonly translations = new TranslationService(this.context, {
