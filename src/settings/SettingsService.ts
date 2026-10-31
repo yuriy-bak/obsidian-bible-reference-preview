@@ -24,6 +24,7 @@ export type SettingsServiceEffects = {
     refreshBiblePreviewLocalizedLabels: () => void;
     hideFloatingBiblePreview: (resetPosition?: boolean) => void;
     closeBiblePreviewPane: (options: { collapseSideDock?: boolean; requireActivePreview?: boolean }) => Promise<void>;
+    closeReferenceUsagePane: () => void;
     updatePluginActiveRibbonIcon: () => void;
 };
 
@@ -57,6 +58,7 @@ export class SettingsService {
         } else {
             this.effects.hideFloatingBiblePreview(true);
             void this.effects.closeBiblePreviewPane({ collapseSideDock: false, requireActivePreview: false });
+            this.effects.closeReferenceUsagePane();
             this.effects.clearBibleReferenceLinks();
         }
         this.context.refreshSettingsTab();
