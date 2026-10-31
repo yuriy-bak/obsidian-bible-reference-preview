@@ -200,7 +200,7 @@ textarea.bible-reference-preview-full-width {
 .bible-reference-usage-excerpt {
     font-size: 12px;
     color: var(--text-muted);
-    margin-top: 4px;
+    padding-inline-start: calc(var(--bible-reference-usage-level, 0) * 12px);
 }
 
 .bible-reference-usage-excerpt-match {
@@ -225,6 +225,22 @@ textarea.bible-reference-preview-full-width {
 
 button.bible-reference-usage-results-open-button {
     margin-bottom: 6px;
+}
+
+.bible-reference-usage-excerpt-block {
+    margin-top: 4px;
+}
+
+.bible-reference-usage-heading {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.bible-reference-usage-context-line {
+    font-size: 12px;
+    color: var(--text-faint);
+    padding-inline-start: calc(var(--bible-reference-usage-level, 0) * 12px);
 }
 
 .bible-reference-usage-source-text {

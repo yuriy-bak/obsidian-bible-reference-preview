@@ -231,7 +231,6 @@ export class ReferenceUsagePaneView extends ItemView {
             event.preventDefault();
             this.input.onOpenResult(result);
         });
-
         rowEl.createDiv({ text: result.sourceText, cls: "bible-reference-usage-source-text" });
 
         renderReferenceUsageExcerpt(rowEl, result);

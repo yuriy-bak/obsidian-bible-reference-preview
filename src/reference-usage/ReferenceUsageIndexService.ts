@@ -2,6 +2,7 @@ import type { App, TFile } from "obsidian";
 import type { BibleReference } from "../domain/BibleReference";
 import { ensureVaultDirectoryExists, normalizePath } from "../infrastructure/VaultPathUtils";
 import type { BibleReferenceMatch } from "../parsing/BibleReferenceParser";
+import { MARKDOWN_LINE_PREFIX_PATTERN, ReferenceUsageNoteOutline, type ReferenceUsageContextLine } from "./ReferenceUsageNoteOutline";
 
 export const REFERENCE_USAGE_INDEX_VERSION = 1;
 export const REFERENCE_USAGE_INDEX_FILE_NAME = "reference-usage-index.json";
@@ -11,6 +12,8 @@ const REFERENCE_USAGE_INDEX_SAVE_DELAY_MS = 1000;
 const REFERENCE_USAGE_EXCERPT_BEFORE_CHARS = 30;
 const REFERENCE_USAGE_EXCERPT_AFTER_CHARS = 140;
 const REFERENCE_USAGE_EXCERPT_ELLIPSIS = "…";
+// Bump when the excerpt format changes, so indexes with excerpts in the old format are rebuilt.
+const REFERENCE_USAGE_EXCERPT_FORMAT_VERSION = 5;
 const REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES = 25;
 export const REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES = 10;
 const REFERENCE_USAGE_BUILD_ABORT_ERROR_NAME = "AbortError";
@@ -61,6 +64,10 @@ export type IndexedReferenceUsage = {
     chStart: number;
     chEnd: number;
     excerpt: string;
+    // The nearest heading above the reference; "" when there is none.
+    heading: string;
+    // The lines the reference sits under (list intro, parent items), see ReferenceUsageNoteOutline.
+    context: ReferenceUsageContextLine[];
 };
 
 export type ReferenceUsageSearchResult = IndexedReferenceUsage & {
@@ -158,7 +165,7 @@ export class ReferenceUsageIndexService {
         const buildableFiles = indexableFiles.filter((file) => !this.isFileTooLargeForIndex(file));
         const skippedLargeFileCount = indexableFiles.length - buildableFiles.length;
         const indexedFilePaths = new Set(buildableFiles.map((file) => file.path));
-        const parserSignature = this.getParserSignature();
+        const parserSignature = this.getIndexSignature();
         // Notes indexed by another parser may hold other references even when unchanged, so parse them all again.
         const reparseAllFiles = forceRebuild || this.index.parserSignature !== parserSignature;
         const nextIndex = reparseAllFiles ? createEmptyReferenceUsageIndex() : normalizeReferenceUsageIndex(this.index);
@@ -277,7 +284,12 @@ export class ReferenceUsageIndexService {
     }
 
     public isOutdated(): boolean {
-        return Object.keys(this.index.files).length > 0 && this.index.parserSignature !== this.getParserSignature();
+        return Object.keys(this.index.files).length > 0 && this.index.parserSignature !== this.getIndexSignature();
+    }
+
+    // The parser signature plus the excerpt format: either one changing means the notes must be indexed again.
+    private getIndexSignature(): string {
+        return `${this.getParserSignature()}|excerpt:${REFERENCE_USAGE_EXCERPT_FORMAT_VERSION}`;
     }
 
     public getStats(): ReferenceUsageIndexStats {
@@ -312,12 +324,14 @@ export class ReferenceUsageIndexService {
     private createIndexedFile(file: TFile, content: string): IndexedReferenceUsageFile {
         const references: IndexedReferenceUsage[] = [];
         const lines = content.split(/\r?\n/u);
+        const outline = new ReferenceUsageNoteOutline(lines);
         for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
             const line = lines[lineIndex];
             const matches = this.parseMatches(line);
             for (const match of matches) {
                 for (let referenceIndex = 0; referenceIndex < match.references.length; referenceIndex += 1) {
                     const reference = match.references[referenceIndex];
+                    const context = outline.getContext(lineIndex);
                     references.push({
                         id: `${lineIndex + 1}:${match.from}:${match.to}:${referenceIndex}`,
                         sourceText: match.text,
@@ -330,6 +344,8 @@ export class ReferenceUsageIndexService {
                         chStart: match.from,
                         chEnd: match.to,
                         excerpt: createReferenceUsageExcerpt(line, match.from, match.to),
+                        heading: context.heading,
+                        context: context.lines,
                     });
                 }
             }
@@ -361,12 +377,16 @@ function createEmptyReferenceUsageIndex(): ReferenceUsageIndex {
     return { version: REFERENCE_USAGE_INDEX_VERSION, updatedAt: 0, parserSignature: null, files: {} };
 }
 
-function createReferenceUsageExcerpt(line: string, from: number, to: number): string {
+export function createReferenceUsageExcerpt(line: string, from: number, to: number): string {
     const excerptStart = Math.max(0, from - REFERENCE_USAGE_EXCERPT_BEFORE_CHARS);
     const excerptEnd = Math.min(line.length, to + REFERENCE_USAGE_EXCERPT_AFTER_CHARS);
-    const prefix = excerptStart > 0 ? REFERENCE_USAGE_EXCERPT_ELLIPSIS : "";
     const suffix = excerptEnd < line.length ? REFERENCE_USAGE_EXCERPT_ELLIPSIS : "";
-    return `${prefix}${line.slice(excerptStart, excerptEnd).trim()}${suffix}`;
+    if (excerptStart > 0) {
+        return `${REFERENCE_USAGE_EXCERPT_ELLIPSIS}${line.slice(excerptStart, excerptEnd).trim()}${suffix}`;
+    }
+    // From the start of the line: without its list marker, quote or heading marks.
+    const before = line.slice(0, from).replace(MARKDOWN_LINE_PREFIX_PATTERN, "");
+    return `${`${before}${line.slice(from, excerptEnd)}`.trim()}${suffix}`;
 }
 
 function normalizeReferenceUsageIndex(value: unknown): ReferenceUsageIndex {
@@ -382,7 +402,11 @@ function normalizeReferenceUsageIndex(value: unknown): ReferenceUsageIndex {
             path: typeof file.path === "string" ? file.path : path,
             mtime: typeof file.mtime === "number" ? file.mtime : 0,
             size: typeof file.size === "number" ? file.size : 0,
-            references: file.references.filter(isIndexedReferenceUsage),
+            references: file.references.filter(isIndexedReferenceUsage).map((reference) => ({
+                ...reference,
+                heading: reference.heading ?? "",
+                context: reference.context ?? [],
+            })),
         };
     }
     return {
@@ -393,7 +417,9 @@ function normalizeReferenceUsageIndex(value: unknown): ReferenceUsageIndex {
     };
 }
 
-function isIndexedReferenceUsage(value: unknown): value is IndexedReferenceUsage {
+// Indexes from before headings have no heading and context fields.
+function isIndexedReferenceUsage(value: unknown): value is Omit<IndexedReferenceUsage, "heading" | "context">
+    & { heading?: string; context?: ReferenceUsageContextLine[] } {
     return isRecord(value)
         && typeof value.id === "string"
         && typeof value.sourceText === "string"
@@ -405,7 +431,13 @@ function isIndexedReferenceUsage(value: unknown): value is IndexedReferenceUsage
         && typeof value.line === "number"
         && typeof value.chStart === "number"
         && typeof value.chEnd === "number"
-        && typeof value.excerpt === "string";
+        && typeof value.excerpt === "string"
+        && (value.heading === undefined || typeof value.heading === "string")
+        && (value.context === undefined || (Array.isArray(value.context) && value.context.every(isReferenceUsageContextLine)));
+}
+
+function isReferenceUsageContextLine(value: unknown): value is ReferenceUsageContextLine {
+    return isRecord(value) && typeof value.text === "string" && typeof value.level === "number";
 }
 
 function doBibleReferenceRangesIntersect(left: BibleReference, right: IndexedReferenceUsage): boolean {

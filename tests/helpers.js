@@ -73,9 +73,11 @@ const {
 const { buildColorDialogPresets } = require("../.test-build/src/ui/colorDialogPresets.js");
 const {
   ReferenceUsageIndexService,
+  createReferenceUsageExcerpt,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
 } = require("../.test-build/src/reference-usage/ReferenceUsageIndexService.js");
+const { ReferenceUsageNoteOutline } = require("../.test-build/src/reference-usage/ReferenceUsageNoteOutline.js");
 const {
   createChapterUsageQuery,
   groupReferenceUsagesByChapterVerses,
@@ -142,6 +144,8 @@ module.exports = {
   normalizeFloatingPreviewBackgroundColor,
   buildColorDialogPresets,
   ReferenceUsageIndexService,
+  createReferenceUsageExcerpt,
+  ReferenceUsageNoteOutline,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   createChapterUsageQuery,

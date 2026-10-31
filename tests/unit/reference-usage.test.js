@@ -1,6 +1,8 @@
 const {
   assert,
   ReferenceUsageIndexService,
+  createReferenceUsageExcerpt,
+  ReferenceUsageNoteOutline,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   createChapterUsageQuery,
@@ -146,6 +148,75 @@ module.exports = async () => {
   assert.strictEqual(referenceUsageResults[0].sourceText, "Ин 3:16");
   assert.strictEqual(referenceUsageResults[0].line, 2);
   assert.strictEqual(referenceUsageResults[0].excerpt, "Ин 3:16 and Рим 8:28");
+  assert.strictEqual(referenceUsageResults[0].heading, "");
+
+  assert.deepStrictEqual(referenceUsageResults[0].context, []);
+
+  // The heading and the lines a reference sits under, as the editor folds them by indentation.
+  function usageAt(text, sourceText) {
+    const lines = text.split("\n");
+    const lineIndex = lines.findIndex((line) => line.includes(sourceText));
+    const from = lines[lineIndex].indexOf(sourceText);
+    const context = new ReferenceUsageNoteOutline(lines).getContext(lineIndex);
+    return {
+      heading: context.heading,
+      context: context.lines.map((line) => `${" ".repeat(line.level * 2)}${line.text}`),
+      excerpt: createReferenceUsageExcerpt(lines[lineIndex], from, from + sourceText.length),
+    };
+  }
+  // A paragraph: the line above when it ends with a colon, at most one blank line between.
+  assert.deepStrictEqual(usageAt("About Happy:\nMat5:3-12", "Mat5:3-12"), { heading: "", context: ["About Happy:"], excerpt: "Mat5:3-12" });
+  assert.deepStrictEqual(usageAt("About Happy:\n\nMat5:3-12 text", "Mat5:3-12").context, ["About Happy:"]);
+  assert.deepStrictEqual(usageAt("About Happy:\n\n\nMat5:3-12", "Mat5:3-12").context, []);
+  assert.deepStrictEqual(usageAt("Some text\nMat5:3-12", "Mat5:3-12").context, []);
+  assert.deepStrictEqual(usageAt("Read this:\nSee also Mat5:3", "Mat5:3"), { heading: "", context: ["Read this:"], excerpt: "See also Mat5:3" });
+  assert.deepStrictEqual(usageAt("Блаженства：\nMat5:3", "Mat5:3").context, ["Блаженства："]);
+  // A line under a list item without indentation is text after the list; a list item is never an intro of it.
+  assert.deepStrictEqual(usageAt("About Happy:\n- some item:\nMat5:3-12", "Mat5:3-12").context, []);
+  // A top-level list item: the line right before the list, through a blank line only with a colon.
+  assert.deepStrictEqual(
+    usageAt("About Happy:\nав ва ывавыаыва\n- first\n- Mat5:3-12", "Mat5:3-12"),
+    { heading: "", context: ["ав ва ывавыаыва"], excerpt: "Mat5:3-12" }
+  );
+  assert.deepStrictEqual(usageAt("About Happy:\nав ва ывавыаыва\n\n* Mat5:3-12", "Mat5:3-12").context, []);
+  assert.deepStrictEqual(usageAt("Intro:\n\n- first\n\n- Mat5:3-12", "Mat5:3-12").context, ["Intro:"]);
+  // An indented line is nested under the line it is indented under, list item or not.
+  assert.deepStrictEqual(usageAt("About Happy:\nав ва ывавыаыва:\n - Mat5:3-12", "Mat5:3-12").context, ["ав ва ывавыаыва:"]);
+  assert.deepStrictEqual(
+    usageAt("## Нагорная проповедь\nБлаженства\n- Нищие духом\n  - о смирении\n    - Mat5:3 — текст\n  - Mat5:4", "Mat5:3"),
+    {
+      heading: "Нагорная проповедь",
+      context: ["Блаженства", "  - Нищие духом", "    - о смирении"],
+      excerpt: "Mat5:3 — текст",
+    }
+  );
+  // Siblings are not parents.
+  assert.deepStrictEqual(
+    usageAt("Блаженства\n- Нищие духом\n  - о смирении\n  - Mat5:4", "Mat5:4").context,
+    ["Блаженства", "  - Нищие духом"]
+  );
+  // More than three parents: the first one, "…" and the nearest one.
+  assert.deepStrictEqual(
+    usageAt("Список\n- a\n  - b\n    - c\n      - d\n        - Mat5:3", "Mat5:3").context,
+    ["Список", "  - a", "    …", "      - d"]
+  );
+  // Headings, code fences and front matter end the nesting; the nearest heading is kept.
+  assert.deepStrictEqual(usageAt("# One\nText\n## Two\n  Mat5:3", "Mat5:3"), { heading: "Two", context: [], excerpt: "Mat5:3" });
+  assert.deepStrictEqual(usageAt("Text\n```\ncode:\n```\n  Mat5:3", "Mat5:3").context, []);
+  assert.deepStrictEqual(usageAt("---\ntags: x\n---\n  Mat5:3", "Mat5:3").context, []);
+  assert.deepStrictEqual(usageAt("```\n# not a heading\n```\nMat5:3", "Mat5:3").heading, "");
+  // Tasks, quotes and long lines.
+  assert.deepStrictEqual(usageAt("> Quote:\n> - Mat5:3", "Mat5:3"), { heading: "", context: ["Quote:"], excerpt: "Mat5:3" });
+  assert.deepStrictEqual(usageAt("Todo\n- [ ] Mat5:3", "Mat5:3"), { heading: "", context: ["Todo"], excerpt: "Mat5:3" });
+  assert.deepStrictEqual(
+    usageAt("These are the first words of the long sermon that Jesus gave on the mount:\nMat5:3", "Mat5:3").context,
+    ["These are the first words of the long sermon that Jesus…"]
+  );
+  // Text far from the start of the line keeps its own excerpt.
+  assert.strictEqual(
+    usageAt("0123456789012345678901234567890 Mat5:3", "Mat5:3").excerpt,
+    "…23456789012345678901234567890 Mat5:3"
+  );
 
   const referenceUsageOpenNoteApp = createReferenceUsageTestApp({});
   const referenceUsageOpenNoteService = new ReferenceUsageIndexService(
@@ -282,7 +353,7 @@ module.exports = async () => {
   await signatureService.build(signatureFiles, false);
   assert.deepStrictEqual(signatureApp.readPaths, ["notes/a.md", "notes/b.md"]);
   assert.strictEqual(signatureService.isOutdated(), false);
-  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names");
+  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names|excerpt:5");
 
   signatureApp.readPaths.length = 0;
   const unchangedSignatureResult = await signatureService.build(signatureFiles, false);
@@ -296,6 +367,24 @@ module.exports = async () => {
   assert.strictEqual(changedSignatureResult.updatedFileCount, 2);
   assert.deepStrictEqual(signatureApp.readPaths, ["notes/a.md", "notes/b.md"]);
   assert.strictEqual(signatureService.isOutdated(), false);
+
+  // An index saved with the same parser but excerpts in the old format is outdated.
+  const oldExcerptIndexApp = createReferenceUsageTestApp({ "notes/a.md": "Ин 3:16" });
+  await oldExcerptIndexApp.vault.adapter.write("data/bible/reference-usage-index.json", JSON.stringify({
+    version: 1,
+    updatedAt: 1,
+    parserSignature: "ru-names",
+    files: { "notes/a.md": { path: "notes/a.md", mtime: 1, size: 10, references: [] } },
+  }));
+  const oldExcerptIndexService = new ReferenceUsageIndexService(
+    oldExcerptIndexApp,
+    () => "data/bible",
+    createReferenceUsageTestParseMatches,
+    () => [],
+    { getParserSignature: () => "ru-names" }
+  );
+  await oldExcerptIndexService.load();
+  assert.strictEqual(oldExcerptIndexService.isOutdated(), true);
 
   // An index saved before signatures existed is outdated, an empty one is not.
   const legacyIndexApp = createReferenceUsageTestApp({ "notes/a.md": "Ин 3:16" });

@@ -60,6 +60,17 @@ module.exports = async function runReferenceUsageTests() {
   assert.strictEqual(indexService.getStats().referenceCount, 2);
   assert.strictEqual(prompt.hidden, true);
 
+  // A usage keeps the heading and the lines above the reference.
+  app.vault.setMarkdown("headed.md", "## Gospel\nRead this:\n\n- John 3:16");
+  await indexService.updateFile(app.vault.getAbstractFileByPath("headed.md"));
+  const headedUsage = indexService
+    .findUsages([{ book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 16 }])
+    .find((result) => result.filePath === "headed.md");
+  assert(headedUsage !== undefined, "usage in headed.md");
+  assert.strictEqual(headedUsage.heading, "Gospel");
+  assert.deepStrictEqual(headedUsage.context, [{ text: "Read this:", level: 0 }]);
+  assert.strictEqual(headedUsage.excerpt, "John 3:16");
+
   await testUsagesPanelBackButton(app, plugin);
 
   stopPlugin(plugin);
