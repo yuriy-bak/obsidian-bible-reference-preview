@@ -259,6 +259,13 @@ button.bible-preview-pane-icon-button {
     padding: 0;
 }
 
+/* Nothing to go to (history ← →): dimmed and not clickable. */
+button.bible-preview-pane-icon-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+}
+
 /* Bible reader: the pane layout; in a wide tab the text keeps the note line width */
 .bible-reader-root {
     background: var(--background-primary);
