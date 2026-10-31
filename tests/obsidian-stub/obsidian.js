@@ -476,6 +476,10 @@ class MarkdownView extends View {
     return "markdown";
   }
 
+  getViewData() {
+    return this.file === null ? "" : this.app.vault.markdown.get(this.file.path)?.content ?? "";
+  }
+
   getMode() {
     return this.mode;
   }
@@ -498,6 +502,8 @@ class WorkspaceLeaf {
   getViewState() {
     return { type: this.view?.getViewType?.() ?? "empty" };
   }
+
+  async loadIfDeferred() {}
 
   detach() {
     this.app.workspace.removeLeaf(this);

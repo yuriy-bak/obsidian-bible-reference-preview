@@ -180,6 +180,10 @@ export class FloatingBiblePreviewWindow {
         return this.previewContent;
     }
 
+    public getScrollTop(): number {
+        return this.previewContentEl.scrollTop;
+    }
+
     public hide(resetPosition = false): void {
         this.previewContent = null;
         this.previewText = "";
