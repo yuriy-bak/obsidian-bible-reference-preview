@@ -1,4 +1,7 @@
-export const DEFAULT_BIBLE_REFERENCE_LINK_COLOR = "var(--link-color)";
+/** Green from the theme palette: each theme picks a shade readable in light and dark mode. */
+export const DEFAULT_BIBLE_REFERENCE_LINK_COLOR = "var(--color-green)";
+/** The previous default: the theme link color, kept as a preset. */
+export const THEME_LINK_COLOR = "var(--link-color)";
 export const DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR = "color-mix(in srgb, var(--background-primary) 92%, black 8%)";
 
 const MAX_CUSTOM_CSS_COLOR_LENGTH = 160;

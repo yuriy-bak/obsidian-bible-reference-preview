@@ -1,11 +1,9 @@
 import { App, Modal, Setting } from "obsidian";
 import { BiblePluginLocale, t } from "../i18n/I18n";
-import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, isCssColor } from "./cssColorValidation";
+import { buildColorDialogPresets, isSameColorValue, type CssColorPreset } from "./colorDialogPresets";
+import { DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, THEME_LINK_COLOR, isCssColor } from "./cssColorValidation";
 
-export type CssColorPreset = {
-    label: string;
-    value: string;
-};
+export type { CssColorPreset } from "./colorDialogPresets";
 
 export type CssColorDialogInput = {
     title: string;
@@ -13,6 +11,8 @@ export type CssColorDialogInput = {
     value: string;
     defaultValue: string;
     previewText: string;
+    /** "text": the sample text takes the color on the usual background; "background": the sample is filled with it. */
+    previewMode?: "text" | "background";
     presets: CssColorPreset[];
     normalize: (value: string) => string;
     onApply: (value: string) => void;
@@ -29,12 +29,10 @@ export class CssColorDialog extends Modal {
     private hue = 260;
     private saturation = 58;
     private brightness = 93;
-    private readonly recentValues: string[] = [];
 
     constructor(app: App, private readonly locale: BiblePluginLocale, private readonly input: CssColorDialogInput) {
         super(app);
         this.value = input.value;
-        this.recentValues = [input.value, input.defaultValue].filter((value, index, values) => value.length > 0 && values.indexOf(value) === index);
         const hsv = parseCssColorPickerHex(input.value) ?? parseCssColorPickerHex(input.defaultValue);
         if (hsv !== null) {
             this.hue = hsv.h;
@@ -49,7 +47,30 @@ export class CssColorDialog extends Modal {
         contentEl.createEl("h2", { text: this.input.title });
         contentEl.createEl("p", { text: this.input.description });
 
-        const previewEl = contentEl.createDiv({ text: this.input.previewText, cls: "bible-color-dialog-preview" });
+        const previewMode = this.input.previewMode ?? "background";
+        const previewEl = contentEl.createDiv({ cls: "bible-color-dialog-preview" });
+        const coloredEl = previewMode === "text"
+            ? previewEl.createSpan({ text: this.input.previewText, cls: "bible-color-dialog-preview-link" })
+            : previewEl;
+        if (previewMode === "background") {
+            previewEl.setText(this.input.previewText);
+        }
+        const paintPreview = (color: string): void => {
+            if (previewMode === "text") {
+                coloredEl.style.color = color;
+            } else {
+                previewEl.style.background = color;
+            }
+        };
+        /** The rendered color of the preview, for values like var(--color-green) that the picker can't parse. */
+        const readRenderedPreviewColor = (): HsvColor | null => {
+            const view = previewEl.ownerDocument.defaultView;
+            if (view === null) {
+                return null;
+            }
+            const style = view.getComputedStyle(coloredEl);
+            return parseRgbColor(previewMode === "text" ? style.color : style.backgroundColor);
+        };
 
         const inputEl = contentEl.createEl("input", { cls: "bible-color-dialog-input" });
         inputEl.type = "text";
@@ -78,12 +99,12 @@ export class CssColorDialog extends Modal {
             this.value = value.trim();
             inputEl.value = this.value;
             const normalized = this.input.normalize(this.value);
-            previewEl.style.background = normalized;
+            paintPreview(normalized);
             statusEl.textContent = isCssColor(this.value)
                 ? t(this.locale, "settings.colorDialog.valid")
                 : t(this.locale, "settings.colorDialog.invalid");
             if (syncPicker) {
-                const hsv = parseCssColorPickerHex(this.value);
+                const hsv = parseCssColorPickerHex(this.value) ?? readRenderedPreviewColor();
                 if (hsv !== null) {
                     this.hue = hsv.h;
                     this.saturation = hsv.s;
@@ -91,6 +112,7 @@ export class CssColorDialog extends Modal {
                 }
             }
             updatePickerUi();
+            updateActivePreset();
         };
 
         const applyPickerValue = (): void => {
@@ -116,15 +138,22 @@ export class CssColorDialog extends Modal {
         this.bindColorDialogPointerDrag(saturationEl, updateSaturationFromPointer);
         this.bindColorDialogPointerDrag(hueEl, updateHueFromPointer);
 
-        inputEl.addEventListener("input", () => applyValue(inputEl.value, true));
-        applyValue(this.value, true);
-
         contentEl.createDiv({ text: t(this.locale, "settings.colorDialog.palette"), cls: "bible-color-dialog-section-title" });
 
         const presetsEl = contentEl.createDiv({ cls: "bible-color-dialog-presets" });
-        const presets = [...this.input.presets, ...this.recentValues.map((value) => ({ label: t(this.locale, "settings.colorDialog.current"), value }))];
+        const presets = buildColorDialogPresets(this.input, {
+            defaultLabel: t(this.locale, "settings.colorDialog.default"),
+            currentLabel: t(this.locale, "settings.colorDialog.current"),
+        });
+        const presetButtons: { value: string; buttonEl: HTMLButtonElement }[] = [];
+        function updateActivePreset(): void {
+            for (const { value, buttonEl } of presetButtons) {
+                buttonEl.toggleClass("is-active", isSameColorValue(value, inputEl.value));
+            }
+        }
         for (const preset of presets) {
             const buttonEl = presetsEl.createEl("button", { cls: "bible-color-dialog-preset" });
+            presetButtons.push({ value: preset.value, buttonEl });
             buttonEl.type = "button";
             buttonEl.addEventListener("click", (event) => {
                 event.preventDefault();
@@ -135,6 +164,9 @@ export class CssColorDialog extends Modal {
             buttonEl.appendChild(swatchEl);
             buttonEl.appendText(preset.label);
         }
+
+        inputEl.addEventListener("input", () => applyValue(inputEl.value, true));
+        applyValue(this.value, true);
 
         new Setting(contentEl)
             .addButton((button) => button
@@ -186,10 +218,9 @@ export class CssColorDialog extends Modal {
 
 export function createTextColorPresets(): CssColorPreset[] {
     return [
-        { label: "Theme link", value: DEFAULT_BIBLE_REFERENCE_LINK_COLOR },
+        { label: "Theme link", value: THEME_LINK_COLOR },
         { label: "Violet", value: "#7c3aed" },
         { label: "Blue", value: "#2563eb" },
-        { label: "Green", value: "#16a34a" },
         { label: "Orange", value: "#d97706" },
         { label: "Red", value: "#dc2626" },
         { label: "Gray", value: "#6b7280" },
@@ -207,6 +238,14 @@ export function createBackgroundColorPresets(): CssColorPreset[] {
         { label: "Dark", value: "#1f2937" },
         { label: "Blue gray", value: "#dbe3ea" },
     ];
+}
+
+function parseRgbColor(value: string): HsvColor | null {
+    const match = /^rgba?\(\s*(\d+(?:\.\d+)?)[\s,]+(\d+(?:\.\d+)?)[\s,]+(\d+(?:\.\d+)?)/i.exec(value.trim());
+    if (match === null) {
+        return null;
+    }
+    return rgbToHsv(Math.round(Number(match[1])), Math.round(Number(match[2])), Math.round(Number(match[3])));
 }
 
 function parseCssColorPickerHex(value: string): HsvColor | null {

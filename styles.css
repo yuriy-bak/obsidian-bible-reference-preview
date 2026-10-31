@@ -534,6 +534,10 @@ input.bible-preview-comparison-selector-checkbox {
     color: var(--text-normal);
 }
 
+.bible-color-dialog-preview-link {
+    border-bottom: 1px dotted currentColor;
+}
+
 input.bible-color-dialog-input {
     width: 100%;
     box-sizing: border-box;
@@ -613,6 +617,10 @@ button.bible-color-dialog-preset {
     align-items: center;
     gap: 6px;
     justify-content: flex-start;
+}
+
+button.bible-color-dialog-preset.is-active {
+    box-shadow: 0 0 0 2px var(--interactive-accent);
 }
 
 .bible-color-dialog-preset-swatch {
