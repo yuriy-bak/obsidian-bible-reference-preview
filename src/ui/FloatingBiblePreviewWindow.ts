@@ -1,7 +1,8 @@
-import { Notice, Platform } from "obsidian";
+import { Notice, Platform, setIcon } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
-import { BiblePreviewHeader, scrollPreviewElement, setHeaderButtonLabel, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { ICONS } from "./Icons";
+import { BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 import {
     clampNumber,
     COLLAPSED_BUTTON_SIZE,
@@ -23,12 +24,10 @@ export type FloatingBiblePreviewWindowInput = BiblePreviewChapterViewInput & Bib
     getCollapseAria: () => string;
     getExpandAria: () => string;
     getBackgroundColor: () => string;
-    getFindUsagesButtonText?: () => string;
     getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
     onFindUsages?: (target: BiblePreviewUsageTarget) => void;
     getCloseAria?: () => string;
     getOpenInPanelAria?: () => string;
-    getOpenInPanelIcon?: () => string;
     onOpenInPanel?: (content: BiblePreviewContent) => void;
 };
 
@@ -155,7 +154,6 @@ export class FloatingBiblePreviewWindow {
         this.previewText = content.plainText;
         renderBiblePreviewContent(this.previewContentEl, content, {
             ...createChapterRenderOptions(this.labels),
-            getFindUsagesButtonText: this.labels.getFindUsagesButtonText,
             getFindUsagesButtonAria: this.labels.getFindUsagesButtonAria,
             onFindUsages: this.labels.onFindUsages,
         });
@@ -296,12 +294,11 @@ export class FloatingBiblePreviewWindow {
         this.header = header;
         header.el.addEventListener("pointerdown", (event) => this.pointer.startPreviewDrag(event));
 
-        this.openInPanelButtonEl = header.addButton(this.getOpenInPanelButtonIcon(), this.getOpenInPanelAriaLabel(), () => this.handleOpenInPanelButtonClick());
+        this.openInPanelButtonEl = header.addIconButton(ICONS.openInPanel, this.getOpenInPanelAriaLabel(), () => this.handleOpenInPanelButtonClick());
         this.updateOpenInPanelButtonText();
-        const collapseButton = header.addButton("▾", this.labels.getCollapseAria(), () => this.collapseBiblePreview(collapseButton));
+        const collapseButton = header.addIconButton(ICONS.collapse, this.labels.getCollapseAria(), () => this.collapseBiblePreview(collapseButton));
         this.collapsePreviewButtonEl = collapseButton;
-        this.closePreviewButtonEl = header.addButton("×", this.getCloseAriaLabel(), () => this.hide());
-        this.closePreviewButtonEl.addClass("bible-preview-floating-close-button");
+        this.closePreviewButtonEl = header.addIconButton(ICONS.close, this.getCloseAriaLabel(), () => this.hide());
     }
 
     private handleOpenInPanelButtonClick(): void {
@@ -323,7 +320,7 @@ export class FloatingBiblePreviewWindow {
     private createCollapsedButtonElement(): HTMLButtonElement {
         const buttonEl = createEl("button", { cls: "bible-preview-floating-collapsed-button" });
         buttonEl.type = "button";
-        buttonEl.textContent = "📖";
+        setIcon(buttonEl, ICONS.book);
         buttonEl.setCssStyles({ display: "none" });
         this.applyBackgroundColor(buttonEl);
         this.setCollapsedButtonLabel(buttonEl);
@@ -380,15 +377,11 @@ export class FloatingBiblePreviewWindow {
         return this.labels.getOpenInPanelAria?.() ?? "Открыть в панели";
     }
 
-    private getOpenInPanelButtonIcon(): string {
-        return this.labels.getOpenInPanelIcon?.() ?? "◨";
-    }
-
     private updateOpenInPanelButtonText(): void {
         if (this.openInPanelButtonEl === null) {
             return;
         }
-        setHeaderButtonLabel(this.openInPanelButtonEl, this.getOpenInPanelButtonIcon(), this.getOpenInPanelAriaLabel());
+        setHeaderButtonAria(this.openInPanelButtonEl, this.getOpenInPanelAriaLabel());
         this.openInPanelButtonEl.toggle(this.labels.onOpenInPanel !== undefined);
     }
 

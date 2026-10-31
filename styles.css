@@ -448,9 +448,49 @@ button.bible-reader-navigator-button.is-current {
 }
 
 /* Lucide icons in header buttons (copy, comparison). */
-button.bible-preview-header-lucide-button {
+/* Lucide icons on the plugin's buttons. */
+button.bible-preview-header-lucide-button,
+button.bible-preview-chapter-navigation-button,
+button.bible-preview-reference-usages-button,
+button.bible-reference-usage-pane-back-button,
+button.bible-reader-navigator-close,
+button.bible-reader-navigator-back,
+.bible-preview-open-chapter-button,
+.bible-preview-title-icon,
+.bible-reader-navigator-caret {
     --icon-size: 15px;
     --icon-stroke: 2px;
+}
+
+button.bible-preview-chapter-navigation-button,
+button.bible-preview-reference-usages-button,
+button.bible-reference-usage-pane-back-button,
+button.bible-reader-navigator-close,
+button.bible-reader-navigator-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+/* The book icon before a title, and the open-chapter icon before a reference. */
+.bible-preview-title-icon,
+.bible-preview-open-chapter-button,
+.bible-reader-navigator-caret {
+    display: inline-flex;
+    vertical-align: -2px;
+}
+
+.bible-preview-title-icon {
+    margin-right: 4px;
+}
+
+.bible-reader-navigator-caret {
+    margin-left: 2px;
+}
+
+button.bible-preview-floating-collapsed-button {
+    --icon-size: 20px;
 }
 
 /* The comparison button stays pressed while comparison is on. */
@@ -459,11 +499,6 @@ button.bible-preview-pane-icon-button.is-active,
     background: var(--interactive-accent);
     border-color: var(--interactive-accent);
     color: var(--text-on-accent);
-}
-
-.bible-preview-floating-panel .bible-preview-floating-header button.bible-preview-floating-close-button {
-    font-size: 18px;
-    font-weight: 700;
 }
 
 .bible-preview-floating-content {

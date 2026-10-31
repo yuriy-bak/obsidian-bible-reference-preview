@@ -2,6 +2,7 @@ import { ItemView, setIcon, WorkspaceLeaf } from "obsidian";
 import type { ReferenceUsageResultGroup } from "../reference-usage/ReferenceUsageChapterGroups";
 import type { ReferenceUsageSearchResult } from "../reference-usage/ReferenceUsageIndexService";
 import { renderReferenceUsageExcerpt } from "./ReferenceUsageExcerpt";
+import { ICONS, setIconWithText } from "./Icons";
 
 export const REFERENCE_USAGE_VIEW_TYPE = "bible-reference-usage-results";
 const REFERENCE_USAGE_REFRESH_PROGRESS_DELAY_MS = 1000;
@@ -174,10 +175,10 @@ export class ReferenceUsagePaneView extends ItemView {
             return;
         }
         const buttonEl = containerEl.createEl("button", {
-            text: this.input.getBackText(),
             cls: "bible-reference-usage-pane-back-button",
             attr: { type: "button", "aria-label": back.ariaLabel, title: back.ariaLabel },
         });
+        setIconWithText(buttonEl, ICONS.back, this.input.getBackText());
         buttonEl.addEventListener("click", (event) => {
             event.preventDefault();
             back.run();

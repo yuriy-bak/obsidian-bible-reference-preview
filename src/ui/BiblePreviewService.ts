@@ -255,7 +255,6 @@ export class BiblePreviewService {
             getBackgroundColor: () => this.settings.getFloatingPreviewBackgroundColor(),
             getCloseAria: () => this.context.t("preview.closeAria"),
             getOpenInPanelAria: () => this.context.t("preview.openInPanelAria"),
-            getOpenInPanelIcon: () => this.context.t("preview.openInPanelIcon"),
             onOpenInPanel: (content) => void this.switchToPanel(content),
         };
     }
@@ -264,7 +263,6 @@ export class BiblePreviewService {
         return {
             ...this.createCommonViewInput(),
             getOpenFloatingAria: () => this.context.t("preview.openFloatingAria"),
-            getOpenFloatingIcon: () => this.context.t("preview.openFloatingIcon"),
             onOpenFloating: (content) => void this.switchToFloating(content),
         };
     }
@@ -276,7 +274,6 @@ export class BiblePreviewService {
             getTitle: () => `📖 ${this.translations.getActiveTranslationPreviewTitle()}`,
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
             getCopyAria: () => t("preview.copyAria"),
-            getFindUsagesButtonText: () => t("preview.findUsagesIcon"),
             getFindUsagesButtonAria: (target: BiblePreviewUsageTarget) => t("preview.findUsagesAria", { reference: target.title }),
             onFindUsages: (target: BiblePreviewUsageTarget) => this.effects.showReferenceUsagesForPreviewBlock(target, this.captureReturnPoint()),
             isComparisonEnabled,

@@ -1,11 +1,12 @@
-import { BOOK_ICON, type BiblePreviewChapterView, type BiblePreviewContent, type BiblePreviewParagraph, type BiblePreviewUsageTarget, type BiblePreviewVerse, formatVerseNumber } from "../application/BiblePreviewModel";
+import { setIcon } from "obsidian";
+import { type BiblePreviewChapterView, type BiblePreviewContent, type BiblePreviewParagraph, type BiblePreviewUsageTarget, type BiblePreviewVerse, formatVerseNumber } from "../application/BiblePreviewModel";
 import { type BibleChapterLocation, type BibleChapterTarget, getChapterTargetFromReferences } from "../application/BibleChapterNavigation";
 import type { BibleReference } from "../domain/BibleReference";
+import { ICONS, setBookTitle, setIconWithText, stripBookIcon } from "./Icons";
 
 export const CHAPTER_USAGES_BUTTON_CLASS = "bible-preview-chapter-usages-button";
 
 export type BiblePreviewRenderOptions = {
-    getFindUsagesButtonText?: () => string;
     getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
     onFindUsages?: (target: BiblePreviewUsageTarget) => void;
     getOpenChapterAria?: (title: string) => string;
@@ -157,7 +158,6 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
     containerEl.replaceChildren(fragment);
 }
 
-const HIGHLIGHT_ICON = "🖍";
 const CHAPTER_HIGHLIGHTS_HIDDEN_CLASS = "bible-preview-chapter-highlights-hidden";
 
 type OpenChapterAction = {
@@ -166,7 +166,7 @@ type OpenChapterAction = {
     translationId?: string;
 };
 
-// Title row shared by single and comparison previews: 📖 + reference title on the left, 🔎 on the right.
+// Title row shared by single and comparison previews: open-chapter icon + reference title on the left, find-usages icon on the right.
 function createReferenceTitleRow(
     target: BiblePreviewUsageTarget,
     actions: { openChapter: OpenChapterAction | null; findUsages: boolean },
@@ -196,11 +196,11 @@ function appendReferenceTitle(
     options: BiblePreviewRenderOptions,
 ): void {
     if (chapterTarget === null || options.onOpenChapter === undefined) {
-        titleEl.textContent = `${title}.`;
+        setBookTitle(titleEl, `${title}.`);
         return;
     }
 
-    const titleText = title.startsWith(BOOK_ICON) ? title.slice(BOOK_ICON.length).trimStart() : title;
+    const titleText = stripBookIcon(title);
     titleEl.appendChild(createOpenChapterButton(titleText, chapterTarget, translationId, options));
     titleEl.appendChild(document.createTextNode(` ${titleText}.`));
 }
@@ -208,7 +208,7 @@ function appendReferenceTitle(
 function createOpenChapterButton(titleText: string, target: BibleChapterTarget, translationId: string | undefined, options: BiblePreviewRenderOptions): HTMLElement {
     const buttonEl = createSpan();
     buttonEl.className = "bible-preview-open-chapter-button";
-    buttonEl.textContent = BOOK_ICON;
+    setIcon(buttonEl, ICONS.openChapter);
     buttonEl.setAttribute("role", "button");
     buttonEl.setAttribute("tabindex", "0");
     const ariaLabel = options.getOpenChapterAria?.(titleText) ?? titleText;
@@ -237,15 +237,14 @@ export function createChapterUsagesButton(chapterView: BiblePreviewChapterView, 
         return null;
     }
 
-    const icon = options.getFindUsagesButtonText?.() ?? "🔎";
     const ariaLabel = options.getFindChapterUsagesAria?.(chapterView.title) ?? chapterView.title;
-    const buttonEl = createChapterNavigationButton(formatChapterUsagesButtonText(icon, count), ariaLabel, true, () => {
+    const buttonEl = createChapterNavigationButton(ICONS.findUsages, ariaLabel, true, () => {
         onFindChapterUsages({ book: chapterView.book, chapter: chapterView.chapter }, chapterView.title);
     });
     buttonEl.classList.add(CHAPTER_USAGES_BUTTON_CLASS);
     buttonEl.dataset.book = String(chapterView.book);
     buttonEl.dataset.chapter = String(chapterView.chapter);
-    buttonEl.dataset.icon = icon;
+    setChapterUsagesCount(buttonEl, count);
     return buttonEl;
 }
 
@@ -256,12 +255,12 @@ export function refreshChapterUsageCounts(rootEl: ParentNode, getChapterUsageCou
         const chapter = Number(buttonEl.dataset.chapter);
         if (!Number.isInteger(book) || !Number.isInteger(chapter)) return;
         const count = getChapterUsageCount({ book, chapter });
-        if (count !== null) buttonEl.textContent = formatChapterUsagesButtonText(buttonEl.dataset.icon ?? "🔎", count);
+        if (count !== null) setChapterUsagesCount(buttonEl, count);
     });
 }
 
-function formatChapterUsagesButtonText(icon: string, count: number): string {
-    return count > 0 ? `${icon} ${count}` : icon;
+function setChapterUsagesCount(buttonEl: HTMLButtonElement, count: number): void {
+    setIconWithText(buttonEl, ICONS.findUsages, count > 0 ? String(count) : undefined);
 }
 
 export function createChapterHighlightToggle(
@@ -271,7 +270,7 @@ export function createChapterHighlightToggle(
     onToggle: (hidden: boolean) => void,
 ): HTMLButtonElement {
     let hidden = initiallyHidden;
-    const buttonEl = createChapterNavigationButton(HIGHLIGHT_ICON, "", true, () => {
+    const buttonEl = createChapterNavigationButton(ICONS.highlight, "", true, () => {
         hidden = !hidden;
         containerEl.classList.toggle(CHAPTER_HIGHLIGHTS_HIDDEN_CLASS, hidden);
         updateState();
@@ -288,11 +287,12 @@ export function createChapterHighlightToggle(
     return buttonEl;
 }
 
-export function createChapterNavigationButton(text: string, ariaLabel: string, enabled: boolean, onClick: () => void): HTMLButtonElement {
+/** A button of the chapter bar with a Lucide icon. */
+export function createChapterNavigationButton(icon: string, ariaLabel: string, enabled: boolean, onClick: () => void): HTMLButtonElement {
     const buttonEl = createEl("button");
     buttonEl.type = "button";
     buttonEl.className = "bible-preview-chapter-navigation-button";
-    buttonEl.textContent = text;
+    setIcon(buttonEl, icon);
     buttonEl.disabled = !enabled;
     buttonEl.setAttribute("aria-label", ariaLabel);
     buttonEl.setAttribute("title", ariaLabel);
@@ -331,7 +331,7 @@ function createFindUsagesButton(target: BiblePreviewUsageTarget, options: BibleP
     const buttonEl = createEl("button");
     buttonEl.type = "button";
     buttonEl.className = "bible-preview-reference-usages-button";
-    buttonEl.textContent = options.getFindUsagesButtonText?.() ?? "🔎";
+    setIcon(buttonEl, ICONS.findUsages);
     const ariaLabel = options.getFindUsagesButtonAria?.(target) ?? target.title;
     buttonEl.setAttribute("aria-label", ariaLabel);
     buttonEl.setAttribute("title", ariaLabel);

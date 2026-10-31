@@ -1,15 +1,14 @@
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
-import { BiblePreviewHeader, scrollPreviewElement, setHeaderButtonLabel, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { ICONS, stripBookIcon } from "./Icons";
+import { BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
 export type BiblePreviewPaneViewInput = BiblePreviewChapterViewInput & BiblePreviewHeaderInput & {
     getOpenFloatingAria: () => string;
-    getOpenFloatingIcon: () => string;
     getCopyNoticeText: () => string;
-    getFindUsagesButtonText?: () => string;
     getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
     onFindUsages?: (target: BiblePreviewUsageTarget) => void;
     onOpenFloating: (content: BiblePreviewContent) => void;
@@ -32,7 +31,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     getViewType(): string { return BIBLE_PREVIEW_VIEW_TYPE; }
-    getDisplayText(): string { return this.input.getTitle(); }
+    getDisplayText(): string { return stripBookIcon(this.input.getTitle()); }
     getIcon(): string { return "book-open"; }
 
     async onOpen(): Promise<void> {
@@ -83,7 +82,7 @@ export class BiblePreviewPaneView extends ItemView {
     refreshInput(input: BiblePreviewPaneViewInput): void {
         this.input = input;
         this.header?.refresh(input);
-        if (this.openFloatingButtonEl !== null) setHeaderButtonLabel(this.openFloatingButtonEl, input.getOpenFloatingIcon(), input.getOpenFloatingAria());
+        if (this.openFloatingButtonEl !== null) setHeaderButtonAria(this.openFloatingButtonEl, input.getOpenFloatingAria());
         if (this.currentContent !== null) this.scheduleRender();
     }
 
@@ -117,7 +116,7 @@ export class BiblePreviewPaneView extends ItemView {
                 if (this.currentContent !== null) this.input.onToggleComparison?.(this.currentContent);
             },
         });
-        this.openFloatingButtonEl = this.header.addButton(this.input.getOpenFloatingIcon(), this.input.getOpenFloatingAria(), () => {
+        this.openFloatingButtonEl = this.header.addIconButton(ICONS.openFloating, this.input.getOpenFloatingAria(), () => {
             if (this.currentContent !== null) this.input.onOpenFloating(this.currentContent);
         });
     }
@@ -186,7 +185,6 @@ export class BiblePreviewPaneView extends ItemView {
             const contentContainerEl = this.contentContainerEl;
             renderBiblePreviewContent(contentContainerEl, this.currentContent, {
                 ...createChapterRenderOptions(this.input),
-                getFindUsagesButtonText: this.input.getFindUsagesButtonText,
                 getFindUsagesButtonAria: this.input.getFindUsagesButtonAria,
                 onFindUsages: this.input.onFindUsages,
             });

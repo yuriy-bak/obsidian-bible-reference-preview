@@ -3,11 +3,9 @@ import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 import type { PreviewComparisonTranslationOption } from "../translations/TranslationModels";
 import { getHTMLElementTarget } from "../utils/EventTargetElement";
 import { renderComparisonTranslationSelector } from "./ComparisonTranslationSelector";
+import { ICONS, setBookTitle } from "./Icons";
 
-const COPY_ICON = "copy";
-const COPIED_ICON = "check";
 const COPIED_FEEDBACK_MS = 1500;
-const COMPARISON_ICON = "library-big";
 
 export type BiblePreviewScrollCommand = "page-up" | "page-down" | "top" | "bottom";
 
@@ -32,7 +30,7 @@ export type BiblePreviewHeaderOptions = {
 
 /**
  * Header shared by the floating window and the side panel: title, translations selector,
- * copy and comparison buttons (Lucide icons). Each view appends its own buttons with addButton().
+ * copy and comparison buttons (Lucide icons). Each view appends its own buttons with addIconButton().
  */
 export class BiblePreviewHeader {
     readonly el: HTMLDivElement;
@@ -44,21 +42,16 @@ export class BiblePreviewHeader {
 
     constructor(parentEl: HTMLElement, private input: BiblePreviewHeaderInput, private readonly options: BiblePreviewHeaderOptions) {
         this.el = parentEl.createDiv({ cls: ["bible-preview-header", `bible-preview-${options.variant}-header`] });
-        this.titleEl = this.el.createDiv({ cls: "bible-preview-header-title", text: input.getTitle() });
+        this.titleEl = this.el.createDiv({ cls: "bible-preview-header-title" });
+        setBookTitle(this.titleEl, input.getTitle());
         this.comparisonSelectorEl = this.el.createDiv({ cls: "bible-preview-header-selector-host" });
         // Only the selector itself is interactive; the empty space around it stays part of the header (a drag handle in the floating window).
         this.comparisonSelectorEl.addEventListener("pointerdown", (event) => stopSelectorEventPropagation(event));
         this.comparisonSelectorEl.addEventListener("click", (event) => stopSelectorEventPropagation(event));
 
-        this.copyButtonEl = this.addIconButton(COPY_ICON, input.getCopyAria(), () => void this.copy());
-        this.comparisonButtonEl = this.addIconButton(COMPARISON_ICON, this.getComparisonAria(), () => options.onToggleComparison());
+        this.copyButtonEl = this.addIconButton(ICONS.copy, input.getCopyAria(), () => void this.copy());
+        this.comparisonButtonEl = this.addIconButton(ICONS.comparison, this.getComparisonAria(), () => options.onToggleComparison());
         this.updateComparisonButton();
-    }
-
-    addButton(text: string, label: string, onClick: () => void): HTMLButtonElement {
-        const buttonEl = this.createButton(label, onClick);
-        buttonEl.textContent = text;
-        return buttonEl;
     }
 
     /** A header button showing a Lucide icon (the set built into Obsidian). */
@@ -84,7 +77,7 @@ export class BiblePreviewHeader {
 
     refresh(input: BiblePreviewHeaderInput): void {
         this.input = input;
-        this.titleEl.textContent = input.getTitle();
+        setBookTitle(this.titleEl, input.getTitle());
         setHeaderButtonAria(this.copyButtonEl, input.getCopyAria());
         this.updateComparisonButton();
         this.renderComparisonSelector();
@@ -121,10 +114,10 @@ export class BiblePreviewHeader {
         if (!await this.options.onCopy()) return;
         const win = this.el.win;
         if (this.copyFeedbackTimer !== null) win.clearTimeout(this.copyFeedbackTimer);
-        setIcon(this.copyButtonEl, COPIED_ICON);
+        setIcon(this.copyButtonEl, ICONS.copied);
         this.copyFeedbackTimer = win.setTimeout(() => {
             this.copyFeedbackTimer = null;
-            setIcon(this.copyButtonEl, COPY_ICON);
+            setIcon(this.copyButtonEl, ICONS.copy);
         }, COPIED_FEEDBACK_MS);
     }
 
@@ -133,12 +126,7 @@ export class BiblePreviewHeader {
     }
 }
 
-export function setHeaderButtonLabel(buttonEl: HTMLButtonElement, text: string, label: string): void {
-    buttonEl.textContent = text;
-    setHeaderButtonAria(buttonEl, label);
-}
-
-function setHeaderButtonAria(buttonEl: HTMLButtonElement, label: string): void {
+export function setHeaderButtonAria(buttonEl: HTMLButtonElement, label: string): void {
     buttonEl.setAttribute("aria-label", label);
     buttonEl.title = label;
 }
