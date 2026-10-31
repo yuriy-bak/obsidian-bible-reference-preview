@@ -53,6 +53,16 @@ More sources and details are in [Importing a translation](#importing-a-translati
 > **Screenshot placeholder: `docs/images/en/settings.png`**
 > Settings → Bible Reference Preview: the translation list with two or three imported Bibles.
 
+## Roadmap
+
+Planned features, in no fixed order:
+
+- [Bible navigation](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/53): open any book and chapter without a reference in a note.
+- [Another translation in the chapter view](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/54) without changing the default one.
+- [Custom book names and abbreviations](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/55) for each translation.
+
+See [all planned features](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) and vote with 👍 on the ones you want.
+
 ## Installation
 
 **From the catalog.** Install **Bible Reference Preview** from Settings → Community plugins (Obsidian 1.13 or later), on desktop or on a phone.
@@ -105,7 +115,7 @@ The plugin makes no network requests. It reads the list of Markdown files only t
 
 ## Feedback
 
-Found a reference that is not recognized, or a Bible file that does not import? [Open an issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues) with the reference or a link to the file. Ideas are welcome there too. If the plugin is useful to you, a star on GitHub helps other people find it.
+Found a reference that is not recognized, or a Bible file that does not import? [Report a bug](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose) with the reference or a link to the file. For a new idea, check the [roadmap](#roadmap) first: if it is there, vote with 👍; if not, suggest it with the feature request form. If the plugin is useful to you, a star on GitHub helps other people find it.
 
 ## Development
 
