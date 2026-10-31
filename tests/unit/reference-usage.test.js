@@ -1,6 +1,7 @@
 const {
   assert,
   ReferenceUsageIndexService,
+  createReferenceUsageExcerpt,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   createChapterUsageQuery,
@@ -145,7 +146,35 @@ module.exports = async () => {
   assert.strictEqual(referenceUsageResults[0].filePath, "notes/one.md");
   assert.strictEqual(referenceUsageResults[0].sourceText, "Ин 3:16");
   assert.strictEqual(referenceUsageResults[0].line, 2);
-  assert.strictEqual(referenceUsageResults[0].excerpt, "Ин 3:16 and Рим 8:28");
+  assert.strictEqual(referenceUsageResults[0].excerpt, "Intro Ин 3:16 and Рим 8:28");
+
+  // Text before a reference at the start of its line comes from the line above.
+  function excerptAt(text, sourceText) {
+    const lines = text.split("\n");
+    const lineIndex = lines.findIndex((line) => line.includes(sourceText));
+    const from = lines[lineIndex].indexOf(sourceText);
+    return createReferenceUsageExcerpt(lines, lineIndex, from, from + sourceText.length);
+  }
+  assert.strictEqual(excerptAt("About Happy:\nMat5:3-12", "Mat5:3-12"), "About Happy: Mat5:3-12");
+  assert.strictEqual(excerptAt("About Happy:\n\nMat5:3-12 text", "Mat5:3-12"), "About Happy: Mat5:3-12 text");
+  assert.strictEqual(excerptAt("About Happy:\n\n\nMat5:3-12", "Mat5:3-12"), "Mat5:3-12");
+  assert.strictEqual(excerptAt("## Beatitudes\n- [ ] Mat5:3", "Mat5:3"), "Beatitudes - [ ] Mat5:3");
+  assert.strictEqual(excerptAt("> - About Happy:\n> Mat5:3", "Mat5:3"), "About Happy: > Mat5:3");
+  assert.strictEqual(excerptAt("```\nMat5:3", "Mat5:3"), "Mat5:3");
+  assert.strictEqual(excerptAt("---\nMat5:3", "Mat5:3"), "Mat5:3");
+  assert.strictEqual(
+    excerptAt("The first words of the long sermon on the mount:\nMat5:3", "Mat5:3"),
+    "…the long sermon on the mount: Mat5:3"
+  );
+  assert.strictEqual(
+    excerptAt("Read this:\nSee also Mat5:3", "Mat5:3"),
+    "Read this: See also Mat5:3"
+  );
+  // Enough text before the reference on its own line: the line above is not used.
+  assert.strictEqual(
+    excerptAt("Line above\n01234567890123456789012345678 Mat5:3", "Mat5:3"),
+    "01234567890123456789012345678 Mat5:3"
+  );
 
   const referenceUsageOpenNoteApp = createReferenceUsageTestApp({});
   const referenceUsageOpenNoteService = new ReferenceUsageIndexService(
@@ -282,7 +311,7 @@ module.exports = async () => {
   await signatureService.build(signatureFiles, false);
   assert.deepStrictEqual(signatureApp.readPaths, ["notes/a.md", "notes/b.md"]);
   assert.strictEqual(signatureService.isOutdated(), false);
-  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names");
+  assert.strictEqual(JSON.parse(signatureApp.writes.get("data/bible/reference-usage-index.json")).parserSignature, "ru-names|excerpt:2");
 
   signatureApp.readPaths.length = 0;
   const unchangedSignatureResult = await signatureService.build(signatureFiles, false);
@@ -296,6 +325,24 @@ module.exports = async () => {
   assert.strictEqual(changedSignatureResult.updatedFileCount, 2);
   assert.deepStrictEqual(signatureApp.readPaths, ["notes/a.md", "notes/b.md"]);
   assert.strictEqual(signatureService.isOutdated(), false);
+
+  // An index saved with the same parser but excerpts in the old format is outdated.
+  const oldExcerptIndexApp = createReferenceUsageTestApp({ "notes/a.md": "Ин 3:16" });
+  await oldExcerptIndexApp.vault.adapter.write("data/bible/reference-usage-index.json", JSON.stringify({
+    version: 1,
+    updatedAt: 1,
+    parserSignature: "ru-names",
+    files: { "notes/a.md": { path: "notes/a.md", mtime: 1, size: 10, references: [] } },
+  }));
+  const oldExcerptIndexService = new ReferenceUsageIndexService(
+    oldExcerptIndexApp,
+    () => "data/bible",
+    createReferenceUsageTestParseMatches,
+    () => [],
+    { getParserSignature: () => "ru-names" }
+  );
+  await oldExcerptIndexService.load();
+  assert.strictEqual(oldExcerptIndexService.isOutdated(), true);
 
   // An index saved before signatures existed is outdated, an empty one is not.
   const legacyIndexApp = createReferenceUsageTestApp({ "notes/a.md": "Ин 3:16" });

@@ -72,6 +72,7 @@ const {
 } = require("../.test-build/src/ui/cssColorValidation.js");
 const {
   ReferenceUsageIndexService,
+  createReferenceUsageExcerpt,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
 } = require("../.test-build/src/reference-usage/ReferenceUsageIndexService.js");
@@ -140,6 +141,7 @@ module.exports = {
   normalizeBibleReferenceLinkColor,
   normalizeFloatingPreviewBackgroundColor,
   ReferenceUsageIndexService,
+  createReferenceUsageExcerpt,
   REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES,
   createChapterUsageQuery,

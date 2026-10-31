@@ -11,6 +11,10 @@ const REFERENCE_USAGE_INDEX_SAVE_DELAY_MS = 1000;
 const REFERENCE_USAGE_EXCERPT_BEFORE_CHARS = 30;
 const REFERENCE_USAGE_EXCERPT_AFTER_CHARS = 140;
 const REFERENCE_USAGE_EXCERPT_ELLIPSIS = "…";
+// Bump when the excerpt format changes, so indexes with excerpts in the old format are rebuilt.
+const REFERENCE_USAGE_EXCERPT_FORMAT_VERSION = 2;
+// Quote markers, then a heading, list item (with an optional task box) or ordered list marker.
+const MARKDOWN_LINE_PREFIX_PATTERN = /^(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+(?:\[.\]\s+)?|\d+[.)]\s+)?/u;
 const REFERENCE_USAGE_BUILD_YIELD_EVERY_FILES = 25;
 export const REFERENCE_USAGE_MOBILE_BUILD_YIELD_EVERY_FILES = 10;
 const REFERENCE_USAGE_BUILD_ABORT_ERROR_NAME = "AbortError";
@@ -158,7 +162,7 @@ export class ReferenceUsageIndexService {
         const buildableFiles = indexableFiles.filter((file) => !this.isFileTooLargeForIndex(file));
         const skippedLargeFileCount = indexableFiles.length - buildableFiles.length;
         const indexedFilePaths = new Set(buildableFiles.map((file) => file.path));
-        const parserSignature = this.getParserSignature();
+        const parserSignature = this.getIndexSignature();
         // Notes indexed by another parser may hold other references even when unchanged, so parse them all again.
         const reparseAllFiles = forceRebuild || this.index.parserSignature !== parserSignature;
         const nextIndex = reparseAllFiles ? createEmptyReferenceUsageIndex() : normalizeReferenceUsageIndex(this.index);
@@ -277,7 +281,12 @@ export class ReferenceUsageIndexService {
     }
 
     public isOutdated(): boolean {
-        return Object.keys(this.index.files).length > 0 && this.index.parserSignature !== this.getParserSignature();
+        return Object.keys(this.index.files).length > 0 && this.index.parserSignature !== this.getIndexSignature();
+    }
+
+    // The parser signature plus the excerpt format: either one changing means the notes must be indexed again.
+    private getIndexSignature(): string {
+        return `${this.getParserSignature()}|excerpt:${REFERENCE_USAGE_EXCERPT_FORMAT_VERSION}`;
     }
 
     public getStats(): ReferenceUsageIndexStats {
@@ -329,7 +338,7 @@ export class ReferenceUsageIndexService {
                         line: lineIndex + 1,
                         chStart: match.from,
                         chEnd: match.to,
-                        excerpt: createReferenceUsageExcerpt(line, match.from, match.to),
+                        excerpt: createReferenceUsageExcerpt(lines, lineIndex, match.from, match.to),
                     });
                 }
             }
@@ -361,12 +370,47 @@ function createEmptyReferenceUsageIndex(): ReferenceUsageIndex {
     return { version: REFERENCE_USAGE_INDEX_VERSION, updatedAt: 0, parserSignature: null, files: {} };
 }
 
-function createReferenceUsageExcerpt(line: string, from: number, to: number): string {
+export function createReferenceUsageExcerpt(lines: readonly string[], lineIndex: number, from: number, to: number): string {
+    const line = lines[lineIndex];
     const excerptStart = Math.max(0, from - REFERENCE_USAGE_EXCERPT_BEFORE_CHARS);
     const excerptEnd = Math.min(line.length, to + REFERENCE_USAGE_EXCERPT_AFTER_CHARS);
-    const prefix = excerptStart > 0 ? REFERENCE_USAGE_EXCERPT_ELLIPSIS : "";
     const suffix = excerptEnd < line.length ? REFERENCE_USAGE_EXCERPT_ELLIPSIS : "";
-    return `${prefix}${line.slice(excerptStart, excerptEnd).trim()}${suffix}`;
+    if (excerptStart > 0) {
+        return `${REFERENCE_USAGE_EXCERPT_ELLIPSIS}${line.slice(excerptStart, excerptEnd).trim()}${suffix}`;
+    }
+    const lineText = line.slice(0, excerptEnd).trim();
+    // Little or no text before the reference on its line (e.g. "About Happy:" on the line above): fill up with the end of the previous line.
+    const missingChars = REFERENCE_USAGE_EXCERPT_BEFORE_CHARS - line.slice(0, from).trim().length;
+    const context = missingChars > 0 ? getPreviousLineContext(lines, lineIndex, missingChars) : "";
+    return `${context.length > 0 ? `${context} ` : ""}${lineText}${suffix}`;
+}
+
+// The end of the nearest non-empty line above, within the same block: at most one blank line between,
+// and not across a code fence or a front matter / horizontal rule line.
+function getPreviousLineContext(lines: readonly string[], lineIndex: number, maxChars: number): string {
+    let previousIndex = lineIndex - 1;
+    if (previousIndex >= 0 && lines[previousIndex].trim().length === 0) {
+        previousIndex -= 1;
+    }
+    if (previousIndex < 0) {
+        return "";
+    }
+    const previousLine = lines[previousIndex].trim();
+    if (previousLine.length === 0 || /^(?:```|~~~|---\s*$)/u.test(previousLine)) {
+        return "";
+    }
+    const text = previousLine.replace(MARKDOWN_LINE_PREFIX_PATTERN, "").trim();
+    if (text.length <= maxChars) {
+        return text;
+    }
+    let tail = text.slice(text.length - maxChars);
+    // Start at a word boundary when the cut falls inside a word.
+    if (!/\s/u.test(text[text.length - maxChars - 1])) {
+        const spaceIndex = tail.search(/\s/u);
+        tail = spaceIndex >= 0 ? tail.slice(spaceIndex) : "";
+    }
+    tail = tail.trim();
+    return tail.length > 0 ? `${REFERENCE_USAGE_EXCERPT_ELLIPSIS}${tail}` : "";
 }
 
 function normalizeReferenceUsageIndex(value: unknown): ReferenceUsageIndex {
