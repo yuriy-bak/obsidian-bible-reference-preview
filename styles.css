@@ -1,3 +1,8 @@
+/* Highlighted verses and usage matches: the theme's highlight colour, or a light yellow when the theme sets none. */
+body {
+    --bible-preview-highlight-bg: var(--text-highlight-bg, color-mix(in srgb, var(--color-yellow) 40%, transparent));
+}
+
 .bible-reference-preview-color-sample {
     border: 1px solid var(--background-modifier-border);
     border-radius: 6px;
@@ -91,7 +96,7 @@ button.bible-preview-reference-usages-button {
 }
 
 .bible-preview-verse-highlighted {
-    background-color: var(--text-highlight-bg);
+    background-color: var(--bible-preview-highlight-bg);
     border-radius: 3px;
 }
 
@@ -201,7 +206,7 @@ textarea.bible-reference-preview-full-width {
 .bible-reference-usage-excerpt-match {
     font-weight: 700;
     color: var(--text-normal);
-    background-color: var(--text-highlight-bg);
+    background-color: var(--bible-preview-highlight-bg);
     border-radius: 3px;
     padding: 0 2px;
 }
