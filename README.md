@@ -54,9 +54,19 @@ More sources and details are in [Importing a translation](#importing-a-translati
 
 ## Installation
 
-Install **Bible Reference Preview** from Settings → Community plugins (Obsidian 1.13 or later).
+**From the catalog.** Install **Bible Reference Preview** from Settings → Community plugins (Obsidian 1.13 or later).
 
-Beta versions are GitHub pre-releases. Install them with [BRAT](https://github.com/TfTHacker/obsidian42-brat): **BRAT: Add a beta plugin for testing** → `https://github.com/yuriy-bak/obsidian-bible-reference-preview`. To install by hand, copy `main.js`, `manifest.json` and `styles.css` from a release into `.obsidian/plugins/bible-reference-preview/`.
+**Beta versions** are GitHub pre-releases. Install them with [BRAT](https://github.com/TfTHacker/obsidian42-brat):
+
+1. Install and enable **BRAT** from Community plugins.
+2. Run the command **BRAT: Add a beta plugin for testing**.
+3. Enter `https://github.com/yuriy-bak/obsidian-bible-reference-preview` and pick the latest version.
+
+**By hand:**
+
+1. Download `main.js`, `manifest.json` and `styles.css` from a [release](https://github.com/yuriy-bak/obsidian-bible-reference-preview/releases).
+2. Copy them into `.obsidian/plugins/bible-reference-preview/` in your vault.
+3. Enable **Bible Reference Preview** in Settings → Community plugins.
 
 ## Importing a translation
 
