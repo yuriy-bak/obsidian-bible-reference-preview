@@ -68,9 +68,8 @@ export class EditorService {
         return getFirstWorkspaceLeafOfType(this.context.app, BIBLE_PREVIEW_VIEW_TYPE) !== null;
     }
 
-    /** Preview from cursor movement: while a whole chapter is open, it must not be replaced or hidden. */
+    /** Preview from cursor movement. */
     showAutomaticPreview(content: BiblePreviewContent): void {
-        if (this.preview.isChapterModeActive()) return;
         this.showClickedPreview(content);
     }
 
@@ -79,7 +78,6 @@ export class EditorService {
     }
 
     hideAutomaticPreview(): void {
-        if (this.preview.isChapterModeActive()) return;
         this.preview.hideFloating();
     }
 

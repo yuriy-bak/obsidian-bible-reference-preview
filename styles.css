@@ -106,43 +106,7 @@ button.bible-preview-reference-usages-button {
     background-color: inherit;
 }
 
-.bible-preview-chapter-navigation {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-    padding: 4px 0;
-    white-space: normal;
-    background-color: inherit;
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.bible-preview-chapter-navigation-title {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-weight: 600;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 /* Cover the container's top padding so scrolled text does not peek above the bar. */
-.bible-preview-pane-content > .bible-preview-chapter-navigation {
-    top: -10px;
-    margin-top: -10px;
-    padding-top: 10px;
-}
-
-.bible-preview-floating-content > .bible-preview-chapter-navigation {
-    top: -8px;
-    margin-top: -8px;
-    padding-top: 8px;
-}
-
 button.bible-preview-chapter-navigation-button {
     flex: 0 0 auto;
     min-width: 28px;
@@ -309,6 +273,131 @@ button.bible-preview-pane-icon-button {
     font-size: 13px;
     line-height: 1;
     padding: 0;
+}
+
+/* Nothing to go to (history ← →): dimmed and not clickable. */
+button.bible-preview-pane-icon-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* Bible reader: the pane layout; in a wide tab the text keeps the note line width */
+.bible-reader-root {
+    background: var(--background-primary);
+}
+
+.bible-reader-content {
+    padding-left: max(10px, calc((100% - var(--file-line-width, 700px)) / 2));
+    padding-right: max(10px, calc((100% - var(--file-line-width, 700px)) / 2));
+}
+
+.bible-reader-empty {
+    color: var(--text-muted);
+}
+
+/* The reader's one bar: history, chapter title (opens the navigator), translation, chapter actions, copy */
+.bible-reader-bar {
+    flex-wrap: wrap;
+}
+
+.bible-reader-bar-spacer {
+    flex: 1 1 auto;
+}
+
+.bible-reader-navigator-toggle {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 2px 6px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.bible-reader-navigator-toggle:hover,
+.bible-reader-navigator-toggle:focus-visible {
+    background-color: var(--background-modifier-hover);
+}
+
+.bible-reader-navigator-caret {
+    color: var(--text-muted);
+}
+
+select.bible-reader-translation-select {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 40%;
+    height: 26px;
+    font-size: var(--font-ui-small);
+}
+
+/* The navigator takes the place of the text: search, books by testament, chapters */
+.bible-reader-navigator {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 10px max(10px, calc((100% - var(--file-line-width, 700px)) / 2));
+}
+
+.bible-reader-navigator-search-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+input.bible-reader-navigator-search {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bible-reader-navigator-books {
+    margin-top: 12px;
+}
+
+hr.bible-reader-navigator-separator {
+    margin: 12px 0 0;
+    border: none;
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.bible-reader-navigator-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 6px;
+}
+
+.bible-reader-navigator-chapters {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+}
+
+button.bible-reader-navigator-button {
+    height: 34px;
+    padding: 0 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+button.bible-reader-navigator-button.is-current {
+    border: 1px solid var(--interactive-accent);
+}
+
+.bible-reader-navigator-chapters-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.bible-reader-navigator-book-name {
+    font-weight: 600;
+}
+
+.bible-reader-navigator-empty {
+    color: var(--text-muted);
 }
 
 /* Floating preview window. Position, size and visibility are set from JS; the background comes from the setting. */

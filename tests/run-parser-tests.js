@@ -15,6 +15,7 @@ const TEST_FILES = [
   "dbs-import",
   "dbs-aleph-import",
   "verse-headings",
+  "bible-navigator",
 ];
 
 (async () => {

@@ -1,19 +1,8 @@
 import { MarkdownView, type View, type WorkspaceLeaf } from "obsidian";
-import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
+import type { BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
-import {
-    backFromBiblePreviewChapter,
-    isBiblePreviewChapterHighlightHidden,
-    isBiblePreviewChapterModeActive,
-    navigateBiblePreviewChapter,
-    openBiblePreviewChapter,
-    setBiblePreviewChapterHighlightHidden,
-    trackShownBiblePreviewContent,
-    type BiblePreviewChapterFlowInput,
-    type BiblePreviewChapterState,
-} from "../preview-navigation/BiblePreviewChapterFlow";
 import type { SettingsService } from "../settings/SettingsService";
 import type { TranslationService } from "../translations/TranslationService";
 import { waitForNextAnimationFrame } from "../utils/AnimationFrame";
@@ -41,32 +30,22 @@ export type ClosePreviewPaneOptions = {
 export type BiblePreviewReturnPoint = {
     content: BiblePreviewContent;
     scrollTop: number;
-    chapterState: BiblePreviewChapterState | null;
 };
 
-/** What the preview needs from the reference usages. */
+/** What the preview needs from the reference usages and the Bible reader. */
 export type BiblePreviewServiceEffects = {
     showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget, returnPoint: BiblePreviewReturnPoint | null) => void;
-    getChapterUsageCount: (location: BibleChapterLocation) => number | null;
-    showReferenceUsagesForChapter: (location: BibleChapterLocation, title: string, returnPoint: BiblePreviewReturnPoint | null) => void;
+    /** The target is in `translationId`'s numbering; no translation means the active one. */
+    openChapterInReader: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) => void;
 };
 
-/** The floating preview window, the side panel preview and the chapter mode shared by both. */
+/** The floating preview window and the side panel preview. */
 export class BiblePreviewService {
     private floatingWindow: FloatingBiblePreviewWindow | null = null;
     private lastPaneContent: BiblePreviewContent | null = null;
-    private chapterState: BiblePreviewChapterState | null = null;
     private lastPanelEscapeTime = 0;
     private suppressActiveLeafChange = false;
     private paneIsActiveInSideDock = false;
-    private readonly chapterFlowInput: BiblePreviewChapterFlowInput = {
-        getState: () => this.chapterState,
-        setState: (state) => {
-            this.chapterState = state;
-        },
-        buildChapterContent: (target) => this.contentBuilder.buildChapter(target),
-        showBiblePreviewContent: (content) => this.show(content, { type: "default" }, { reveal: true }),
-    };
 
     constructor(
         private readonly context: PluginContext,
@@ -93,7 +72,6 @@ export class BiblePreviewService {
         anchor: FloatingBiblePreviewAnchor = { type: "default" },
         options: { reveal?: boolean } = {},
     ): void {
-        this.chapterState = trackShownBiblePreviewContent(this.chapterState, content);
         const reveal = options.reveal !== false;
         if (this.context.settings.previewDisplayMode === "side-panel") {
             void this.showInPanel(content, reveal);
@@ -128,15 +106,14 @@ export class BiblePreviewService {
         if (content === null) {
             return null;
         }
-        return { content, scrollTop: this.getCurrentScrollTop(), chapterState: this.chapterState };
+        return { content, scrollTop: this.getCurrentScrollTop() };
     }
 
-    /** Shows the captured content again, with its scroll position and chapter mode. */
+    /** Shows the captured content again, with its scroll position. */
     returnTo(point: BiblePreviewReturnPoint): void {
         if (!this.settings.isPluginActive()) {
             return;
         }
-        this.chapterState = point.chapterState;
         this.show({ ...point.content, scrollTop: point.scrollTop }, { type: "default" }, { reveal: true });
     }
 
@@ -270,13 +247,6 @@ export class BiblePreviewService {
         void this.closeActivePane();
     }
 
-    isChapterModeActive(): boolean {
-        const isPreviewVisible = this.context.settings.previewDisplayMode === "side-panel"
-            ? getFirstWorkspaceLeafOfType(this.context.app, BIBLE_PREVIEW_VIEW_TYPE) !== null
-            : this.floatingWindow?.isVisible() === true;
-        return isPreviewVisible && isBiblePreviewChapterModeActive(this.chapterState, this.getCurrentContent());
-    }
-
     createFloatingWindowInput(): FloatingBiblePreviewWindowInput {
         return {
             ...this.createCommonViewInput(),
@@ -319,24 +289,8 @@ export class BiblePreviewService {
                 void this.translations.setComparisonTranslationEnabled(translationId, enabled),
             onToggleComparison: (content: BiblePreviewContent) => void this.toggleComparison(content),
             getOpenChapterAria: (title: string) => t("preview.openChapterAria", { reference: title }),
-            onOpenChapter: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) =>
-                void openBiblePreviewChapter(this.chapterFlowInput, target, returnContent, returnScrollTop),
-            getChapterNavigationLabels: () => ({
-                back: t("preview.chapterBack"),
-                backAria: t("preview.chapterBackAria"),
-                previousAria: t("preview.previousChapterAria"),
-                nextAria: t("preview.nextChapterAria"),
-                hideHighlightAria: t("preview.hideChapterHighlightAria"),
-                showHighlightAria: t("preview.showChapterHighlightAria"),
-            }),
-            onNavigateChapter: (location: BibleChapterLocation) => void navigateBiblePreviewChapter(this.chapterFlowInput, location),
-            onBackFromChapter: () => backFromBiblePreviewChapter(this.chapterFlowInput),
-            isChapterHighlightHidden: () => isBiblePreviewChapterHighlightHidden(this.chapterState),
-            onToggleChapterHighlight: (hidden: boolean) => setBiblePreviewChapterHighlightHidden(this.chapterFlowInput, hidden),
-            getChapterUsageCount: (location: BibleChapterLocation) => this.effects.getChapterUsageCount(location),
-            getFindChapterUsagesAria: (title: string) => t("preview.findChapterUsagesAria", { reference: title }),
-            onFindChapterUsages: (location: BibleChapterLocation, title: string) =>
-                this.effects.showReferenceUsagesForChapter(location, title, this.captureReturnPoint()),
+            onOpenChapter: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) =>
+                this.effects.openChapterInReader(target, translationId, newTab),
         };
     }
 

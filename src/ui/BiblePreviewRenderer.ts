@@ -1,63 +1,38 @@
 import { BOOK_ICON, type BiblePreviewChapterView, type BiblePreviewContent, type BiblePreviewParagraph, type BiblePreviewUsageTarget, type BiblePreviewVerse, formatVerseNumber } from "../application/BiblePreviewModel";
 import { type BibleChapterLocation, type BibleChapterTarget, getChapterTargetFromReferences } from "../application/BibleChapterNavigation";
+import type { BibleReference } from "../domain/BibleReference";
 
-const CHAPTER_USAGES_BUTTON_CLASS = "bible-preview-chapter-usages-button";
+export const CHAPTER_USAGES_BUTTON_CLASS = "bible-preview-chapter-usages-button";
 
 export type BiblePreviewRenderOptions = {
     getFindUsagesButtonText?: () => string;
     getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
     onFindUsages?: (target: BiblePreviewUsageTarget) => void;
     getOpenChapterAria?: (title: string) => string;
-    onOpenChapter?: (target: BibleChapterTarget) => void;
-    getChapterNavigationLabels?: () => BiblePreviewChapterNavigationLabels;
-    onNavigateChapter?: (location: BibleChapterLocation) => void;
-    onBackFromChapter?: () => void;
+    /** The target is in `translationId`'s numbering; no translation means the active one. Ctrl/Cmd-click asks for a new tab. */
+    onOpenChapter?: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) => void;
+    // The chapter view (the Bible reader) builds its own bar from the helpers below.
     isChapterHighlightHidden?: () => boolean;
-    onToggleChapterHighlight?: (hidden: boolean) => void;
     // Null hides the chapter's find-usages button.
     getChapterUsageCount?: (location: BibleChapterLocation) => number | null;
     getFindChapterUsagesAria?: (title: string) => string;
     onFindChapterUsages?: (location: BibleChapterLocation, title: string) => void;
 };
 
-// Chapter-related callbacks as the preview views receive them; the views add their current content and scroll.
+// The open-chapter action as the preview views receive it.
 export type BiblePreviewChapterViewInput = {
     getOpenChapterAria?: (title: string) => string;
-    onOpenChapter?: (target: BibleChapterTarget, returnContent: BiblePreviewContent, returnScrollTop: number) => void;
-    getChapterNavigationLabels?: () => BiblePreviewChapterNavigationLabels;
-    onNavigateChapter?: (location: BibleChapterLocation) => void;
-    onBackFromChapter?: () => void;
-    isChapterHighlightHidden?: () => boolean;
-    onToggleChapterHighlight?: (hidden: boolean) => void;
-    // Null hides the chapter's find-usages button.
-    getChapterUsageCount?: (location: BibleChapterLocation) => number | null;
-    getFindChapterUsagesAria?: (title: string) => string;
-    onFindChapterUsages?: (location: BibleChapterLocation, title: string) => void;
+    onOpenChapter?: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) => void;
 };
 
-export function createChapterRenderOptions(
-    input: BiblePreviewChapterViewInput,
-    content: BiblePreviewContent,
-    getScrollTop: () => number,
-): BiblePreviewRenderOptions {
-    const onOpenChapter = input.onOpenChapter;
+export function createChapterRenderOptions(input: BiblePreviewChapterViewInput): BiblePreviewRenderOptions {
     return {
         getOpenChapterAria: input.getOpenChapterAria,
-        onOpenChapter: onOpenChapter === undefined ? undefined : (target) => onOpenChapter(target, content, getScrollTop()),
-        getChapterNavigationLabels: input.getChapterNavigationLabels,
-        onNavigateChapter: input.onNavigateChapter,
-        onBackFromChapter: input.onBackFromChapter,
-        isChapterHighlightHidden: input.isChapterHighlightHidden,
-        onToggleChapterHighlight: input.onToggleChapterHighlight,
-        getChapterUsageCount: input.getChapterUsageCount,
-        getFindChapterUsagesAria: input.getFindChapterUsagesAria,
-        onFindChapterUsages: input.onFindChapterUsages,
+        onOpenChapter: input.onOpenChapter,
     };
 }
 
 export type BiblePreviewChapterNavigationLabels = {
-    back: string;
-    backAria: string;
     previousAria: string;
     nextAria: string;
     hideHighlightAria: string;
@@ -69,11 +44,8 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
 
     let previousRenderedBlockType: "reference" | "footnote" | "separator" | null = null;
     const chapterView = content.chapterView;
-    const onOpenChapter = chapterView === undefined ? options.onOpenChapter : undefined;
+    const onOpenChapter = options.onOpenChapter;
 
-    if (chapterView !== undefined && options.onBackFromChapter !== undefined) {
-        fragment.appendChild(createChapterNavigation(containerEl, chapterView, options));
-    }
     // The highlight toggle only swaps a class, so hiding it keeps the scroll position.
     containerEl.classList.toggle(
         CHAPTER_HIGHLIGHTS_HIDDEN_CLASS,
@@ -119,11 +91,16 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
                 translationTitleEl.textContent = `[${translation.translationName}]`;
                 comparisonEl.appendChild(translationTitleEl);
 
-                // Only the main translation gets the chapter and find-usages actions.
+                // Each translation opens its chapter in itself (in a chapter view, the other translations do);
+                // only the main one finds usages (they follow its numbering).
                 const isMain = translation.isMain === true;
+                const opensChapter = onOpenChapter !== undefined && !(chapterView !== undefined && isMain);
                 const titleRowEl = createReferenceTitleRow(
                     { title: translation.referenceTitle, references: block.references },
-                    { openChapter: isMain && onOpenChapter !== undefined, findUsages: isMain },
+                    {
+                        openChapter: opensChapter ? { references: translation.references, translationId: translation.translationId } : null,
+                        findUsages: isMain,
+                    },
                     options,
                 );
                 titleRowEl.classList.add("bible-preview-comparison-reference-title");
@@ -158,7 +135,7 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
         if (chapterView === undefined) {
             referenceEl.appendChild(createReferenceTitleRow(
                 block,
-                { openChapter: onOpenChapter !== undefined, findUsages: true },
+                { openChapter: onOpenChapter === undefined ? null : { references: block.references }, findUsages: true },
                 options,
             ));
         }
@@ -183,10 +160,16 @@ export function renderBiblePreviewContent(containerEl: HTMLElement, content: Bib
 const HIGHLIGHT_ICON = "🖍";
 const CHAPTER_HIGHLIGHTS_HIDDEN_CLASS = "bible-preview-chapter-highlights-hidden";
 
+type OpenChapterAction = {
+    /** In the numbering of the translation. */
+    references: BibleReference[];
+    translationId?: string;
+};
+
 // Title row shared by single and comparison previews: 📖 + reference title on the left, 🔎 on the right.
 function createReferenceTitleRow(
     target: BiblePreviewUsageTarget,
-    actions: { openChapter: boolean; findUsages: boolean },
+    actions: { openChapter: OpenChapterAction | null; findUsages: boolean },
     options: BiblePreviewRenderOptions,
 ): HTMLElement {
     const titleRowEl = createDiv();
@@ -194,8 +177,8 @@ function createReferenceTitleRow(
 
     const titleEl = createDiv();
     titleEl.className = "bible-preview-reference-title";
-    const chapterTarget = actions.openChapter ? getChapterTargetFromReferences(target.references) : null;
-    appendReferenceTitle(titleEl, target.title, chapterTarget, options);
+    const chapterTarget = actions.openChapter === null ? null : getChapterTargetFromReferences(actions.openChapter.references);
+    appendReferenceTitle(titleEl, target.title, chapterTarget, actions.openChapter?.translationId, options);
     titleRowEl.appendChild(titleEl);
 
     if (actions.findUsages && options.onFindUsages !== undefined && target.references.length > 0) {
@@ -209,6 +192,7 @@ function appendReferenceTitle(
     titleEl: HTMLElement,
     title: string,
     chapterTarget: BibleChapterTarget | null,
+    translationId: string | undefined,
     options: BiblePreviewRenderOptions,
 ): void {
     if (chapterTarget === null || options.onOpenChapter === undefined) {
@@ -217,11 +201,11 @@ function appendReferenceTitle(
     }
 
     const titleText = title.startsWith(BOOK_ICON) ? title.slice(BOOK_ICON.length).trimStart() : title;
-    titleEl.appendChild(createOpenChapterButton(titleText, chapterTarget, options));
+    titleEl.appendChild(createOpenChapterButton(titleText, chapterTarget, translationId, options));
     titleEl.appendChild(document.createTextNode(` ${titleText}.`));
 }
 
-function createOpenChapterButton(titleText: string, target: BibleChapterTarget, options: BiblePreviewRenderOptions): HTMLElement {
+function createOpenChapterButton(titleText: string, target: BibleChapterTarget, translationId: string | undefined, options: BiblePreviewRenderOptions): HTMLElement {
     const buttonEl = createSpan();
     buttonEl.className = "bible-preview-open-chapter-button";
     buttonEl.textContent = BOOK_ICON;
@@ -233,7 +217,7 @@ function createOpenChapterButton(titleText: string, target: BibleChapterTarget, 
     buttonEl.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        options.onOpenChapter?.(target);
+        options.onOpenChapter?.(target, translationId, event.ctrlKey || event.metaKey);
     });
     buttonEl.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") {
@@ -241,54 +225,12 @@ function createOpenChapterButton(titleText: string, target: BibleChapterTarget, 
         }
         event.preventDefault();
         event.stopPropagation();
-        options.onOpenChapter?.(target);
+        options.onOpenChapter?.(target, translationId);
     });
     return buttonEl;
 }
 
-function createChapterNavigation(containerEl: HTMLElement, chapterView: BiblePreviewChapterView, options: BiblePreviewRenderOptions): HTMLElement {
-    const labels = options.getChapterNavigationLabels?.() ?? {
-        back: "↩ Back",
-        backAria: "Back to reference",
-        previousAria: "Previous chapter",
-        nextAria: "Next chapter",
-        hideHighlightAria: "Hide highlighting",
-        showHighlightAria: "Show highlighting",
-    };
-
-    const navigationEl = createDiv();
-    navigationEl.className = "bible-preview-chapter-navigation";
-
-    navigationEl.appendChild(createChapterNavigationButton(labels.back, labels.backAria, true, () => options.onBackFromChapter?.()));
-
-    const titleEl = createDiv();
-    titleEl.className = "bible-preview-chapter-navigation-title";
-    titleEl.textContent = chapterView.title;
-    navigationEl.appendChild(titleEl);
-
-    const chapterUsagesButtonEl = createChapterUsagesButton(chapterView, options);
-    if (chapterUsagesButtonEl !== null) {
-        navigationEl.appendChild(chapterUsagesButtonEl);
-    }
-
-    const onToggleChapterHighlight = options.onToggleChapterHighlight;
-    if (onToggleChapterHighlight !== undefined && chapterView.highlightedRanges.length > 0) {
-        navigationEl.appendChild(createChapterHighlightToggle(containerEl, labels, options.isChapterHighlightHidden?.() === true, onToggleChapterHighlight));
-    }
-
-    const previous = chapterView.previous;
-    const next = chapterView.next;
-    navigationEl.appendChild(createChapterNavigationButton("←", labels.previousAria, previous !== null, () => {
-        if (previous !== null) options.onNavigateChapter?.(previous);
-    }));
-    navigationEl.appendChild(createChapterNavigationButton("→", labels.nextAria, next !== null, () => {
-        if (next !== null) options.onNavigateChapter?.(next);
-    }));
-
-    return navigationEl;
-}
-
-function createChapterUsagesButton(chapterView: BiblePreviewChapterView, options: BiblePreviewRenderOptions): HTMLButtonElement | null {
+export function createChapterUsagesButton(chapterView: BiblePreviewChapterView, options: BiblePreviewRenderOptions): HTMLButtonElement | null {
     const onFindChapterUsages = options.onFindChapterUsages;
     const count = options.getChapterUsageCount?.(chapterView) ?? null;
     if (onFindChapterUsages === undefined || count === null) {
@@ -322,7 +264,7 @@ function formatChapterUsagesButtonText(icon: string, count: number): string {
     return count > 0 ? `${icon} ${count}` : icon;
 }
 
-function createChapterHighlightToggle(
+export function createChapterHighlightToggle(
     containerEl: HTMLElement,
     labels: BiblePreviewChapterNavigationLabels,
     initiallyHidden: boolean,
@@ -346,7 +288,7 @@ function createChapterHighlightToggle(
     return buttonEl;
 }
 
-function createChapterNavigationButton(text: string, ariaLabel: string, enabled: boolean, onClick: () => void): HTMLButtonElement {
+export function createChapterNavigationButton(text: string, ariaLabel: string, enabled: boolean, onClick: () => void): HTMLButtonElement {
     const buttonEl = createEl("button");
     buttonEl.type = "button";
     buttonEl.className = "bible-preview-chapter-navigation-button";

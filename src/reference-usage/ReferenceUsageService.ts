@@ -6,7 +6,7 @@ import type { PluginContext } from "../core/PluginContext";
 import type { BibleReference } from "../domain/BibleReference";
 import type { EditorReferenceUnderCursor, EditorService } from "../editor/EditorService";
 import { BIBLE_PREVIEW_VIEW_TYPE } from "../ui/BiblePreviewPaneView";
-import type { BiblePreviewReturnPoint, BiblePreviewService } from "../ui/BiblePreviewService";
+import type { BiblePreviewService } from "../ui/BiblePreviewService";
 import {
     REFERENCE_USAGE_VIEW_TYPE,
     ReferenceUsagePaneView,
@@ -30,6 +30,12 @@ import {
 import { openReferenceUsageResult } from "./ReferenceUsageResultOpening";
 
 /** The index of Bible reference usages in notes: settings, indexing, search and the results panel. */
+/** Where the usages panel's back button returns: the preview's reference or the Bible reader's chapter. */
+export type ReferenceUsageReturnPoint = {
+    kind: "reference" | "chapter";
+    run: () => void;
+};
+
 export class ReferenceUsageService {
     private indexService: ReferenceUsageIndexService | null = null;
     private controller: ReferenceUsageController | null = null;
@@ -158,7 +164,7 @@ export class ReferenceUsageService {
         });
     }
 
-    async showUsagesForPreviewBlock(target: BiblePreviewUsageTarget, returnPoint: BiblePreviewReturnPoint | null = null): Promise<void> {
+    async showUsagesForPreviewBlock(target: BiblePreviewUsageTarget, returnPoint: ReferenceUsageReturnPoint | null = null): Promise<void> {
         if (!this.ensureIndexingEnabled()) {
             return;
         }
@@ -175,7 +181,7 @@ export class ReferenceUsageService {
         return this.isReferenceUsageIndexingEnabled() ? this.findUsages([createChapterUsageQuery(location)]).length : null;
     }
 
-    async showUsagesForChapter(location: BibleChapterLocation, chapterTitle: string, returnPoint: BiblePreviewReturnPoint | null = null): Promise<void> {
+    async showUsagesForChapter(location: BibleChapterLocation, chapterTitle: string, returnPoint: ReferenceUsageReturnPoint | null = null): Promise<void> {
         if (!this.ensureIndexingEnabled()) {
             return;
         }
@@ -191,15 +197,15 @@ export class ReferenceUsageService {
     }
 
     // The panel's back button returns to the preview the search started from.
-    private createBackAction(returnPoint: BiblePreviewReturnPoint | null): ReferenceUsagePaneBackAction | undefined {
+    private createBackAction(returnPoint: ReferenceUsageReturnPoint | null): ReferenceUsagePaneBackAction | undefined {
         if (returnPoint === null) {
             return undefined;
         }
         return {
-            ariaLabel: this.context.t(returnPoint.content.chapterView === undefined
+            ariaLabel: this.context.t(returnPoint.kind === "reference"
                 ? "referenceUsages.panel.backToReferenceAria"
                 : "referenceUsages.panel.backToChapterAria"),
-            run: () => this.preview.returnTo(returnPoint),
+            run: returnPoint.run,
         };
     }
 
