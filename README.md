@@ -1,226 +1,108 @@
 # Bible Reference Preview
 
-Bible Reference Preview finds Bible references in notes and shows verse previews from EPUB Bible translations that you import into the plugin.
+Finds Bible references in your Obsidian notes and shows the verses right next to them: in a floating window or in a side panel. The text comes from Bible translations you import once from free EPUB and HTML files.
 
-Supported sources: Bible EPUB files from [jw.org](https://www.jw.org/) and [eBible.org](https://ebible.org/find/).
+## Why this plugin
+
+- **Works offline.** Translations are stored in your vault; the plugin makes no network requests.
+- **Your translations.** Import Bibles from jw.org, eBible.org (hundreds of translations in many languages) and the Digital Bible Society (dbs.org).
+- **Compare up to four translations** side by side. Verse numbering is converted between translations: the Synodal Psalm 22 is shown as Psalm 23 in an English Bible.
+- **Read the whole chapter** from any reference, with the cited verses highlighted, and move between chapters and books.
+- **Find where a passage is quoted** across all your notes, with a short context for each usage.
+- **Desktop and mobile**, Russian and English interface.
 
 ## Features
 
-- Import Bible translations from EPUB files.
-- Store multiple imported translations.
-- Reorder translations and use the top translation as the active one.
-- Compare up to four imported translations in the Bible preview.
-- Select comparison translations directly from the preview header.
-- Recognize Bible references in editor text and Reading view.
-- Highlight recognized references in the editor and turn Reading view references into clickable preview links.
-- Show a floating Bible preview.
-- Show Bible text in an Obsidian side panel.
-- Open previews automatically for the current paragraph or only by clicking a reference.
-- Open the Bible reference under the cursor with a command or configured shortcut.
-- Copy preview text to the clipboard.
-- Find where Bible references are used across Markdown notes with contextual snippets and highlighted matched references.
-- Collapse, expand, and drag the preview panel.
-- Copy comparison output with per-translation references and footnotes.
-- Dynamically detect one-chapter books from imported metadata (`chapterCount`).
-- Interface localization: Russian and English.
+- **References** are recognized in the editor and in reading view, and are shown as links: `Ин3:16`, `John 3:16`, `Мк 4:12, 14-16`, `Иуд 1:3;1:5`, `Суд 7:24-8:1`, a whole chapter (`Пс 22`), one-chapter books (`Иуд 5` = `Иуд 1:5`). Book names and abbreviations come from the imported translation.
+- **Preview** opens for the reference in the current paragraph, or only when you click a reference. The floating window can be dragged, resized and collapsed; the side panel can sit on the left or right. Both work in popout windows.
+- **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
+- **Copy** the passage with its reference and footnotes, in comparison mode too.
+- **Chapter view:** 📖 in a passage title opens the full chapter. Use `↩` to go back, `←` / `→` for the previous or next chapter, 🖍 to hide or show the highlighting, and 🔎 to see all usages of the chapter.
+- **Comparison:** `⇄` in the preview header turns it on; choose the translations in the header list.
+- **A translation code** after a reference shows the passage in that translation and its numbering: `Пс 22:1 (СП)`. Codes can be changed in the translation list.
+- **Usage index:** 🔎 next to a passage lists the notes that cite it. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
+- **Commands:** open the reference under the cursor (with an optional shortcut), find its usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
+- **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, numbering scheme and code, and the usage index.
 
-## Manual installation
+## Installation
 
-1. Build the plugin or download the release archive.
-2. Create this folder in your vault:
+Install **Bible Reference Preview** from Settings → Community plugins (Obsidian 1.13 or later).
 
-   ```text
-   .obsidian/plugins/bible-reference-preview/
-   ```
-
-3. Copy these files into the folder:
-
-   ```text
-   main.js
-   manifest.json
-   styles.css
-   ```
-
-4. Open Obsidian → Settings → Community plugins and enable **Bible Reference Preview**.
-
-## Beta testing with BRAT
-
-Beta versions are published as GitHub pre-releases (for example `0.2.0-beta.1`). The Obsidian community catalog does not offer them, so install them with [BRAT](https://github.com/TfTHacker/obsidian42-brat):
-
-1. Install and enable **BRAT** from Community plugins.
-2. Run the command **BRAT: Add a beta plugin for testing** (or Settings → BRAT → **Add beta plugin**).
-3. Enter `https://github.com/yuriy-bak/obsidian-bible-reference-preview` and pick a beta version (or the latest one).
-4. Enable **Bible Reference Preview** in Community plugins.
-
-BRAT checks for newer versions on startup or with **BRAT: Check for updates to all beta plugins**. To return to the stable version, remove the plugin from BRAT and reinstall it from Community plugins.
+Beta versions are GitHub pre-releases. Install them with [BRAT](https://github.com/TfTHacker/obsidian42-brat): **BRAT: Add a beta plugin for testing** → `https://github.com/yuriy-bak/obsidian-bible-reference-preview`. To install by hand, copy `main.js`, `manifest.json` and `styles.css` from a release into `.obsidian/plugins/bible-reference-preview/`.
 
 ## Importing a translation
 
-1. Open Settings → Bible Reference Preview.
-2. Click **Import** next to **Import Bible**.
-3. Choose a Bible file. Supported: Bible EPUB files from jw.org, eBible.org (on eBible.org, open a translation and download its ePub) and dbs.org, and from dbs.org also the HTML archive (`html_<ID>.zip`) and the HTML Study Bible (see below).
-4. Check the detected translation name and language.
-5. Click **Import**.
+Open Settings → Bible Reference Preview → **Import Bible** and choose a file. The plugin recognizes the format by itself. Check the translation name and language, then click **Import**. Importing the same translation again replaces it.
 
-The plugin detects the verse numbering scheme of the translation from its contents (for example, the Synodal Psalm 22 is Psalm 23 in English Bibles). If the scheme cannot be detected reliably, the plugin asks you to choose it. The scheme of each translation can be changed later in the translation list in the settings.
+Where to get a file:
 
-From eBible.org, only the 66 books of the Protestant canon are imported; other books of the file are skipped with a warning. eBible.org files contain full book names only, so references are recognized by these names. For Russian translations that use the Synodal book names and English translations, the usual abbreviations (`Мф`, `1Цар`, `Matt`, `1 Sam`) are added too.
+- **jw.org:** download the Bible (New World Translation) as EPUB from the publications page.
+- **eBible.org:** on [ebible.org/find](https://ebible.org/find/), open a translation and download its **ePub**. Only the 66 books of the Protestant canon are imported.
+- **dbs.org:** see below.
 
-The Digital Bible Society ([dbs.org](https://dbs.org/bibles)) offers some translations that are not on eBible.org, for example the Russian «Современный перевод» (RUSERV). Open the translation's **HTML Study Bible** in a desktop browser and save the page with Ctrl+S as **Webpage, HTML only**; import that `.html` file. The page has no translation name, so type it in the import dialog. If the translation offers an **EPUB**, import that file instead: it is recognized by itself and carries the translation name; a file without paragraph markup shows each verse on its own line. The **HTML** download (`html_<ID>.zip`, import the archive as it is) keeps paragraphs and poetry lines that the EPUB of the same translation may lack; it has no translation name, and the language is taken from the book names. Verses the translation joins together (Acts 1:16–17) are shown under one number, "16–17". The page itself leaves out some lists, such as genealogies (1 Chronicles 1–2, Matthew 1:2–17, Romans 16:3–16); these verses are shown as missing. Check the license of the translation: the plugin only reads the file for you and does not share it.
+The verse numbering scheme is detected from the text. If detection is not certain, the plugin asks you to choose a scheme, and you can change it later in the translation list.
 
-Reimporting the same translation replaces its previous data. A file in another format is rejected with "file format not recognized" and the list of supported sources.
+### dbs.org (Digital Bible Society)
 
-## Comparing translations
+[dbs.org/bibles](https://dbs.org/bibles) has translations that eBible.org does not, for example the Russian «Современный перевод» (RUSERV). Open the translation's page and pick the first download that is offered:
 
-Bible Reference Preview can show the same Bible reference in several imported translations at once.
+1. **HTML** (`html_<ID>.zip`): the best choice. It keeps paragraphs and poetry. Import the archive as it is, without unpacking it. The archive has no translation name, so type it in the import dialog.
+2. **EPUB:** has the translation name, but often no paragraphs, so each verse is shown on its own line.
+3. **HTML Study Bible only**, when there is no file to download (as for RUSERV). Save the reader page yourself on a computer:
+   1. On the translation's page, click **HTML Study Bible**. The Bible opens in the browser (address `bibles.dbs.org/<ID>/app-json-study/index.html`). Wait until the text appears.
+   2. Press **Ctrl+S** (**Cmd+S** on macOS).
+   3. Choose the type **Webpage, HTML only** (Chrome, Edge) or **Web Page, HTML only** (Firefox), and save.
+   4. Import the saved `.html` file. Type the translation name in the import dialog. The page stores only its short code, for example `RUSERV`.
 
-1. Import at least two translations.
-2. Open Settings → Bible Reference Preview.
-3. Open a Bible preview and click the comparison toggle (`⇄`).
-4. Use the **Translations 2/4** dropdown in the preview header to choose the translations you want to compare.
+   A phone browser cannot save the page this way. Make the file on a computer, then copy it to the phone or import it in Obsidian on the computer: the imported translation syncs with the vault.
 
-Notes:
+Verses that the translation joins together are shown under one number ("16–17"). Some dbs.org files have lost lists, such as genealogies (1 Chronicles 1–2, Matthew 1:2–17, Romans 16:3–16); those verses are shown as missing. The plugin only reads the file for you and shares nothing; check the license of the translation before sharing the file.
 
-- Up to four translations can be selected for comparison.
-- Each translation uses its own book names and reference formatting.
-- References in notes follow the verse numbering of the active translation. A compared translation with another numbering shows the same passage under its own reference: with the Synodal translation active, `Пс 22:1` is shown as `Ps 23:1` in an English Bible. In the chapter view, Psalm 9 of the Synodal numbering is Psalms 9 and 10 in English.
-- To show a passage in a particular translation and its numbering, write the translation code in brackets right after the reference: `Пс 23:1 (NWT)`. The preview shows that translation first, then the compared ones. Codes are made from the translation name and can be changed in the translation list in the settings; an unknown code is ordinary text. The book name must still be one the active translation recognizes. For the usage index, such a reference counts as the same verse in the active numbering.
-- Chapter navigation follows the book order of the active translation (in the Synodal translation, James comes after Acts).
-- Footnotes are shown directly after the text of the corresponding translation.
-- The comparison selector works in both the floating preview and the side panel.
+## Privacy
 
-## Reference Usage Index
-
-Bible Reference Preview can build a local Reference Usage Index for Markdown files in your vault. Use it to find where a selected Bible reference is used across notes.
-
-Result snippets show a short context around the matched reference:
-
-- 30 characters before the matched reference;
-- the matched reference itself, highlighted in the result;
-- 140 characters after the matched reference;
-- `…` when the snippet is truncated.
-
-The index is stored locally in the plugin data directory. Large Markdown files may be skipped according to the configured size limits to keep indexing responsive.
-
-Notes open in the editor are reindexed from their current text before every usage search, including unsaved edits, so the current note is always included even when auto-update is off. The ⟳ button in the usages panel header updates the index for changed files in the background and repeats the search.
-
-## Hotkeys
-
-The plugin includes the command **Open Bible reference under cursor**. Use the built-in shortcut option in plugin settings or assign any Obsidian hotkey in Settings → Hotkeys.
-
-### Bible preview hotkeys
-
-The Bible preview can be scrolled with Obsidian commands in the side panel and in the floating window.
-The commands have no default hotkeys. Assign them in Settings → Hotkeys, for example:
-
-- Alt+PageDown — scroll down
-- Alt+PageUp — scroll up
-- Alt+Home — scroll to top
-- Alt+End — scroll to bottom
-
-## Privacy and permissions
-
-The Obsidian community catalog lists two capabilities for this plugin:
-
-- **Vault enumeration.** The plugin reads the list of Markdown files in your vault (`vault.getMarkdownFiles`) only to build the local Reference Usage Index. The index stays in the plugin data directory.
-- **Clipboard access.** The plugin only writes to the clipboard when you press the copy button in the preview. It never reads the clipboard.
-
-The plugin makes no network requests and sends no data anywhere.
-
-## Known limitations
-
-- Command names are registered when the plugin loads. Restart the plugin to update command names after changing the interface language.
-- Old or damaged indexes may require reimporting the translation.
-- The plugin does not translate Bible text, book names, aliases, or imported metadata.
+The plugin makes no network requests. It reads the list of Markdown files only to build the local usage index, and it writes to the clipboard only when you press copy.
 
 ## Русский раздел
 
-Плагин распознаёт библейские ссылки в заметках Obsidian и показывает текст из импортированного EPUB-перевода Библии во floating preview.
+Плагин находит библейские ссылки в заметках Obsidian и показывает текст стихов в плавающем окне или в боковой панели. Переводы импортируются один раз из бесплатных файлов EPUB и HTML.
 
-Кратко:
+**Почему он:**
+- Работает без интернета, переводы хранятся в хранилище.
+- Переводы с jw.org, eBible.org (сотни переводов) и dbs.org.
+- Сравнение до четырёх переводов с пересчётом нумерации: Синодальный Пс 22 в английском переводе показывается как Ps 23.
+- Чтение главы целиком с подсветкой процитированных стихов.
+- Поиск мест, где отрывок упоминается в заметках.
+- Компьютер и телефон, интерфейс на русском и английском.
 
-1. Установи `main.js`, `manifest.json` и `styles.css` в `.obsidian/plugins/bible-reference-preview/`.
-2. Включи плагин в Community plugins.
-3. Открой настройки Bible Reference Preview.
-4. Импортируй Библию (поддерживаются EPUB Библии с jw.org, eBible.org и dbs.org; с dbs.org также HTML-архив `html_<ID>.zip` — в нём есть абзацы — и страница HTML Study Bible: открой её в браузере на компьютере и сохрани через Ctrl+S как «Веб-страница, только HTML»). Схема нумерации стихов определяется автоматически; если не получилось уверенно, плагин спросит. Сменить её можно в списке переводов в настройках.
-5. Используй ссылки вроде `Ин3:16` или `Авд2-4`.
-6. Для сравнения переводов включи режим сравнения в предпросмотре и выбери переводы через выпадающий список `Переводы 2/4` в заголовке предпросмотра.
-7. При необходимости назначь hotkey для команды открытия ссылки под курсором.
-8. Используй Reference Usage Index, чтобы находить места использования библейских ссылок в Markdown-заметках; результаты показывают короткий контекст и подсвечивают найденную ссылку.
+**Возможности:**
+- Ссылки: `Ин3:16`, `Мк 4:12, 14-16`, `Иуд 1:3;1:5`, `Суд 7:24-8:1`, глава целиком (`Пс 22`), книги из одной главы (`Иуд 5`). Код перевода после ссылки показывает отрывок в этом переводе и его нумерации: `Пс 22:1 (СП)`.
+- Текст с абзацами, поэтическими строками, сносками, надписаниями псалмов и слитыми стихами («16–17»). Копирование вместе со ссылкой и сносками.
+- Режим главы: 📖 в заголовке отрывка. Дальше `↩` возвращает назад, `←` / `→` переключают главы, 🖍 включает и выключает подсветку, 🔎 показывает места использования главы.
+- Сравнение включается кнопкой `⇄`, переводы выбираются в списке в заголовке.
+- Места использования: 🔎 у отрывка. Индекс обновляется сам; открытые заметки учитываются с несохранёнными правками.
+- Команды и горячие клавиши (Settings → Hotkeys), поиск по настройкам.
 
-### Поиск использований ссылок
+**Импорт:** Настройки → Bible Reference Preview → «Импорт Библии». Где взять файл:
+- jw.org: EPUB Библии на странице публикаций.
+- eBible.org: [ebible.org/find](https://ebible.org/find/) → перевод → ePub.
+- dbs.org ([dbs.org/bibles](https://dbs.org/bibles)): лучше всего архив **HTML** (`html_<ID>.zip`), в нём есть абзацы, распаковывать его не нужно. Если архива нет, подойдёт **EPUB**. Если нет ни того, ни другого (так у «Современного перевода»):
+  1. На компьютере открой **HTML Study Bible** и дождись, пока появится текст.
+  2. Нажми **Ctrl+S** и выбери тип «Веб-страница, только HTML».
+  3. Импортируй сохранённый `.html` и впиши название перевода.
 
-Reference Usage Index строит локальный индекс Markdown-файлов vault и позволяет находить, где используется выбранная библейская ссылка. В результатах показывается короткий фрагмент: 30 символов до ссылки, сама ссылка с подсветкой и 140 символов после ссылки. При обрезке добавляется `…`.
+  На телефоне так сохранить страницу нельзя: сделай файл на компьютере.
 
-Открытые в редакторе заметки переиндексируются по их текущему тексту (включая несохранённые правки) перед каждым поиском, поэтому текущая заметка попадает в результаты даже при выключенном автообновлении. Кнопка ⟳ в шапке панели использований обновляет индекс изменённых файлов в фоне и повторяет поиск.
-
-### Сравнение переводов
-
-В режиме сравнения предпросмотр показывает выбранные переводы отдельными блоками. Можно выбрать до четырёх переводов. Заголовки отрывков и сноски используют названия книг конкретного перевода. Сноски выводятся сразу после текста соответствующего перевода.
-
-Ссылки в заметках понимаются в нумерации стихов активного перевода. Перевод с другой нумерацией показывает тот же отрывок под своей ссылкой: при активном Синодальном `Пс 22:1` в английском переводе будет `Ps 23:1`. Чтобы показать отрывок в конкретном переводе и его нумерации, напиши код перевода в скобках сразу после ссылки: `Пс 22:1 (СП)`. Этот перевод показывается первым, за ним переводы сравнения. Код берётся из названия перевода, сменить его можно в списке переводов в настройках; неизвестный код остаётся обычным текстом. Название книги при этом должно распознаваться активным переводом. Для поиска использований такая ссылка считается тем же стихом в нумерации активного перевода. Переход по главам идёт в порядке книг активного перевода (в Синодальном после Деяний идут соборные послания).
-
-Сравнение работает в плавающем окне и в боковой панели. На мобильных устройствах выпадающий список переводов адаптирован под ширину экрана.
-
-### Горячие клавиши предпросмотра Библии
-
-Предпросмотр Библии можно прокручивать командами Obsidian в боковой панели и в плавающем окне.
-Горячих клавиш по умолчанию нет. Назначьте их в Settings → Hotkeys, например:
-
-- Alt+PageDown — прокрутить вниз
-- Alt+PageUp — прокрутить вверх
-- Alt+Home — в начало
-- Alt+End — в конец
-
-### Конфиденциальность и разрешения
-
-- Список Markdown-файлов vault плагин читает только для локального индекса использований ссылок. Индекс хранится в папке данных плагина.
-- В буфер обмена плагин только записывает текст по кнопке копирования в предпросмотре и никогда его не читает.
-- Плагин не делает сетевых запросов и никуда не отправляет данные.
+Схема нумерации определяется сама, её можно сменить в списке переводов. Сети плагин не использует.
 
 ## Development
 
-Use the npm scripts from `package.json` for local development and verification:
-
 ```bash
 npm run lint
-npm run typecheck
-npm run build
-npm run build:dev
-npm run build:analyze
 npm test
+npm run build
 ```
 
-Script overview:
-
-- `npm run lint` checks the TypeScript and JavaScript sources with ESLint.
-- `npm run typecheck` runs TypeScript type checking without emitting files.
-- `npm run build` type-checks the project and builds the production Obsidian plugin bundle.
-- `npm run build:dev` type-checks the project and builds a larger development bundle with an inline source map for debugging.
-- `npm run build:analyze` builds the production bundle and writes `meta.json` for bundle-size analysis.
-- `npm test` runs the production build, builds CommonJS test modules into `.test-build/`, and runs parser/importer tests and the integration tests: `tests/integration/` loads the real plugin from `main.ts` against a stub of the `obsidian` module (`tests/obsidian-stub/`: plugin API, an in-memory vault and workspace, a jsdom DOM) and checks import, translation switching, the editor, the reading mode and the usage index together.
-
-Build and repository hygiene notes:
-
-- `.test-build/` is test output and should not be committed.
-- Generated `src/**/*.js` files should not be committed; source files live in `src/**/*.ts`.
-- `main.js` is the Obsidian plugin build artifact used for manual installation and releases.
-- `npm run build` creates the production `main.js` by default; use `npm run build:dev` only when you need an inline source map for debugging.
-
-Releasing:
-
-- Bump the version in `manifest.json`, `package.json`, `package-lock.json`, and `versions.json`, and add a `## <version> - <title>` section to `CHANGELOG.md`.
-- When that change lands on `main`, the `Release` workflow creates the `<version>` tag and GitHub Release with the CHANGELOG section as notes, and attaches attested `main.js`, `manifest.json`, and `styles.css`.
-- To publish a beta for BRAT, run the `Beta release` workflow manually (Actions → Beta release → Run workflow) with a pre-release version such as `0.2.0-beta.1` and the branch to build. It creates a pre-release with that tag and attested assets; the version is set only in the released `manifest.json`, nothing is committed, so `main` and the community catalog are unaffected.
-- Releases published manually are picked up by the same workflow, which builds, attests, and uploads the assets. To redo the assets of an existing release, run the workflow manually with its tag.
-
-Import and indexing notes:
-
-- Translations are imported through the plugin settings (**Import Bible**) or the **Import Bible file** command. Each supported format is a Bible source in `src/infrastructure/sources/` (`BibleSource`): it recognizes its own files (`canHandle`), declares its file types and size limit, and reads books and verses for `BibleIndexBuilder`. `createBibleSources()` lists the sources; the first one that recognizes a file takes it, so a narrower format goes before a more general one. Adding a format means adding a source and one line to that list; the file picker and the "not recognized" error pick it up.
-- Versification: verse numbering differs between translations (the Synodal Psalm 22 is Psalm 23 in English Bibles). `src/versification/schemes/*.vrs` are the Paratext schemes English, Original, Septuagint, Vulgate and Russian Protestant, copied unchanged from [sillsdev/machine.py](https://github.com/sillsdev/machine.py) (MIT, see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)). `npm run generate:versification` turns them into `src/versification/builtinVersificationData.ts` with the 66 canonical books only; a test fails if the generated file is out of date. The import stores the detected scheme (`versification`, best match of verse counts per chapter) and the book order (`bookOrder`) of each translation in `bibles-index.json`; translations imported before 0.3.0 get them detected once in the background after loading.
-- The Reference Usage Index scans Markdown files in the vault to find Bible reference usages.
-- Large Markdown files can be skipped by the Reference Usage Index according to its size limit to avoid slow indexing and UI freezes.
-- Long Reference Usage Index builds and the safe in-memory part of EPUB import show progress and can be cancelled.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the build scripts, tests, releases and how the import works, and [CHANGELOG.md](CHANGELOG.md) for the history.
 
 ## License
 
