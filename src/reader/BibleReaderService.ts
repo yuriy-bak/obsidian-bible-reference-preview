@@ -90,7 +90,6 @@ export class BibleReaderService {
                 hideHighlightAria: t("preview.hideChapterHighlightAria"),
                 showHighlightAria: t("preview.showChapterHighlightAria"),
             }),
-            getFindUsagesButtonText: () => t("preview.findUsagesIcon"),
             getFindUsagesButtonAria: (target) => t("preview.findUsagesAria", { reference: target.title }),
             getFindChapterUsagesAria: (title) => t("preview.findChapterUsagesAria", { reference: title }),
             onFindUsages: (target, translationId, leaf) => this.effects.showUsagesForPreviewBlock({

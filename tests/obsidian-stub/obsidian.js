@@ -537,6 +537,7 @@ class TFolder extends TAbstractFile {
 }
 
 function setIcon(el, icon) {
+  el.empty();
   el.dataset.icon = icon;
 }
 

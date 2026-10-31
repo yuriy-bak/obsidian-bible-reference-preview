@@ -1,3 +1,4 @@
+import { ICONS, setIconWithText } from "./Icons";
 import type { BibleChapterTarget } from "../application/BibleChapterNavigation";
 import { filterNavigatorBooks, parseNavigatorQuery, type NavigatorBook } from "../reader/BibleNavigatorModel";
 
@@ -41,7 +42,8 @@ export class BibleNavigatorPanel {
             this.render();
         });
         this.searchEl.addEventListener("keydown", (event) => this.handleSearchKeydown(event));
-        const closeButtonEl = searchRowEl.createEl("button", { cls: "bible-reader-navigator-close", text: "✕" });
+        const closeButtonEl = searchRowEl.createEl("button", { cls: "bible-reader-navigator-close" });
+        setIconWithText(closeButtonEl, ICONS.close);
         closeButtonEl.type = "button";
         closeButtonEl.addEventListener("click", () => this.close());
         this.bodyEl = this.el.createDiv({ cls: "bible-reader-navigator-body" });
@@ -127,7 +129,8 @@ export class BibleNavigatorPanel {
 
     private renderChapters(book: NavigatorBook, labels: BibleNavigatorLabels): void {
         const headerEl = this.bodyEl.createDiv({ cls: "bible-reader-navigator-chapters-header" });
-        const backButtonEl = headerEl.createEl("button", { cls: "bible-reader-navigator-back", text: labels.backToBooks });
+        const backButtonEl = headerEl.createEl("button", { cls: "bible-reader-navigator-back" });
+        setIconWithText(backButtonEl, ICONS.previousChapter, labels.backToBooks);
         backButtonEl.type = "button";
         backButtonEl.addEventListener("click", () => {
             this.chosenBook = null;

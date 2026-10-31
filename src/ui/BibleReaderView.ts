@@ -4,6 +4,7 @@ import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../applicatio
 import { BibleNavigatorPanel, type BibleNavigatorLabels } from "./BibleNavigatorPanel";
 import type { NavigatorBook } from "../reader/BibleNavigatorModel";
 import { BibleReaderHistory } from "../reader/BibleReaderHistory";
+import { ICONS, setBookTitle, stripBookIcon } from "./Icons";
 import { scrollPreviewElement, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 import {
     applyBiblePreviewScroll,
@@ -52,7 +53,6 @@ export type BibleReaderViewInput = {
     /** The chapter in that translation only, without compared translations. */
     buildChapter: (target: BibleChapterTarget, translationId: string) => Promise<BiblePreviewContent | null>;
     getChapterNavigationLabels: () => BiblePreviewChapterNavigationLabels;
-    getFindUsagesButtonText: () => string;
     getFindUsagesButtonAria: (target: BiblePreviewUsageTarget) => string;
     getFindChapterUsagesAria: (title: string) => string;
     /** Usages follow the active translation's numbering; the reader passes its own translation along. */
@@ -70,8 +70,6 @@ export type BibleReaderViewInput = {
     getTranslationSelectAria: () => string;
 };
 
-const COPY_ICON = "copy";
-const COPIED_ICON = "check";
 const COPIED_FEEDBACK_MS = 1500;
 
 /**
@@ -289,7 +287,6 @@ export class BibleReaderView extends ItemView {
 
         const translationId = location.translationId;
         renderBiblePreviewContent(containerEl, content, {
-            getFindUsagesButtonText: this.input.getFindUsagesButtonText,
             getFindUsagesButtonAria: this.input.getFindUsagesButtonAria,
             onFindUsages: (target) => this.input.onFindUsages(target, translationId, this.leaf),
             isChapterHighlightHidden: () => this.highlightsHidden,
@@ -316,7 +313,6 @@ export class BibleReaderView extends ItemView {
             const translationId = location.translationId;
             const labels = this.input.getChapterNavigationLabels();
             const options: BiblePreviewRenderOptions = {
-                getFindUsagesButtonText: this.input.getFindUsagesButtonText,
                 getChapterUsageCount: (chapter) => this.input.getChapterUsageCount(chapter, translationId),
                 getFindChapterUsagesAria: this.input.getFindChapterUsagesAria,
                 onFindChapterUsages: (chapter, title) => this.input.onFindChapterUsages(chapter, title, translationId, this.leaf),
@@ -336,15 +332,15 @@ export class BibleReaderView extends ItemView {
             }
             const previous = chapterView.previous;
             const next = chapterView.next;
-            barEl.appendChild(createChapterNavigationButton("‹", labels.previousAria, previous !== null, () => {
+            barEl.appendChild(createChapterNavigationButton(ICONS.previousChapter, labels.previousAria, previous !== null, () => {
                 if (previous !== null) void this.navigateChapter(previous, translationId);
             }));
-            barEl.appendChild(createChapterNavigationButton("›", labels.nextAria, next !== null, () => {
+            barEl.appendChild(createChapterNavigationButton(ICONS.nextChapter, labels.nextAria, next !== null, () => {
                 if (next !== null) void this.navigateChapter(next, translationId);
             }));
         }
 
-        const copyButtonEl = this.createIconButton(barEl, COPY_ICON, this.input.getCopyAria(), this.content === null, () => void this.copyText(copyButtonEl));
+        const copyButtonEl = this.createIconButton(barEl, ICONS.copy, this.input.getCopyAria(), this.content === null, () => void this.copyText(copyButtonEl));
     }
 
     private navigateChapter(location: BibleChapterLocation, translationId: string): Promise<void> {
@@ -366,12 +362,13 @@ export class BibleReaderView extends ItemView {
     }
 
     private createNavigatorToggle(parentEl: HTMLElement, title: string): void {
-        const toggleEl = parentEl.createDiv({ cls: "bible-reader-navigator-toggle", text: title });
+        const toggleEl = parentEl.createDiv({ cls: "bible-reader-navigator-toggle" });
+        setBookTitle(toggleEl, title);
         toggleEl.setAttribute("role", "button");
         toggleEl.setAttribute("tabindex", "0");
         toggleEl.setAttribute("aria-label", this.input.getOpenNavigatorAria());
         toggleEl.title = this.input.getOpenNavigatorAria();
-        toggleEl.createSpan({ cls: "bible-reader-navigator-caret", text: " ▾" });
+        setIcon(toggleEl.createSpan({ cls: "bible-reader-navigator-caret" }), ICONS.caret);
         const toggle = (): void => this.navigator?.toggle(this.location?.target.book ?? null);
         toggleEl.addEventListener("click", (event) => {
             event.preventDefault();
@@ -427,10 +424,10 @@ export class BibleReaderView extends ItemView {
         new Notice(this.input.getCopyNoticeText(), 2500);
         const win = buttonEl.win;
         if (this.copyFeedbackTimer !== null) win.clearTimeout(this.copyFeedbackTimer);
-        setIcon(buttonEl, COPIED_ICON);
+        setIcon(buttonEl, ICONS.copied);
         this.copyFeedbackTimer = win.setTimeout(() => {
             this.copyFeedbackTimer = null;
-            setIcon(buttonEl, COPY_ICON);
+            setIcon(buttonEl, ICONS.copy);
         }, COPIED_FEEDBACK_MS);
     }
 }
@@ -451,10 +448,6 @@ function isPositiveInteger(value: unknown): value is number {
 
 function isSameLocation(left: BibleChapterLocation, right: BibleChapterLocation): boolean {
     return left.book === right.book && left.chapter === right.chapter;
-}
-
-function stripBookIcon(title: string): string {
-    return title.replace(/^📖\s*/u, "");
 }
 
 // Not in the public API: refreshes the tab title after the chapter changes.

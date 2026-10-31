@@ -1,3 +1,4 @@
+import { stripBookIcon } from "../ui/Icons";
 import { MarkdownView, Notice, type Component, type View, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation } from "../application/BibleChapterNavigation";
 import type { BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
@@ -328,7 +329,7 @@ export class ReferenceUsageService {
     }
 
     private formatTitle(referenceText: string): string {
-        return this.context.t("modal.referenceUsages.title", { reference: referenceText });
+        return this.context.t("modal.referenceUsages.title", { reference: stripBookIcon(referenceText) });
     }
 
     private formatChapterGroupTitle(span: ChapterUsageVerseSpan): string {
