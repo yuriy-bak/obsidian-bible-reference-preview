@@ -38,6 +38,17 @@ module.exports = async () => {
   assert.deepStrictEqual(parser.parse("Иуды 1:5-7"), judeVerses([5, 7]));
   assert.deepStrictEqual(parser.parse("Иуд 1:3,5"), judeVerses([3, 3], [5, 5]));
   assert.deepStrictEqual(parser.parse("Иуд 1:3;1:5"), judeVerses([3, 3], [5, 5]));
+  // A part repeated right after itself is a typo and is dropped; a later repeat is kept.
+  const john3 = (...ranges) => ranges.map(([verseStart, verseEnd]) => ({
+    book: 43, chapterStart: 3, verseStart, chapterEnd: 3, verseEnd,
+  }));
+  assert.deepStrictEqual(parser.parse("Ин 3:14,14"), john3([14, 14]));
+  assert.deepStrictEqual(parser.parse("Ин 3:14,14, 16, 14"), john3([14, 14], [16, 16], [14, 14]));
+  assert.deepStrictEqual(parser.parse("Ин 3:14,1-30"), john3([14, 14], [1, 30]));
+  assert.deepStrictEqual(parser.parse("Ин 3:14-16,14-16"), john3([14, 16]));
+  assert.deepStrictEqual(parser.parse("Ин 3:14,15,15"), john3([14, 15]));
+  assert.deepStrictEqual(parser.parse("Ин 3:14;3:14"), john3([14, 14]));
+  assert.deepStrictEqual(parser.parse("Иуд 5,5"), judeVerses([5, 5]));
   assert.deepStrictEqual(parser.parse("Иуд 5"), judeVerses([5, 5]));
   assert.deepStrictEqual(parser.parse("Иуд 2:3"), []);
   assert.deepStrictEqual(parser.parse("Иуд 12:3"), []);
