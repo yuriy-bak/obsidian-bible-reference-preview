@@ -70,6 +70,7 @@ const {
   normalizeBibleReferenceLinkColor,
   normalizeFloatingPreviewBackgroundColor,
 } = require("../.test-build/src/ui/cssColorValidation.js");
+const { buildColorDialogPresets } = require("../.test-build/src/ui/colorDialogPresets.js");
 const {
   ReferenceUsageIndexService,
   createReferenceUsageExcerpt,
@@ -141,6 +142,7 @@ module.exports = {
   isCssColor,
   normalizeBibleReferenceLinkColor,
   normalizeFloatingPreviewBackgroundColor,
+  buildColorDialogPresets,
   ReferenceUsageIndexService,
   createReferenceUsageExcerpt,
   ReferenceUsageNoteOutline,

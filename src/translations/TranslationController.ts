@@ -52,13 +52,6 @@ export class TranslationController {
         return areStringArraysEqual(state.translationOrder, nextOrder) ? null : nextOrder;
     }
 
-    public static promoteTranslationToTop(state: TranslationControllerState, translationId: string): string[] {
-        return [
-            translationId,
-            ...state.translationOrder.filter((existingTranslationId) => existingTranslationId !== translationId),
-        ];
-    }
-
     public static getTranslationSettingsItems(state: TranslationControllerState): Omit<TranslationSettingsItem, "code">[] {
         if (state.v2Data === null) {
             return [];

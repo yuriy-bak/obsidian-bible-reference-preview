@@ -1,0 +1,41 @@
+name: Bug report
+description: Something does not work, a reference is not recognized, or a Bible file does not import.
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+      description: A few words are enough. If you can, add the reference as you typed it and the translation. English or Russian.
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Plugin version (optional)
+      description: Settings → Community plugins, under the plugin name.
+      # Generated from versions.json by `npm run issue-form:versions`; CI checks it.
+      # versions:start
+      options:
+        - "0.2.7"
+        - "0.2.6"
+        - "0.2.5"
+        - "0.2.4"
+        - "0.2.3"
+        - "0.2.2"
+        - "Beta (BRAT)"
+        - "Older"
+      # versions:end
+  - type: dropdown
+    attributes:
+      label: Device (optional)
+      multiple: true
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Android
+        - iOS / iPadOS
+  - type: input
+    attributes:
+      label: Obsidian version (optional)
+      description: Settings → General → Current version.
+      placeholder: "1.13.2"

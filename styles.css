@@ -1,3 +1,8 @@
+/* Highlighted verses and usage matches: the theme's highlight colour, or a light yellow when the theme sets none. */
+body {
+    --bible-preview-highlight-bg: var(--text-highlight-bg, color-mix(in srgb, var(--color-yellow) 40%, transparent));
+}
+
 .bible-reference-preview-color-sample {
     border: 1px solid var(--background-modifier-border);
     border-radius: 6px;
@@ -91,7 +96,7 @@ button.bible-preview-reference-usages-button {
 }
 
 .bible-preview-verse-highlighted {
-    background-color: var(--text-highlight-bg);
+    background-color: var(--bible-preview-highlight-bg);
     border-radius: 3px;
 }
 
@@ -201,7 +206,7 @@ textarea.bible-reference-preview-full-width {
 .bible-reference-usage-excerpt-match {
     font-weight: 700;
     color: var(--text-normal);
-    background-color: var(--text-highlight-bg);
+    background-color: var(--bible-preview-highlight-bg);
     border-radius: 3px;
     padding: 0 2px;
 }
@@ -351,6 +356,20 @@ button.bible-preview-pane-icon-button {
     font-size: 13px;
     line-height: 1;
     padding: 0;
+}
+
+/* Lucide icons in header buttons (copy, comparison). */
+button.bible-preview-header-lucide-button {
+    --icon-size: 15px;
+    --icon-stroke: 2px;
+}
+
+/* The comparison button stays pressed while comparison is on. */
+button.bible-preview-pane-icon-button.is-active,
+.bible-preview-floating-panel .bible-preview-floating-header button.bible-preview-floating-icon-button.is-active {
+    background: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+    color: var(--text-on-accent);
 }
 
 .bible-preview-floating-panel .bible-preview-floating-header button.bible-preview-floating-close-button {
@@ -550,6 +569,10 @@ input.bible-preview-comparison-selector-checkbox {
     color: var(--text-normal);
 }
 
+.bible-color-dialog-preview-link {
+    border-bottom: 1px dotted currentColor;
+}
+
 input.bible-color-dialog-input {
     width: 100%;
     box-sizing: border-box;
@@ -631,6 +654,10 @@ button.bible-color-dialog-preset {
     justify-content: flex-start;
 }
 
+button.bible-color-dialog-preset.is-active {
+    box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
 .bible-color-dialog-preset-swatch {
     width: 16px;
     height: 16px;
@@ -668,11 +695,20 @@ button.bible-color-dialog-preset {
 }
 
 h3.bible-reference-usage-pane-title {
+    flex: 1 1 auto;
+    min-width: 0;
     margin: 0;
 }
 
 button.bible-reference-usage-pane-refresh-button {
     flex: 0 0 auto;
+}
+
+button.bible-reference-usage-pane-back-button {
+    flex: 0 0 auto;
+    height: 26px;
+    padding: 0 8px;
+    line-height: 1;
 }
 
 button.bible-reference-usage-pane-refresh-button.is-refreshing svg {

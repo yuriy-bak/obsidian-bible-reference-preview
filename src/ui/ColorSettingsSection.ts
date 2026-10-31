@@ -15,7 +15,6 @@ export type ColorSettingsSectionInput = {
     openCssColorDialog: (input: CssColorDialogInput) => void;
     openFloatingPreviewBackgroundColorDialog: () => void;
     getBibleReferenceLinkColor: () => string;
-    getBibleReferenceLinkColorPickerValue: () => string;
     isBibleReferenceLinkColorDefault: () => boolean;
     setBibleReferenceLinkColor: (color: string) => Promise<void> | void;
     resetBibleReferenceLinkColor: () => Promise<void> | void;
@@ -51,6 +50,7 @@ function renderBibleReferenceLinkColorSetting(bibleReferenceLinkColorSetting: Se
         value: input.getBibleReferenceLinkColor(),
         defaultValue: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
         previewText: translate("settings.linkColor.preview"),
+        previewMode: "text",
         presets: createTextColorPresets(),
         normalize: normalizeBibleReferenceLinkColor,
         onApply: (color) => void input.setBibleReferenceLinkColor(color),
@@ -58,9 +58,7 @@ function renderBibleReferenceLinkColorSetting(bibleReferenceLinkColorSetting: Se
 
     const previewEl = bibleReferenceLinkColorSetting.controlEl.createSpan({ text: translate("settings.linkColor.preview") });
     previewEl.className = "bible-reference-preview-color-sample bible-reference-preview-link-color-sample";
-    previewEl.style.color = input.isBibleReferenceLinkColorDefault()
-        ? "var(--link-color)"
-        : input.getBibleReferenceLinkColorPickerValue();
+    previewEl.style.color = input.getBibleReferenceLinkColor();
     previewEl.tabIndex = 0;
     previewEl.setAttribute("role", "button");
     previewEl.setAttribute("aria-label", translate("settings.linkColor.name"));

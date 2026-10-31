@@ -8,7 +8,6 @@ export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 export type BiblePreviewPaneViewInput = BiblePreviewChapterViewInput & BiblePreviewHeaderInput & {
     getOpenFloatingAria: () => string;
     getOpenFloatingIcon: () => string;
-    getCopyIcon: () => string;
     getCopyNoticeText: () => string;
     getFindUsagesButtonText?: () => string;
     getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
@@ -54,6 +53,10 @@ export class BiblePreviewPaneView extends ItemView {
         this.currentContent = content;
         if (this.contentContainerEl === null) this.buildLayout();
         this.scheduleRender();
+    }
+
+    public getScrollTop(): number {
+        return this.contentContainerEl?.scrollTop ?? 0;
     }
 
     public canScrollPreview(): boolean {
@@ -109,7 +112,7 @@ export class BiblePreviewPaneView extends ItemView {
 
         this.header = new BiblePreviewHeader(rootEl, this.input, {
             variant: "pane",
-            onCopy: () => void this.copyCurrentText(),
+            onCopy: () => this.copyCurrentText(),
             onToggleComparison: () => {
                 if (this.currentContent !== null) this.input.onToggleComparison?.(this.currentContent);
             },
@@ -201,13 +204,15 @@ export class BiblePreviewPaneView extends ItemView {
         applyBiblePreviewScroll(contentContainerEl, content);
     }
 
-    private async copyCurrentText(): Promise<void> {
-        if (this.currentContent === null || this.currentContent.plainText.length === 0) return;
+    private async copyCurrentText(): Promise<boolean> {
+        if (this.currentContent === null || this.currentContent.plainText.length === 0) return false;
         try {
             await navigator.clipboard.writeText(this.currentContent.plainText);
             this.showCopyNotice();
+            return true;
         } catch (error) {
             console.error("Bible Reference Preview: failed to copy preview text", error);
+            return false;
         }
     }
 

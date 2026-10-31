@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Issue form versions
+        run: node scripts/sync-issue-form-versions.mjs --check
+
       - name: Lint
         run: npm run lint
 

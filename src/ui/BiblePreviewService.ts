@@ -37,11 +37,18 @@ export type ClosePreviewPaneOptions = {
     requireActivePreview?: boolean;
 };
 
+/** What the preview showed when a usages search started from it; the usages panel returns to it. */
+export type BiblePreviewReturnPoint = {
+    content: BiblePreviewContent;
+    scrollTop: number;
+    chapterState: BiblePreviewChapterState | null;
+};
+
 /** What the preview needs from the reference usages. */
 export type BiblePreviewServiceEffects = {
-    showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget) => void;
+    showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget, returnPoint: BiblePreviewReturnPoint | null) => void;
     getChapterUsageCount: (location: BibleChapterLocation) => number | null;
-    showReferenceUsagesForChapter: (location: BibleChapterLocation, title: string) => void;
+    showReferenceUsagesForChapter: (location: BibleChapterLocation, title: string, returnPoint: BiblePreviewReturnPoint | null) => void;
 };
 
 /** The floating preview window, the side panel preview and the chapter mode shared by both. */
@@ -114,6 +121,31 @@ export class BiblePreviewService {
             return this.lastPaneContent;
         }
         return this.floatingWindow?.getContent() ?? null;
+    }
+
+    captureReturnPoint(): BiblePreviewReturnPoint | null {
+        const content = this.getCurrentContent();
+        if (content === null) {
+            return null;
+        }
+        return { content, scrollTop: this.getCurrentScrollTop(), chapterState: this.chapterState };
+    }
+
+    /** Shows the captured content again, with its scroll position and chapter mode. */
+    returnTo(point: BiblePreviewReturnPoint): void {
+        if (!this.settings.isPluginActive()) {
+            return;
+        }
+        this.chapterState = point.chapterState;
+        this.show({ ...point.content, scrollTop: point.scrollTop }, { type: "default" }, { reveal: true });
+    }
+
+    private getCurrentScrollTop(): number {
+        if (this.context.settings.previewDisplayMode !== "side-panel") {
+            return this.floatingWindow?.getScrollTop() ?? 0;
+        }
+        const view = getFirstWorkspaceLeafOfType(this.context.app, BIBLE_PREVIEW_VIEW_TYPE)?.view;
+        return view instanceof BiblePreviewPaneView ? view.getScrollTop() : 0;
     }
 
     async refreshVisibleContent(): Promise<void> {
@@ -263,7 +295,6 @@ export class BiblePreviewService {
             ...this.createCommonViewInput(),
             getOpenFloatingAria: () => this.context.t("preview.openFloatingAria"),
             getOpenFloatingIcon: () => this.context.t("preview.openFloatingIcon"),
-            getCopyIcon: () => this.context.t("preview.copyIcon"),
             onOpenFloating: (content) => void this.switchToFloating(content),
         };
     }
@@ -277,8 +308,8 @@ export class BiblePreviewService {
             getCopyAria: () => t("preview.copyAria"),
             getFindUsagesButtonText: () => t("preview.findUsagesIcon"),
             getFindUsagesButtonAria: (target: BiblePreviewUsageTarget) => t("preview.findUsagesAria", { reference: target.title }),
-            onFindUsages: (target: BiblePreviewUsageTarget) => this.effects.showReferenceUsagesForPreviewBlock(target),
-            getComparisonButtonText: () => isComparisonEnabled() ? "1" : "⇄",
+            onFindUsages: (target: BiblePreviewUsageTarget) => this.effects.showReferenceUsagesForPreviewBlock(target, this.captureReturnPoint()),
+            isComparisonEnabled,
             getComparisonButtonAria: () => isComparisonEnabled()
                 ? t("preview.comparisonOffAria")
                 : t("preview.comparisonOnAria"),
@@ -304,7 +335,8 @@ export class BiblePreviewService {
             onToggleChapterHighlight: (hidden: boolean) => setBiblePreviewChapterHighlightHidden(this.chapterFlowInput, hidden),
             getChapterUsageCount: (location: BibleChapterLocation) => this.effects.getChapterUsageCount(location),
             getFindChapterUsagesAria: (title: string) => t("preview.findChapterUsagesAria", { reference: title }),
-            onFindChapterUsages: (location: BibleChapterLocation, title: string) => this.effects.showReferenceUsagesForChapter(location, title),
+            onFindChapterUsages: (location: BibleChapterLocation, title: string) =>
+                this.effects.showReferenceUsagesForChapter(location, title, this.captureReturnPoint()),
         };
     }
 

@@ -11,10 +11,17 @@ export type ReferenceUsagePaneQueryResult = {
     groups?: ReferenceUsageResultGroup[];
 };
 
+export type ReferenceUsagePaneBackAction = {
+    ariaLabel: string;
+    run: () => void;
+};
+
 // Kept by the pane so the refresh button can repeat the search after reindexing.
 export type ReferenceUsagePaneQuery = {
     titleText: string;
     run: () => ReferenceUsagePaneQueryResult;
+    // Set when the search started from the preview: the header then gets a back button.
+    back?: ReferenceUsagePaneBackAction;
 };
 
 export type ReferenceUsagePaneRefreshProgress = {
@@ -24,6 +31,7 @@ export type ReferenceUsagePaneRefreshProgress = {
 
 export type ReferenceUsagePaneViewInput = {
     getTitle: () => string;
+    getBackText: () => string;
     getEmptyText: () => string;
     getCountText: (count: number) => string;
     getOpenResultAria: (result: ReferenceUsageSearchResult) => string;
@@ -132,6 +140,7 @@ export class ReferenceUsagePaneView extends ItemView {
         this.resultsEl.empty();
 
         const titleRowEl = this.headerEl.createDiv({ cls: "bible-reference-usage-pane-title-row" });
+        this.renderBackButton(titleRowEl);
         titleRowEl.createEl("h3", {
             text: this.query !== null && this.query.titleText.length > 0 ? this.query.titleText : this.input.getTitle(),
             cls: "bible-reference-usage-pane-title",
@@ -157,6 +166,22 @@ export class ReferenceUsagePaneView extends ItemView {
         for (const result of this.results) {
             this.renderResult(this.resultsEl, result);
         }
+    }
+
+    private renderBackButton(containerEl: HTMLElement): void {
+        const back = this.query?.back;
+        if (back === undefined) {
+            return;
+        }
+        const buttonEl = containerEl.createEl("button", {
+            text: this.input.getBackText(),
+            cls: "bible-reference-usage-pane-back-button",
+            attr: { type: "button", "aria-label": back.ariaLabel, title: back.ariaLabel },
+        });
+        buttonEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            back.run();
+        });
     }
 
     private renderRefreshButton(containerEl: HTMLElement): void {

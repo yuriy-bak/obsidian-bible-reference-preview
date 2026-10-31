@@ -24,7 +24,9 @@
     "build:test-modules": "npm run clean:test-build && tsc --target ES2018 --module commonjs --moduleResolution Node --esModuleInterop --skipLibCheck --strict --outDir .test-build --rootDir . --noEmit false",
     "test": "npm run build && npm run build:test-modules && node tests/run-parser-tests.js && node tests/run-parser-benchmark.js && node tests/run-integration-tests.js",
     "test:golden": "node scripts/golden-import.mjs",
-    "generate:versification": "node scripts/generate-versification-data.mjs"
+    "generate:versification": "node scripts/generate-versification-data.mjs",
+    "issue-form:versions": "node scripts/sync-issue-form-versions.mjs",
+    "release:bump": "node scripts/release-bump.mjs"
   },
   "devDependencies": {
     "@codemirror/state": "6.7.6",
