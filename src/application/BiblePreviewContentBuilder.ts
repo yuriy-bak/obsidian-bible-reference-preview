@@ -38,12 +38,6 @@ export class BiblePreviewContentBuilder {
         return this.context.v2Data?.translations[translationId] !== undefined;
     }
 
-    /** The first chapter of the translation's first book. */
-    getFirstChapter(translationId: string): BibleChapterLocation | null {
-        const book = getTranslationBookIds(this.context.v2Data, translationId, this.context.bookMapping)[0];
-        return book === undefined ? null : { book, chapter: 1 };
-    }
-
     /** The translation's books for the reader's navigator, in its order. */
     getNavigatorBooks(translationId: string): NavigatorBook[] {
         const translation = this.context.v2Data?.translations[translationId];

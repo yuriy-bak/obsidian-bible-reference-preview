@@ -106,43 +106,7 @@ button.bible-preview-reference-usages-button {
     background-color: inherit;
 }
 
-.bible-preview-chapter-navigation {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-    padding: 4px 0;
-    white-space: normal;
-    background-color: inherit;
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.bible-preview-chapter-navigation-title {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-weight: 600;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 /* Cover the container's top padding so scrolled text does not peek above the bar. */
-.bible-preview-pane-content > .bible-preview-chapter-navigation {
-    top: -10px;
-    margin-top: -10px;
-    padding-top: 10px;
-}
-
-.bible-preview-floating-content > .bible-preview-chapter-navigation {
-    top: -8px;
-    margin-top: -8px;
-    padding-top: 8px;
-}
-
 button.bible-preview-chapter-navigation-button {
     flex: 0 0 auto;
     min-width: 28px;
@@ -309,7 +273,23 @@ button.bible-preview-pane-icon-button {
     color: var(--text-muted);
 }
 
+/* The reader's one bar: history, chapter title (opens the navigator), translation, chapter actions, copy */
+.bible-reader-bar {
+    flex-wrap: wrap;
+}
+
+.bible-reader-bar-spacer {
+    flex: 1 1 auto;
+}
+
 .bible-reader-navigator-toggle {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 2px 6px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     cursor: pointer;
     border-radius: 4px;
 }

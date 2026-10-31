@@ -4,7 +4,6 @@ import type { BiblePreviewContentBuilder } from "../application/BiblePreviewCont
 import type { BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
 import type { ReferenceUsageReturnPoint } from "../reference-usage/ReferenceUsageService";
-import { TranslationController } from "../translations/TranslationController";
 import type { TranslationService } from "../translations/TranslationService";
 import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
 import { BIBLE_READER_VIEW_TYPE, BibleReaderView, type BibleReaderOpenState, type BibleReaderViewInput } from "../ui/BibleReaderView";
@@ -46,15 +45,8 @@ export class BibleReaderService {
             this.context.app.workspace.setActiveLeaf(leaf, { focus: true });
             return;
         }
-        const activeTranslationId = this.context.activeTranslationId;
-        const first = activeTranslationId === null ? null : this.contentBuilder.getFirstChapter(activeTranslationId);
-        if (first === null) {
-            await this.openState(null, options.newTab === true);
-            return;
-        }
-        await this.openState({ ...first }, options.newTab === true);
-        const view = this.getReaderLeaf()?.view;
-        if (view instanceof BibleReaderView) view.openNavigator();
+        // No chapter: the new reader opens the book picker in the active translation.
+        await this.openState({}, options.newTab === true);
     }
 
     /** The command "Go to book and chapter": the navigator of the last reader, or of a new one. */
@@ -80,10 +72,9 @@ export class BibleReaderService {
 
     createViewInput(): BibleReaderViewInput {
         const t = this.context.t.bind(this.context);
-        const translationState = () => this.translations.getControllerState();
         return {
             getViewTitle: () => t("reader.title"),
-            getTitle: () => `📖 ${t("reader.title")}`,
+            getChooseBookText: () => `📖 ${t("reader.chooseBook")}`,
             getCopyAria: () => t("preview.copyAria"),
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
             getNoTranslationsText: () => t("notice.noImportedTranslations"),
@@ -91,10 +82,8 @@ export class BibleReaderService {
             getHistoryForwardAria: () => t("reader.historyForwardAria"),
             getActiveTranslationId: () => this.context.activeTranslationId,
             hasTranslation: (translationId) => this.contentBuilder.hasTranslation(translationId),
-            getFirstChapter: (translationId) => this.contentBuilder.getFirstChapter(translationId),
             mapChapterLocation: (location, from, to) => this.contentBuilder.mapChapterLocation(location, from, to),
             buildChapter: (target, translationId) => this.contentBuilder.buildChapter(target, translationId),
-            getTranslationTitle: (translationId) => TranslationController.getTranslationPreviewTitle(translationState(), translationId),
             getChapterNavigationLabels: () => ({
                 previousAria: t("preview.previousChapterAria"),
                 nextAria: t("preview.nextChapterAria"),
@@ -128,10 +117,10 @@ export class BibleReaderService {
         };
     }
 
-    private async openState(state: BibleReaderOpenState | null, newTab = false): Promise<void> {
+    private async openState(state: BibleReaderOpenState, newTab = false): Promise<void> {
         const workspace = this.context.app.workspace;
         const leaf = (newTab ? null : this.getReaderLeaf()) ?? workspace.getLeaf("tab");
-        await leaf.setViewState({ type: BIBLE_READER_VIEW_TYPE, active: true, state: state ?? {} });
+        await leaf.setViewState({ type: BIBLE_READER_VIEW_TYPE, active: true, state });
         await workspace.revealLeaf(leaf);
         this.lastActiveLeaf = leaf;
     }

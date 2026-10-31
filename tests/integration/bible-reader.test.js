@@ -49,12 +49,14 @@ module.exports = async function runBibleReaderTests() {
   assert.deepStrictEqual(reader().getLocation().target, { book: 19, chapter: 23, highlightedRanges: [{ verseStart: 1, verseEnd: 1 }] });
   assert.strictEqual(reader().getLocation().translationId, enId);
   assert.strictEqual(reader().getDisplayText(), "Ps 23");
-  assert.match(reader().containerEl.querySelector(".bible-preview-header-title").textContent, /Test Bible/);
+  // One bar: the history, the chapter title, the translation (no second header row).
+  assert.strictEqual(reader().containerEl.querySelectorAll(".bible-preview-header").length, 1);
+  assert.strictEqual(reader().containerEl.querySelector(".bible-reader-translation-select").value, enId);
+  assert.match(reader().containerEl.querySelector(".bible-reader-navigator-toggle").textContent, /Ps 23/);
   // The reader shows one translation: no compared text, no comparison button, even with comparison on.
   assert.deepStrictEqual(highlightedVerses(), ["1 Ps 23:1."]);
   assert.doesNotMatch(readerText(), /Пс 22/);
   assert.strictEqual(reader().containerEl.querySelectorAll(".bible-preview-comparison-block").length, 0);
-  assert.strictEqual(reader().containerEl.querySelector(".bible-preview-header-selector-host").style.display, "none");
   // The saved state keeps the chapter in the active numbering and no translation.
   assert.deepStrictEqual(reader().getState(), { book: 19, chapter: 22 });
 
@@ -155,7 +157,7 @@ module.exports = async function runBibleReaderTests() {
   assert.strictEqual(restoredLeaf.view.getLocation().target.chapter, 22);
   restoredLeaf.detach();
 
-  // The command reveals the open reader; without one it opens the first chapter of the active translation.
+  // The command reveals the open reader; without one it opens the book picker, with no chapter and no history yet.
   const command = plugin.commands.find((candidate) => candidate.id === "open-bible-reader");
   await command.callback();
   await flush();
@@ -164,9 +166,9 @@ module.exports = async function runBibleReaderTests() {
   await command.callback();
   await flush();
   assert.strictEqual(readers().length, 1);
-  assert.strictEqual(reader().getLocation().translationId, ruId);
-  assert.deepStrictEqual(reader().getLocation().target, { book: 1, chapter: 1, highlightedRanges: [] });
-  assert.match(readerText(), /В начале Бог сотворил небо и землю\./);
+  assert.strictEqual(reader().getLocation(), null);
+  assert.strictEqual(reader().getTranslationId(), ruId);
+  assert.match(reader().containerEl.querySelector(".bible-reader-navigator-toggle").textContent, new RegExp(plugin.context.t("reader.chooseBook")));
 
   // A first reader from the command opens with the book picker.
   const navigatorEl = () => reader().containerEl.querySelector(".bible-reader-navigator");
@@ -185,10 +187,25 @@ module.exports = async function runBibleReaderTests() {
     [plugin.context.t("reader.navigator.oldTestament"), plugin.context.t("reader.navigator.newTestament")]
   );
 
-  // A typed reference opens its chapter with the verse highlighted.
+  // The translation can be chosen before any chapter: the navigator lists that translation's books.
+  const pickerSelect = reader().containerEl.querySelector(".bible-reader-translation-select");
+  assert.strictEqual(pickerSelect.value, ruId);
+  pickerSelect.value = enId;
+  pickerSelect.dispatchEvent(new Event("change"));
+  await flush();
+  assert.strictEqual(reader().getTranslationId(), enId);
+  assert(isNavigatorOpen());
+  assert(navigatorButton("Joh") !== undefined);
+  const pickerSelectAgain = reader().containerEl.querySelector(".bible-reader-translation-select");
+  pickerSelectAgain.value = ruId;
+  pickerSelectAgain.dispatchEvent(new Event("change"));
+  await flush();
+
+  // A typed reference opens its chapter with the verse highlighted; it is the first history entry.
   searchNavigator("Ин 3:16");
   await flush();
   assert(!isNavigatorOpen());
+  assert.strictEqual(historyBack().disabled, true);
   assert.deepStrictEqual(reader().getLocation().target, { book: 43, chapter: 3, highlightedRanges: [{ verseStart: 16, verseEnd: 16 }] });
   assert.deepStrictEqual(highlightedVerses(), ["16 Ведь Бог так любит мир."]);
 
