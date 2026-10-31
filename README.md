@@ -1,6 +1,11 @@
 # Bible Reference Preview
 
-Finds Bible references in your Obsidian notes and shows the verses right next to them: in a floating window or in a side panel. The text comes from Bible translations you import once from free EPUB and HTML files.
+**English** | [Русский](README.ru.md)
+
+Write `John 3:16` in a note and read the verse right next to it, in a floating window or in a side panel. Works offline with Bible translations you import once from free EPUB and HTML files, in any language they are published in.
+
+> **GIF placeholder: `docs/images/en/hero.gif`** (10–15 s)
+> Type `John 3:16` in a note → the floating preview opens → press `⇄` and pick a second translation → both translations are shown side by side.
 
 ## Why this plugin
 
@@ -11,18 +16,41 @@ Finds Bible references in your Obsidian notes and shows the verses right next to
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile**, Russian and English interface.
 
+## Screenshots
+
+> **Screenshot placeholder: `docs/images/en/side-panel-comparison.png`**
+> The side panel with two or three translations compared, a reference highlighted in the note next to it.
+
+> **Screenshot placeholder: `docs/images/en/chapter-view.png`**
+> The chapter view: a full chapter with the cited verses highlighted and the `↩` `←` `→` `🖍` `🔎` buttons in the header.
+
+> **Screenshot placeholder: `docs/images/en/usages.png`**
+> The usages list for a passage: several notes with the context of each quote.
+
+## Quick start
+
+1. Install **Bible Reference Preview** from Settings → Community plugins and enable it.
+2. Download a free Bible file, for example a translation's **ePub** from [ebible.org/find](https://ebible.org/find/) (the World English Bible is a good first choice).
+3. Open Settings → Bible Reference Preview → **Import Bible**, choose the file and click **Import**.
+4. Type a reference such as `John 3:16` or `Rom 8:28-30` in any note. The preview opens for the paragraph under the cursor.
+
+More sources and details are in [Importing a translation](#importing-a-translation).
+
 ## Features
 
-- **References** are recognized in the editor and in reading view, and are shown as links: `Ин3:16`, `John 3:16`, `Мк 4:12, 14-16`, `Иуд 1:3;1:5`, `Суд 7:24-8:1`, a whole chapter (`Пс 22`), one-chapter books (`Иуд 5` = `Иуд 1:5`). Book names and abbreviations come from the imported translation.
+- **References** are recognized in the editor and in reading view, and are shown as links: `John 3:16`, `Mark 4:12, 14-16`, `Jude 1:3;1:5`, `Judg 7:24-8:1`, a whole chapter (`Ps 23`), one-chapter books (`Jude 5` = `Jude 1:5`). Book names and abbreviations come from the imported translation, so references work in the language of that translation (`Ин3:16` with a Russian Bible).
 - **Preview** opens for the reference in the current paragraph, or only when you click a reference. The floating window can be dragged, resized and collapsed; the side panel can sit on the left or right. Both work in popout windows.
 - **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
 - **Copy** the passage with its reference and footnotes, in comparison mode too.
 - **Chapter view:** 📖 in a passage title opens the full chapter. Use `↩` to go back, `←` / `→` for the previous or next chapter, 🖍 to hide or show the highlighting, and 🔎 to see all usages of the chapter.
 - **Comparison:** `⇄` in the preview header turns it on; choose the translations in the header list.
-- **A translation code** after a reference shows the passage in that translation and its numbering: `Пс 22:1 (СП)`. Codes can be changed in the translation list.
+- **A translation code** after a reference shows the passage in that translation and its numbering: `Ps 23:1 (WEB)`, where `WEB` is the code of an imported translation. Codes can be changed in the translation list.
 - **Usage index:** 🔎 next to a passage lists the notes that cite it. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
 - **Commands:** open the reference under the cursor (with an optional shortcut), find its usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
 - **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, numbering scheme and code, and the usage index.
+
+> **Screenshot placeholder: `docs/images/en/settings.png`**
+> Settings → Bible Reference Preview: the translation list with two or three imported Bibles.
 
 ## Installation
 
@@ -62,37 +90,9 @@ Verses that the translation joins together are shown under one number ("16–17"
 
 The plugin makes no network requests. It reads the list of Markdown files only to build the local usage index, and it writes to the clipboard only when you press copy.
 
-## Русский раздел
+## Feedback
 
-Плагин находит библейские ссылки в заметках Obsidian и показывает текст стихов в плавающем окне или в боковой панели. Переводы импортируются один раз из бесплатных файлов EPUB и HTML.
-
-**Почему он:**
-- Работает без интернета, переводы хранятся в хранилище.
-- Переводы с jw.org, eBible.org (сотни переводов) и dbs.org.
-- Сравнение до четырёх переводов с пересчётом нумерации: Синодальный Пс 22 в английском переводе показывается как Ps 23.
-- Чтение главы целиком с подсветкой процитированных стихов.
-- Поиск мест, где отрывок упоминается в заметках.
-- Компьютер и телефон, интерфейс на русском и английском.
-
-**Возможности:**
-- Ссылки: `Ин3:16`, `Мк 4:12, 14-16`, `Иуд 1:3;1:5`, `Суд 7:24-8:1`, глава целиком (`Пс 22`), книги из одной главы (`Иуд 5`). Код перевода после ссылки показывает отрывок в этом переводе и его нумерации: `Пс 22:1 (СП)`.
-- Текст с абзацами, поэтическими строками, сносками, надписаниями псалмов и слитыми стихами («16–17»). Копирование вместе со ссылкой и сносками.
-- Режим главы: 📖 в заголовке отрывка. Дальше `↩` возвращает назад, `←` / `→` переключают главы, 🖍 включает и выключает подсветку, 🔎 показывает места использования главы.
-- Сравнение включается кнопкой `⇄`, переводы выбираются в списке в заголовке.
-- Места использования: 🔎 у отрывка. Индекс обновляется сам; открытые заметки учитываются с несохранёнными правками.
-- Команды и горячие клавиши (Settings → Hotkeys), поиск по настройкам.
-
-**Импорт:** Настройки → Bible Reference Preview → «Импорт Библии». Где взять файл:
-- jw.org: EPUB Библии на странице публикаций.
-- eBible.org: [ebible.org/find](https://ebible.org/find/) → перевод → ePub.
-- dbs.org ([dbs.org/bibles](https://dbs.org/bibles)): лучше всего архив **HTML** (`html_<ID>.zip`), в нём есть абзацы, распаковывать его не нужно. Если архива нет, подойдёт **EPUB**. Если нет ни того, ни другого (так у «Современного перевода»):
-  1. На компьютере открой **HTML Study Bible** и дождись, пока появится текст.
-  2. Нажми **Ctrl+S** и выбери тип «Веб-страница, только HTML».
-  3. Импортируй сохранённый `.html` и впиши название перевода.
-
-  На телефоне так сохранить страницу нельзя: сделай файл на компьютере.
-
-Схема нумерации определяется сама, её можно сменить в списке переводов. Сети плагин не использует.
+Found a reference that is not recognized, or a Bible file that does not import? [Open an issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues) with the reference or a link to the file. Ideas are welcome there too. If the plugin is useful to you, a star on GitHub helps other people find it.
 
 ## Development
 
