@@ -12,7 +12,7 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 - **Works offline.** Translations are stored locally on your device; the plugin makes no network requests.
 - **Your translations.** Import Bibles from jw.org, eBible.org (hundreds of translations in many languages) and the Digital Bible Society (dbs.org).
 - **Compare up to four translations** side by side. Verse numbering is converted between translations: the Synodal Psalm 22 is shown as Psalm 23 in an English Bible.
-- **Read the whole chapter** from any reference, with the cited verses highlighted, and move between chapters and books.
+- **Bible reader:** open any book and chapter, even without a reference in a note, and read it in any imported translation without changing the default one. Cited verses are highlighted.
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
@@ -40,19 +40,17 @@ More sources and details are in [Importing a translation](#importing-a-translati
 - **On a phone**, the side panel is the most convenient: set **Bible text display mode** to **Side panel**, and open or close the Bible text with a swipe from the screen edge.
 - **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
 - **Copy** the passage with its reference and footnotes, in comparison mode too.
-- **Chapter view:** the open-book icon in a passage title opens the full chapter. The arrows go back or to the previous or next chapter, the highlighter hides or shows the highlighting, and the magnifier lists all usages of the chapter.
+- **Bible reader:** the open-book icon in a passage title opens the full chapter in a reader tab, in the translation and numbering of that passage. Click the chapter title to pick a book and chapter (type `John`, `1 Cor 13` or `John 3:16` to filter), or use the command **Go to Bible book and chapter**. The translation selector shows the same chapter in another translation (Synodal Ps 22 → English Ps 23) without changing the default one. Back and forward go through the chapters you opened, the arrows open the previous or next chapter, the highlighter hides or shows the highlighting, and the magnifier lists all usages of the chapter. Ctrl/Cmd-click on the ribbon icon opens another reader tab; the last chapter reopens after a restart.
 - **Comparison:** the books-on-a-shelf button in the preview header turns it on (it stays highlighted while comparison is on); choose the translations in the header list.
 - **A translation code** after a reference shows the passage in that translation and its numbering: `Ps 23:1 (WEB)`, where `WEB` is the code of an imported translation. Codes can be changed in the translation list.
-- **Usage index:** the magnifier next to a passage lists the notes that cite it. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
-- **Commands:** open the reference under the cursor (with an optional shortcut), find its usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
+- **Usage index:** the magnifier next to a passage lists the notes that cite it, with the heading and the lines the reference sits under. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
+- **Commands:** open the reference under the cursor (with an optional shortcut), open the Bible reader or go to a book and chapter, find usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
 - **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, numbering scheme and code, and the usage index.
 
 ## Roadmap
 
 Planned features, in no fixed order:
 
-- [Bible navigation](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/53): open any book and chapter without a reference in a note.
-- [Another translation in the chapter view](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/54) without changing the default one.
 - [Custom book names and abbreviations](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/55) for each translation.
 
 See [all planned features](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) and vote with 👍 on the ones you want.
