@@ -10,7 +10,6 @@ import {
 } from "../ui/cssColorValidation";
 import type { BibleLinkOpenShortcut, BiblePluginSettings, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode } from "./PluginSettings";
 
-const DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR = "#7c3aed";
 const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
 type BooleanSettingKey = "closePreviewOnActiveLeafChange" | "autoOpenPreviewOnVerseChange" | "previewComparisonEnabled" | "interceptLinkOpenShortcut";
@@ -84,10 +83,6 @@ export class SettingsService {
 
     getBibleReferenceLinkColor(): string {
         return normalizeBibleReferenceLinkColor(this.settings.bibleReferenceLinkColor);
-    }
-
-    getBibleReferenceLinkColorPickerValue(): string {
-        return getPickerValue(this.settings.bibleReferenceLinkColor, DEFAULT_BIBLE_REFERENCE_LINK_PICKER_COLOR);
     }
 
     isBibleReferenceLinkColorDefault(): boolean {
