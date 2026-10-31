@@ -41,6 +41,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 
 - **References** are recognized in any note, new or old, in the editor and in reading view, and are shown as links: `John 3:16`, `Mark 4:12, 14-16`, `Jude 1:3;1:5`, `Judg 7:24-8:1`, a whole chapter (`Ps 23`), one-chapter books (`Jude 5` = `Jude 1:5`). Book names and abbreviations come from the imported translation, so references work in the language of that translation (`Ин3:16` with a Russian Bible). Bible references have a dotted underline, so they don't look like ordinary links, and you can give them their own color in the settings.
 - **Preview** opens for the reference in the current paragraph, or only when you click a reference. The floating window can be dragged, resized and collapsed; the side panel can sit on the left or right. Both work in popout windows.
+- **On a phone**, the side panel is the most convenient: set **Bible text display mode** to **Side panel**, and open or close the Bible text with a swipe from the screen edge.
 - **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
 - **Copy** the passage with its reference and footnotes, in comparison mode too.
 - **Chapter view:** 📖 in a passage title opens the full chapter. Use `↩` to go back, `←` / `→` for the previous or next chapter, 🖍 to hide or show the highlighting, and 🔎 to see all usages of the chapter.
