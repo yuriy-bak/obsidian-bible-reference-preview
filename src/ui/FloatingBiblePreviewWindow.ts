@@ -435,6 +435,19 @@ export class FloatingBiblePreviewWindow {
         this.disposables.push(addDisposableEventListener(hostWindow, "pointerup", this.pointerUpHandler as EventListener));
         this.disposables.push(addDisposableEventListener(hostWindow, "pointercancel", this.pointerUpHandler as EventListener));
         this.disposables.push(addDisposableEventListener(this.hostDocument, "keydown", this.keydownHandler as EventListener, true));
+        this.observeWorkspaceResize();
+    }
+
+    // Opening or closing a sidebar changes the workspace area without a window resize event.
+    private observeWorkspaceResize(): void {
+        const rootWorkspaceEl = this.hostDocument.querySelector<HTMLElement>(".workspace-split.mod-root");
+        const ResizeObserverCtor = (this.hostWindow as typeof window).ResizeObserver;
+        if (rootWorkspaceEl === null || ResizeObserverCtor === undefined) {
+            return;
+        }
+        const observer = new ResizeObserverCtor(this.viewportChangeHandler);
+        observer.observe(rootWorkspaceEl);
+        this.disposables.push(() => observer.disconnect());
     }
 
     private unregisterListeners(): void {
@@ -857,8 +870,9 @@ export class FloatingBiblePreviewWindow {
         };
     }
 
+    // Phone/tablet only: on desktop a narrow workspace (e.g. with sidebars open) keeps all resize handles.
     private isMobilePreviewLayout(viewportWidth: number): boolean {
-        return viewportWidth < 700;
+        return Platform.isMobile && viewportWidth < 700;
     }
 
     private async copyBiblePreviewText(): Promise<void> {
