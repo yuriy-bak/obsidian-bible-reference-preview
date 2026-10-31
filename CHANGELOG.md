@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0 - Bibles from eBible.org and dbs.org, Bible reader, verse numbering schemes
+
+- Import Bibles from eBible.org (EPUB, hundreds of translations in many languages) and from the Digital Bible Society, dbs.org (HTML archive, EPUB, or the saved HTML Study Bible page, such as the Russian «Современный перевод»). The file format is detected by itself.
+- Verse numbering schemes: each translation's scheme (English, Original, Septuagint, Vulgate, Russian) is detected on import and can be changed in the translation list. Comparison and chapters convert references between schemes: the Synodal Psalm 22 is shown next to Psalm 23 of an English Bible.
+- A translation code after a reference shows the passage in that translation: «Пс 22:1 (СП)». Codes are set in the translation list.
+- References are recognized with the book names of every imported translation, the main one first, so `John 3:16` and «Ин 3:16» both work with an English and a Russian Bible imported.
+- Bible reader: chapters open in their own reader tab. Pick any book and chapter from the chapter title or the new command "Go to Bible book and chapter" (type «Ин», "1 Cor 13" or "John 3:16" to filter), switch the translation of the chapter without changing the default one, and go back and forward through the chapters you opened. New commands "Open Bible reader" and "Open Bible reader in a new tab"; Ctrl/Cmd-click on the ribbon icon opens another reader. The last chapter reopens after a restart.
+- Psalm titles and other headings without a verse number are imported and shown above their verse.
+- Usage results show the heading above each reference and the lines it is nested under. The usages panel has a back button to the verse or chapter the search started from, and closes when the plugin is turned off.
+- A newly imported translation is added to the end of the list instead of becoming the main one.
+- Bible reference links are green by default; the link color dialog shows the color on the link itself. Saved colors are kept.
+- All buttons use Lucide icons. The comparison button keeps one icon and stays highlighted while comparison is on; copy shows a check mark after copying.
+- "Plugin settings" in the menus of the side panel and the floating window.
+- Highlighted verses and usage matches have a background in every theme.
+- Fixed: a part repeated right after itself ("Mt 24:14,14") showed the verse twice.
+- Fixed: on desktop the floating window lost its resize handles when the workspace was narrow.
+- Fixed on mobile: the numbering scheme and code fields in the translation list were doubled and cut off.
+- README in English and Russian with screenshots, a roadmap, simple issue forms, and a release checklist (RELEASING.md).
+
 ## 0.2.7 - No false network-call warning
 
 - Internal rename so the Obsidian catalog check no longer reports "network calls". The plugin still makes no network requests.
