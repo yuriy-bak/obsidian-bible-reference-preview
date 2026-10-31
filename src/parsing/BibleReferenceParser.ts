@@ -23,7 +23,7 @@ type NormalizedLine = {
 };
 
 // Bump when the parsing rules change, so indexes built by the old rules are rebuilt.
-export const BIBLE_REFERENCE_PARSER_VERSION = 2;
+export const BIBLE_REFERENCE_PARSER_VERSION = 3;
 
 /**
  * Identifies what the parser recognizes: the rules version and the book aliases.
@@ -440,8 +440,16 @@ export class BibleReferenceParser {
 
     private mergeAdjacentReferences(references: BibleReference[]): BibleReference[] {
         const result: BibleReference[] = [];
+        let previousSource: BibleReference | undefined;
 
         for (const reference of references) {
+            // "14,14" is a typo: drop a part that repeats the one right before it.
+            // A repeat further on ("14,16,14", "14,1-30") is kept on purpose.
+            if (previousSource !== undefined && this.isSameReference(previousSource, reference)) {
+                continue;
+            }
+            previousSource = reference;
+
             const previous = result[result.length - 1];
 
             if (previous !== undefined && this.canMerge(previous, reference)) {
@@ -453,6 +461,14 @@ export class BibleReferenceParser {
         }
 
         return result;
+    }
+
+    private isSameReference(left: BibleReference, right: BibleReference): boolean {
+        return left.book === right.book
+            && left.chapterStart === right.chapterStart
+            && left.verseStart === right.verseStart
+            && left.chapterEnd === right.chapterEnd
+            && left.verseEnd === right.verseEnd;
     }
 
     private canMerge(left: BibleReference, right: BibleReference): boolean {
