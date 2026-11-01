@@ -4,6 +4,7 @@
 
 - Getting started hints for new users (#73): a one-time notice on the first start with an "Open settings" button; while no translation is imported, the settings list where to download a Bible file and the first steps; the empty Bible reader has Import and Open settings buttons and moves on to the book picker after the first import; "no translation imported" notices offer the settings; after the first import the notice suggests a reference to type, in the translation's own book names.
 - The import description in the settings is in plain language.
+- Bible reader on a phone: the books and chapters of the navigator stay visible with the keyboard open; the reader scrolls as a note does, with room for the bottom navigation bar below the text; with Obsidian's Full screen option the bottom bar hides while you scroll down, as in notes.
 - Rename an imported translation from the translation list; a long name wraps onto several lines while you edit it.
 - New plugin description in the community catalog.
 - README: "What's new" section, direct download links for popular translations.
