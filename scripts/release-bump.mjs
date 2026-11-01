@@ -1,12 +1,21 @@
 // Sets a new stable version everywhere it is stored: manifest.json, package.json, package-lock.json,
 // versions.json (with the current minAppVersion) and the version list of the bug report form.
-// Usage: npm run release:bump -- 0.3.0
+// Turns the "## Unreleased" section of CHANGELOG.md into "## <version> - <title>".
+// Usage: npm run release:bump -- 0.3.1 "Getting started hints"
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
-const version = process.argv[2];
+const [version, title] = process.argv.slice(2);
 if (!/^\d+\.\d+\.\d+$/.test(version ?? "")) {
-    console.error("Usage: npm run release:bump -- <major.minor.patch>, for example 0.3.0");
+    console.error('Usage: npm run release:bump -- <major.minor.patch> "<release title>", for example 0.3.1 "Getting started hints"');
+    process.exit(1);
+}
+
+const UNRELEASED_HEADING = /^## Unreleased[ \t]*$/m;
+const changelog = readFileSync("CHANGELOG.md", "utf8");
+const hasUnreleased = UNRELEASED_HEADING.test(changelog);
+if (hasUnreleased && !title?.trim()) {
+    console.error('CHANGELOG.md has an "## Unreleased" section: give the release title, for example npm run release:bump -- 0.3.1 "Getting started hints"');
     process.exit(1);
 }
 
@@ -32,7 +41,11 @@ writeJson("versions.json", versions);
 
 execFileSync(process.execPath, ["scripts/sync-issue-form-versions.mjs"], { stdio: "inherit" });
 
-if (!readFileSync("CHANGELOG.md", "utf8").includes(`## ${version} - `)) {
+if (hasUnreleased) {
+    writeFileSync("CHANGELOG.md", changelog.replace(UNRELEASED_HEADING, `## ${version} - ${title.trim()}`));
+    console.log(`CHANGELOG.md: "## Unreleased" is now "## ${version} - ${title.trim()}". Check that it lists every change since the last release.`);
+} else if (!changelog.includes(`## ${version} - `)) {
     console.log(`Now add a "## ${version} - <title>" section to the top of CHANGELOG.md.`);
 }
 console.log(`Version ${version} set (minAppVersion ${manifest.minAppVersion}).`);
+console.log(`Now rewrite "What's new in ${version}" in README.md and "Что нового в ${version}" in README.ru.md: CI fails until both name this version (npm run readme:check).`);

@@ -30,7 +30,7 @@ module.exports = async function runGettingStartedTests() {
   // The settings: where to download a Bible file, in the interface language.
   const importSetting = renderImportSetting(plugin);
   const links = Array.from(importSetting.querySelectorAll(".bible-getting-started a")).map((link) => link.getAttribute("href"));
-  assert.strictEqual(links[0], "https://ebible.org/find/details.php?id=eng-web");
+  assert.strictEqual(links[0], "https://ebible.org/find/details.php?id=engwebp");
   assert(links.includes("https://www.jw.org/"));
   assert.strictEqual(importSetting.querySelectorAll(".bible-getting-started li").length, 3);
 
