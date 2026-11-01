@@ -304,10 +304,14 @@ export function createChapterNavigationButton(icon: string, ariaLabel: string, e
     return buttonEl;
 }
 
-// Restores a saved scroll position, or scrolls a chapter view to its first highlighted verse.
-export function applyBiblePreviewScroll(containerEl: HTMLElement, content: BiblePreviewContent): void {
+/**
+ * Restores a saved scroll position, or scrolls a chapter view to its first highlighted verse.
+ * `scrollEl` is what scrolls (the container itself by default); `coveredTop` is the height of a bar
+ * pinned over its top, so the verse is not hidden under it.
+ */
+export function applyBiblePreviewScroll(containerEl: HTMLElement, content: BiblePreviewContent, scrollEl: HTMLElement = containerEl, coveredTop = 0): void {
     if (content.scrollTop !== undefined) {
-        containerEl.scrollTop = content.scrollTop;
+        scrollEl.scrollTop = content.scrollTop;
         return;
     }
 
@@ -317,14 +321,14 @@ export function applyBiblePreviewScroll(containerEl: HTMLElement, content: Bible
 
     const highlightedEl = containerEl.querySelector(".bible-preview-verse-highlighted");
     if (highlightedEl === null || !highlightedEl.instanceOf(HTMLElement)) {
-        containerEl.scrollTop = 0;
+        scrollEl.scrollTop = 0;
         return;
     }
 
     const navigationEl = containerEl.querySelector(".bible-preview-chapter-navigation");
     const navigationHeight = navigationEl?.instanceOf(HTMLElement) ? navigationEl.offsetHeight : 0;
-    const offset = highlightedEl.getBoundingClientRect().top - containerEl.getBoundingClientRect().top;
-    containerEl.scrollTop = Math.max(0, containerEl.scrollTop + offset - navigationHeight - 8);
+    const offset = highlightedEl.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top;
+    scrollEl.scrollTop = Math.max(0, scrollEl.scrollTop + offset - navigationHeight - coveredTop - 8);
 }
 
 function createFindUsagesButton(target: BiblePreviewUsageTarget, options: BiblePreviewRenderOptions): HTMLButtonElement {
