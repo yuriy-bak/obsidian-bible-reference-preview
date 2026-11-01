@@ -16,13 +16,12 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
-## What's new in 0.3.0
+## What's new in 0.3.1
 
-- **More Bibles:** import from eBible.org (hundreds of translations in many languages) and from the Digital Bible Society (dbs.org), in addition to jw.org.
-- **Bible reader:** open any book and chapter, even without a reference in a note, and switch its translation without changing the default one.
-- **Verse numbering schemes:** comparison converts references between translations, so the Synodal Psalm 22 is shown next to Psalm 23 of an English Bible.
-- **References in every imported language:** `John 3:16` and `Ин 3:16` both work with an English and a Russian Bible; a translation code such as `Ps 23:1 (WEB)` shows the passage in that translation.
-- Green reference links by default, plugin settings from the preview menu, new icons.
+- **Getting started hints:** right after installation the plugin tells you where to download a Bible file and where to click; after the first import it suggests a reference to type.
+- **Bible reader on phones:** the book list stays visible with the keyboard open, and the reader scrolls like a note, hiding the bottom bar while you read.
+- **Rename a translation** with the pencil after its name in the translation list.
+- Direct download links for popular translations in [Quick start](#quick-start).
 
 All changes, including beta versions in progress, are in the [changelog](CHANGELOG.md).
 
@@ -47,7 +46,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 
 - **References** are recognized in any note, new or old, in the editor and in reading view, and are shown as links: `John 3:16`, `Mark 4:12, 14-16`, `Jude 1:3;1:5`, `Judg 7:24-8:1`, one-chapter books (`Jude 5` = `Jude 1:5`). Book names and abbreviations come from the imported translations, so references work in the language of any of them (`Ин3:16` with a Russian Bible, `John 3:16` with an English one, both in one note). When two translations abbreviate different books the same way, the main translation wins; numbering follows the main translation unless a translation code is given. Bible references have a dotted underline and are green by default, so they don't look like ordinary links; the color can be changed in the settings.
 - **Preview** opens for the reference in the current paragraph, or only when you click a reference. The floating window can be dragged, resized and collapsed; the side panel can sit on the left or right. Both work in popout windows.
-- **On a phone**, the side panel is the most convenient: set **Bible text display mode** to **Side panel**, and open or close the Bible text with a swipe from the screen edge.
+- **On a phone**, the side panel is the most convenient: set **Bible text display mode** to **Side panel**, and open or close the Bible text with a swipe from the screen edge. The Bible reader scrolls like a note: with **Full screen** turned on in Obsidian, the bottom bar hides while you read.
 - **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
 - **Copy** the passage with its reference and footnotes, in comparison mode too.
 - **Bible reader:** the open-book icon in a passage title opens the full chapter in a reader tab, in the translation and numbering of that passage. Click the chapter title to pick a book and chapter (type `John`, `1 Cor 13` or `John 3:16` to filter), or use the command **Go to Bible book and chapter**. The translation selector shows the same chapter in another translation (Synodal Ps 22 → English Ps 23) without changing the default one. Back and forward go through the chapters you opened, the arrows open the previous or next chapter, the highlighter hides or shows the highlighting, and the magnifier lists all usages of the chapter. Ctrl/Cmd-click on the ribbon icon opens another reader tab; the last chapter reopens after a restart.
@@ -61,7 +60,6 @@ More sources and details are in [Importing a translation](#importing-a-translati
 
 Planned features, in no fixed order:
 
-- [Getting started hints for new users](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/73): what to download and where to click, right in Obsidian (in progress).
 - [Custom book names and abbreviations](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/55) for each translation.
 
 See [all planned features](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) and vote with 👍 on the ones you want.

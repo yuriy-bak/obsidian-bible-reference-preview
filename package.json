@@ -1,6 +1,6 @@
 {
   "name": "obsidian-bible-reference-preview",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Show Bible verse previews for references in your notes, from translations you import, offline. Compare translations side by side and read whole chapters.",
   "license": "MIT",
   "main": "main.js",
