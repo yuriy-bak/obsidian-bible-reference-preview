@@ -53,6 +53,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 versificationOptions: getVersificationOptions((key, params) => this.services.context.t(key, params)),
                 onVersificationChange: (translationId, versification) => this.services.translations.setTranslationVersification(translationId, versification),
                 onCodeChange: (translationId, code) => this.services.translations.setTranslationCode(translationId, code),
+                onNameChange: (translationId, name) => this.services.translations.setTranslationName(translationId, name),
                 showError: (message) => new Notice(message),
                 onDelete: (translationId) => this.services.translations.deleteImportedTranslation(translationId),
                 onReorder: (nextOrder) => this.services.translations.setTranslationOrder(nextOrder),

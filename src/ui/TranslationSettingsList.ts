@@ -1,6 +1,7 @@
-import { DropdownComponent, TextComponent, type SettingDefinitionList } from "obsidian";
+import { DropdownComponent, setIcon, TextComponent, type SettingDefinitionList } from "obsidian";
 import { MAX_TRANSLATION_CODE_LENGTH } from "../translations/translationCodes";
 import type { TranslationSettingsItem } from "../translations/TranslationModels";
+import { ICONS } from "./Icons";
 
 type TranslationSettingsListI18nKey =
     | "settings.translations.title"
@@ -12,7 +13,9 @@ type TranslationSettingsListI18nKey =
     | "settings.translations.code"
     | "settings.translations.codeHint"
     | "settings.translations.codeInvalid"
-    | "settings.translations.codeTaken";
+    | "settings.translations.codeTaken"
+    | "settings.translations.rename"
+    | "settings.translations.nameRequired";
 
 type TranslationSettingsListI18nParams = Record<string, string | number>;
 
@@ -24,6 +27,8 @@ export type TranslationSettingsListInput = {
     onVersificationChange: (translationId: string, versification: string) => Promise<void>;
     /** Resolves with why the code was not accepted, or null. */
     onCodeChange: (translationId: string, code: string) => Promise<"invalid" | "taken" | null>;
+    /** Resolves with "empty" when the name was not accepted, or null. */
+    onNameChange: (translationId: string, name: string) => Promise<"empty" | null>;
     showError: (message: string) => void;
     onDelete: (translationId: string) => Promise<void>;
     onReorder: (nextOrder: string[]) => Promise<void>;
@@ -45,6 +50,17 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
             // Obsidian may render the same row again (on mobile it does), so the previous controls go first.
             render: (setting) => {
                 setting.infoEl.querySelectorAll(".bible-translation-setting-controls").forEach((element) => element.remove());
+                setting.nameEl.querySelectorAll(".bible-translation-rename").forEach((element) => element.remove());
+                const renameButton = setting.nameEl.createEl("button", {
+                    cls: "clickable-icon bible-translation-rename",
+                    attr: { type: "button", "aria-label": translate("settings.translations.rename") },
+                });
+                setIcon(renameButton, ICONS.rename);
+                renameButton.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    startRename(setting.nameEl, translation, input);
+                });
                 const controlsEl = setting.infoEl.createDiv({ cls: "bible-translation-setting-controls" });
 
                 const versificationEl = controlsEl.createEl("label", { cls: "bible-translation-setting-control" });
@@ -78,7 +94,10 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
                     });
                 });
 
-                return () => controlsEl.remove();
+                return () => {
+                    controlsEl.remove();
+                    renameButton.remove();
+                };
             },
         })),
         onReorder: (oldIndex, newIndex) => {
@@ -97,6 +116,46 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
             void input.onDelete(translationId).then(() => input.refresh());
         },
     };
+}
+
+// The name turns into a field in place: Enter or leaving the field saves it, Escape cancels.
+function startRename(nameEl: HTMLElement, translation: TranslationSettingsItem, input: TranslationSettingsListInput): void {
+    nameEl.empty();
+    const nameInput = new TextComponent(nameEl).setValue(translation.name);
+    nameInput.inputEl.addClass("bible-translation-name-input");
+    let finished = false;
+    const finish = (save: boolean): void => {
+        if (finished) {
+            return;
+        }
+        finished = true;
+        const name = nameInput.getValue();
+        if (!save || name.trim() === translation.name) {
+            input.refresh();
+            return;
+        }
+        void input.onNameChange(translation.id, name).then((error) => {
+            if (error !== null) {
+                input.showError(input.translate("settings.translations.nameRequired"));
+            }
+            input.refresh();
+        });
+    };
+
+    nameInput.inputEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            finish(true);
+        } else if (event.key === "Escape") {
+            // Escape would also close the settings window.
+            event.preventDefault();
+            event.stopPropagation();
+            finish(false);
+        }
+    });
+    nameInput.inputEl.addEventListener("blur", () => finish(true));
+    nameInput.inputEl.focus();
+    nameInput.inputEl.select();
 }
 
 function createTranslationDescription(translation: TranslationSettingsItem, translate: TranslationSettingsListInput["translate"]): string {

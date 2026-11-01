@@ -100,6 +100,18 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         translationId: string,
         fields: Required<Pick<BibleIndexV2TranslationMetadata, "versification">> & Pick<BibleIndexV2TranslationMetadata, "bookOrder">,
     ): Promise<void> {
+        await this.updateTranslationMetadata(translationId, fields);
+    }
+
+    /** Stores the display name of one translation; its id, files and everything else stay as they are. */
+    async updateTranslationName(translationId: string, name: string): Promise<void> {
+        await this.updateTranslationMetadata(translationId, { name });
+    }
+
+    private async updateTranslationMetadata(
+        translationId: string,
+        fields: Partial<Pick<BibleIndexV2TranslationMetadata, "name" | "versification" | "bookOrder">>,
+    ): Promise<void> {
         // Re-read the file: an import may have saved another translation since this repository was loaded.
         const latestData = await this.readV2Index(this.getMetadataPath()) ?? this.currentV2Data;
         const translation = latestData?.translations[translationId];
