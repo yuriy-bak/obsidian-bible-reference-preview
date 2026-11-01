@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 - Getting started hints, Bible reader on phones, translation rename
 
 - Getting started hints for new users (#73): a one-time notice on the first start with an "Open settings" button; while no translation is imported, the settings list where to download a Bible file and the first steps; the empty Bible reader has Import and Open settings buttons and moves on to the book picker after the first import; "no translation imported" notices offer the settings; after the first import the notice suggests a reference to type, in the translation's own book names.
 - The import description in the settings is in plain language.
