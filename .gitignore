@@ -51,6 +51,8 @@ tmp/
 *.7z
 *.tar
 *.tar.gz
+*.tsv
+archives/
 
 # files for local AI agent
 /.agent*
