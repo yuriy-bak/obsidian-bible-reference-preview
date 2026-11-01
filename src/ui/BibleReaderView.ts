@@ -84,6 +84,9 @@ export class BibleReaderView extends ItemView {
     private rootEl: HTMLDivElement | null = null;
     private barEl: HTMLDivElement | null = null;
     private textEl: HTMLDivElement | null = null;
+    private barResizeObserver: ResizeObserver | null = null;
+    /** Where the text was scrolled when the navigator took its place. */
+    private textScrollTop = 0;
     private navigator: BibleNavigatorPanel | null = null;
     /** The reader's translation; set before any chapter is open, so the navigator lists its books. */
     private translationId: string | null = null;
@@ -136,6 +139,8 @@ export class BibleReaderView extends ItemView {
         this.barEl = null;
         this.textEl = null;
         this.navigator = null;
+        this.barResizeObserver?.disconnect();
+        this.barResizeObserver = null;
     }
 
     /** The book and chapter picker, with the focus in its search field. */
@@ -201,12 +206,12 @@ export class BibleReaderView extends ItemView {
             await this.show({ ...location, translationId: this.translationId }, { record: "replace" });
             return;
         }
-        await this.show(location, { record: "replace", scrollTop: this.textEl?.scrollTop });
+        await this.show(location, { record: "replace", scrollTop: this.contentEl.scrollTop });
     }
 
     public scrollReader(command: BiblePreviewScrollCommand): boolean {
-        const scrollEl = this.textEl;
-        if (scrollEl === null || scrollEl.clientHeight <= 0 || scrollEl.scrollHeight <= scrollEl.clientHeight) return false;
+        const scrollEl = this.contentEl;
+        if (this.textEl === null || scrollEl.clientHeight <= 0 || scrollEl.scrollHeight <= scrollEl.clientHeight) return false;
         scrollPreviewElement(scrollEl, command);
         return true;
     }
@@ -215,8 +220,8 @@ export class BibleReaderView extends ItemView {
         if (this.rootEl !== null) return;
         const containerEl = this.contentEl;
         containerEl.empty();
-        // Our own padding: on mobile Obsidian grows the view's bottom padding with the keyboard,
-        // while the leaf already stops above it, so the reader would be cut by the keyboard twice.
+        // The view itself scrolls, as a note does: Obsidian's bottom padding (room for the mobile navbar,
+        // or the keyboard while it is open) stays below the text, and the bar is pinned at the top.
         containerEl.addClass("bible-reader-view-content");
         this.rootEl = containerEl.createDiv({ cls: ["bible-preview-pane-root", "bible-reader-root"] });
         this.barEl = this.rootEl.createDiv({ cls: ["bible-preview-header", "bible-preview-pane-header", "bible-reader-bar"] });
@@ -224,11 +229,31 @@ export class BibleReaderView extends ItemView {
             getBooks: () => this.translationId === null ? [] : this.input.getNavigatorBooks(this.translationId),
             getLabels: () => this.input.getNavigatorLabels(),
             onOpenChapter: (target) => void this.openTarget(target),
-            // The navigator takes the place of the text while it is open.
-            onVisibilityChange: (open) => this.textEl?.toggle(!open),
+            // The navigator takes the place of the text while it is open; the text keeps its scroll position.
+            onVisibilityChange: (open) => this.setNavigatorShown(open),
         });
         this.textEl = this.rootEl.createDiv({ cls: ["bible-preview-pane-content", "bible-reader-content"] });
+        // The navigator's search field is pinned right under the bar, whose height changes as it wraps.
+        const barEl = this.barEl;
+        const rootEl = this.rootEl;
+        const ResizeObserverCtor = (barEl.win as Partial<typeof window>).ResizeObserver;
+        if (ResizeObserverCtor !== undefined) {
+            this.barResizeObserver = new ResizeObserverCtor(() => rootEl.setCssProps({ "--bible-reader-bar-height": `${barEl.offsetHeight}px` }));
+            this.barResizeObserver.observe(barEl);
+        }
         this.renderBar();
+    }
+
+    private setNavigatorShown(open: boolean): void {
+        const scrollEl = this.contentEl;
+        if (open) {
+            this.textScrollTop = scrollEl.scrollTop;
+            this.textEl?.hide();
+            scrollEl.scrollTop = 0;
+            return;
+        }
+        this.textEl?.show();
+        scrollEl.scrollTop = this.textScrollTop;
     }
 
     // A chapter picked in the navigator: in the reader's translation, highlighted verses become its origin.
@@ -309,7 +334,7 @@ export class BibleReaderView extends ItemView {
             isChapterHighlightHidden: () => this.highlightsHidden,
         });
         this.renderBar();
-        applyBiblePreviewScroll(containerEl, content);
+        applyBiblePreviewScroll(containerEl, content, this.contentEl, this.barEl?.offsetHeight ?? 0);
     }
 
     // The one bar of the reader, rebuilt with each chapter.
