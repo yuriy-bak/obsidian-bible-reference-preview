@@ -29,6 +29,8 @@ export type BiblePluginSettings = {
     referenceUsageIndexingEnabled: boolean;
     referenceUsageAutoUpdate: boolean;
     referenceUsageExcludedFolders: string[];
+    /** The one-time notice with the first steps was shown (or not needed: translations were already imported). */
+    gettingStartedNoticeShown: boolean;
 };
 
 const DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS = ["Attachments/", "Templates/", "Archive/", "Bible/"];
@@ -53,6 +55,7 @@ export const DEFAULT_SETTINGS: BiblePluginSettings = {
     referenceUsageIndexingEnabled: false,
     referenceUsageAutoUpdate: !Platform.isMobileApp,
     referenceUsageExcludedFolders: DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS,
+    gettingStartedNoticeShown: false,
 };
 
 export function normalizePluginSettings(value: unknown): BiblePluginSettings {
@@ -116,6 +119,9 @@ export function normalizePluginSettings(value: unknown): BiblePluginSettings {
                     .join("\n"),
             )
             : DEFAULT_SETTINGS.referenceUsageExcludedFolders,
+        gettingStartedNoticeShown: typeof value.gettingStartedNoticeShown === "boolean"
+            ? value.gettingStartedNoticeShown
+            : DEFAULT_SETTINGS.gettingStartedNoticeShown,
     };
 }
 

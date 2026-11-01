@@ -3,7 +3,7 @@
   "name": "Bible Reference Preview",
   "version": "0.3.0",
   "minAppVersion": "1.13.0",
-  "description": "Recognize Bible references in notes and show verse previews from imported EPUB Bible translations.",
+  "description": "Show Bible verse previews for references in your notes, from translations you import, offline. Compare translations side by side and read whole chapters.",
   "author": "YuBak",
   "authorUrl": "https://github.com/yuriy-bak",
   "isDesktopOnly": false

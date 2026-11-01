@@ -9,6 +9,7 @@ import { BibleReferenceParser, getBibleReferenceParserSignature, type BibleRefer
 import { createBookMapping, type BookMapping } from "../parsing/BookMapping";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BiblePluginSettings } from "../settings/PluginSettings";
 import { mapBibleReferences } from "../application/mapBibleReferences";
+import { showNoImportedTranslationsNotice } from "../onboarding/GettingStarted";
 import { normalizeTranslationCode, resolveTranslationCodes } from "../translations/translationCodes";
 import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../versification/VersificationRegistry";
 
@@ -86,6 +87,11 @@ export class PluginContext {
         if (setting === undefined) return;
         setting.open();
         setting.openTabById(this.plugin.manifest.id);
+    }
+
+    /** "No translation imported yet", with a button to the settings, where the first steps are. */
+    showNoImportedTranslationsNotice(duration?: number): void {
+        showNoImportedTranslationsNotice((key, params) => this.t(key, params), () => this.openPluginSettings(), { duration });
     }
 
     t(key: I18nKey, params?: I18nParams): string {

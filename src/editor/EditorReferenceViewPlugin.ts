@@ -97,7 +97,7 @@ export class EditorReferenceViewPlugin implements PluginValue {
     }
 
     openReferenceUnderCursor(showNotice = false): boolean {
-        const fail = (key: "notice.pluginInactive" | "notice.noImportedTranslations" | "notice.referenceUnderCursorNotFound") => {
+        const fail = (key: "notice.pluginInactive" | "notice.referenceUnderCursorNotFound") => {
             if (showNotice) {
                 new Notice(this.service.context.t(key), 2500);
             }
@@ -107,7 +107,8 @@ export class EditorReferenceViewPlugin implements PluginValue {
             return fail("notice.pluginInactive");
         }
         if (!this.service.context.hasImportedTranslations()) {
-            return fail("notice.noImportedTranslations");
+            if (showNotice) this.service.context.showNoImportedTranslationsNotice();
+            return false;
         }
 
         const match = this.service.findMatchAt(this.view, this.view.state.selection.main.head);

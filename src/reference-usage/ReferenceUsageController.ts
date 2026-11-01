@@ -17,6 +17,7 @@ export type ReferenceUsageControllerInput = {
     isIndexingEnabled: () => boolean;
     shouldAutoProcessEvents: () => boolean;
     hasImportedTranslations: () => boolean;
+    showNoImportedTranslationsNotice: () => void;
     translate: (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
     refreshSettings: () => void;
     onIndexChanged: () => void;
@@ -34,7 +35,7 @@ export class ReferenceUsageController {
             return;
         }
         if (!this.input.hasImportedTranslations()) {
-            new Notice(this.input.translate("notice.noImportedTranslations"), 4000);
+            this.input.showNoImportedTranslationsNotice();
             return;
         }
         if (!await this.buildQueue.tryRun(() => this.runBuildWithProgress(forceRebuild))) {
@@ -96,7 +97,7 @@ export class ReferenceUsageController {
             return false;
         }
         if (!this.input.hasImportedTranslations()) {
-            new Notice(this.input.translate("notice.noImportedTranslations"), 4000);
+            this.input.showNoImportedTranslationsNotice();
             return false;
         }
         let updated = false;

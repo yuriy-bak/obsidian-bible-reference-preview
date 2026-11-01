@@ -1,7 +1,8 @@
-import { Notice, Plugin } from "obsidian";
+import { Plugin } from "obsidian";
 import { BiblePreviewContentBuilder } from "./src/application/BiblePreviewContentBuilder";
 import { PluginContext } from "./src/core/PluginContext";
 import { EditorService } from "./src/editor/EditorService";
+import { showNoImportedTranslationsNotice } from "./src/onboarding/GettingStarted";
 import { BibleLibraryService } from "./src/import/BibleLibraryService";
 import { registerPluginCommands } from "./src/lifecycle/PluginCommandRegistration";
 import { processReadingModeBibleReferences } from "./src/reading-mode/ReadingModeBibleReferenceProcessor";
@@ -52,6 +53,7 @@ export default class BiblePlugin extends Plugin {
         showUsagesForPreviewBlock: (block, returnPoint) => void this.referenceUsage.showUsagesForPreviewBlock(block, returnPoint),
         getChapterUsageCount: (location) => this.referenceUsage.countUsagesInChapter(location),
         showUsagesForChapter: (location, title, returnPoint) => void this.referenceUsage.showUsagesForChapter(location, title, returnPoint),
+        openBibleFilePicker: (hostEl) => this.library.openBibleFilePicker(hostEl),
     });
     private readonly editor = new EditorService(this.context, this.settingsService, this.contentBuilder, this.preview);
     private readonly referenceUsage = new ReferenceUsageService(this.context, this.editor, this.preview);
@@ -142,7 +144,23 @@ export default class BiblePlugin extends Plugin {
             if (enabledAfterLayoutReady) rerenderReadingModeViews(this.app);
             // The index may be outdated after a plugin update that changed the parser.
             this.referenceUsage.handleParserChanged();
+            void this.showGettingStartedNoticeOnce();
         });
+    }
+
+    // A new install shows nothing until a translation is imported: once, say where to start.
+    // Users who already have translations never see it.
+    private async showGettingStartedNoticeOnce(): Promise<void> {
+        if (this.context.settings.gettingStartedNoticeShown) return;
+        if (!this.context.hasImportedTranslations()) {
+            showNoImportedTranslationsNotice(
+                (key, params) => this.context.t(key, params),
+                () => this.context.openPluginSettings(),
+                { duration: 0, firstRun: true },
+            );
+        }
+        this.context.updateSettings({ gettingStartedNoticeShown: true });
+        await this.context.saveSettings();
     }
 
     onunload() { }
@@ -199,7 +217,7 @@ export default class BiblePlugin extends Plugin {
             shouldAutoOpenPreviewOnVerseChange: () => this.settingsService.shouldAutoOpenPreviewOnVerseChange(),
             hasImportedTranslations: () => this.context.hasImportedTranslations(),
             analyzeReferenceText: (referenceText) => this.contentBuilder.analyze(referenceText),
-            showNoImportedTranslationsNotice: () => new Notice(this.context.t("notice.noImportedTranslations"), 2500),
+            showNoImportedTranslationsNotice: () => this.context.showNoImportedTranslationsNotice(),
             refreshFloatingPreviewLabels: () => this.preview.refreshFloatingLabels(),
             isFloatingPreviewTarget: (target) => this.preview.isFloatingTarget(target),
             hideFloatingBiblePreview: () => this.preview.hideFloating(),

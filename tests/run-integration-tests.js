@@ -20,6 +20,7 @@ const TEST_FILES = [
   "translation-rename",
   "versification-comparison",
   "bible-reader",
+  "getting-started",
 ];
 
 // A test that waits on a promise nobody resolves (say, a modal it does not answer) leaves nothing
