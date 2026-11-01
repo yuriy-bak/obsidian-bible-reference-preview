@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Getting started hints for new users (#73): a one-time notice on the first start with an "Open settings" button; while no translation is imported, the settings list where to download a Bible file and the first steps; the empty Bible reader has Import and Open settings buttons and moves on to the book picker after the first import; "no translation imported" notices offer the settings; after the first import the notice suggests a reference to type, in the translation's own book names.
+- The import description in the settings is in plain language.
+- New plugin description in the community catalog.
+- README: "What's new" section, direct download links for popular translations.
+- Internal: the `## Unreleased` section of this changelog collects changes between releases; `npm run release:bump` turns it into the release section, and CI checks that the "What's new" section of both READMEs names the current version.
+
 ## 0.3.0 - Bibles from eBible.org and dbs.org, Bible reader, verse numbering schemes
 
 - Import Bibles from eBible.org (EPUB, hundreds of translations in many languages) and from the Digital Bible Society, dbs.org (HTML archive, EPUB, or the saved HTML Study Bible page, such as the Russian «Современный перевод»). The file format is detected by itself.

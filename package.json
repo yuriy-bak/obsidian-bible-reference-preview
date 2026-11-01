@@ -26,7 +26,8 @@
     "test:golden": "node scripts/golden-import.mjs",
     "generate:versification": "node scripts/generate-versification-data.mjs",
     "issue-form:versions": "node scripts/sync-issue-form-versions.mjs",
-    "release:bump": "node scripts/release-bump.mjs"
+    "release:bump": "node scripts/release-bump.mjs",
+    "readme:check": "node scripts/check-readme-whats-new.mjs"
   },
   "devDependencies": {
     "@codemirror/state": "6.7.6",

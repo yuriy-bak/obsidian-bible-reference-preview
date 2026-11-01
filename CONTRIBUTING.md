@@ -31,7 +31,7 @@ npm test
 
 ## Releasing
 
-- The step-by-step checklist for betas and stable releases is in [RELEASING.md](RELEASING.md). `npm run release:bump -- <version>` sets the version in `manifest.json`, `package.json`, `package-lock.json`, `versions.json` and the bug report form; then add a `## <version> - <title>` section to `CHANGELOG.md`.
+- The step-by-step checklist for betas and stable releases is in [RELEASING.md](RELEASING.md). Changes users notice go to the `## Unreleased` section of `CHANGELOG.md` in the same PR. `npm run release:bump -- <version> "<title>"` sets the version in `manifest.json`, `package.json`, `package-lock.json`, `versions.json` and the bug report form and turns `## Unreleased` into `## <version> - <title>`; then rewrite the "What's new" section of both READMEs (`npm run readme:check` checks the version).
 - When that change lands on `main`, the `Release` workflow creates the `<version>` tag and GitHub Release with the CHANGELOG section as notes, and attaches attested `main.js`, `manifest.json`, and `styles.css`.
 - To publish a beta for BRAT, run the `Beta release` workflow manually (Actions → Beta release → Run workflow) with a pre-release version such as `0.2.0-beta.1` and the branch to build. It creates a pre-release with that tag and attested assets; the version is set only in the released `manifest.json`, nothing is committed, so `main` and the community catalog are unaffected.
 - Releases published manually are picked up by the same workflow, which builds, attests, and uploads the assets. To redo the assets of an existing release, run the workflow manually with its tag.

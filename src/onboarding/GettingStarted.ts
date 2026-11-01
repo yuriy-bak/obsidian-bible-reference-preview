@@ -15,7 +15,7 @@ const BIBLE_SOURCE_LINKS: Record<BiblePluginLocale, BibleSourceLink[]> = {
         { textKey: "gettingStarted.source.dbs", url: "https://dbs.org/bibles" },
     ],
     en: [
-        { textKey: "gettingStarted.source.worldEnglish", url: "https://ebible.org/find/details.php?id=eng-web" },
+        { textKey: "gettingStarted.source.worldEnglish", url: "https://ebible.org/find/details.php?id=engwebp" },
         { textKey: "gettingStarted.source.ebible", url: "https://ebible.org/find/" },
         { textKey: "gettingStarted.source.jw", url: "https://www.jw.org/" },
         { textKey: "gettingStarted.source.dbs", url: "https://dbs.org/bibles" },

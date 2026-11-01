@@ -29,6 +29,9 @@ jobs:
       - name: Issue form versions
         run: node scripts/sync-issue-form-versions.mjs --check
 
+      - name: README "What's new" matches the version
+        run: npm run readme:check
+
       - name: Lint
         run: npm run lint
 

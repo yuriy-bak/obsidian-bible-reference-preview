@@ -16,6 +16,16 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
+## What's new in 0.3.0
+
+- **More Bibles:** import from eBible.org (hundreds of translations in many languages) and from the Digital Bible Society (dbs.org), in addition to jw.org.
+- **Bible reader:** open any book and chapter, even without a reference in a note, and switch its translation without changing the default one.
+- **Verse numbering schemes:** comparison converts references between translations, so the Synodal Psalm 22 is shown next to Psalm 23 of an English Bible.
+- **References in every imported language:** `John 3:16` and `Ин 3:16` both work with an English and a Russian Bible; a translation code such as `Ps 23:1 (WEB)` shows the passage in that translation.
+- Green reference links by default, plugin settings from the preview menu, new icons.
+
+All changes, including beta versions in progress, are in the [changelog](CHANGELOG.md).
+
 ## Screenshots
 
 <table>
@@ -27,7 +37,7 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 ## Quick start
 
 1. Install **Bible Reference Preview** from Settings → Community plugins and enable it. A notice with an **Open settings** button shows where to start; until a translation is imported, the plugin settings list where to download a Bible file.
-2. Download a free Bible file, for example a translation's **ePub** from [ebible.org/find](https://ebible.org/find/) (the World English Bible is a good first choice).
+2. Download a free Bible file (EPUB), for example the [World English Bible](https://ebible.org/epub/engwebp.epub) or the [King James Version](https://ebible.org/epub/eng-kjv2006.epub). Other translations and languages are on [ebible.org/find](https://ebible.org/find/); for Russian, the [Synodal translation](https://ebible.org/epub/russyn.epub).
 3. Open Settings → Bible Reference Preview → **Import Bible**, choose the file and click **Import**.
 4. Type a reference such as `John 3:16` or `Rom 8:28-30` in any note. The preview opens for the paragraph under the cursor.
 
@@ -81,7 +91,7 @@ Open Settings → Bible Reference Preview → **Import Bible** and choose a file
 Where to get a file:
 
 - **jw.org:** download the Bible (New World Translation) as EPUB from the publications page.
-- **eBible.org:** on [ebible.org/find](https://ebible.org/find/), open a translation and download its **ePub**. Only the 66 books of the Protestant canon are imported.
+- **eBible.org:** on [ebible.org/find](https://ebible.org/find/), open a translation and download its **ePub**. Only the 66 books of the Protestant canon are imported. Direct downloads of popular translations: [World English Bible](https://ebible.org/epub/engwebp.epub), [King James Version](https://ebible.org/epub/eng-kjv2006.epub), [Russian Synodal](https://ebible.org/epub/russyn.epub).
 - **dbs.org:** see below.
 
 The verse numbering scheme is detected from the text. If detection is not certain, the plugin asks you to choose a scheme, and you can change it later in the translation list.
