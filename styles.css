@@ -283,6 +283,33 @@ button.bible-preview-pane-icon-button:disabled {
 }
 
 /* Bible reader: the pane layout; in a wide tab the text keeps the note line width */
+/* The view scrolls as a note does: Obsidian's bottom padding (the mobile navbar, or the keyboard) stays below the text. */
+.workspace-leaf-content[data-type="bible-reference-reader"] > .view-content.bible-reader-view-content {
+    padding-top: 0;
+    padding-left: 0;
+    padding-right: 0;
+    overflow-y: auto;
+}
+
+.bible-preview-pane-root.bible-reader-root {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+}
+
+.bible-preview-pane-header.bible-reader-bar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.bible-preview-pane-content.bible-reader-content {
+    flex: 0 0 auto;
+    overflow: visible;
+    /* A few empty lines after the text. */
+    padding-bottom: 4.5em;
+}
+
 .bible-reader-root {
     background: var(--background-primary);
 }
@@ -349,16 +376,19 @@ select.bible-reader-translation-select {
 
 /* The navigator takes the place of the text: search, books by testament, chapters */
 .bible-reader-navigator {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
-    padding: 10px max(10px, calc((100% - var(--file-line-width, 700px)) / 2));
+    flex: 0 0 auto;
+    padding: 0 max(10px, calc((100% - var(--file-line-width, 700px)) / 2)) 10px;
 }
 
+/* Pinned under the bar while the books scroll. */
 .bible-reader-navigator-search-row {
+    position: sticky;
+    top: var(--bible-reader-bar-height, 0px);
+    z-index: 1;
     display: flex;
     gap: 6px;
-    margin-bottom: 10px;
+    padding: 10px 0;
+    background: var(--background-primary);
 }
 
 input.bible-reader-navigator-search {

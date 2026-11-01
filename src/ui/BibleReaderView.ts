@@ -1,4 +1,4 @@
-import { ItemView, Notice, setIcon, type Menu, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, Platform, setIcon, type Menu, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { BibleNavigatorPanel, type BibleNavigatorLabels } from "./BibleNavigatorPanel";
@@ -17,6 +17,10 @@ import {
 } from "./BiblePreviewRenderer";
 
 export const BIBLE_READER_VIEW_TYPE = "bible-reference-reader";
+/** Obsidian's body class for the navbar hidden by scrolling (phone, "Full screen" option). */
+const HIDDEN_NAVBAR_CLASS = "is-hidden-nav";
+/** Scrolling by fewer pixels does not hide or show the navbar. */
+const NAVBAR_SCROLL_THRESHOLD = 8;
 
 /** What a reader shows: a chapter of one translation, in that translation's numbering. */
 export type BibleReaderLocation = {
@@ -89,6 +93,9 @@ export class BibleReaderView extends ItemView {
     private rootEl: HTMLDivElement | null = null;
     private barEl: HTMLDivElement | null = null;
     private textEl: HTMLDivElement | null = null;
+    private barResizeObserver: ResizeObserver | null = null;
+    /** Where the text was scrolled when the navigator took its place. */
+    private textScrollTop = 0;
     private navigator: BibleNavigatorPanel | null = null;
     /** The reader's translation; set before any chapter is open, so the navigator lists its books. */
     private translationId: string | null = null;
@@ -102,8 +109,21 @@ export class BibleReaderView extends ItemView {
     private loadId = 0;
     private copyFeedbackTimer: number | null = null;
 
+    /** The last scroll position of the view, to tell scrolling down from scrolling up. */
+    private lastScrollTop = 0;
+    /** Whether this reader hid Obsidian's mobile navbar, so it shows it again when left. */
+    private hidesNavbar = false;
+
     constructor(leaf: WorkspaceLeaf, private input: BibleReaderViewInput) {
         super(leaf);
+    }
+
+    onload(): void {
+        super.onload();
+        this.registerDomEvent(this.contentEl, "scroll", () => this.onViewScroll());
+        this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
+            if (leaf !== this.leaf) this.setNavbarHidden(false);
+        }));
     }
 
     getViewType(): string { return BIBLE_READER_VIEW_TYPE; }
@@ -136,11 +156,14 @@ export class BibleReaderView extends ItemView {
     }
 
     async onClose(): Promise<void> {
+        this.setNavbarHidden(false);
         this.loadId += 1;
         this.rootEl = null;
         this.barEl = null;
         this.textEl = null;
         this.navigator = null;
+        this.barResizeObserver?.disconnect();
+        this.barResizeObserver = null;
     }
 
     /** The book and chapter picker, with the focus in its search field. */
@@ -214,12 +237,12 @@ export class BibleReaderView extends ItemView {
             await this.show({ ...location, translationId: this.translationId }, { record: "replace" });
             return;
         }
-        await this.show(location, { record: "replace", scrollTop: this.textEl?.scrollTop });
+        await this.show(location, { record: "replace", scrollTop: this.contentEl.scrollTop });
     }
 
     public scrollReader(command: BiblePreviewScrollCommand): boolean {
-        const scrollEl = this.textEl;
-        if (scrollEl === null || scrollEl.clientHeight <= 0 || scrollEl.scrollHeight <= scrollEl.clientHeight) return false;
+        const scrollEl = this.contentEl;
+        if (this.textEl === null || scrollEl.clientHeight <= 0 || scrollEl.scrollHeight <= scrollEl.clientHeight) return false;
         scrollPreviewElement(scrollEl, command);
         return true;
     }
@@ -228,17 +251,66 @@ export class BibleReaderView extends ItemView {
         if (this.rootEl !== null) return;
         const containerEl = this.contentEl;
         containerEl.empty();
+        // The view itself scrolls, as a note does: Obsidian's bottom padding (room for the mobile navbar,
+        // or the keyboard while it is open) stays below the text, and the bar is pinned at the top.
+        containerEl.addClass("bible-reader-view-content");
         this.rootEl = containerEl.createDiv({ cls: ["bible-preview-pane-root", "bible-reader-root"] });
         this.barEl = this.rootEl.createDiv({ cls: ["bible-preview-header", "bible-preview-pane-header", "bible-reader-bar"] });
         this.navigator = new BibleNavigatorPanel(this.rootEl, {
             getBooks: () => this.translationId === null ? [] : this.input.getNavigatorBooks(this.translationId),
             getLabels: () => this.input.getNavigatorLabels(),
             onOpenChapter: (target) => void this.openTarget(target),
-            // The navigator takes the place of the text while it is open.
-            onVisibilityChange: (open) => this.textEl?.toggle(!open),
+            // The navigator takes the place of the text while it is open; the text keeps its scroll position.
+            onVisibilityChange: (open) => this.setNavigatorShown(open),
         });
         this.textEl = this.rootEl.createDiv({ cls: ["bible-preview-pane-content", "bible-reader-content"] });
+        // The navigator's search field is pinned right under the bar, whose height changes as it wraps.
+        const barEl = this.barEl;
+        const rootEl = this.rootEl;
+        const ResizeObserverCtor = (barEl.win as Partial<typeof window>).ResizeObserver;
+        if (ResizeObserverCtor !== undefined) {
+            this.barResizeObserver = new ResizeObserverCtor(() => rootEl.setCssProps({ "--bible-reader-bar-height": `${barEl.offsetHeight}px` }));
+            this.barResizeObserver.observe(barEl);
+        }
         this.renderBar();
+    }
+
+    /**
+     * On a phone with Obsidian's "Full screen" option, notes hide the navbar while scrolling down and
+     * show it when scrolling up. Obsidian does that only for its own note views, so the reader does
+     * the same with the body class Obsidian uses.
+     */
+    private onViewScroll(): void {
+        const scrollTop = this.contentEl.scrollTop;
+        const delta = scrollTop - this.lastScrollTop;
+        this.lastScrollTop = scrollTop;
+        if (!Platform.isPhone || !this.isAutoFullScreen()) return;
+        if (delta > NAVBAR_SCROLL_THRESHOLD) this.setNavbarHidden(true);
+        else if (delta < -NAVBAR_SCROLL_THRESHOLD || scrollTop <= 0) this.setNavbarHidden(false);
+    }
+
+    private isAutoFullScreen(): boolean {
+        const vault = this.app.vault as unknown as { getConfig?: (key: string) => unknown };
+        // On by default: only an explicit "off" keeps the navbar.
+        return vault.getConfig?.("autoFullScreen") !== false;
+    }
+
+    private setNavbarHidden(hidden: boolean): void {
+        if (!hidden && !this.hidesNavbar) return;
+        this.hidesNavbar = hidden;
+        this.contentEl.doc.body.toggleClass(HIDDEN_NAVBAR_CLASS, hidden);
+    }
+
+    private setNavigatorShown(open: boolean): void {
+        const scrollEl = this.contentEl;
+        if (open) {
+            this.textScrollTop = scrollEl.scrollTop;
+            this.textEl?.hide();
+            scrollEl.scrollTop = 0;
+            return;
+        }
+        this.textEl?.show();
+        scrollEl.scrollTop = this.textScrollTop;
     }
 
     // A chapter picked in the navigator: in the reader's translation, highlighted verses become its origin.
@@ -319,7 +391,7 @@ export class BibleReaderView extends ItemView {
             isChapterHighlightHidden: () => this.highlightsHidden,
         });
         this.renderBar();
-        applyBiblePreviewScroll(containerEl, content);
+        applyBiblePreviewScroll(containerEl, content, this.contentEl, this.barEl?.offsetHeight ?? 0);
     }
 
     // The one bar of the reader, rebuilt with each chapter.
