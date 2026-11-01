@@ -45,7 +45,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 - **A translation code** after a reference shows the passage in that translation and its numbering: `Ps 23:1 (WEB)`, where `WEB` is the code of an imported translation. Codes can be changed in the translation list.
 - **Usage index:** the magnifier next to a passage lists the notes that cite it, with the heading and the lines the reference sits under. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
 - **Commands:** open the reference under the cursor (with an optional shortcut), open the Bible reader or go to a book and chapter, find usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
-- **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, numbering scheme and code, and the usage index.
+- **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, name (the pencil after it), numbering scheme and code, and the usage index.
 
 ## Roadmap
 

@@ -76,6 +76,37 @@ export class TranslationService {
         return null;
     }
 
+    /**
+     * Renames a translation; its id stays, so settings and the usage index still find it.
+     * The default code is made from the name, so the current one is kept as the user's code:
+     * references like "Пс 22:1 (СП)" already written in notes keep working.
+     * Returns "empty" when the name is blank, or null.
+     */
+    async setTranslationName(translationId: string, name: string): Promise<"empty" | null> {
+        const trimmedName = name.trim().replace(/\s+/gu, " ");
+        if (trimmedName.length === 0) {
+            return "empty";
+        }
+        const translation = this.context.v2Data?.translations[translationId];
+        if (translation === undefined || translation.name === trimmedName) {
+            return null;
+        }
+
+        const currentCode = this.context.getTranslationCodes().get(translationId);
+        if (this.context.settings.translationCodes[translationId] === undefined && currentCode !== undefined && currentCode.length > 0) {
+            this.context.updateSettings({ translationCodes: { ...this.context.settings.translationCodes, [translationId]: currentCode } });
+            await this.context.saveSettings();
+        }
+
+        const repository = this.context.createRepository();
+        await repository.load();
+        await repository.updateTranslationName(translationId, trimmedName);
+        this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+        this.context.updateBookMapping();
+        await this.effects.refreshVisibleBiblePreviewContent();
+        return null;
+    }
+
     /** Stores the numbering scheme the user picked for a translation and redraws the open preview. */
     async setTranslationVersification(translationId: string, versification: string): Promise<void> {
         if (this.context.v2Data?.translations[translationId]?.versification === versification) {

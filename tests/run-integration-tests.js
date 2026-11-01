@@ -17,6 +17,7 @@ const TEST_FILES = [
   "reference-usage",
   "plugin-context",
   "versification-choice",
+  "translation-rename",
   "versification-comparison",
   "bible-reader",
 ];

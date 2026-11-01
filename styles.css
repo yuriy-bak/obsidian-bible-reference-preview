@@ -946,6 +946,44 @@ button.bible-reference-usage-pane-open-button {
     max-width: none;
 }
 
+/* Pencil after the translation name; the name turns into a field in place. */
+.bible-translation-rename {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: var(--size-4-1);
+    padding: var(--size-2-1);
+    color: var(--text-faint);
+}
+
+.bible-translation-rename:hover {
+    color: var(--text-normal);
+}
+
+.bible-translation-rename svg {
+    width: var(--icon-xs);
+    height: var(--icon-xs);
+}
+
+.bible-translation-name-editing {
+    width: 100%;
+}
+
+.bible-translation-name-input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: var(--size-2-2) var(--size-4-2);
+    overflow: hidden;
+    resize: none;
+    color: var(--text-normal);
+    font: inherit;
+    line-height: var(--line-height-tight);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 .bible-translation-setting-code {
     width: 8em;
 }
