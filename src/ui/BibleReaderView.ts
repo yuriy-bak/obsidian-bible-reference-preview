@@ -215,6 +215,9 @@ export class BibleReaderView extends ItemView {
         if (this.rootEl !== null) return;
         const containerEl = this.contentEl;
         containerEl.empty();
+        // Our own padding: on mobile Obsidian grows the view's bottom padding with the keyboard,
+        // while the leaf already stops above it, so the reader would be cut by the keyboard twice.
+        containerEl.addClass("bible-reader-view-content");
         this.rootEl = containerEl.createDiv({ cls: ["bible-preview-pane-root", "bible-reader-root"] });
         this.barEl = this.rootEl.createDiv({ cls: ["bible-preview-header", "bible-preview-pane-header", "bible-reader-bar"] });
         this.navigator = new BibleNavigatorPanel(this.rootEl, {

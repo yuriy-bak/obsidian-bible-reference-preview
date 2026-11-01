@@ -283,6 +283,11 @@ button.bible-preview-pane-icon-button:disabled {
 }
 
 /* Bible reader: the pane layout; in a wide tab the text keeps the note line width */
+.workspace-leaf-content[data-type="bible-reference-reader"] > .view-content.bible-reader-view-content {
+    /* Obsidian's mobile bottom padding follows the keyboard, which the leaf already leaves out. */
+    padding: 0;
+}
+
 .bible-reader-root {
     background: var(--background-primary);
 }
