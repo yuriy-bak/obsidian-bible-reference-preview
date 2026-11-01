@@ -259,6 +259,7 @@ export class ReferenceUsageService {
                     && this.shouldAutoUpdateReferenceUsageIndex()
                     && this.context.hasImportedTranslations(),
                 hasImportedTranslations: () => this.context.hasImportedTranslations(),
+                showNoImportedTranslationsNotice: () => this.context.showNoImportedTranslationsNotice(),
                 translate: (key, params) => this.context.t(key, params),
                 refreshSettings: () => this.context.refreshSettingsTab(),
                 onIndexChanged: () => this.onIndexChanged(),

@@ -49,7 +49,12 @@ export type BibleReaderViewInput = {
     getHistoryBackAria: () => string;
     getHistoryForwardAria: () => string;
     getCopyNoticeText: () => string;
+    /** The empty reader of a new user: what is missing and buttons to import a Bible file or open the settings. */
     getNoTranslationsText: () => string;
+    getImportButtonText: () => string;
+    onImport: (hostEl: HTMLElement) => void;
+    getOpenSettingsText: () => string;
+    onOpenSettings: () => void;
     getActiveTranslationId: () => string | null;
     hasTranslation: (translationId: string) => boolean;
     mapChapterLocation: (location: BibleChapterLocation, fromTranslationId: string, toTranslationId: string) => BibleChapterLocation;
@@ -187,8 +192,16 @@ export class BibleReaderView extends ItemView {
         }
         const location = this.location;
         if (location === null) {
-            if (this.translationId === null) this.renderEmpty();
-            else this.renderBar();
+            if (this.translationId === null) {
+                this.renderEmpty();
+            } else if (this.textEl?.querySelector(".bible-reader-empty") != null) {
+                // The first translation was imported while the empty reader was open: on to the book picker.
+                this.textEl.empty();
+                this.renderBar();
+                this.openNavigator();
+            } else {
+                this.renderBar();
+            }
             return;
         }
         if (!this.input.hasTranslation(location.translationId)) {
@@ -422,7 +435,16 @@ export class BibleReaderView extends ItemView {
         this.buildLayout();
         this.content = null;
         this.renderBar();
-        this.textEl?.replaceChildren(createDiv({ cls: "bible-reader-empty", text: this.input.getNoTranslationsText() }));
+        const emptyEl = createDiv({ cls: "bible-reader-empty" });
+        emptyEl.createDiv({ text: this.input.getNoTranslationsText() });
+        const actionsEl = emptyEl.createDiv({ cls: "bible-reader-empty-actions" });
+        actionsEl.createEl("button", { cls: "mod-cta", text: this.input.getImportButtonText() }, (buttonEl) => {
+            buttonEl.addEventListener("click", () => this.input.onImport(buttonEl));
+        });
+        actionsEl.createEl("button", { text: this.input.getOpenSettingsText() }, (buttonEl) => {
+            buttonEl.addEventListener("click", () => this.input.onOpenSettings());
+        });
+        this.textEl?.replaceChildren(emptyEl);
         updateLeafHeader(this.leaf);
     }
 

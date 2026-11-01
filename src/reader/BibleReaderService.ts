@@ -9,11 +9,12 @@ import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
 import { BIBLE_READER_VIEW_TYPE, BibleReaderView, type BibleReaderOpenState, type BibleReaderViewInput } from "../ui/BibleReaderView";
 import { getWorkspaceLeavesOfType } from "../workspace/BiblePreviewWorkspace";
 
-/** What the reader needs from the reference usages. */
+/** What the reader needs from the reference usages and the import. */
 export type BibleReaderServiceEffects = {
     showUsagesForPreviewBlock: (target: BiblePreviewUsageTarget, returnPoint: ReferenceUsageReturnPoint) => void;
     getChapterUsageCount: (location: BibleChapterLocation) => number | null;
     showUsagesForChapter: (location: BibleChapterLocation, title: string, returnPoint: ReferenceUsageReturnPoint) => void;
+    openBibleFilePicker: (hostEl: HTMLElement) => void;
 };
 
 /** Opens and refreshes the "Bible reader" views. */
@@ -79,7 +80,11 @@ export class BibleReaderService {
             getChooseBookText: () => `📖 ${t("reader.chooseBook")}`,
             getCopyAria: () => t("preview.copyAria"),
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
-            getNoTranslationsText: () => t("notice.noImportedTranslations"),
+            getNoTranslationsText: () => t("reader.empty"),
+            getImportButtonText: () => t("settings.import.button"),
+            onImport: (hostEl) => this.effects.openBibleFilePicker(hostEl),
+            getOpenSettingsText: () => t("notice.gettingStartedButton"),
+            onOpenSettings: () => this.context.openPluginSettings(),
             getHistoryBackAria: () => t("reader.historyBackAria"),
             getHistoryForwardAria: () => t("reader.historyForwardAria"),
             getActiveTranslationId: () => this.context.activeTranslationId,

@@ -26,7 +26,7 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 
 ## Quick start
 
-1. Install **Bible Reference Preview** from Settings → Community plugins and enable it.
+1. Install **Bible Reference Preview** from Settings → Community plugins and enable it. A notice with an **Open settings** button shows where to start; until a translation is imported, the plugin settings list where to download a Bible file.
 2. Download a free Bible file, for example a translation's **ePub** from [ebible.org/find](https://ebible.org/find/) (the World English Bible is a good first choice).
 3. Open Settings → Bible Reference Preview → **Import Bible**, choose the file and click **Import**.
 4. Type a reference such as `John 3:16` or `Rom 8:28-30` in any note. The preview opens for the paragraph under the cursor.
@@ -51,6 +51,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 
 Planned features, in no fixed order:
 
+- [Getting started hints for new users](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/73): what to download and where to click, right in Obsidian (in progress).
 - [Custom book names and abbreviations](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/55) for each translation.
 
 See [all planned features](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) and vote with 👍 on the ones you want.

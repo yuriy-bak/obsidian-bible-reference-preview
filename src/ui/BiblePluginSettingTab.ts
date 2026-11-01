@@ -9,6 +9,7 @@ import type { TranslationService } from "../translations/TranslationService";
 import { createColorSettingDefinitions } from "./ColorSettingsSection";
 import { createReferenceUsageIndexSettingsGroup, type ReferenceUsageIndexSettingKey } from "./ReferenceUsageIndexSettingsSection";
 import { createTranslationSettingsList } from "./TranslationSettingsList";
+import { renderGettingStarted } from "../onboarding/GettingStarted";
 import { getVersificationOptions } from "./VersificationLabels";
 
 export type BiblePluginSettingTabServices = {
@@ -149,6 +150,10 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 name: this.services.context.t("settings.import.name"),
                 desc: this.services.context.t("settings.import.desc"),
                 render: (setting) => {
+                    // A new user sees where to get a Bible file and what to do after the import.
+                    if (!this.services.context.hasImportedTranslations()) {
+                        renderGettingStarted(setting.descEl, this.services.context.settings.interfaceLanguage, (key, params) => this.services.context.t(key, params));
+                    }
                     setting.addButton((button) => button
                         .setButtonText(this.services.context.t("settings.import.button"))
                         .setCta()

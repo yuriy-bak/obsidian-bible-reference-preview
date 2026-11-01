@@ -7,6 +7,7 @@ import type { TranslationService } from "../translations/TranslationService";
 import { createBibleSources, getBibleFilePickerAccept } from "../infrastructure/sources/BibleSourceRegistry";
 import { executePreparedBibleImport, prepareBibleImport } from "./BibleImportFlow";
 import { detectMissingVersifications } from "./detectMissingVersifications";
+import { getExampleReference } from "../onboarding/GettingStarted";
 import {
     formatBibleIndexV2StatsNotice,
     formatBibleImportSuccessNotice,
@@ -84,6 +85,7 @@ export class BibleLibraryService {
     }
 
     async importBibleFile(file: File): Promise<void> {
+        const isFirstTranslation = !this.context.hasImportedTranslations();
         try {
             const preparedImport = await prepareBibleImport({
                 app: this.context.app,
@@ -116,7 +118,12 @@ export class BibleLibraryService {
             if (result.warnings.length > 0) {
                 console.warn("Bible import warnings", result.warnings);
             }
-            new Notice(formatBibleImportSuccessNotice(result, this.translate), 15000);
+            // After the first translation a new user learns what to type, in that translation's book names.
+            const exampleReference = isFirstTranslation
+                ? getExampleReference(result.books, (text) => this.context.parseMatches(text).some((match) => match.text === text))
+                : null;
+            const exampleText = exampleReference === null ? "" : `\n\n${this.context.t("notice.importExample", { reference: exampleReference })}`;
+            new Notice(formatBibleImportSuccessNotice(result, this.translate) + exampleText, 15000);
         } catch (error) {
             if (isBibleImportAbortError(error)) {
                 new Notice(this.context.t("notice.importCancelled"), 5000);
@@ -172,6 +179,6 @@ export class BibleLibraryService {
             return;
         }
 
-        new Notice(this.context.t("notice.noImportedTranslations"), 5000);
+        this.context.showNoImportedTranslationsNotice();
     }
 }

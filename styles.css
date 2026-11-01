@@ -296,6 +296,19 @@ button.bible-preview-pane-icon-button:disabled {
     color: var(--text-muted);
 }
 
+.bible-reader-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--size-4-2);
+    margin-top: var(--size-4-3);
+}
+
+/* First steps in the settings of a user without translations */
+.bible-getting-started {
+    margin: var(--size-4-2) 0 0;
+    padding-inline-start: var(--size-4-5);
+}
+
 /* The reader's one bar: history, chapter title (opens the navigator), translation, chapter actions, copy */
 .bible-reader-bar {
     flex-wrap: wrap;
