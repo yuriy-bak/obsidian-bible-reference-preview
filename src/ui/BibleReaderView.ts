@@ -1,4 +1,4 @@
-import { ItemView, Notice, setIcon, type Menu, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, Platform, setIcon, type Menu, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { BibleNavigatorPanel, type BibleNavigatorLabels } from "./BibleNavigatorPanel";
@@ -17,6 +17,10 @@ import {
 } from "./BiblePreviewRenderer";
 
 export const BIBLE_READER_VIEW_TYPE = "bible-reference-reader";
+/** Obsidian's body class for the navbar hidden by scrolling (phone, "Full screen" option). */
+const HIDDEN_NAVBAR_CLASS = "is-hidden-nav";
+/** Scrolling by fewer pixels does not hide or show the navbar. */
+const NAVBAR_SCROLL_THRESHOLD = 8;
 
 /** What a reader shows: a chapter of one translation, in that translation's numbering. */
 export type BibleReaderLocation = {
@@ -100,8 +104,21 @@ export class BibleReaderView extends ItemView {
     private loadId = 0;
     private copyFeedbackTimer: number | null = null;
 
+    /** The last scroll position of the view, to tell scrolling down from scrolling up. */
+    private lastScrollTop = 0;
+    /** Whether this reader hid Obsidian's mobile navbar, so it shows it again when left. */
+    private hidesNavbar = false;
+
     constructor(leaf: WorkspaceLeaf, private input: BibleReaderViewInput) {
         super(leaf);
+    }
+
+    onload(): void {
+        super.onload();
+        this.registerDomEvent(this.contentEl, "scroll", () => this.onViewScroll());
+        this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
+            if (leaf !== this.leaf) this.setNavbarHidden(false);
+        }));
     }
 
     getViewType(): string { return BIBLE_READER_VIEW_TYPE; }
@@ -134,6 +151,7 @@ export class BibleReaderView extends ItemView {
     }
 
     async onClose(): Promise<void> {
+        this.setNavbarHidden(false);
         this.loadId += 1;
         this.rootEl = null;
         this.barEl = null;
@@ -242,6 +260,32 @@ export class BibleReaderView extends ItemView {
             this.barResizeObserver.observe(barEl);
         }
         this.renderBar();
+    }
+
+    /**
+     * On a phone with Obsidian's "Full screen" option, notes hide the navbar while scrolling down and
+     * show it when scrolling up. Obsidian does that only for its own note views, so the reader does
+     * the same with the body class Obsidian uses.
+     */
+    private onViewScroll(): void {
+        const scrollTop = this.contentEl.scrollTop;
+        const delta = scrollTop - this.lastScrollTop;
+        this.lastScrollTop = scrollTop;
+        if (!Platform.isPhone || !this.isAutoFullScreen()) return;
+        if (delta > NAVBAR_SCROLL_THRESHOLD) this.setNavbarHidden(true);
+        else if (delta < -NAVBAR_SCROLL_THRESHOLD || scrollTop <= 0) this.setNavbarHidden(false);
+    }
+
+    private isAutoFullScreen(): boolean {
+        const vault = this.app.vault as unknown as { getConfig?: (key: string) => unknown };
+        // On by default: only an explicit "off" keeps the navbar.
+        return vault.getConfig?.("autoFullScreen") !== false;
+    }
+
+    private setNavbarHidden(hidden: boolean): void {
+        if (!hidden && !this.hidesNavbar) return;
+        this.hidesNavbar = hidden;
+        this.contentEl.doc.body.toggleClass(HIDDEN_NAVBAR_CLASS, hidden);
     }
 
     private setNavigatorShown(open: boolean): void {
