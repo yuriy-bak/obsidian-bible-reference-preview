@@ -70,7 +70,7 @@ function startRename(plugin, translationId) {
   assert(button, "rename button");
   assert.strictEqual(button.dataset.icon, "pencil");
   button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  const input = setting.nameEl.querySelector("input.bible-translation-name-input");
+  const input = setting.nameEl.querySelector("textarea.bible-translation-name-input");
   assert(input, "name input");
   return input;
 }

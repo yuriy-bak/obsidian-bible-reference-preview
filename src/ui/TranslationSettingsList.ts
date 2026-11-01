@@ -119,17 +119,25 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
 }
 
 // The name turns into a field in place: Enter or leaving the field saves it, Escape cancels.
+// A text area, not a one-line input: a long name wraps onto several lines as it did before editing.
 function startRename(nameEl: HTMLElement, translation: TranslationSettingsItem, input: TranslationSettingsListInput): void {
     nameEl.empty();
-    const nameInput = new TextComponent(nameEl).setValue(translation.name);
-    nameInput.inputEl.addClass("bible-translation-name-input");
+    nameEl.addClass("bible-translation-name-editing");
+    const nameInputEl = nameEl.createEl("textarea", { cls: "bible-translation-name-input" });
+    nameInputEl.rows = 1;
+    nameInputEl.value = translation.name;
+    const fitHeight = (): void => {
+        nameInputEl.setCssProps({ height: "auto" });
+        nameInputEl.setCssProps({ height: `${nameInputEl.scrollHeight}px` });
+    };
     let finished = false;
     const finish = (save: boolean): void => {
         if (finished) {
             return;
         }
         finished = true;
-        const name = nameInput.getValue();
+        nameEl.removeClass("bible-translation-name-editing");
+        const name = nameInputEl.value;
         if (!save || name.trim() === translation.name) {
             input.refresh();
             return;
@@ -142,7 +150,8 @@ function startRename(nameEl: HTMLElement, translation: TranslationSettingsItem, 
         });
     };
 
-    nameInput.inputEl.addEventListener("keydown", (event) => {
+    nameInputEl.addEventListener("input", fitHeight);
+    nameInputEl.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
             event.preventDefault();
             finish(true);
@@ -153,9 +162,10 @@ function startRename(nameEl: HTMLElement, translation: TranslationSettingsItem, 
             finish(false);
         }
     });
-    nameInput.inputEl.addEventListener("blur", () => finish(true));
-    nameInput.inputEl.focus();
-    nameInput.inputEl.select();
+    nameInputEl.addEventListener("blur", () => finish(true));
+    nameInputEl.focus();
+    nameInputEl.select();
+    fitHeight();
 }
 
 function createTranslationDescription(translation: TranslationSettingsItem, translate: TranslationSettingsListInput["translate"]): string {
