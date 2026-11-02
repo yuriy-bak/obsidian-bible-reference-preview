@@ -142,7 +142,30 @@ input.bible-reference-preview-hidden-file-input {
     display: none;
 }
 
-.bible-reference-preview-pre-wrap {
+/* Background tasks (import, usage index build): the progress notice and the settings status row */
+.bible-reference-preview-task-title {
+    font-weight: var(--font-semibold);
+}
+
+.bible-reference-preview-task-message {
+    white-space: pre-wrap;
+    margin-top: var(--size-4-1);
+}
+
+.bible-reference-preview-task-cancel {
+    margin-top: var(--size-4-2);
+}
+
+.bible-reference-preview-task-status {
+    display: flex;
+    align-items: center;
+    gap: var(--size-4-2);
+    margin-top: var(--size-4-2);
+    color: var(--text-normal);
+}
+
+.bible-reference-preview-task-status-text {
+    flex: 1;
     white-space: pre-wrap;
 }
 

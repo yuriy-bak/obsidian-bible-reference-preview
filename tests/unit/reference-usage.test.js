@@ -428,4 +428,39 @@ module.exports = async () => {
   queue.schedule(async () => { runs.push("idle"); });
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(runs, ["first", "pending-2", "idle"]);
+
+  // Notes changed or deleted while a build runs are not lost when the build replaces the index.
+  {
+    const contents = { "a.md": "Ин 3:16", "b.md": "Ин 3:17", "c.md": "Рим 8:28" };
+    const app = createReferenceUsageTestApp(contents);
+    let releaseRead;
+    const readGate = new Promise((resolve) => { releaseRead = resolve; });
+    const cachedRead = app.vault.cachedRead;
+    app.vault.cachedRead = async (file) => {
+      if (file.path === "b.md") await readGate;
+      return cachedRead(file);
+    };
+    const service = new ReferenceUsageIndexService(app, () => "data", createReferenceUsageTestParseMatches, () => []);
+    const files = ["a.md", "b.md", "c.md"].map((path) => createReferenceUsageTestFile(path, 10, 1));
+    const build = service.build(files, true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // a.md is already read by the build: it changes now; c.md is deleted; d.md is created.
+    contents["a.md"] = "Рим 8:28";
+    files[0].stat.mtime = 2;
+    app.vault.cachedRead = cachedRead;
+    await service.updateFile(files[0]);
+    service.removeFile("c.md");
+    contents["d.md"] = "Ин 3:16";
+    await service.updateFile(createReferenceUsageTestFile("d.md", 10, 1));
+    app.vault.cachedRead = async (file) => {
+      if (file.path === "b.md") await readGate;
+      return cachedRead(file);
+    };
+    releaseRead();
+    await build;
+    const romans = service.findUsages([{ book: 45, chapterStart: 8, verseStart: 28, chapterEnd: 8, verseEnd: 28 }]).map((result) => result.filePath);
+    const john = service.findUsages([{ book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 17 }]).map((result) => result.filePath);
+    assert.deepStrictEqual(romans, ["a.md"]);
+    assert.deepStrictEqual(john, ["b.md", "d.md"]);
+  }
 };

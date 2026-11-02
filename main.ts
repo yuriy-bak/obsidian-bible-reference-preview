@@ -136,6 +136,7 @@ export default class BiblePlugin extends Plugin {
         }));
         this.registerEditorExtension(this.editor.createExtension());
         this.referenceUsage.registerVaultEvents(this);
+        this.register(() => this.library.cancelImportOnUnload());
         this.register(() => {
             if (this.parserChangeTimeout !== null) window.clearTimeout(this.parserChangeTimeout);
         });

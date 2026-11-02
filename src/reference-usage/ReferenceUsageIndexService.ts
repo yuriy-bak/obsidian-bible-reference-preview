@@ -94,6 +94,9 @@ export class ReferenceUsageIndexService {
     private saveTimeout: number | null = null;
     // Last editor text indexed per open note, so repeated searches skip unchanged notes.
     private readonly syncedOpenFileContents = new Map<string, string>();
+    // Notes changed (a file) or removed (null) while a build runs: the build replaces the index at the end
+    // with what it read, so these are applied again on top of it.
+    private changesDuringBuild: Map<string, TFile | null> | null = null;
     private readonly maxMarkdownFileSizeBytes: number;
     private readonly buildYieldEveryFiles: number;
     private readonly getParserSignature: () => string;
@@ -161,6 +164,23 @@ export class ReferenceUsageIndexService {
         options: ReferenceUsageIndexBuildOptions = {},
     ): Promise<ReferenceUsageIndexBuildResult> {
         assertReferenceUsageBuildNotAborted(options.signal);
+        const changesDuringBuild = new Map<string, TFile | null>();
+        this.changesDuringBuild = changesDuringBuild;
+        try {
+            return await this.buildIndex(files, forceRebuild, options, changesDuringBuild);
+        } finally {
+            if (this.changesDuringBuild === changesDuringBuild) {
+                this.changesDuringBuild = null;
+            }
+        }
+    }
+
+    private async buildIndex(
+        files: TFile[],
+        forceRebuild: boolean,
+        options: ReferenceUsageIndexBuildOptions,
+        changesDuringBuild: Map<string, TFile | null>,
+    ): Promise<ReferenceUsageIndexBuildResult> {
         const indexableFiles = files.filter((file) => this.shouldIndexFile(file));
         const buildableFiles = indexableFiles.filter((file) => !this.isFileTooLargeForIndex(file));
         const skippedLargeFileCount = indexableFiles.length - buildableFiles.length;
@@ -201,6 +221,8 @@ export class ReferenceUsageIndexService {
         nextIndex.updatedAt = Date.now();
         nextIndex.parserSignature = parserSignature;
         this.index = nextIndex;
+        this.changesDuringBuild = null;
+        await this.applyChangesMadeDuringBuild(changesDuringBuild);
         this.syncedOpenFileContents.clear();
         await this.save();
         return {
@@ -209,6 +231,21 @@ export class ReferenceUsageIndexService {
             skippedLargeFileCount,
             maxFileSizeBytes: this.maxMarkdownFileSizeBytes,
         };
+    }
+
+    private async applyChangesMadeDuringBuild(changes: Map<string, TFile | null>): Promise<void> {
+        for (const [path, file] of changes) {
+            if (file === null || !this.shouldIndexFile(file) || this.isFileTooLargeForIndex(file)) {
+                delete this.index.files[path];
+                continue;
+            }
+            try {
+                this.index.files[path] = this.createIndexedFile(file, await this.app.vault.cachedRead(file));
+            } catch {
+                // The note is gone already.
+                delete this.index.files[path];
+            }
+        }
     }
 
     public async clear(): Promise<void> {
@@ -222,6 +259,7 @@ export class ReferenceUsageIndexService {
             this.removeFile(file.path);
             return;
         }
+        this.changesDuringBuild?.set(file.path, file);
         const content = await this.app.vault.cachedRead(file);
         this.index.files[file.path] = this.createIndexedFile(file, content);
         this.scheduleSave();
@@ -255,6 +293,7 @@ export class ReferenceUsageIndexService {
     }
 
     public removeFile(path: string): boolean {
+        this.changesDuringBuild?.set(path, null);
         if (this.index.files[path] === undefined) {
             return false;
         }

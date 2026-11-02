@@ -52,7 +52,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 - **Bible reader:** the open-book icon in a passage title opens the full chapter in a reader tab, in the translation and numbering of that passage. Click the chapter title to pick a book and chapter (type `John`, `1 Cor 13` or `John 3:16` to filter), or use the command **Go to Bible book and chapter**. The translation selector shows the same chapter in another translation (Synodal Ps 22 → English Ps 23) without changing the default one. Back and forward go through the chapters you opened, the arrows open the previous or next chapter, the highlighter hides or shows the highlighting, and the magnifier lists all usages of the chapter. Ctrl/Cmd-click on the ribbon icon opens another reader tab; the last chapter reopens after a restart.
 - **Comparison:** the books-on-a-shelf button in the preview header turns it on (it stays highlighted while comparison is on); choose the translations in the header list.
 - **A translation code** after a reference shows the passage in that translation and its numbering: `Ps 23:1 (WEB)`, where `WEB` is the code of an imported translation. Codes can be changed in the translation list.
-- **Usage index:** the magnifier next to a passage lists the notes that cite it, with the heading and the lines the reference sits under. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
+- **Usage index:** the magnifier next to a passage lists the notes that cite it, with the heading and the lines the reference sits under. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped. A full build also runs in the background: a notice shows its progress (it can be closed) and has a Cancel button, and searches use the previous index until it finishes.
 - **Commands:** open the reference under the cursor (with an optional shortcut), open the Bible reader or go to a book and chapter, find usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
 - **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, name (the pencil after it), numbering scheme, code and book names, and the usage index.
 
@@ -84,7 +84,7 @@ Translations are stored in the plugin folder (`.obsidian/plugins/bible-reference
 
 ## Importing a translation
 
-Open Settings → Bible Reference Preview → **Import Bible** and choose a file. The plugin recognizes the format by itself. Check the translation name and language, then click **Import**. Importing the same translation again replaces it.
+Open Settings → Bible Reference Preview → **Import Bible** and choose a file. The plugin recognizes the format by itself. Check the translation name and language, then click **Import**. The import runs in the background: a notice and the settings show its progress and a Cancel button, and you can keep working with the translations imported before. Importing the same translation again replaces it.
 
 Where to get a file:
 

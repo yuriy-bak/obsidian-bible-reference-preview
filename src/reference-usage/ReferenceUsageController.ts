@@ -1,6 +1,6 @@
 import { App, Notice, TFile, type TAbstractFile } from "obsidian";
 import type { I18nKey } from "../i18n/I18n";
-import { ProgressCancelModal } from "../ui/ProgressCancelModal";
+import { BackgroundTaskProgress } from "../ui/BackgroundTaskProgress";
 import { ReferenceUsageBuildQueue } from "./ReferenceUsageBuildQueue";
 import {
     isReferenceUsageIndexBuildAbortError,
@@ -23,11 +23,25 @@ export type ReferenceUsageControllerInput = {
     onIndexChanged: () => void;
 };
 
+type ReferenceUsageBuildRunOptions = {
+    title: I18nKey;
+    // The progress notice with its cancel button, and the result notices.
+    showNotices: boolean;
+    onProgress?: (progress: ReferenceUsageIndexBuildProgress) => void;
+};
+
 export class ReferenceUsageController {
     private readonly fileUpdateTimeouts = new Map<string, number>();
     private readonly buildQueue = new ReferenceUsageBuildQueue();
+    private activeBuild: { progress: BackgroundTaskProgress; abortController: AbortController } | null = null;
+    private unloaded = false;
 
     constructor(private readonly input: ReferenceUsageControllerInput) {}
+
+    /** The build running now, for the settings status row; null when none runs. */
+    public getActiveBuildProgress(): BackgroundTaskProgress | null {
+        return this.activeBuild?.progress ?? null;
+    }
 
     public async buildIndex(forceRebuild: boolean): Promise<void> {
         if (!this.input.isIndexingEnabled()) {
@@ -38,59 +52,16 @@ export class ReferenceUsageController {
             this.input.showNoImportedTranslationsNotice();
             return;
         }
-        if (!await this.buildQueue.tryRun(() => this.runBuildWithProgress(forceRebuild))) {
-            new Notice(this.input.translate("notice.referenceUsageIndexAlreadyRunning"), 4000);
+        const started = await this.buildQueue.tryRun(async () => {
+            await this.runBuild(forceRebuild, { title: "notice.referenceUsageIndexBuildStarted", showNotices: true });
+        });
+        if (!started) {
+            this.showAlreadyRunning();
         }
     }
 
-    private async runBuildWithProgress(forceRebuild: boolean): Promise<void> {
-        const abortController = new AbortController();
-        const files = this.input.app.vault.getMarkdownFiles();
-        const progressModal = new ProgressCancelModal(
-            this.input.app,
-            this.input.translate("notice.referenceUsageIndexBuildStarted"),
-            this.formatBuildProgress({
-                totalFileCount: files.length,
-                processedFileCount: 0,
-                updatedFileCount: 0,
-                skippedLargeFileCount: 0,
-            }),
-            this.input.translate("common.cancel"),
-            () => abortController.abort(),
-        );
-        progressModal.open();
-
-        try {
-            const result = await this.input.getService().build(files, forceRebuild, {
-                signal: abortController.signal,
-                onProgress: (progress) => progressModal.updateMessage(this.formatBuildProgress(progress)),
-            });
-            new Notice(this.input.translate("notice.referenceUsageIndexBuildCompleted", {
-                fileCount: result.fileCount,
-                updatedFileCount: result.updatedFileCount,
-                referenceCount: result.referenceCount,
-            }), 8000);
-            if (result.skippedLargeFileCount > 0) {
-                new Notice(this.input.translate("notice.referenceUsageIndexSkippedLargeFiles", {
-                    count: result.skippedLargeFileCount,
-                    maxSize: formatMegabytes(result.maxFileSizeBytes),
-                }), 8000);
-            }
-        } catch (error) {
-            if (isReferenceUsageIndexBuildAbortError(error)) {
-                new Notice(this.input.translate("notice.referenceUsageIndexBuildCancelled"), 5000);
-            } else {
-                console.warn("Bible reference usage index build failed", error);
-                new Notice(this.input.translate("notice.referenceUsageIndexSaveFailed"), 5000);
-            }
-        } finally {
-            progressModal.finish();
-            this.input.refreshSettings();
-            this.input.onIndexChanged();
-        }
-    }
-
-    // Incremental update without a modal, for the usages panel refresh button. Returns true when the index was updated.
+    // Incremental update for the usages panel refresh button: progress is shown in the panel, not in a notice.
+    // Returns true when the index was updated.
     public async updateIndexInBackground(onProgress?: (progress: ReferenceUsageIndexBuildProgress) => void): Promise<boolean> {
         if (!this.input.isIndexingEnabled()) {
             new Notice(this.input.translate("notice.referenceUsageIndexDisabled"), 4000);
@@ -102,19 +73,10 @@ export class ReferenceUsageController {
         }
         let updated = false;
         const started = await this.buildQueue.tryRun(async () => {
-            try {
-                await this.input.getService().build(this.input.app.vault.getMarkdownFiles(), false, { onProgress });
-                updated = true;
-            } catch (error) {
-                console.warn("Bible reference usage index update failed", error);
-                new Notice(this.input.translate("notice.referenceUsageIndexSaveFailed"), 5000);
-            } finally {
-                this.input.refreshSettings();
-                this.input.onIndexChanged();
-            }
+            updated = await this.runBuild(false, { title: "notice.referenceUsageIndexBuildStarted", showNotices: false, onProgress });
         });
         if (!started) {
-            new Notice(this.input.translate("notice.referenceUsageIndexAlreadyRunning"), 4000);
+            this.showAlreadyRunning();
         }
         return updated;
     }
@@ -124,25 +86,82 @@ export class ReferenceUsageController {
     public requestRebuildAfterParserChange(): void {
         this.buildQueue.schedule(async () => {
             if (!this.input.shouldAutoProcessEvents() || !this.input.getService().isOutdated()) return;
-            new Notice(this.input.translate("notice.referenceUsageIndexAutoRebuildStarted"), 4000);
-            try {
-                const result = await this.input.getService().build(this.input.app.vault.getMarkdownFiles(), false);
+            await this.runBuild(false, { title: "notice.referenceUsageIndexAutoRebuildStarted", showNotices: true });
+        });
+    }
+
+    public cancelBuild(): void {
+        this.activeBuild?.abortController.abort();
+    }
+
+    // The build runs in the background: notes, previews and searches keep working with the previous index
+    // until it finishes. Returns true when the index was updated.
+    private async runBuild(forceRebuild: boolean, options: ReferenceUsageBuildRunOptions): Promise<boolean> {
+        const abortController = new AbortController();
+        const files = this.input.app.vault.getMarkdownFiles();
+        const progress = new BackgroundTaskProgress(
+            { title: this.input.translate(options.title), cancel: this.input.translate("common.cancel") },
+            this.formatBuildProgress({ totalFileCount: files.length, processedFileCount: 0, updatedFileCount: 0, skippedLargeFileCount: 0 }),
+            () => abortController.abort(),
+        );
+        this.activeBuild = { progress, abortController };
+        if (options.showNotices) {
+            progress.showNotice();
+        }
+        this.input.refreshSettings();
+
+        try {
+            const result = await this.input.getService().build(files, forceRebuild, {
+                signal: abortController.signal,
+                onProgress: (buildProgress) => {
+                    progress.update(this.formatBuildProgress(buildProgress));
+                    options.onProgress?.(buildProgress);
+                },
+            });
+            if (options.showNotices) {
                 new Notice(this.input.translate("notice.referenceUsageIndexBuildCompleted", {
                     fileCount: result.fileCount,
                     updatedFileCount: result.updatedFileCount,
                     referenceCount: result.referenceCount,
                 }), 8000);
-            } catch (error) {
-                console.warn("Bible reference usage index rebuild failed", error);
+                if (result.skippedLargeFileCount > 0) {
+                    new Notice(this.input.translate("notice.referenceUsageIndexSkippedLargeFiles", {
+                        count: result.skippedLargeFileCount,
+                        maxSize: formatMegabytes(result.maxFileSizeBytes),
+                    }), 8000);
+                }
+            }
+            return true;
+        } catch (error) {
+            if (isReferenceUsageIndexBuildAbortError(error)) {
+                if (!this.unloaded) {
+                    new Notice(this.input.translate("notice.referenceUsageIndexBuildCancelled"), 5000);
+                }
+            } else {
+                console.warn("Bible reference usage index build failed", error);
                 new Notice(this.input.translate("notice.referenceUsageIndexSaveFailed"), 5000);
-            } finally {
+            }
+            return false;
+        } finally {
+            progress.finish();
+            if (this.activeBuild?.progress === progress) {
+                this.activeBuild = null;
+            }
+            if (!this.unloaded) {
                 this.input.refreshSettings();
                 this.input.onIndexChanged();
             }
-        });
+        }
+    }
+
+    private showAlreadyRunning(): void {
+        new Notice(this.input.translate("notice.referenceUsageIndexAlreadyRunning"), 4000);
+        this.activeBuild?.progress.showNotice();
     }
 
     public async clearIndex(): Promise<void> {
+        // A running build would put its result back over the cleared index.
+        this.cancelBuild();
         try {
             await this.input.getService().clear();
             this.input.refreshSettings();
@@ -180,7 +199,10 @@ export class ReferenceUsageController {
         this.handleFileCreateOrModify(file);
     }
 
+    // On unload: stops a running build and writes a scheduled save.
     public clearPendingUpdates(): void {
+        this.unloaded = true;
+        this.cancelBuild();
         for (const timeout of this.fileUpdateTimeouts.values()) window.clearTimeout(timeout);
         this.fileUpdateTimeouts.clear();
         this.input.getService().flushPendingSave();

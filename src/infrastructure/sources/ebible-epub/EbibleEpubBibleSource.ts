@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { loadZipArchive } from "../../epub/loadZipArchive";
 import type { BibleBook } from "../../../domain/BibleBook";
 import { getBookIdByUsfmCode } from "../../../versification/UsfmBookCodes";
 import { EPUB_IMPORT_LIMITS, readContainerOpfPath, readZipText, validateZipArchive } from "../../epub/EpubContainerReader";
@@ -31,7 +32,7 @@ export class EbibleEpubBibleSource implements BibleSource {
             return false;
         }
         try {
-            const zip = await JSZip.loadAsync(file.content);
+            const zip = await loadZipArchive(file.content);
             validateZipArchive(zip);
             await readContainerOpfPath(zip);
             const paths = Object.keys(zip.files);
@@ -46,7 +47,7 @@ export class EbibleEpubBibleSource implements BibleSource {
     }
 
     async readMetadata(content: ArrayBuffer): Promise<BibleSourceMetadata> {
-        const zip = await JSZip.loadAsync(content);
+        const zip = await loadZipArchive(content);
         validateZipArchive(zip);
         return extractSourceMetadataFromOpf(await readZipText(zip, await readContainerOpfPath(zip)));
     }
@@ -54,7 +55,7 @@ export class EbibleEpubBibleSource implements BibleSource {
     async importBible(input: BibleImportInput, options: BibleImportOptions = {}): Promise<BibleImportResult> {
         assertBibleImportNotAborted(options);
         options.onProgress?.({ stage: "loading-zip", processedCount: 0, totalCount: 1 });
-        const zip = await JSZip.loadAsync(input.content);
+        const zip = await loadZipArchive(input.content);
         assertBibleImportNotAborted(options);
         options.onProgress?.({ stage: "loading-zip", processedCount: 1, totalCount: 1 });
         validateZipArchive(zip);

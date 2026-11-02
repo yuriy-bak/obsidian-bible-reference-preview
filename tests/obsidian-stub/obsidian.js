@@ -147,6 +147,8 @@ class Notice {
     this.messageEl = this.noticeEl;
     this.hidden = false;
     this.setMessage(message);
+    // Shown like Obsidian does, in the document until hidden.
+    document.body.appendChild(this.noticeEl);
     state.notices.push(this);
   }
 
@@ -160,6 +162,7 @@ class Notice {
 
   hide() {
     this.hidden = true;
+    this.noticeEl.remove();
   }
 }
 

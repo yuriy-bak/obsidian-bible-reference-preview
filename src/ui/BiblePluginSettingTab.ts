@@ -7,6 +7,7 @@ import type { BibleLinkOpenShortcut, BiblePreviewDisplayMode, BiblePreviewPanelS
 import type { SettingsService } from "../settings/SettingsService";
 import type { TranslationService } from "../translations/TranslationService";
 import { createColorSettingDefinitions } from "./ColorSettingsSection";
+import { renderBackgroundTaskStatus } from "./BackgroundTaskProgress";
 import { createReferenceUsageIndexSettingsGroup, type ReferenceUsageIndexSettingKey } from "./ReferenceUsageIndexSettingsSection";
 import { createTranslationSettingsList } from "./TranslationSettingsList";
 import { openBookAliasesModal } from "./BookAliasesModal";
@@ -69,6 +70,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 showStats: () => this.services.referenceUsage.showReferenceUsageIndexStats(),
                 clearIndex: () => this.services.referenceUsage.clearReferenceUsageIndex(),
                 isIndexOutdated: () => this.services.referenceUsage.isReferenceUsageIndexOutdated(),
+                getBuildProgress: () => this.services.referenceUsage.getReferenceUsageBuildProgress(),
             }),
             this.createPreviewSettingsGroup(),
             {
@@ -176,6 +178,10 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                         .setButtonText(this.services.context.t("settings.import.button"))
                         .setCta()
                         .onClick(() => this.services.library.openBibleFilePicker(setting.settingEl)));
+                    const importProgress = this.services.library.getImportProgress();
+                    if (importProgress !== null) {
+                        renderBackgroundTaskStatus(setting.descEl, importProgress);
+                    }
                 },
             },
         ];

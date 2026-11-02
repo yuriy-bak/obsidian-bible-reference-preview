@@ -1,5 +1,6 @@
 import type { SettingDefinitionGroup } from "obsidian";
 import { t, type BiblePluginLocale } from "../i18n/I18n";
+import { renderBackgroundTaskStatus, type BackgroundTaskProgress } from "./BackgroundTaskProgress";
 
 type ReferenceUsageIndexSettingsI18nKey =
     | "settings.referenceUsageIndex.title"
@@ -30,6 +31,7 @@ export type ReferenceUsageIndexSettingsSectionInput = {
     showStats: () => Promise<void> | void;
     clearIndex: () => Promise<void> | void;
     isIndexOutdated: () => boolean;
+    getBuildProgress: () => BackgroundTaskProgress | null;
 };
 
 const ACTION_BUTTON_KEYS: ReferenceUsageIndexSettingsI18nKey[] = [
@@ -92,6 +94,10 @@ export function createReferenceUsageIndexSettingsGroup(input: ReferenceUsageInde
                             .setButtonText(translate("settings.referenceUsageIndex.clear.button"))
                             .setDestructive()
                             .onClick(() => void input.clearIndex()));
+                    const buildProgress = input.getBuildProgress();
+                    if (buildProgress !== null) {
+                        renderBackgroundTaskStatus(setting.descEl, buildProgress);
+                    }
                 },
             },
         ],

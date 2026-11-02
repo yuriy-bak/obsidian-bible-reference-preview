@@ -38,6 +38,7 @@ export class PluginContext {
     private currentBibleIndex: BibleIndex = EMPTY_BIBLE_INDEX;
     private currentV2Data: BibleIndexV2Data | null = null;
     private currentActiveTranslationId: string | null = null;
+    private currentImportingTranslationId: string | null = null;
     private currentBookMapping: BookMapping = createBookMapping([]);
     private currentParser = new BibleReferenceParser(this.currentBookMapping);
     private currentParserSignature: string | null = null;
@@ -67,6 +68,15 @@ export class PluginContext {
 
     get bookMapping(): BookMapping {
         return this.currentBookMapping;
+    }
+
+    /** The translation a running import writes (a reimport keeps the id); it cannot be renamed or deleted meanwhile. */
+    get importingTranslationId(): string | null {
+        return this.currentImportingTranslationId;
+    }
+
+    setImportingTranslationId(translationId: string | null): void {
+        this.currentImportingTranslationId = translationId;
     }
 
     async loadSettings(): Promise<void> {

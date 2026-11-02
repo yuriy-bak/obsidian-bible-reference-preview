@@ -78,6 +78,11 @@ export class BibleReferenceParser {
     }
 
     parseMatches(text: string): BibleReferenceMatch[] {
+        // Every reference has a chapter or verse number: text without digits is skipped before the
+        // per-character normalization, which most note lines would otherwise pay for nothing.
+        if (!MAY_CONTAIN_REFERENCE_PATTERN.test(text)) {
+            return [];
+        }
         try {
             const normalizedLine = this.normalizeLineWithOffsets(text);
             const candidates = this.findReferenceCandidates(normalizedLine.text);
@@ -503,6 +508,8 @@ export class BibleReferenceParser {
         return Number.isInteger(value) && value > 0;
     }
 }
+// ASCII digits and the Arabic-Indic digits that normalizeSearchText turns into them.
+const MAY_CONTAIN_REFERENCE_PATTERN = /[0-9\u0660-\u0669\u06F0-\u06F9]/u;
 const BIG_BOOK_BODY_PATTERN = /\d+:\d+(?:-\d+:\d+|-\d+|,\d+)*(?:;\d+:\d+(?:-\d+:\d+|-\d+|,\d+)*)*/y;
 // One-chapter books also accept the "1:N" form ("Jude 1:5"); any other chapter number is not a reference.
 const SHORT_BOOK_BODY_PATTERN = /(?:1:)?\d+(?:-\d+|,\d+)*(?:;(?:1:)?\d+(?:-\d+|,\d+)*)*(?!\d*:)/y;

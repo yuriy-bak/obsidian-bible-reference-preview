@@ -27,6 +27,16 @@ class MemoryAdapter {
     for (let index = 1; index <= parts.length; index += 1) this.folders.add(parts.slice(0, index).join("/"));
   }
 
+  async list(path) {
+    const prefix = path === "" ? "" : `${path}/`;
+    const isChild = (candidate) => candidate !== path && candidate.startsWith(prefix) && !candidate.slice(prefix.length).includes("/");
+    return { files: [...this.files.keys()].filter(isChild), folders: [...this.folders].filter(isChild) };
+  }
+
+  async remove(path) {
+    if (!this.files.delete(path)) throw new Error(`ENOENT: ${path}`);
+  }
+
   async rmdir(path, recursive) {
     const prefix = `${path}/`;
     const nested = [...this.files.keys(), ...this.folders].filter((candidate) => candidate.startsWith(prefix));
