@@ -47,7 +47,11 @@ export class BiblePreviewContentBuilder {
                 id: Number(id),
                 name: book.name,
                 abbreviation: book.abbreviation,
-                aliases: [...book.aliases, ...getLanguageBookAliases(translation.language, Number(id))],
+                aliases: [
+                    ...book.aliases,
+                    ...getLanguageBookAliases(translation.language, Number(id)),
+                    ...(this.context.settings.bookAliases[translationId]?.[id] ?? []),
+                ],
                 ...(book.chapterCount === undefined ? {} : { chapterCount: book.chapterCount }),
             }))
             .filter((book) => Number.isInteger(book.id) && book.id > 0);

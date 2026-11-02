@@ -15,7 +15,9 @@ type TranslationSettingsListI18nKey =
     | "settings.translations.codeInvalid"
     | "settings.translations.codeTaken"
     | "settings.translations.rename"
-    | "settings.translations.nameRequired";
+    | "settings.translations.nameRequired"
+    | "settings.translations.bookNames"
+    | "settings.translations.bookNamesHint";
 
 type TranslationSettingsListI18nParams = Record<string, string | number>;
 
@@ -30,6 +32,8 @@ export type TranslationSettingsListInput = {
     /** Resolves with "empty" when the name was not accepted, or null. */
     onNameChange: (translationId: string, name: string) => Promise<"empty" | null>;
     showError: (message: string) => void;
+    /** Opens the "Book names" window of the translation. */
+    onEditBookNames: (translationId: string) => void;
     onDelete: (translationId: string) => Promise<void>;
     onReorder: (nextOrder: string[]) => Promise<void>;
     refresh: () => void;
@@ -92,6 +96,22 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
                         }
                         input.refresh();
                     });
+                });
+
+                const bookNamesButton = controlsEl.createEl("button", {
+                    cls: "bible-translation-book-names",
+                    attr: { type: "button", title: translate("settings.translations.bookNamesHint") },
+                });
+                setIcon(bookNamesButton.createSpan({ cls: "bible-translation-book-names-icon" }), ICONS.bookNames);
+                bookNamesButton.createSpan({
+                    text: translation.customBookAliasCount > 0
+                        ? `${translate("settings.translations.bookNames")} (${translation.customBookAliasCount})`
+                        : translate("settings.translations.bookNames"),
+                });
+                bookNamesButton.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    input.onEditBookNames(translation.id);
                 });
 
                 return () => {

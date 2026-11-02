@@ -19,6 +19,7 @@ export const ICONS = {
     copied: "check",
     comparison: "library-big",
     rename: "pencil",
+    bookNames: "tags",
 } as const;
 
 /** Replaces the element's content with a Lucide icon followed by an optional text label. */

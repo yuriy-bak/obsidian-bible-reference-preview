@@ -200,6 +200,7 @@ module.exports = {
   createEditor,
   createJwEpub,
   deleteTranslation,
+  findModal,
   editorLinkTexts,
   floatingPreviewText,
   flush,

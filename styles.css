@@ -1030,3 +1030,111 @@ button.bible-reference-usage-pane-open-button {
 .bible-translation-setting-code {
     width: 8em;
 }
+
+/* "Book names" button beside the code field; opens the window with the books of the translation. */
+.bible-translation-book-names {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--size-2-2);
+    align-self: flex-end;
+    height: auto;
+    padding: var(--size-2-2) var(--size-4-2);
+    font-size: var(--font-ui-small);
+}
+
+.bible-translation-book-names-icon {
+    display: inline-flex;
+}
+
+.bible-translation-book-names-icon svg {
+    width: var(--icon-xs);
+    height: var(--icon-xs);
+}
+
+/* Book names window: a search field and the books, each with its names as chips and a pencil. */
+.bible-book-aliases-description {
+    margin-top: 0;
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+}
+
+.bible-book-aliases-search {
+    width: 100%;
+    margin-bottom: var(--size-4-2);
+}
+
+.bible-book-aliases-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--size-4-2);
+    padding: var(--size-4-2) 0;
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.bible-book-aliases-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bible-book-aliases-name {
+    font-weight: var(--font-semibold);
+}
+
+.bible-book-aliases-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--size-2-2);
+    margin-top: var(--size-2-2);
+}
+
+.bible-book-alias-chip {
+    padding: 0 var(--size-4-1);
+    border-radius: var(--radius-s);
+    background-color: var(--background-modifier-hover);
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    line-height: 1.6;
+}
+
+.bible-book-alias-chip.mod-custom {
+    background-color: hsla(var(--interactive-accent-hsl), 0.15);
+    color: var(--text-accent);
+}
+
+/* While editing, the user's names are in the field, so their chips are hidden. */
+.bible-book-aliases-chips.is-editing .bible-book-alias-chip.mod-custom {
+    display: none;
+}
+
+.bible-book-aliases-input {
+    width: 100%;
+    margin-top: var(--size-2-2);
+}
+
+.bible-book-aliases-input.mod-error {
+    border-color: var(--text-error);
+}
+
+.bible-book-aliases-error {
+    color: var(--text-error);
+    font-size: var(--font-ui-smaller);
+    white-space: pre-line;
+}
+
+.bible-book-aliases-error:empty {
+    display: none;
+}
+
+.bible-book-aliases-edit {
+    flex: 0 0 auto;
+    color: var(--text-faint);
+}
+
+.bible-book-aliases-edit:hover {
+    color: var(--text-normal);
+}
+
+.bible-book-aliases-empty {
+    padding: var(--size-4-2) 0;
+    color: var(--text-muted);
+}

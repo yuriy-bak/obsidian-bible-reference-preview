@@ -4,6 +4,7 @@ const TEST_FILES = [
   "settings",
   "parser",
   "multilang-books",
+  "custom-book-aliases",
   "bible-text",
   "preview-format",
   "preview-analyzer",

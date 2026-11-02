@@ -52,7 +52,7 @@ export class TranslationController {
         return areStringArraysEqual(state.translationOrder, nextOrder) ? null : nextOrder;
     }
 
-    public static getTranslationSettingsItems(state: TranslationControllerState): Omit<TranslationSettingsItem, "code">[] {
+    public static getTranslationSettingsItems(state: TranslationControllerState): Omit<TranslationSettingsItem, "code" | "customBookAliasCount">[] {
         if (state.v2Data === null) {
             return [];
         }
