@@ -1058,9 +1058,40 @@ button.bible-reference-usage-pane-open-button {
     font-size: var(--font-ui-small);
 }
 
-.bible-book-aliases-search {
-    width: 100%;
+.bible-book-aliases-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--size-4-2);
     margin-bottom: var(--size-4-2);
+}
+
+.bible-book-aliases-search {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bible-book-aliases-reset {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--size-2-2);
+}
+
+.bible-book-aliases-reset svg {
+    width: var(--icon-xs);
+    height: var(--icon-xs);
+}
+
+/* ✓ and ✕ beside the field, at its height. */
+.bible-book-aliases-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-self: flex-end;
+    gap: var(--size-2-1);
+}
+
+.bible-book-aliases-save {
+    color: var(--interactive-accent);
 }
 
 .bible-book-aliases-row {

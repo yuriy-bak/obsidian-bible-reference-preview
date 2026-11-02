@@ -80,6 +80,29 @@ export class TranslationService {
             }));
     }
 
+    /** Asks for confirmation and removes all the user's book names of a translation. Resolves with whether it did. */
+    async resetCustomBookAliases(translationId: string): Promise<boolean> {
+        if (this.context.settings.bookAliases[translationId] === undefined) {
+            return false;
+        }
+        const translationName = this.context.v2Data?.translations[translationId]?.name || translationId;
+        const confirmed = await openConfirmModal(this.context.app, {
+            title: this.context.t("confirm.resetBookAliases.title", { translationName }),
+            messageLines: [this.context.t("confirm.resetBookAliases.message")],
+            confirmText: this.context.t("confirm.resetBookAliases.confirm"),
+            cancelText: this.context.t("common.cancel"),
+        });
+        if (!confirmed) {
+            return false;
+        }
+        const { [translationId]: _removed, ...otherTranslations } = this.context.settings.bookAliases;
+        this.context.updateSettings({ bookAliases: otherTranslations });
+        await this.context.saveSettings();
+        this.context.updateBookMapping();
+        await this.effects.refreshVisibleBiblePreviewContent();
+        return true;
+    }
+
     /**
      * Stores the user's names of a book; an empty list removes them. A name another book of the translation
      * already has is refused: the conflicts are returned and nothing is saved.

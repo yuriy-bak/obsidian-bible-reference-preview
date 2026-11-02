@@ -138,6 +138,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             translate: (key, params) => this.services.context.t(key, params),
             getBooks: () => translations.getBookAliasesEditorBooks(translationId),
             save: (bookId, aliases) => translations.setCustomBookAliases(translationId, bookId, aliases),
+            resetAll: () => translations.resetCustomBookAliases(translationId),
             showError: (message) => new Notice(message),
             // The count of the user's names on the translation's button.
             onClose: () => this.update(),

@@ -1,6 +1,7 @@
 const assert = require("assert");
 const { Setting } = require("obsidian");
 const {
+  clickButton,
   deleteTranslation,
   flush,
   findModal,
@@ -33,6 +34,17 @@ module.exports = async function runBookNamesTests() {
   await flush();
   assert.deepStrictEqual(plugin.context.settings.bookAliases, {});
 
+  // ✕ cancels too, even though pressing it takes the focus out of the field.
+  input = startEdit(bookRow(modal, 43));
+  input.value = "Йн";
+  const cancelButton = bookRow(modal, 43).querySelector(".bible-book-aliases-cancel");
+  assert.strictEqual(cancelButton.dataset.icon, "x");
+  input.dispatchEvent(new FocusEvent("blur", { relatedTarget: cancelButton }));
+  cancelButton.click();
+  await flush();
+  assert.deepStrictEqual(plugin.context.settings.bookAliases, {});
+  assert.strictEqual(bookRow(modal, 43).querySelector("input.bible-book-aliases-input"), null);
+
   // A name of another book is refused with a notice; the field stays open.
   input = startEdit(bookRow(modal, 43));
   input.value = "Йн, Быт";
@@ -50,6 +62,33 @@ module.exports = async function runBookNamesTests() {
   assert.deepStrictEqual(chips(row, ".mod-custom"), ["Йн", "Иоан."]);
   assert.deepStrictEqual(renderReadingMode(plugin, "Йн 3:16; Иоан 1:1"), ["Йн 3:16", "Иоан 1:1"]);
   assert.strictEqual(plugin.savedData.bookAliases[ruId][43].join(","), "Йн,Иоан.");
+
+  // ✓ saves.
+  input = startEdit(bookRow(modal, 1));
+  input.value = "Бт";
+  bookRow(modal, 1).querySelector(".bible-book-aliases-save").click();
+  await waitFor(() => chips(bookRow(modal, 1), ".mod-custom").length === 1);
+  assert.deepStrictEqual(plugin.context.settings.bookAliases[ruId][1], ["Бт"]);
+
+  // "Reset all" asks first; cancelled, nothing changes; confirmed, all the user's names go.
+  const resetButton = modal.contentEl.querySelector(".bible-book-aliases-reset");
+  assert.strictEqual(resetButton.disabled, false);
+  resetButton.click();
+  let confirmModal = await waitFor(() => findModal("ConfirmModal"));
+  clickButton(confirmModal.contentEl, plugin.context.t("common.cancel"));
+  await flush();
+  assert.deepStrictEqual(Object.keys(plugin.context.settings.bookAliases[ruId]), ["1", "43"]);
+  resetButton.click();
+  confirmModal = await waitFor(() => findModal("ConfirmModal"));
+  clickButton(confirmModal.contentEl, plugin.context.t("confirm.resetBookAliases.confirm"));
+  await waitFor(() => resetButton.disabled);
+  assert.strictEqual(plugin.context.settings.bookAliases[ruId], undefined);
+  assert.deepStrictEqual(chips(bookRow(modal, 43), ".mod-custom"), []);
+  await flush();
+  assert.deepStrictEqual(renderReadingMode(plugin, "Йн 3:16"), []);
+  await plugin.translations.setCustomBookAliases(ruId, 43, ["Йн", "Иоан."]);
+  modal.close();
+  modal = openBookNames(plugin, ruId);
 
   // The search finds a book by its names, the user's too.
   const search = modal.contentEl.querySelector(".bible-book-aliases-search");
