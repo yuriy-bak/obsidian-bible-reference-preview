@@ -187,7 +187,7 @@ export class PluginContext {
     updateBookMapping(): void {
         const previousParserSignature = this.parserSignature;
         this.currentBookMapping = this.currentV2Data !== null && this.currentActiveTranslationId !== null
-            ? createCombinedBookMappingFromBibleIndexV2Data(this.currentV2Data, this.currentActiveTranslationId)
+            ? createCombinedBookMappingFromBibleIndexV2Data(this.currentV2Data, this.currentActiveTranslationId, this.currentSettings.bookAliases)
             : createBookMapping([]);
         this.currentParser = new BibleReferenceParser(
             this.currentBookMapping,

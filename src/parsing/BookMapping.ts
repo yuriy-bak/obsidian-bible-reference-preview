@@ -11,9 +11,9 @@ export type BookMapping = {
 
 /**
  * @param books the books of the main translation: all their names, abbreviations and generated prefixes.
- * @param otherTranslationsBooks books of the other imported translations: only their own names, abbreviations
- *   and aliases, added where they do not clash with the main translation; an alias pointing to different books
- *   in different other translations is dropped.
+ * @param otherTranslationsBooks books of the other imported translations: only their own names, abbreviations,
+ *   aliases and the user's names, added where they do not clash with the main translation; an alias pointing to
+ *   different books in different other translations is dropped.
  */
 export function createBookMapping(books: BibleBook[], otherTranslationsBooks: BibleBook[][] = []): BookMapping {
     const nameToId = new Map<string, number>();
@@ -94,6 +94,23 @@ export function createBookMapping(books: BibleBook[], otherTranslationsBooks: Bi
         getBookAliasSet(bookId, oneChapterBooks, bigBooks, shortBooks).add(alias);
     }
 
+    // The user's own names of the main translation win over everything above: they are set on purpose.
+    // A clash with another book's own name is refused when the name is saved (customBookAliases.ts).
+    for (const book of books) {
+        for (const alias of book.customAliases ?? []) {
+            for (const normalized of createAliasVariants(removeChapterNumberFromAlias(alias))) {
+                if (normalized.length === 0) {
+                    continue;
+                }
+                ambiguousAliases.delete(normalized);
+                bigBooks.delete(normalized);
+                shortBooks.delete(normalized);
+                nameToId.set(normalized, book.id);
+                getBookAliasSet(book.id, oneChapterBooks, bigBooks, shortBooks).add(normalized);
+            }
+        }
+    }
+
     addOtherTranslationsAliases(otherTranslationsBooks, {
         nameToId,
         idToDisplayName,
@@ -124,7 +141,7 @@ function addOtherTranslationsAliases(
             if (!otherBooks.has(book.id)) {
                 otherBooks.set(book.id, book);
             }
-            const aliases = [book.name, book.abbreviation, ...(book.aliases ?? [])];
+            const aliases = [book.name, book.abbreviation, ...(book.aliases ?? []), ...(book.customAliases ?? [])];
             for (const alias of aliases) {
                 for (const normalized of createAliasVariants(removeChapterNumberFromAlias(alias))) {
                     if (normalized.length > 0) {

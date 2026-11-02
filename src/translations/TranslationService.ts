@@ -1,10 +1,12 @@
 import { Notice } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
+import { getTranslationBooks } from "../infrastructure/v2/createBookMappingFromBibleIndexV2Data";
+import { findCustomBookAliasConflicts, getBookIndexAliases, normalizeCustomBookAliases, type CustomBookAliasConflict } from "../parsing/customBookAliases";
 import { openConfirmModal } from "../ui/ConfirmModal";
 import { areStringArraysEqual } from "../utils/ArrayEquality";
 import { isValidTranslationCode, normalizeTranslationCode } from "./translationCodes";
 import { TranslationController, type TranslationControllerState } from "./TranslationController";
-import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./TranslationModels";
+import type { BookAliasesEditorBook, PreviewComparisonTranslationOption, TranslationSettingsItem } from "./TranslationModels";
 
 export type TranslationServiceEffects = {
     refreshVisibleBiblePreviewContent: () => Promise<void>;
@@ -47,7 +49,88 @@ export class TranslationService {
     getTranslationSettingsItems(): TranslationSettingsItem[] {
         const codes = this.context.getTranslationCodes();
         return TranslationController.getTranslationSettingsItems(this.getControllerState())
-            .map((item) => ({ ...item, code: codes.get(item.id) ?? "" }));
+            .map((item) => ({
+                ...item,
+                code: codes.get(item.id) ?? "",
+                customBookAliasCount: Object.values(this.context.settings.bookAliases[item.id] ?? {})
+                    .reduce((count, aliases) => count + aliases.length, 0),
+            }));
+    }
+
+    /** The translation's books for the "Book names" window, in the translation's order. */
+    getBookAliasesEditorBooks(translationId: string): BookAliasesEditorBook[] {
+        const translation = this.context.v2Data?.translations[translationId];
+        if (translation === undefined) {
+            return [];
+        }
+        const customAliases = this.context.settings.bookAliases[translationId] ?? {};
+        const books = getTranslationBooks(translation);
+        const order = translation.bookOrder ?? [];
+        const position = (bookId: number): number => {
+            const index = order.indexOf(bookId);
+            return index === -1 ? order.length + bookId : index;
+        };
+        return books
+            .sort((left, right) => position(left.id) - position(right.id))
+            .map((book) => ({
+                id: book.id,
+                name: getBookIndexAliases(book)[0] ?? String(book.id),
+                indexAliases: getBookIndexAliases(book),
+                customAliases: customAliases[String(book.id)] ?? [],
+            }));
+    }
+
+    /** Asks for confirmation and removes all the user's book names of a translation. Resolves with whether it did. */
+    async resetCustomBookAliases(translationId: string): Promise<boolean> {
+        if (this.context.settings.bookAliases[translationId] === undefined) {
+            return false;
+        }
+        const translationName = this.context.v2Data?.translations[translationId]?.name || translationId;
+        const confirmed = await openConfirmModal(this.context.app, {
+            title: this.context.t("confirm.resetBookAliases.title", { translationName }),
+            messageLines: [this.context.t("confirm.resetBookAliases.message")],
+            confirmText: this.context.t("confirm.resetBookAliases.confirm"),
+            cancelText: this.context.t("common.cancel"),
+        });
+        if (!confirmed) {
+            return false;
+        }
+        const { [translationId]: _removed, ...otherTranslations } = this.context.settings.bookAliases;
+        this.context.updateSettings({ bookAliases: otherTranslations });
+        await this.context.saveSettings();
+        this.context.updateBookMapping();
+        await this.effects.refreshVisibleBiblePreviewContent();
+        return true;
+    }
+
+    /**
+     * Stores the user's names of a book; an empty list removes them. A name another book of the translation
+     * already has is refused: the conflicts are returned and nothing is saved.
+     */
+    async setCustomBookAliases(translationId: string, bookId: number, aliases: string[]): Promise<CustomBookAliasConflict[]> {
+        const translation = this.context.v2Data?.translations[translationId];
+        if (translation === undefined) {
+            return [];
+        }
+        const normalized = normalizeCustomBookAliases(aliases);
+        const translationAliases = this.context.settings.bookAliases[translationId] ?? {};
+        const conflicts = findCustomBookAliasConflicts(getTranslationBooks(translation, translationAliases), bookId, normalized);
+        if (conflicts.length > 0) {
+            return conflicts;
+        }
+
+        const { [String(bookId)]: _previous, ...otherBooks } = translationAliases;
+        const nextTranslationAliases = normalized.length > 0 ? { ...otherBooks, [String(bookId)]: normalized } : otherBooks;
+        const { [translationId]: _previousTranslation, ...otherTranslations } = this.context.settings.bookAliases;
+        this.context.updateSettings({
+            bookAliases: Object.keys(nextTranslationAliases).length > 0
+                ? { ...otherTranslations, [translationId]: nextTranslationAliases }
+                : otherTranslations,
+        });
+        await this.context.saveSettings();
+        this.context.updateBookMapping();
+        await this.effects.refreshVisibleBiblePreviewContent();
+        return [];
     }
 
     /**
@@ -178,8 +261,10 @@ export class TranslationService {
         await repository.deleteTranslation(translationId);
 
         this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+        const { [translationId]: _deletedBookAliases, ...otherBookAliases } = this.context.settings.bookAliases;
         this.context.updateSettings({
             translationOrder: this.context.settings.translationOrder.filter((existingTranslationId) => existingTranslationId !== translationId),
+            bookAliases: otherBookAliases,
         });
         await this.context.saveSettings();
         await this.syncTranslationOrder();

@@ -44,7 +44,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 
 ## Features
 
-- **References** are recognized in any note, new or old, in the editor and in reading view, and are shown as links: `John 3:16`, `Mark 4:12, 14-16`, `Jude 1:3;1:5`, `Judg 7:24-8:1`, one-chapter books (`Jude 5` = `Jude 1:5`). Book names and abbreviations come from the imported translations, so references work in the language of any of them (`Ин3:16` with a Russian Bible, `John 3:16` with an English one, both in one note). When two translations abbreviate different books the same way, the main translation wins; numbering follows the main translation unless a translation code is given. Bible references have a dotted underline and are green by default, so they don't look like ordinary links; the color can be changed in the settings.
+- **References** are recognized in any note, new or old, in the editor and in reading view, and are shown as links: `John 3:16`, `Mark 4:12, 14-16`, `Jude 1:3;1:5`, `Judg 7:24-8:1`, one-chapter books (`Jude 5` = `Jude 1:5`). Book names and abbreviations come from the imported translations, so references work in the language of any of them (`Ин3:16` with a Russian Bible, `John 3:16` with an English one, both in one note). When two translations abbreviate different books the same way, the main translation wins; numbering follows the main translation unless a translation code is given. Add your own names and abbreviations of the books with **Book names** in a translation's row of the settings (`Jhn`, `Йн`): they are recognized like the translation's own, and a name another book of the translation already has cannot be added. Bible references have a dotted underline and are green by default, so they don't look like ordinary links; the color can be changed in the settings.
 - **Preview** opens for the reference in the current paragraph, or only when you click a reference. The floating window can be dragged, resized and collapsed; the side panel can sit on the left or right. Both work in popout windows.
 - **On a phone**, the side panel is the most convenient: set **Bible text display mode** to **Side panel**, and open or close the Bible text with a swipe from the screen edge. The Bible reader scrolls like a note: with **Full screen** turned on in Obsidian, the bottom bar hides while you read.
 - **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
@@ -54,13 +54,13 @@ More sources and details are in [Importing a translation](#importing-a-translati
 - **A translation code** after a reference shows the passage in that translation and its numbering: `Ps 23:1 (WEB)`, where `WEB` is the code of an imported translation. Codes can be changed in the translation list.
 - **Usage index:** the magnifier next to a passage lists the notes that cite it, with the heading and the lines the reference sits under. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped.
 - **Commands:** open the reference under the cursor (with an optional shortcut), open the Bible reader or go to a book and chapter, find usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
-- **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, name (the pencil after it), numbering scheme and code, and the usage index.
+- **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, name (the pencil after it), numbering scheme, code and book names, and the usage index.
 
 ## Roadmap
 
 Planned features, in no fixed order:
 
-- [Custom book names and abbreviations](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/55) for each translation.
+- [Custom book names and abbreviations](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/55) for each translation (in beta).
 
 See [all planned features](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) and vote with 👍 on the ones you want.
 

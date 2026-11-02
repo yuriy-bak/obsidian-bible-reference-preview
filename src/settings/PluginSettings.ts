@@ -1,6 +1,7 @@
 import { Platform, getLanguage } from "obsidian";
 import { BiblePluginLocale, getBiblePluginLocaleForLanguage, normalizeBiblePluginLocale } from "../i18n/I18n";
 import { isValidTranslationCode } from "../translations/translationCodes";
+import { normalizeCustomBookAliases, type CustomBookAliases } from "../parsing/customBookAliases";
 import { normalizeReferenceUsageExcludedFolders } from "../reference-usage/ReferenceUsageIndexService";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "../ui/cssColorValidation";
 
@@ -16,6 +17,8 @@ export type BiblePluginSettings = {
     comparisonTranslationIds: string[];
     /** Codes the user gave translations, by translation id (see translations/translationCodes). */
     translationCodes: Record<string, string>;
+    /** Book names the user added, by translation id and book id; a re-import keeps them (see parsing/customBookAliases). */
+    bookAliases: CustomBookAliases;
     bibleReferenceLinkColor: string;
     floatingPreviewBackgroundColor: string;
     previewTriggerMode: BiblePreviewTriggerMode;
@@ -42,6 +45,7 @@ export const DEFAULT_SETTINGS: BiblePluginSettings = {
     translationOrder: [],
     comparisonTranslationIds: [],
     translationCodes: {},
+    bookAliases: {},
     bibleReferenceLinkColor: DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
     floatingPreviewBackgroundColor: DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
     previewTriggerMode: "current-paragraph",
@@ -76,6 +80,7 @@ export function normalizePluginSettings(value: unknown): BiblePluginSettings {
         translationOrder: [...new Set(translationOrder)],
         comparisonTranslationIds: [...new Set(comparisonTranslationIds)],
         translationCodes: normalizeTranslationCodes(value.translationCodes),
+        bookAliases: normalizeBookAliasesSetting(value.bookAliases),
         bibleReferenceLinkColor: typeof value.bibleReferenceLinkColor === "string"
             ? normalizeBibleReferenceLinkColor(value.bibleReferenceLinkColor)
             : DEFAULT_SETTINGS.bibleReferenceLinkColor,
@@ -131,6 +136,32 @@ function normalizeTranslationCodes(value: unknown): Record<string, string> {
     }
     return Object.fromEntries(Object.entries(value)
         .filter((entry): entry is [string, string] => typeof entry[1] === "string" && isValidTranslationCode(entry[1])));
+}
+
+function normalizeBookAliasesSetting(value: unknown): CustomBookAliases {
+    if (!isRecord(value)) {
+        return {};
+    }
+    const result: CustomBookAliases = {};
+    for (const [translationId, books] of Object.entries(value)) {
+        if (!isRecord(books)) {
+            continue;
+        }
+        const translationAliases: Record<string, string[]> = {};
+        for (const [bookId, aliases] of Object.entries(books)) {
+            if (!/^[1-9]\d*$/u.test(bookId) || !Array.isArray(aliases)) {
+                continue;
+            }
+            const normalized = normalizeCustomBookAliases(aliases.filter((alias): alias is string => typeof alias === "string"));
+            if (normalized.length > 0) {
+                translationAliases[bookId] = normalized;
+            }
+        }
+        if (Object.keys(translationAliases).length > 0) {
+            result[translationId] = translationAliases;
+        }
+    }
+    return result;
 }
 
 function getDefaultInterfaceLanguage(): BiblePluginLocale {

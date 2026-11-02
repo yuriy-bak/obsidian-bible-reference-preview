@@ -9,6 +9,7 @@ import type { TranslationService } from "../translations/TranslationService";
 import { createColorSettingDefinitions } from "./ColorSettingsSection";
 import { createReferenceUsageIndexSettingsGroup, type ReferenceUsageIndexSettingKey } from "./ReferenceUsageIndexSettingsSection";
 import { createTranslationSettingsList } from "./TranslationSettingsList";
+import { openBookAliasesModal } from "./BookAliasesModal";
 import { renderGettingStarted } from "../onboarding/GettingStarted";
 import { getVersificationOptions } from "./VersificationLabels";
 
@@ -56,6 +57,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 onCodeChange: (translationId, code) => this.services.translations.setTranslationCode(translationId, code),
                 onNameChange: (translationId, name) => this.services.translations.setTranslationName(translationId, name),
                 showError: (message) => new Notice(message),
+                onEditBookNames: (translationId) => this.openBookNames(translationId),
                 onDelete: (translationId) => this.services.translations.deleteImportedTranslation(translationId),
                 onReorder: (nextOrder) => this.services.translations.setTranslationOrder(nextOrder),
                 refresh: () => this.update(),
@@ -126,6 +128,21 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             interceptLinkOpenShortcut: { get: () => settings.shouldInterceptLinkOpenShortcut(), set: (value) => settings.setInterceptLinkOpenShortcut(value === true) },
             linkOpenShortcut: { get: () => settings.getBibleLinkOpenShortcut(), set: (value) => settings.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut) },
         };
+    }
+
+    private openBookNames(translationId: string): void {
+        const translations = this.services.translations;
+        const translationName = translations.getTranslationSettingsItems().find((item) => item.id === translationId)?.name ?? translationId;
+        openBookAliasesModal(this.app, {
+            translationName,
+            translate: (key, params) => this.services.context.t(key, params),
+            getBooks: () => translations.getBookAliasesEditorBooks(translationId),
+            save: (bookId, aliases) => translations.setCustomBookAliases(translationId, bookId, aliases),
+            resetAll: () => translations.resetCustomBookAliases(translationId),
+            showError: (message) => new Notice(message),
+            // The count of the user's names on the translation's button.
+            onClose: () => this.update(),
+        });
     }
 
     private createGeneralSettings(): SettingDefinitionItem<SettingControlKey>[] {

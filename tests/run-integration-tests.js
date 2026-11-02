@@ -18,6 +18,7 @@ const TEST_FILES = [
   "plugin-context",
   "versification-choice",
   "translation-rename",
+  "book-names",
   "versification-comparison",
   "bible-reader",
   "getting-started",

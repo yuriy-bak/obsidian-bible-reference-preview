@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Your own book names and abbreviations for each translation (#55): **Book names** in a translation's row of the settings lists its books with their names; the pencil adds your own, separated by commas (✓ saves, ✕ cancels); **Reset all** removes all your names of the translation. They are recognized in references like the translation's own names and take the place of shorter automatic forms; a name another book of the translation already has is refused. A re-import keeps them; deleting the translation removes them. The Bible reader's book search finds them too.
+
 ## 0.3.1 - Getting started hints, Bible reader on phones, translation rename
 
 - Getting started hints for new users (#73): a one-time notice on the first start with an "Open settings" button; while no translation is imported, the settings list where to download a Bible file and the first steps; the empty Bible reader has Import and Open settings buttons and moves on to the book picker after the first import; "no translation imported" notices offer the settings; after the first import the notice suggests a reference to type, in the translation's own book names.
