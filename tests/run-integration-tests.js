@@ -22,6 +22,7 @@ const TEST_FILES = [
   "versification-comparison",
   "bible-reader",
   "getting-started",
+  "background-tasks",
 ];
 
 // A test that waits on a promise nobody resolves (say, a modal it does not answer) leaves nothing

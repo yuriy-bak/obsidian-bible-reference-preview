@@ -32,7 +32,7 @@ module.exports = async function runReferenceUsageTests() {
   await waitFor(() => indexService.getStats().referenceCount === 3);
   assert.strictEqual(plugin.context.activeTranslationId, translationIdByLanguage(plugin, "ru"));
   assert.strictEqual(plugin.referenceUsage.isReferenceUsageIndexOutdated(), false);
-  assert(noticeMessages().includes(t("notice.referenceUsageIndexAutoRebuildStarted")));
+  assert(noticeMessages().some((message) => message.startsWith(t("notice.referenceUsageIndexAutoRebuildStarted"))), "rebuild progress notice");
   assert.deepStrictEqual(readingView.previewMode.rerenderCalls, [true, true]);
   assert.deepStrictEqual(sourceView.previewMode.rerenderCalls, [], "the editor view is not redrawn");
 

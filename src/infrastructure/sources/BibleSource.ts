@@ -19,7 +19,8 @@ export type BibleImportProgressStage =
     | "loading-zip"
     | "reading-documents"
     | "extracting-verses"
-    | "building-index";
+    | "building-index"
+    | "saving";
 
 export type BibleImportProgress = {
     stage: BibleImportProgressStage;

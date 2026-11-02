@@ -27,6 +27,11 @@ module.exports = async () => {
   const parser = new BibleReferenceParser(mapping);
   assert.strictEqual(parser.parse("Ин3:16").length, 1);
   assert.strictEqual(parser.parse("1 Кор 13:4").length, 1);
+  // Lines without digits are skipped up front; Arabic-Indic digits still count as digits.
+  assert.deepStrictEqual(parser.parse("Иоанна и Римлянам без номеров"), []);
+  assert.deepStrictEqual(parser.parse("Ин ٣:١٦"), [
+    { book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 16 },
+  ]);
   assert.deepStrictEqual(parser.parse("Иуд6"), [
     { book: 65, chapterStart: 1, verseStart: 6, chapterEnd: 1, verseEnd: 6 },
   ]);

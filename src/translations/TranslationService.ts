@@ -181,6 +181,9 @@ export class TranslationService {
             await this.context.saveSettings();
         }
 
+        if (this.isBeingImported(translationId)) {
+            return null;
+        }
         const repository = this.context.createRepository();
         await repository.load();
         await repository.updateTranslationName(translationId, trimmedName);
@@ -202,6 +205,15 @@ export class TranslationService {
         this.context.setBibleData(repository.getIndex(), repository.getV2Data());
         this.context.updateBookMapping();
         await this.effects.refreshVisibleBiblePreviewContent();
+    }
+
+    // A running import writes this translation's files and metadata at its end, over a rename or a deletion.
+    private isBeingImported(translationId: string): boolean {
+        if (this.context.importingTranslationId !== translationId) {
+            return false;
+        }
+        new Notice(this.context.t("notice.translationBeingImported"), 5000);
+        return true;
     }
 
     async moveTranslation(translationId: string, direction: -1 | 1): Promise<void> {
@@ -242,6 +254,9 @@ export class TranslationService {
             return;
         }
 
+        if (this.isBeingImported(translationId)) {
+            return;
+        }
         const translationName = currentV2Data.translations[translationId].name || translationId;
         const confirmed = await openConfirmModal(this.context.app, {
             title: this.context.t("confirm.deleteTranslation.title", { translationName }),
@@ -256,6 +271,9 @@ export class TranslationService {
             return;
         }
 
+        if (this.isBeingImported(translationId)) {
+            return;
+        }
         const repository = this.context.createRepository();
         await repository.load();
         await repository.deleteTranslation(translationId);

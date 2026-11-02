@@ -16,6 +16,7 @@ import {
     type ReferenceUsagePaneViewInput,
 } from "../ui/ReferenceUsagePaneView";
 import { ReferenceUsageResultsModal } from "../ui/ReferenceUsageResultsModal";
+import type { BackgroundTaskProgress } from "../ui/BackgroundTaskProgress";
 import { areStringArraysEqual } from "../utils/ArrayEquality";
 import { detachDuplicateWorkspaceLeavesOfType, getFirstWorkspaceLeafOfType, getWorkspaceLeavesOfType, revealLeafWithoutStealingEditorFocus } from "../workspace/BiblePreviewWorkspace";
 import { ensureLeafViewLoaded } from "../workspace/WorkspaceLeafViewLoading";
@@ -127,6 +128,10 @@ export class ReferenceUsageService {
 
     async rebuildReferenceUsageIndex(): Promise<void> {
         await this.getController().buildIndex(true);
+    }
+
+    getReferenceUsageBuildProgress(): BackgroundTaskProgress | null {
+        return this.getController().getActiveBuildProgress();
     }
 
     async clearReferenceUsageIndex(): Promise<void> {

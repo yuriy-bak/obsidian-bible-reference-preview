@@ -387,4 +387,51 @@ module.exports = async () => {
   assert.strictEqual(indexWarnings.length, 14);
   assert.deepStrictEqual(indexRepository.getV2Data(), sanitizedIndex);
   assert.strictEqual(await indexRepository.loadBook("ru-nwt", 2), null);
+
+  // A reimport writes the books over the old ones, removes the books it has no longer, and keeps the changes
+  // made to other translations' metadata while it ran.
+  {
+    const files = new Map();
+    const folders = new Set(["data"]);
+    const adapter = {
+      exists: async (path) => files.has(path) || folders.has(path),
+      read: async (path) => files.get(path),
+      write: async (path, content) => { files.set(path, content); },
+      mkdir: async (path) => { folders.add(path); },
+      remove: async (path) => { files.delete(path); },
+      rmdir: async () => { throw new Error("rmdir is not used by saveV2"); },
+      list: async (path) => {
+        const isChild = (candidate) => candidate.startsWith(`${path}/`) && !candidate.slice(path.length + 1).includes("/");
+        return { files: [...files.keys()].filter(isChild), folders: [...folders].filter(isChild) };
+      },
+    };
+    const translation = (name, bookIds) => ({
+      name, language: "ru", importedAt: "", books: Object.fromEntries(bookIds.map((id) => [String(id), validIndexBook(`translations/t/books/${id}.json`)])),
+    });
+    const save = (repository, name, bookIds, onProgress) => repository.saveV2({
+      metadata: { version: 2, translations: { t: translation(name, bookIds) } },
+      books: Object.fromEntries(bookIds.map((id) => [`translations/t/books/${id}.json`, { chapters: [null, [null, { text: name }]] }])),
+      report: { translationId: "t", translationName: name, language: "ru" },
+      onProgress,
+    });
+    const first = new ObsidianBibleIndexV2Repository(adapter, "data");
+    await first.load();
+    await save(first, "Old", [1, 2]);
+    files.set("data/bibles-index.json", JSON.stringify({ version: 2, translations: { ...JSON.parse(files.get("data/bibles-index.json")).translations, other: { name: "Other", language: "en", importedAt: "", books: {} } } }));
+
+    const second = new ObsidianBibleIndexV2Repository(adapter, "data");
+    await second.load();
+    // Renamed while the reimport runs.
+    const latest = JSON.parse(files.get("data/bibles-index.json"));
+    latest.translations.other.name = "Renamed";
+    files.set("data/bibles-index.json", JSON.stringify(latest));
+    const progress = [];
+    await save(second, "New", [1], (saved, total) => progress.push(`${saved}/${total}`));
+    assert.deepStrictEqual(progress, ["0/1", "1/1"]);
+    assert.deepStrictEqual([...files.keys()].filter((path) => path.includes("/books/")), ["data/translations/t/books/1.json"]);
+    assert.match(files.get("data/translations/t/books/1.json"), /New/);
+    const saved = JSON.parse(files.get("data/bibles-index.json"));
+    assert.strictEqual(saved.translations.t.name, "New");
+    assert.strictEqual(saved.translations.other.name, "Renamed");
+  }
 };

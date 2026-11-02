@@ -17,6 +17,7 @@ export type SaveBibleIndexV2Input = {
     metadata: BibleIndexV2Data;
     books: Record<string, CompactBibleBookData>;
     report: BibleImportReport;
+    onProgress?: (savedBookCount: number, totalBookCount: number) => void;
 };
 
 export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
@@ -55,27 +56,32 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
             throw new Error(`Imported translation metadata was not found: ${translationId}`);
         }
 
-        const nextData: BibleIndexV2Data = this.currentV2Data ?? {
-            version: 2,
-            translations: {},
-        };
-
-        delete nextData.translations[translationId];
-        await this.removeTranslationDirectory(translationId);
-
+        // The new books are written over the old ones and the files the new import has no longer are removed
+        // after that: a reimport that fails halfway leaves the translation readable instead of deleted.
+        const bookEntries = Object.entries(input.books);
+        const writtenPaths = new Set<string>();
         let savedBookCount = 0;
-        for (const [path, book] of Object.entries(input.books)) {
+        input.onProgress?.(0, bookEntries.length);
+        for (const [path, book] of bookEntries) {
             const fullPath = normalizePath(`${this.dataDirectoryPath}/${path}`);
             await ensureVaultDirectoryExists(this.adapter, getDirectoryPath(fullPath));
             await this.adapter.write(fullPath, JSON.stringify(book));
+            writtenPaths.add(fullPath);
             savedBookCount += 1;
+            input.onProgress?.(savedBookCount, bookEntries.length);
             await yieldSaveBibleIndexIfNeeded(savedBookCount);
         }
 
+        // Read again: other translations may have been renamed or deleted while this one was being imported.
+        const nextData: BibleIndexV2Data = await this.readV2Index(this.getMetadataPath()) ?? this.currentV2Data ?? {
+            version: 2,
+            translations: {},
+        };
         nextData.translations[translationId] = incomingTranslation;
         await this.adapter.write(this.getMetadataPath(), JSON.stringify(nextData));
         await this.adapter.write(this.getImportReportPath(), JSON.stringify(input.report));
         this.currentV2Data = nextData;
+        await this.removeFilesExcept(normalizePath(`${this.dataDirectoryPath}/translations/${translationId}`), writtenPaths);
     }
 
     async deleteTranslation(translationId: string): Promise<void> {
@@ -187,6 +193,21 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
 
         const parsed = JSON.parse(await this.adapter.read(path)) as unknown;
         return isBibleIndexV2Data(parsed) ? sanitizeBibleIndexV2Data(parsed) : null;
+    }
+
+    private async removeFilesExcept(directoryPath: string, keptPaths: ReadonlySet<string>): Promise<void> {
+        if (!(await this.adapter.exists(directoryPath))) {
+            return;
+        }
+        const listing = await this.adapter.list(directoryPath);
+        for (const filePath of listing.files) {
+            if (!keptPaths.has(normalizePath(filePath))) {
+                await this.adapter.remove(filePath);
+            }
+        }
+        for (const folderPath of listing.folders) {
+            await this.removeFilesExcept(folderPath, keptPaths);
+        }
     }
 
     private async removeTranslationDirectory(translationId: string): Promise<void> {

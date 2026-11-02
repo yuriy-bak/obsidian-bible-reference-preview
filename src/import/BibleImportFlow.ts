@@ -4,7 +4,7 @@ import type { BiblePluginLocale } from "../i18n/I18n";
 import { createBibleSources, getMaxBibleFileBytes, selectBibleSource } from "../infrastructure/sources/BibleSourceRegistry";
 import type { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
 import { createImportSettingsDefaults, openBibleTranslationImportSettingsModal, type BibleTranslationImportSettings } from "../ui/BibleTranslationImportModal";
-import { ProgressCancelModal } from "../ui/ProgressCancelModal";
+import { BackgroundTaskProgress } from "../ui/BackgroundTaskProgress";
 import { openVersificationChoiceModal } from "../ui/VersificationChoiceModal";
 import { createBibleImportAbortError } from "../infrastructure/sources/BibleImportCancellation";
 import { importBible } from "../application/importBible";
@@ -32,6 +32,8 @@ export type ExecutePreparedBibleImportInput = {
     translate: BibleImportTranslate;
     createRepository: () => ObsidianBibleIndexV2Repository;
     onImported: (repository: ObsidianBibleIndexV2Repository, result: BibleImportResult) => Promise<void>;
+    /** Called once the import starts, with its progress (a notice with a cancel button). */
+    onStarted?: (progress: BackgroundTaskProgress) => void;
 };
 
 export async function prepareBibleImport(input: PrepareBibleImportInput): Promise<PreparedBibleImport | null> {
@@ -58,15 +60,16 @@ export async function prepareBibleImport(input: PrepareBibleImportInput): Promis
 }
 
 export async function executePreparedBibleImport(input: ExecutePreparedBibleImportInput): Promise<BibleImportResult> {
+    // Runs in the background: the progress notice can be closed, and the plugin keeps working with the
+    // translations imported before; the new one appears when the import finishes.
     const abortController = new AbortController();
-    const progressModal = new ProgressCancelModal(
-        input.app,
-        input.translate("notice.importStarted", { fileName: input.fileName }),
+    const progress = new BackgroundTaskProgress(
+        { title: input.translate("notice.importStarted", { fileName: input.fileName }), cancel: input.translate("common.cancel") },
         formatBibleImportProgress({ stage: "loading-zip", processedCount: 0, totalCount: 1 }, input.translate),
-        input.translate("common.cancel"),
         () => abortController.abort(),
     );
-    progressModal.open();
+    progress.showNotice();
+    input.onStarted?.(progress);
 
     try {
         const repository = input.createRepository();
@@ -84,11 +87,11 @@ export async function executePreparedBibleImport(input: ExecutePreparedBibleImpo
             repository,
             importOptions: {
                 signal: abortController.signal,
-                onProgress: (progress) => progressModal.updateMessage(formatBibleImportProgress(progress, input.translate)),
+                onProgress: (importProgress) => progress.update(formatBibleImportProgress(importProgress, input.translate)),
             },
             chooseVersification: async (detection) => {
                 const key = await openVersificationChoiceModal(input.app, input.preparedImport.importSettings.translationName, detection, input.translate);
-                if (key === null) {
+                if (key === null || abortController.signal.aborted) {
                     throw createBibleImportAbortError();
                 }
                 return key;
@@ -96,10 +99,8 @@ export async function executePreparedBibleImport(input: ExecutePreparedBibleImpo
         });
 
         await input.onImported(repository, result);
-        progressModal.finish();
         return result;
-    } catch (error) {
-        progressModal.finish();
-        throw error;
+    } finally {
+        progress.finish();
     }
 }

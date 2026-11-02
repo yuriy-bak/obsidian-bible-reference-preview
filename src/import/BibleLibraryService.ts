@@ -6,6 +6,7 @@ import { ensureVaultDirectoryExists } from "../infrastructure/VaultPathUtils";
 import type { TranslationService } from "../translations/TranslationService";
 import { createBibleSources, getBibleFilePickerAccept } from "../infrastructure/sources/BibleSourceRegistry";
 import { executePreparedBibleImport, prepareBibleImport } from "./BibleImportFlow";
+import type { BackgroundTaskProgress } from "../ui/BackgroundTaskProgress";
 import { detectMissingVersifications } from "./detectMissingVersifications";
 import { getExampleReference } from "../onboarding/GettingStarted";
 import {
@@ -19,6 +20,10 @@ import {
 export class BibleLibraryService {
     private readonly translate = (key: I18nKey, params?: I18nParams): string => this.context.t(key, params);
     private readonly createRepository = () => this.context.createRepository();
+    // From the file choice to the end of the import; one import at a time.
+    private importRunning = false;
+    private importProgress: BackgroundTaskProgress | null = null;
+    private unloaded = false;
 
     constructor(
         private readonly context: PluginContext,
@@ -63,7 +68,21 @@ export class BibleLibraryService {
         new Notice(this.context.t("notice.bibleIndexReloaded"), 5000);
     }
 
+    /** The import running now, for the settings status row; null when none runs. */
+    getImportProgress(): BackgroundTaskProgress | null {
+        return this.importProgress;
+    }
+
+    /** On unload: stops a running import before it writes anything. */
+    cancelImportOnUnload(): void {
+        this.unloaded = true;
+        this.importProgress?.cancel();
+    }
+
     openBibleFilePicker(hostEl?: HTMLElement): void {
+        if (this.showImportAlreadyRunning()) {
+            return;
+        }
         // Create the input in the document that received the click (the settings window may not be the main one)
         // and keep it attached until the dialog closes; a detached input can be dropped before `change` fires.
         const doc = hostEl?.doc ?? activeDocument;
@@ -85,6 +104,32 @@ export class BibleLibraryService {
     }
 
     async importBibleFile(file: File): Promise<void> {
+        if (this.showImportAlreadyRunning()) {
+            return;
+        }
+        this.importRunning = true;
+        try {
+            await this.runImport(file);
+        } finally {
+            this.importRunning = false;
+            this.importProgress = null;
+            this.context.setImportingTranslationId(null);
+            if (!this.unloaded) {
+                this.context.refreshSettingsTab();
+            }
+        }
+    }
+
+    private showImportAlreadyRunning(): boolean {
+        if (!this.importRunning) {
+            return false;
+        }
+        new Notice(this.context.t("notice.importAlreadyRunning"), 4000);
+        this.importProgress?.showNotice();
+        return true;
+    }
+
+    private async runImport(file: File): Promise<void> {
         const isFirstTranslation = !this.context.hasImportedTranslations();
         try {
             const preparedImport = await prepareBibleImport({
@@ -105,6 +150,11 @@ export class BibleLibraryService {
                 preparedImport,
                 translate: this.translate,
                 createRepository: this.createRepository,
+                onStarted: (progress) => {
+                    this.importProgress = progress;
+                    this.context.setImportingTranslationId(preparedImport.importSettings.translationId);
+                    this.context.refreshSettingsTab();
+                },
                 onImported: async (repository, importResult) => {
                     this.context.setBibleData(repository.getIndex(), repository.getV2Data());
                     // A new translation goes to the end of the list: the main one (and the numbering of the
@@ -126,7 +176,9 @@ export class BibleLibraryService {
             new Notice(formatBibleImportSuccessNotice(result, this.translate) + exampleText, 15000);
         } catch (error) {
             if (isBibleImportAbortError(error)) {
-                new Notice(this.context.t("notice.importCancelled"), 5000);
+                if (!this.unloaded) {
+                    new Notice(this.context.t("notice.importCancelled"), 5000);
+                }
                 return;
             }
             console.error("Bible import failed", error);

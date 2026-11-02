@@ -1,6 +1,7 @@
 import { VERSIFICATION_NOT_DETECTED_WARNING_PREFIX } from "../infrastructure/sources/BibleIndexBuilder";
 import { BibleImportInput, BibleImportOptions, BibleImportResult, BibleImportVersificationDetection, BibleSource } from "../infrastructure/sources/BibleSource";
 import { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
+import { assertBibleImportNotAborted } from "../infrastructure/sources/BibleImportCancellation";
 
 export type ImportBibleInput = {
     file: BibleImportInput;
@@ -21,10 +22,13 @@ export async function importBible(input: ImportBibleInput): Promise<BibleImportR
         applyChosenVersification(result, await input.chooseVersification(result.versificationDetection));
     }
 
+    // Cancelling is possible up to here; the files are then written to the end.
+    assertBibleImportNotAborted(input.importOptions ?? {});
     await input.repository.saveV2({
         metadata: result.bibleIndexV2Data,
         books: result.compactBooks,
         report: result.report,
+        onProgress: (processedCount, totalCount) => input.importOptions?.onProgress?.({ stage: "saving", processedCount, totalCount }),
     });
 
     return result;
