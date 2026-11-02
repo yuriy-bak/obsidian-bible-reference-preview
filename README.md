@@ -16,12 +16,12 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
-## What's new in 0.3.1
+## What's new in 0.3.2
 
-- **Getting started hints:** right after installation the plugin tells you where to download a Bible file and where to click; after the first import it suggests a reference to type.
-- **Bible reader on phones:** the book list stays visible with the keyboard open, and the reader scrolls like a note, hiding the bottom bar while you read.
-- **Rename a translation** with the pencil after its name in the translation list.
-- Direct download links for popular translations in [Quick start](#quick-start).
+- **Your own book names and abbreviations** for each translation (`Jhn`, `Йн`): **Book names** in a translation's row of the settings.
+- **The usage index and the Bible import run in the background:** a notice shows the progress and has a Cancel button, and you keep working meanwhile.
+- **The usage index builds several times faster**, and notes edited during a build are no longer missed.
+- A re-import that fails halfway no longer leaves the translation deleted.
 
 All changes, including beta versions in progress, are in the [changelog](CHANGELOG.md).
 
@@ -58,9 +58,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 
 ## Roadmap
 
-Planned features, in no fixed order:
-
-- [Custom book names and abbreviations](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/55) for each translation (in beta).
+Everything planned so far is done. Have an idea? [Open an issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose).
 
 See [all planned features](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) and vote with 👍 on the ones you want.
 

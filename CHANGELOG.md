@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2 - Your own book names, usage index and import in the background
 
 - The reference usage index and the Bible import run in the background, without a window over Obsidian: a notice shows the progress and has a Cancel button, closing it does not stop the task, and the settings show the same progress with Cancel. Notes, previews and usage searches keep working meanwhile (searches use the previous index until the build finishes, the new translation appears when its import finishes). Notes edited during a build are no longer lost from the index. A second import, or deleting or renaming the translation being imported, is refused while it runs.
 - Building the usage index is several times faster: lines without digits are skipped before parsing.
