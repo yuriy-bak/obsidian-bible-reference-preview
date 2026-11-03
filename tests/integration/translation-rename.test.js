@@ -8,6 +8,7 @@ const {
   stopPlugin,
   translationIdByLanguage,
   waitFor,
+  translationsPage,
 } = require("./helpers.js");
 
 // The pencil after a translation's name in the settings list renames it in place; the id and the code stay.
@@ -60,8 +61,7 @@ module.exports = async function runTranslationRenameTests() {
 };
 
 function startRename(plugin, translationId) {
-  const definitions = plugin.settingTabs[0].getSettingDefinitions();
-  const list = definitions.find((definition) => definition.type === "list" && definition.items.some((item) => item.render !== undefined));
+  const list = translationsPage(plugin).items.find((definition) => definition.type === "list" && definition.items.some((item) => item.render !== undefined));
   const index = plugin.translations.getTranslationSettingsItems().findIndex((item) => item.id === translationId);
   const setting = new Setting(document.body.createDiv());
   setting.setName(list.items[index].name);

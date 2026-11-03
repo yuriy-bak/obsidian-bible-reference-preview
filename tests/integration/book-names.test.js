@@ -12,6 +12,7 @@ const {
   stopPlugin,
   translationIdByLanguage,
   waitFor,
+  translationsPage,
 } = require("./helpers.js");
 
 // "Book names" in a translation's row of the settings: the user's names are recognized in references,
@@ -129,8 +130,7 @@ module.exports = async function runBookNamesTests() {
 };
 
 function openBookNames(plugin, translationId) {
-  const definitions = plugin.settingTabs[0].getSettingDefinitions();
-  const list = definitions.find((definition) => definition.type === "list" && definition.items.some((item) => item.render !== undefined));
+  const list = translationsPage(plugin).items.find((definition) => definition.type === "list" && definition.items.some((item) => item.render !== undefined));
   const index = plugin.translations.getTranslationSettingsItems().findIndex((item) => item.id === translationId);
   const setting = new Setting(document.body.createDiv());
   list.items[index].render(setting);

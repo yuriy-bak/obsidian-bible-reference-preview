@@ -8,6 +8,7 @@ const {
   stopPlugin,
   translationIdByLanguage,
   waitFor,
+  translationsPage,
 } = require("./helpers.js");
 
 // An import whose numbering scheme is not detected reliably asks for it, and the translation list in the
@@ -45,8 +46,7 @@ module.exports = async function runVersificationChoiceTests() {
 };
 
 function renderTranslationListItem(plugin, translationId) {
-  const definitions = plugin.settingTabs[0].getSettingDefinitions();
-  const list = definitions.find((definition) => definition.type === "list" && definition.items.some((item) => item.render !== undefined));
+  const list = translationsPage(plugin).items.find((definition) => definition.type === "list" && definition.items.some((item) => item.render !== undefined));
   const index = plugin.translations.getTranslationSettingsItems().findIndex((item) => item.id === translationId);
   const setting = new Setting(document.body.createDiv());
   list.items[index].render(setting);
