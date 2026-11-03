@@ -47,7 +47,6 @@ module.exports = async function runGettingStartedTests() {
     ["jw.org", "https://www.jw.org/en/library/bible/"],
     ["eBible.org", "https://ebible.org/find/"],
     ["dbs.org", "https://dbs.org/bibles"],
-    ["dbs.org", "https://dbs.org/bibles"],
   ]);
   assert(!importDescEl.textContent.includes("{"), importDescEl.textContent);
   assert(Array.from(importSetting.querySelectorAll("a")).concat(Array.from(importDescEl.querySelectorAll("a")))
@@ -57,7 +56,7 @@ module.exports = async function runGettingStartedTests() {
   ruDescEl.appendChild(importItem(plugin).desc);
   assert.strictEqual(ruDescEl.querySelector("a").getAttribute("href"),
     "https://www.jw.org/ru/%D0%B1%D0%B8%D0%B1%D0%BB%D0%B8%D0%BE%D1%82%D0%B5%D0%BA%D0%B0/%D0%B1%D0%B8%D0%B1%D0%BB%D0%B8%D1%8F/");
-  assert(ruDescEl.textContent.startsWith("Выберите файл Библии: EPUB с jw.org, eBible.org или dbs.org"), ruDescEl.textContent);
+  assert(ruDescEl.textContent.startsWith("Выберите файл Библии: EPUB с jw.org или eBible.org; с dbs.org — EPUB"), ruDescEl.textContent);
   plugin.context.settings.interfaceLanguage = "en";
 
   // The empty reader: import and settings buttons.
