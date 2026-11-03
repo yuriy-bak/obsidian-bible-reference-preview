@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The import description on the **Bible translations** page links to the sites it names: jw.org (its Bible page in the interface language), eBible.org and dbs.org; jw.org comes first. The jw.org link in the getting started hints also opens its Bible page.
+
 ## 0.3.3 - Bible reader under the note on a phone, translations settings page
 
 - The translation list has its own settings page: the main settings screen shows one **Bible translations** entry with the number of translations and the main one; the page holds the import, the translation list, the Bible index and the usage index, so many translations no longer make the main screen long.

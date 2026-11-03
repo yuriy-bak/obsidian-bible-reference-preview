@@ -11,7 +11,7 @@ import { renderBackgroundTaskStatus } from "./BackgroundTaskProgress";
 import { createReferenceUsageIndexSettingsGroup, type ReferenceUsageIndexSettingKey } from "./ReferenceUsageIndexSettingsSection";
 import { createTranslationSettingsList } from "./TranslationSettingsList";
 import { openBookAliasesModal } from "./BookAliasesModal";
-import { renderGettingStarted } from "../onboarding/GettingStarted";
+import { createImportDescription, renderGettingStarted } from "../onboarding/GettingStarted";
 import { getVersificationOptions } from "./VersificationLabels";
 
 export type BiblePluginSettingTabServices = {
@@ -202,7 +202,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
     private createImportSetting(): SettingDefinitionItem<SettingControlKey> {
         return {
             name: this.services.context.t("settings.import.name"),
-            desc: this.services.context.t("settings.import.desc"),
+            desc: createImportDescription(this.services.context.settings.interfaceLanguage, (key, params) => this.services.context.t(key, params)),
             render: (setting) => {
                 // A new user sees where to get a Bible file and what to do after the import.
                 if (!this.services.context.hasImportedTranslations()) {
