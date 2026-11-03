@@ -194,6 +194,12 @@ function translationIdByLanguage(plugin, language) {
   return entry[0];
 }
 
+// The "Bible translations" page of the settings: import, translation list, Bible index.
+function translationsPage(plugin) {
+  const definitions = plugin.settingTabs[0].getSettingDefinitions();
+  return definitions.find((definition) => definition.type === "page" && definition.name === plugin.context.t("settings.translationsPage.name"));
+}
+
 module.exports = {
   activateTranslation,
   clickButton,
@@ -211,6 +217,7 @@ module.exports = {
   startPlugin,
   stopPlugin,
   translationIdByLanguage,
+  translationsPage,
   waitFor,
   waitForEditorLinks,
 };

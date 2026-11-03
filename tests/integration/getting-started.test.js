@@ -7,6 +7,7 @@ const {
   importBible,
   startPlugin,
   stopPlugin,
+  translationsPage,
 } = require("./helpers.js");
 const { BIBLE_READER_VIEW_TYPE } = require("../../.test-build/src/ui/BibleReaderView.js");
 
@@ -27,7 +28,12 @@ module.exports = async function runGettingStartedTests() {
   assert.strictEqual(firstRunNotice.hidden, true);
   assert.strictEqual(plugin.savedData.gettingStartedNoticeShown, true);
 
-  // The settings: where to download a Bible file, in the interface language.
+  // The main settings screen: no import, the "Bible translations" page says there are no translations yet.
+  const mainDefinitions = plugin.settingTabs[0].getSettingDefinitions();
+  assert(!mainDefinitions.some((definition) => definition.name === t("settings.import.name")), "import is on the translations page");
+  assert.strictEqual(translationsPage(plugin).desc, t("settings.translationsPage.empty"));
+
+  // The translations page: where to download a Bible file, in the interface language.
   const importSetting = renderImportSetting(plugin);
   const links = Array.from(importSetting.querySelectorAll(".bible-getting-started a")).map((link) => link.getAttribute("href"));
   assert.strictEqual(links[0], "https://ebible.org/find/details.php?id=engwebp");
@@ -58,9 +64,11 @@ module.exports = async function runGettingStartedTests() {
   assert(notices().some((notice) => notice.message.includes(exampleText)), "example after the first import");
   assert.strictEqual(renderImportSetting(plugin).querySelector(".bible-getting-started"), null);
   assert.strictEqual(readerEl.querySelector(".bible-reader-empty"), null);
+  assert.strictEqual(translationsPage(plugin).desc, `${t("settings.translationsPage.count.one", { count: 1 })} · ${t("settings.translationsPage.main", { name: plugin.translations.getTranslationSettingsItems()[0].name })}`);
   notices().length = 0;
   await importBible(plugin, "ru");
   assert(!notices().some((notice) => notice.message.includes("3:16")), "no example after the second import");
+  assert(translationsPage(plugin).desc.startsWith(t("settings.translationsPage.count.many", { count: 2 })), translationsPage(plugin).desc);
 
   // Users who already have translations never get the first-run notice; the flag is set for them too.
   const savedData = { ...plugin.savedData };
@@ -80,8 +88,7 @@ module.exports = async function runGettingStartedTests() {
 };
 
 function renderImportSetting(plugin) {
-  const definitions = plugin.settingTabs[0].getSettingDefinitions();
-  const importItem = definitions.find((definition) => definition.name === plugin.context.t("settings.import.name"));
+  const importItem = translationsPage(plugin).items.find((definition) => definition.name === plugin.context.t("settings.import.name"));
   const setting = new Setting(document.body.createDiv());
   importItem.render(setting);
   return setting.settingEl;

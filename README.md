@@ -18,7 +18,7 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 
 ## What's new in 0.3.2
 
-- **Your own book names and abbreviations** for each translation (`Jhn`, `Йн`): **Book names** in a translation's row of the settings.
+- **Your own book names and abbreviations** for each translation (`Jhn`, `Йн`): **Book names** in a translation's row on the **Bible translations** page of the settings.
 - **The usage index and the Bible import run in the background:** a notice shows the progress and has a Cancel button, and you keep working meanwhile.
 - **The usage index builds several times faster**, and notes edited during a build are no longer missed.
 - A re-import that fails halfway no longer leaves the translation deleted.
@@ -35,16 +35,16 @@ All changes, including beta versions in progress, are in the [changelog](CHANGEL
 
 ## Quick start
 
-1. Install **Bible Reference Preview** from Settings → Community plugins and enable it. A notice with an **Open settings** button shows where to start; until a translation is imported, the plugin settings list where to download a Bible file.
+1. Install **Bible Reference Preview** from Settings → Community plugins and enable it. A notice with an **Open settings** button shows where to start; until a translation is imported, the **Bible translations** page of the plugin settings lists where to download a Bible file.
 2. Download a free Bible file (EPUB), for example the [World English Bible](https://ebible.org/epub/engwebp.epub) or the [King James Version](https://ebible.org/epub/eng-kjv2006.epub). Other translations and languages are on [ebible.org/find](https://ebible.org/find/); for Russian, the [Synodal translation](https://ebible.org/epub/russyn.epub).
-3. Open Settings → Bible Reference Preview → **Import Bible**, choose the file and click **Import**.
+3. Open Settings → Bible Reference Preview → **Bible translations**, click **Import**, choose the file and click **Import** again.
 4. Type a reference such as `John 3:16` or `Rom 8:28-30` in any note. The preview opens for the paragraph under the cursor.
 
 More sources and details are in [Importing a translation](#importing-a-translation).
 
 ## Features
 
-- **References** are recognized in any note, new or old, in the editor and in reading view, and are shown as links: `John 3:16`, `Mark 4:12, 14-16`, `Jude 1:3;1:5`, `Judg 7:24-8:1`, one-chapter books (`Jude 5` = `Jude 1:5`). Book names and abbreviations come from the imported translations, so references work in the language of any of them (`Ин3:16` with a Russian Bible, `John 3:16` with an English one, both in one note). When two translations abbreviate different books the same way, the main translation wins; numbering follows the main translation unless a translation code is given. Add your own names and abbreviations of the books with **Book names** in a translation's row of the settings (`Jhn`, `Йн`): they are recognized like the translation's own, and a name another book of the translation already has cannot be added. Bible references have a dotted underline and are green by default, so they don't look like ordinary links; the color can be changed in the settings.
+- **References** are recognized in any note, new or old, in the editor and in reading view, and are shown as links: `John 3:16`, `Mark 4:12, 14-16`, `Jude 1:3;1:5`, `Judg 7:24-8:1`, one-chapter books (`Jude 5` = `Jude 1:5`). Book names and abbreviations come from the imported translations, so references work in the language of any of them (`Ин3:16` with a Russian Bible, `John 3:16` with an English one, both in one note). When two translations abbreviate different books the same way, the main translation wins; numbering follows the main translation unless a translation code is given. Add your own names and abbreviations of the books with **Book names** in a translation's row on the **Bible translations** page of the settings (`Jhn`, `Йн`): they are recognized like the translation's own, and a name another book of the translation already has cannot be added. Bible references have a dotted underline and are green by default, so they don't look like ordinary links; the color can be changed in the settings.
 - **Preview** opens for the reference in the current paragraph, or only when you click a reference. The floating window can be dragged, resized and collapsed; the side panel can sit on the left or right. Both work in popout windows.
 - **On a phone**, the side panel is the most convenient: set **Bible text display mode** to **Side panel**, and open or close the Bible text with a swipe from the screen edge. The Bible reader scrolls like a note: with **Full screen** turned on in Obsidian, the bottom bar hides while you read. To read and write at the same time, set **Bible reader on a phone** to **Under the note**: the chapter opens in a panel below the note, drag the line above it to change its height. The ⋯ menu of a reader tab has **Open under the note**, and the command **Show or hide Bible reader under the note** toggles the panel.
 - **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
@@ -54,7 +54,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 - **A translation code** after a reference shows the passage in that translation and its numbering: `Ps 23:1 (WEB)`, where `WEB` is the code of an imported translation. Codes can be changed in the translation list.
 - **Usage index:** the magnifier next to a passage lists the notes that cite it, with the heading and the lines the reference sits under. Open notes are searched with their unsaved edits. The index updates itself in the background; excluded folders and large files are skipped. A full build also runs in the background: a notice shows its progress (it can be closed) and has a Cancel button, and searches use the previous index until it finishes.
 - **Commands:** open the reference under the cursor (with an optional shortcut), open the Bible reader or go to a book and chapter, find usages, import a Bible, turn the plugin on or off, and scroll the preview. Assign hotkeys in Settings → Hotkeys.
-- **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, translation order, name (the pencil after it), numbering scheme, code and book names, and the usage index.
+- **Settings** are found by Obsidian settings search. They include preview mode and placement, link and window colors, the usage index, and the **Bible translations** page: import, translation order, name (the pencil after it), numbering scheme, code, book names and the Bible index.
 
 ## Roadmap
 
@@ -82,7 +82,7 @@ Translations are stored in the plugin folder (`.obsidian/plugins/bible-reference
 
 ## Importing a translation
 
-Open Settings → Bible Reference Preview → **Import Bible** and choose a file. The plugin recognizes the format by itself. Check the translation name and language, then click **Import**. The import runs in the background: a notice and the settings show its progress and a Cancel button, and you can keep working with the translations imported before. Importing the same translation again replaces it.
+Open Settings → Bible Reference Preview → **Bible translations** → **Import** and choose a file. The plugin recognizes the format by itself. Check the translation name and language, then click **Import**. The import runs in the background: a notice and the settings show its progress and a Cancel button, and you can keep working with the translations imported before. Importing the same translation again replaces it.
 
 Where to get a file:
 

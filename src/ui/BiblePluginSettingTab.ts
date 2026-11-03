@@ -51,19 +51,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
     getSettingDefinitions(): SettingDefinitionItem<SettingControlKey>[] {
         return [
             ...this.createGeneralSettings(),
-            createTranslationSettingsList({
-                translations: this.services.translations.getTranslationSettingsItems(),
-                translate: (key, params) => this.services.context.t(key, params),
-                versificationOptions: getVersificationOptions((key, params) => this.services.context.t(key, params)),
-                onVersificationChange: (translationId, versification) => this.services.translations.setTranslationVersification(translationId, versification),
-                onCodeChange: (translationId, code) => this.services.translations.setTranslationCode(translationId, code),
-                onNameChange: (translationId, name) => this.services.translations.setTranslationName(translationId, name),
-                showError: (message) => new Notice(message),
-                onEditBookNames: (translationId) => this.openBookNames(translationId),
-                onDelete: (translationId) => this.services.translations.deleteImportedTranslation(translationId),
-                onReorder: (nextOrder) => this.services.translations.setTranslationOrder(nextOrder),
-                refresh: () => this.update(),
-            }),
+            this.createTranslationsPage(),
             createReferenceUsageIndexSettingsGroup({
                 translate: (key) => this.services.context.t(key),
                 buildIndex: () => this.services.referenceUsage.buildReferenceUsageIndex(),
@@ -91,7 +79,6 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     refresh: () => this.update(),
                 }),
             },
-            this.createBibleIndexSettingsGroup(),
         ];
     }
 
@@ -168,25 +155,67 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     },
                 },
             },
-            {
-                name: this.services.context.t("settings.import.name"),
-                desc: this.services.context.t("settings.import.desc"),
-                render: (setting) => {
-                    // A new user sees where to get a Bible file and what to do after the import.
-                    if (!this.services.context.hasImportedTranslations()) {
-                        renderGettingStarted(setting.descEl, this.services.context.settings.interfaceLanguage, (key, params) => this.services.context.t(key, params));
-                    }
-                    setting.addButton((button) => button
-                        .setButtonText(this.services.context.t("settings.import.button"))
-                        .setCta()
-                        .onClick(() => this.services.library.openBibleFilePicker(setting.settingEl)));
-                    const importProgress = this.services.library.getImportProgress();
-                    if (importProgress !== null) {
-                        renderBackgroundTaskStatus(setting.descEl, importProgress);
-                    }
-                },
-            },
         ];
+    }
+
+    // Imported translations, their order and the Bible index live on their own page:
+    // with many translations the list would push every other setting far down the main screen.
+    private createTranslationsPage(): SettingDefinitionItem<SettingControlKey> {
+        return {
+            type: "page",
+            name: this.services.context.t("settings.translationsPage.name"),
+            desc: this.getTranslationsPageDescription(),
+            items: [
+                this.createImportSetting(),
+                createTranslationSettingsList({
+                    translations: this.services.translations.getTranslationSettingsItems(),
+                    translate: (key, params) => this.services.context.t(key, params),
+                    versificationOptions: getVersificationOptions((key, params) => this.services.context.t(key, params)),
+                    onVersificationChange: (translationId, versification) => this.services.translations.setTranslationVersification(translationId, versification),
+                    onCodeChange: (translationId, code) => this.services.translations.setTranslationCode(translationId, code),
+                    onNameChange: (translationId, name) => this.services.translations.setTranslationName(translationId, name),
+                    showError: (message) => new Notice(message),
+                    onEditBookNames: (translationId) => this.openBookNames(translationId),
+                    onDelete: (translationId) => this.services.translations.deleteImportedTranslation(translationId),
+                    onReorder: (nextOrder) => this.services.translations.setTranslationOrder(nextOrder),
+                    refresh: () => this.update(),
+                }),
+                this.createBibleIndexSettingsGroup(),
+            ],
+        };
+    }
+
+    // "3 translations · main: X", or what to do when there are none yet.
+    private getTranslationsPageDescription(): string {
+        const t = this.services.context.t.bind(this.services.context);
+        const translations = this.services.translations.getTranslationSettingsItems();
+        if (translations.length === 0) {
+            return t("settings.translationsPage.empty");
+        }
+        const count = t(getPluralKey(this.services.context.settings.interfaceLanguage, translations.length), { count: translations.length });
+        const main = translations.find((translation) => translation.isActive);
+        return main === undefined ? count : `${count} · ${t("settings.translationsPage.main", { name: main.name || main.id })}`;
+    }
+
+    private createImportSetting(): SettingDefinitionItem<SettingControlKey> {
+        return {
+            name: this.services.context.t("settings.import.name"),
+            desc: this.services.context.t("settings.import.desc"),
+            render: (setting) => {
+                // A new user sees where to get a Bible file and what to do after the import.
+                if (!this.services.context.hasImportedTranslations()) {
+                    renderGettingStarted(setting.descEl, this.services.context.settings.interfaceLanguage, (key, params) => this.services.context.t(key, params));
+                }
+                setting.addButton((button) => button
+                    .setButtonText(this.services.context.t("settings.import.button"))
+                    .setCta()
+                    .onClick(() => this.services.library.openBibleFilePicker(setting.settingEl)));
+                const importProgress = this.services.library.getImportProgress();
+                if (importProgress !== null) {
+                    renderBackgroundTaskStatus(setting.descEl, importProgress);
+                }
+            },
+        };
     }
 
     private createPreviewSettingsGroup(): SettingDefinitionItem<SettingControlKey> {
@@ -302,4 +331,14 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             ],
         };
     }
+}
+
+type TranslationCountKey = "settings.translationsPage.count.one" | "settings.translationsPage.count.few" | "settings.translationsPage.count.many";
+
+// Russian has three forms: 1 перевод, 2 перевода, 5 переводов.
+function getPluralKey(locale: BiblePluginLocale, count: number): TranslationCountKey {
+    const category = new Intl.PluralRules(locale).select(count);
+    if (category === "one") return "settings.translationsPage.count.one";
+    if (category === "few") return "settings.translationsPage.count.few";
+    return "settings.translationsPage.count.many";
 }
