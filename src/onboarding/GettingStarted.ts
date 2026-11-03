@@ -30,6 +30,11 @@ const BIBLE_SOURCE_LINKS: Record<BiblePluginLocale, BibleSourceLink[]> = {
     ],
 };
 
+// An external link the way Obsidian makes its own: target="_blank" hands the address to the system browser.
+function createExternalLink(parentEl: HTMLElement | DocumentFragment, text: string, url: string): HTMLAnchorElement {
+    return parentEl.createEl("a", { text, href: url, cls: "external-link", attr: { target: "_blank", rel: "noopener" } });
+}
+
 /** The import description with the names of the sites it mentions ({jw}, {ebible}, {dbs}) as links. */
 export function createImportDescription(locale: BiblePluginLocale, translate: Translate): DocumentFragment {
     const sites: Record<string, { text: string; url: string }> = {
@@ -43,7 +48,7 @@ export function createImportDescription(locale: BiblePluginLocale, translate: Tr
             if (site === undefined) {
                 if (part !== "") el.appendText(part);
             } else {
-                el.createEl("a", { text: site.text, href: site.url });
+                createExternalLink(el, site.text, site.url);
             }
         });
     });
@@ -57,7 +62,7 @@ export function renderGettingStarted(containerEl: HTMLElement, locale: BiblePlug
     const downloadEl = stepsEl.createEl("li", { text: `${translate("gettingStarted.step.download")} ` });
     BIBLE_SOURCE_LINKS[locale].forEach((link, index) => {
         if (index > 0) downloadEl.appendText(", ");
-        downloadEl.createEl("a", { text: translate(link.textKey), href: link.url });
+        createExternalLink(downloadEl, translate(link.textKey), link.url);
     });
     downloadEl.appendText(".");
     stepsEl.createEl("li", { text: translate("gettingStarted.step.import") });

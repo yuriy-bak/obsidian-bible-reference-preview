@@ -50,6 +50,8 @@ module.exports = async function runGettingStartedTests() {
     ["dbs.org", "https://dbs.org/bibles"],
   ]);
   assert(!importDescEl.textContent.includes("{"), importDescEl.textContent);
+  assert(Array.from(importSetting.querySelectorAll("a")).concat(Array.from(importDescEl.querySelectorAll("a")))
+    .every((link) => link.getAttribute("target") === "_blank" && link.getAttribute("rel") === "noopener"), "external links open in the browser");
   plugin.context.settings.interfaceLanguage = "ru";
   const ruDescEl = document.body.createDiv();
   ruDescEl.appendChild(importItem(plugin).desc);
