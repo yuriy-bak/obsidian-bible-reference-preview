@@ -16,12 +16,10 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
-## What's new in 0.3.2
+## What's new in 0.3.3
 
-- **Your own book names and abbreviations** for each translation (`Jhn`, `Йн`): **Book names** in a translation's row on the **Bible translations** page of the settings.
-- **The usage index and the Bible import run in the background:** a notice shows the progress and has a Cancel button, and you keep working meanwhile.
-- **The usage index builds several times faster**, and notes edited during a build are no longer missed.
-- A re-import that fails halfway no longer leaves the translation deleted.
+- **Bible reader under the note on a phone:** set **Bible reader on a phone** to **Under the note** to read and write at the same time; drag the line above the panel to change its height.
+- **Bible translations page in the settings:** the import, the translation list, the Bible index and the usage index moved off the main settings screen, so many translations no longer make it long.
 
 All changes, including beta versions in progress, are in the [changelog](CHANGELOG.md).
 

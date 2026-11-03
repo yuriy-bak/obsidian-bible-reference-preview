@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.3 - Bible reader under the note on a phone, translations settings page
 
 - The translation list has its own settings page: the main settings screen shows one **Bible translations** entry with the number of translations and the main one; the page holds the import, the translation list, the Bible index and the usage index, so many translations no longer make the main screen long.
 - Bible reader under the note on a phone: with **Bible reader on a phone** set to **Under the note**, chapters open in a panel below the note, so you can read and write at the same time. Drag the line above the panel to change its height (remembered); the panel's bar opens the chapter in a tab or closes the panel. A reader tab's ⋯ menu has **Open under the note**, the command **Show or hide Bible reader under the note** toggles it, and an open panel comes back after a restart.
