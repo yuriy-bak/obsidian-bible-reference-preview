@@ -6,21 +6,48 @@ type Translate = (key: I18nKey, params?: I18nParams) => string;
 
 type BibleSourceLink = { textKey: I18nKey; url: string };
 
+// The Bible page of jw.org's library in the interface language.
+const JW_BIBLE_URLS: Record<BiblePluginLocale, string> = {
+    ru: "https://www.jw.org/ru/%D0%B1%D0%B8%D0%B1%D0%BB%D0%B8%D0%BE%D1%82%D0%B5%D0%BA%D0%B0/%D0%B1%D0%B8%D0%B1%D0%BB%D0%B8%D1%8F/",
+    en: "https://www.jw.org/en/library/bible/",
+};
+const EBIBLE_URL = "https://ebible.org/find/";
+const DBS_URL = "https://dbs.org/bibles";
+
 // Where a new user gets a Bible file the import supports; a free translation in the interface language first.
 const BIBLE_SOURCE_LINKS: Record<BiblePluginLocale, BibleSourceLink[]> = {
     ru: [
         { textKey: "gettingStarted.source.russianSynodal", url: "https://ebible.org/find/details.php?id=russyn" },
-        { textKey: "gettingStarted.source.ebible", url: "https://ebible.org/find/" },
-        { textKey: "gettingStarted.source.jw", url: "https://www.jw.org/" },
-        { textKey: "gettingStarted.source.dbs", url: "https://dbs.org/bibles" },
+        { textKey: "gettingStarted.source.ebible", url: EBIBLE_URL },
+        { textKey: "gettingStarted.source.jw", url: JW_BIBLE_URLS.ru },
+        { textKey: "gettingStarted.source.dbs", url: DBS_URL },
     ],
     en: [
         { textKey: "gettingStarted.source.worldEnglish", url: "https://ebible.org/find/details.php?id=engwebp" },
-        { textKey: "gettingStarted.source.ebible", url: "https://ebible.org/find/" },
-        { textKey: "gettingStarted.source.jw", url: "https://www.jw.org/" },
-        { textKey: "gettingStarted.source.dbs", url: "https://dbs.org/bibles" },
+        { textKey: "gettingStarted.source.ebible", url: EBIBLE_URL },
+        { textKey: "gettingStarted.source.jw", url: JW_BIBLE_URLS.en },
+        { textKey: "gettingStarted.source.dbs", url: DBS_URL },
     ],
 };
+
+/** The import description with the names of the sites it mentions ({jw}, {ebible}, {dbs}) as links. */
+export function createImportDescription(locale: BiblePluginLocale, translate: Translate): DocumentFragment {
+    const sites: Record<string, { text: string; url: string }> = {
+        jw: { text: "jw.org", url: JW_BIBLE_URLS[locale] },
+        ebible: { text: "eBible.org", url: EBIBLE_URL },
+        dbs: { text: "dbs.org", url: DBS_URL },
+    };
+    return createFragment((el) => {
+        translate("settings.import.desc").split(/\{(jw|ebible|dbs)\}/u).forEach((part, index) => {
+            const site = index % 2 === 1 ? sites[part] : undefined;
+            if (site === undefined) {
+                if (part !== "") el.appendText(part);
+            } else {
+                el.createEl("a", { text: site.text, href: site.url });
+            }
+        });
+    });
+}
 
 const JOHN_BOOK_ID = 43;
 

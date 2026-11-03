@@ -37,8 +37,26 @@ module.exports = async function runGettingStartedTests() {
   const importSetting = renderImportSetting(plugin);
   const links = Array.from(importSetting.querySelectorAll(".bible-getting-started a")).map((link) => link.getAttribute("href"));
   assert.strictEqual(links[0], "https://ebible.org/find/details.php?id=engwebp");
-  assert(links.includes("https://www.jw.org/"));
+  assert(links.includes("https://www.jw.org/en/library/bible/"));
   assert.strictEqual(importSetting.querySelectorAll(".bible-getting-started li").length, 3);
+
+  // The import description links to the sites it names, jw.org first and in the interface language.
+  const importDescEl = document.body.createDiv();
+  importDescEl.appendChild(importItem(plugin).desc);
+  assert.deepStrictEqual(Array.from(importDescEl.querySelectorAll("a")).map((link) => [link.textContent, link.getAttribute("href")]), [
+    ["jw.org", "https://www.jw.org/en/library/bible/"],
+    ["eBible.org", "https://ebible.org/find/"],
+    ["dbs.org", "https://dbs.org/bibles"],
+    ["dbs.org", "https://dbs.org/bibles"],
+  ]);
+  assert(!importDescEl.textContent.includes("{"), importDescEl.textContent);
+  plugin.context.settings.interfaceLanguage = "ru";
+  const ruDescEl = document.body.createDiv();
+  ruDescEl.appendChild(importItem(plugin).desc);
+  assert.strictEqual(ruDescEl.querySelector("a").getAttribute("href"),
+    "https://www.jw.org/ru/%D0%B1%D0%B8%D0%B1%D0%BB%D0%B8%D0%BE%D1%82%D0%B5%D0%BA%D0%B0/%D0%B1%D0%B8%D0%B1%D0%BB%D0%B8%D1%8F/");
+  assert(ruDescEl.textContent.startsWith("Выберите файл Библии: EPUB с jw.org, eBible.org или dbs.org"), ruDescEl.textContent);
+  plugin.context.settings.interfaceLanguage = "en";
 
   // The empty reader: import and settings buttons.
   await plugin.reader.openReader();
@@ -87,9 +105,12 @@ module.exports = async function runGettingStartedTests() {
   stopPlugin(russian.plugin);
 };
 
+function importItem(plugin) {
+  return translationsPage(plugin).items.find((definition) => definition.name === plugin.context.t("settings.import.name"));
+}
+
 function renderImportSetting(plugin) {
-  const importItem = translationsPage(plugin).items.find((definition) => definition.name === plugin.context.t("settings.import.name"));
   const setting = new Setting(document.body.createDiv());
-  importItem.render(setting);
+  importItem(plugin).render(setting);
   return setting.settingEl;
 }
