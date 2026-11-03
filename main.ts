@@ -36,6 +36,7 @@ export default class BiblePlugin extends Plugin {
         closeBiblePreviewPane: (options) => this.preview.closePane(options),
         closeReferenceUsagePane: () => this.referenceUsage.closePane(),
         updatePluginActiveRibbonIcon: () => this.updatePluginActiveRibbonIcon(),
+        closeReaderSplit: () => this.reader.closeSplit(),
     });
     private readonly translations = new TranslationService(this.context, {
         refreshVisibleBiblePreviewContent: async () => {
@@ -137,6 +138,7 @@ export default class BiblePlugin extends Plugin {
         this.registerEditorExtension(this.editor.createExtension());
         this.referenceUsage.registerVaultEvents(this);
         this.register(() => this.library.cancelImportOnUnload());
+        this.register(() => this.reader.dispose());
         this.register(() => {
             if (this.parserChangeTimeout !== null) window.clearTimeout(this.parserChangeTimeout);
         });
@@ -146,6 +148,7 @@ export default class BiblePlugin extends Plugin {
             // The index may be outdated after a plugin update that changed the parser.
             this.referenceUsage.handleParserChanged();
             void this.showGettingStartedNoticeOnce();
+            void this.reader.restoreSplit();
         });
     }
 

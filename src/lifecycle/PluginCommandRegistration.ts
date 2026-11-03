@@ -1,4 +1,4 @@
-import type { Plugin } from "obsidian";
+import { Platform, type Plugin } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
 import type { EditorService } from "../editor/EditorService";
 import type { BibleLibraryService } from "../import/BibleLibraryService";
@@ -58,6 +58,16 @@ export function registerPluginCommands(plugin: Plugin, services: PluginCommandSe
     plugin.addCommand({ id: "open-bible-reader", name: t("command.openBibleReader"), callback: () => void reader.openReader() });
     plugin.addCommand({ id: "open-bible-reader-new-tab", name: t("command.openBibleReaderNewTab"), callback: () => void reader.openReader({ newTab: true }) });
     plugin.addCommand({ id: "go-to-bible-chapter", name: t("command.goToBibleChapter"), callback: () => void reader.openNavigator() });
+    // On a phone only: elsewhere Obsidian splits tabs itself.
+    plugin.addCommand({
+        id: "toggle-bible-reader-below",
+        name: t("command.toggleBibleReaderBelow"),
+        checkCallback: (checking) => {
+            if (!Platform.isPhone) return false;
+            if (!checking) void reader.toggleSplit();
+            return true;
+        },
+    });
     plugin.addCommand({
         id: "open-bible-reference-under-cursor",
         name: t("command.openBibleReferenceUnderCursor"),

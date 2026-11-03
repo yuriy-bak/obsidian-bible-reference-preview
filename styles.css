@@ -353,6 +353,58 @@ button.bible-preview-pane-icon-button:disabled {
     margin-top: var(--size-4-3);
 }
 
+/* Bible reader under the note on a phone: a row of the app's layout right after the workspace, above the navbar. */
+body.bible-reader-split-open .app-container {
+    display: flex;
+    flex-direction: column;
+}
+
+body.bible-reader-split-open .app-container > .horizontal-main-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+}
+
+.bible-reader-split {
+    flex: 0 0 var(--bible-reader-split-height, 45%);
+    height: var(--bible-reader-split-height, 45%);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+}
+
+/* The handle: drag up or down to change the reader's height. */
+.bible-reader-split-handle {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 16px;
+    touch-action: none;
+    cursor: row-resize;
+    background: var(--background-secondary-alt);
+}
+
+.bible-reader-split-grip {
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--background-modifier-border-hover);
+}
+
+.bible-reader-split-handle.is-dragging .bible-reader-split-grip {
+    background: var(--interactive-accent);
+}
+
+.bible-reader-split-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
 /* First steps in the settings of a user without translations */
 .bible-getting-started {
     margin: var(--size-4-2) 0 0;
