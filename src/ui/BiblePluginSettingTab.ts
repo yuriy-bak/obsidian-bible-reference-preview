@@ -52,15 +52,6 @@ export class BiblePluginSettingTab extends PluginSettingTab {
         return [
             ...this.createGeneralSettings(),
             this.createTranslationsPage(),
-            createReferenceUsageIndexSettingsGroup({
-                translate: (key) => this.services.context.t(key),
-                buildIndex: () => this.services.referenceUsage.buildReferenceUsageIndex(),
-                rebuildIndex: () => this.services.referenceUsage.rebuildReferenceUsageIndex(),
-                showStats: () => this.services.referenceUsage.showReferenceUsageIndexStats(),
-                clearIndex: () => this.services.referenceUsage.clearReferenceUsageIndex(),
-                isIndexOutdated: () => this.services.referenceUsage.isReferenceUsageIndexOutdated(),
-                getBuildProgress: () => this.services.referenceUsage.getReferenceUsageBuildProgress(),
-            }),
             this.createPreviewSettingsGroup(),
             {
                 type: "group",
@@ -158,13 +149,15 @@ export class BiblePluginSettingTab extends PluginSettingTab {
         ];
     }
 
-    // Imported translations, their order and the Bible index live on their own page:
+    // Imported translations, their order, the Bible index and the usage index live on their own page:
     // with many translations the list would push every other setting far down the main screen.
     private createTranslationsPage(): SettingDefinitionItem<SettingControlKey> {
         return {
             type: "page",
             name: this.services.context.t("settings.translationsPage.name"),
             desc: this.getTranslationsPageDescription(),
+            // Obsidian 1.13.1+: a mark on the entry while the usage index on the page needs a rebuild.
+            status: () => this.services.referenceUsage.isReferenceUsageIndexOutdated() ? "warning" : null,
             items: [
                 this.createImportSetting(),
                 createTranslationSettingsList({
@@ -181,6 +174,15 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     refresh: () => this.update(),
                 }),
                 this.createBibleIndexSettingsGroup(),
+                createReferenceUsageIndexSettingsGroup({
+                    translate: (key) => this.services.context.t(key),
+                    buildIndex: () => this.services.referenceUsage.buildReferenceUsageIndex(),
+                    rebuildIndex: () => this.services.referenceUsage.rebuildReferenceUsageIndex(),
+                    showStats: () => this.services.referenceUsage.showReferenceUsageIndexStats(),
+                    clearIndex: () => this.services.referenceUsage.clearReferenceUsageIndex(),
+                    isIndexOutdated: () => this.services.referenceUsage.isReferenceUsageIndexOutdated(),
+                    getBuildProgress: () => this.services.referenceUsage.getReferenceUsageBuildProgress(),
+                }),
             ],
         };
     }
