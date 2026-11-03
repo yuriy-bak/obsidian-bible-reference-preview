@@ -1,25 +1,31 @@
-import type { WorkspaceLeaf } from "obsidian";
+import { Platform, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
 import type { BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
 import type { ReferenceUsageReturnPoint } from "../reference-usage/ReferenceUsageService";
 import type { TranslationService } from "../translations/TranslationService";
+import type { BiblePluginSettings } from "../settings/PluginSettings";
 import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
-import { BIBLE_READER_VIEW_TYPE, BibleReaderView, type BibleReaderOpenState, type BibleReaderViewInput } from "../ui/BibleReaderView";
+import { BIBLE_READER_VIEW_TYPE, BibleReaderView, type BibleReaderLocation, type BibleReaderOpenState, type BibleReaderViewInput } from "../ui/BibleReaderView";
+import { BibleReaderSplitPanel } from "../ui/BibleReaderSplitPanel";
 import { getWorkspaceLeavesOfType } from "../workspace/BiblePreviewWorkspace";
 
 /** What the reader needs from the reference usages and the import. */
 export type BibleReaderServiceEffects = {
-    showUsagesForPreviewBlock: (target: BiblePreviewUsageTarget, returnPoint: ReferenceUsageReturnPoint) => void;
+    showUsagesForPreviewBlock: (target: BiblePreviewUsageTarget, returnPoint: ReferenceUsageReturnPoint | null) => void;
     getChapterUsageCount: (location: BibleChapterLocation) => number | null;
-    showUsagesForChapter: (location: BibleChapterLocation, title: string, returnPoint: ReferenceUsageReturnPoint) => void;
+    showUsagesForChapter: (location: BibleChapterLocation, title: string, returnPoint: ReferenceUsageReturnPoint | null) => void;
     openBibleFilePicker: (hostEl: HTMLElement) => void;
 };
 
-/** Opens and refreshes the "Bible reader" views. */
+/**
+ * Opens and refreshes the "Bible reader" views, and on a phone the reader under the note
+ * (when the reader is set to open there).
+ */
 export class BibleReaderService {
     private lastActiveLeaf: WorkspaceLeaf | null = null;
+    private split: BibleReaderSplitPanel | null = null;
 
     constructor(
         private readonly context: PluginContext,
@@ -30,6 +36,15 @@ export class BibleReaderService {
 
     /** A chapter from the preview, in the translation it was shown in (the active one without it); in the last reader or a new tab. */
     async openChapter(target: BibleChapterTarget, translationId?: string, options: { newTab?: boolean } = {}): Promise<void> {
+        if (options.newTab !== true && this.opensBelow()) {
+            await this.getSplit().open({
+                book: target.book,
+                chapter: target.chapter,
+                highlightedRanges: target.highlightedRanges,
+                ...(translationId === undefined ? {} : { translationId }),
+            });
+            return;
+        }
         await this.openState({
             book: target.book,
             chapter: target.chapter,
@@ -40,6 +55,10 @@ export class BibleReaderService {
 
     /** The command and the ribbon icon: the last reader, or a new one with the book picker open. */
     async openReader(options: { newTab?: boolean } = {}): Promise<void> {
+        if (options.newTab !== true && this.opensBelow()) {
+            await this.showSplit();
+            return;
+        }
         const leaf = options.newTab === true ? null : this.getReaderLeaf();
         if (leaf !== null) {
             await this.context.app.workspace.revealLeaf(leaf);
@@ -52,6 +71,11 @@ export class BibleReaderService {
 
     /** The command "Go to book and chapter": the navigator of the last reader, or of a new one. */
     async openNavigator(): Promise<void> {
+        if (this.opensBelow()) {
+            if (this.split?.isOpen() === true) this.split.openNavigator();
+            else await this.getSplit().open({});
+            return;
+        }
         await this.openReader();
         const view = this.getReaderLeaf()?.view;
         if (view instanceof BibleReaderView) view.openNavigator();
@@ -62,13 +86,54 @@ export class BibleReaderService {
     }
 
     async refreshAll(): Promise<void> {
-        await Promise.all(this.getViews().map((view) => view.refresh(this.createViewInput())));
+        await Promise.all([
+            ...this.getViews().map((view) => view.refresh(this.createViewInput())),
+            ...(this.split?.isOpen() === true ? [this.split.refresh(this.createViewInput())] : []),
+        ]);
     }
 
-    /** Scrolls the reader in the active tab; false when there is none to scroll. */
+    /** Scrolls the reader in the active tab, or the one under the note; false when there is none to scroll. */
     scrollActive(command: BiblePreviewScrollCommand): boolean {
         const view = this.context.app.workspace.getActiveViewOfType(BibleReaderView);
-        return view?.scrollReader(command) ?? false;
+        if (view !== null) return view.scrollReader(command);
+        return this.split?.scrollReader(command) ?? false;
+    }
+
+    /** Whether the reader opens under the note: a phone, with that placement chosen in the settings or the panel open. */
+    opensBelow(): boolean {
+        return Platform.isPhone && (this.context.settings.phoneReaderPlacement === "below" || this.split?.isOpen() === true);
+    }
+
+    isSplitOpen(): boolean {
+        return this.split?.isOpen() === true;
+    }
+
+    /** The command on a phone: shows the reader under the note (at its last chapter) or hides it. */
+    async toggleSplit(): Promise<void> {
+        if (this.split?.isOpen() === true) {
+            this.closeSplit();
+            return;
+        }
+        await this.showSplit();
+    }
+
+    /** At start, the reader under the note comes back if it was open (Obsidian's workspace does not keep it). */
+    async restoreSplit(): Promise<void> {
+        if (!Platform.isPhone || !this.context.settings.readerSplit.open) return;
+        await this.showSplit();
+    }
+
+    closeSplit(): void {
+        if (this.split?.isOpen() !== true) return;
+        this.split.close();
+        // Closed, but the chapter stays for the next time it opens.
+        this.saveSplitState({ ...this.context.settings.readerSplit, open: false });
+    }
+
+    /** The plugin unloads: the panel leaves the app's layout; it is still remembered as open. */
+    dispose(): void {
+        this.split?.close();
+        this.split = null;
     }
 
     createViewInput(): BibleReaderViewInput {
@@ -99,14 +164,18 @@ export class BibleReaderService {
             }),
             getFindUsagesButtonAria: (target) => t("preview.findUsagesAria", { reference: target.title }),
             getFindChapterUsagesAria: (title) => t("preview.findChapterUsagesAria", { reference: title }),
-            onFindUsages: (target, translationId, leaf) => this.effects.showUsagesForPreviewBlock({
+            onFindUsages: (target, translationId, returnPoint) => this.effects.showUsagesForPreviewBlock({
                 title: target.title,
                 references: this.toActiveReferences(target.references, translationId),
-            }, this.createReturnPoint(leaf)),
+            }, returnPoint),
             getChapterUsageCount: (location, translationId) => this.effects.getChapterUsageCount(this.toActiveLocation(location, translationId)),
             getUsageLocation: (location, translationId) => this.toActiveLocation(location, translationId),
-            onFindChapterUsages: (location, title, translationId, leaf) =>
-                this.effects.showUsagesForChapter(this.toActiveLocation(location, translationId), title, this.createReturnPoint(leaf)),
+            onFindChapterUsages: (location, title, translationId, returnPoint) =>
+                this.effects.showUsagesForChapter(this.toActiveLocation(location, translationId), title, returnPoint),
+            createLeafReturnPoint: (leaf) => this.createReturnPoint(leaf),
+            getOpenBelowText: () => t("reader.split.openBelow"),
+            // Only on a phone: elsewhere Obsidian splits tabs itself.
+            ...(Platform.isPhone ? { onOpenBelow: (leaf: WorkspaceLeaf, location: BibleReaderLocation | null) => void this.moveToSplit(leaf, location) } : {}),
             mapChapterTarget: (target, from, to) => this.contentBuilder.mapChapterTarget(target, from, to),
             getNavigatorBooks: (translationId) => this.contentBuilder.getNavigatorBooks(translationId),
             getNavigatorLabels: () => ({
@@ -119,6 +188,59 @@ export class BibleReaderService {
             getTranslationOptions: () => this.translations.getTranslationSettingsItems().map((item) => ({ id: item.id, name: item.name })),
             getTranslationSelectAria: () => t("reader.translationSelectAria"),
         };
+    }
+
+    private getSplit(): BibleReaderSplitPanel {
+        if (this.split !== null) return this.split;
+        const t = this.context.t.bind(this.context);
+        this.split = new BibleReaderSplitPanel({
+            reader: this.createViewInput(),
+            getRatio: () => this.context.settings.readerSplitRatio,
+            onRatioChange: (ratio) => {
+                this.context.updateSettings({ readerSplitRatio: ratio });
+                void this.context.saveSettings();
+            },
+            onLocationChange: (location) => this.saveSplitState(location === null
+                ? { open: true }
+                : { open: true, book: location.target.book, chapter: location.target.chapter, translationId: location.translationId }),
+            // The usages panel's back button shows the reader under the note again.
+            getReturnPoint: () => ({ kind: "chapter", run: () => void this.showSplit() }),
+            onClose: () => this.closeSplit(),
+            onOpenInTab: (location) => void this.moveToTab(location),
+            getCloseAria: () => t("reader.split.closeAria"),
+            getOpenInTabAria: () => t("reader.split.openInTabAria"),
+            getResizeAria: () => t("reader.split.resizeAria"),
+        });
+        return this.split;
+    }
+
+    // The last chapter of the panel, or the book picker the first time.
+    private async showSplit(): Promise<void> {
+        const split = this.getSplit();
+        if (split.isOpen()) return;
+        const saved = this.context.settings.readerSplit;
+        await split.open({
+            ...(saved.book !== undefined && saved.chapter !== undefined ? { book: saved.book, chapter: saved.chapter } : {}),
+            ...(saved.translationId === undefined ? {} : { translationId: saved.translationId }),
+        });
+        if (!this.context.settings.readerSplit.open) this.saveSplitState({ ...saved, open: true });
+    }
+
+    // The tab's chapter moves under the note: the tab closes, the note it covered comes back on top.
+    private async moveToSplit(leaf: WorkspaceLeaf, location: BibleReaderLocation | null): Promise<void> {
+        await this.getSplit().open(location === null ? {} : toOpenState(location));
+        leaf.detach();
+    }
+
+    // The panel's chapter goes to a tab, the panel closes.
+    private async moveToTab(location: BibleReaderLocation | null): Promise<void> {
+        this.closeSplit();
+        await this.openState(location === null ? {} : toOpenState(location));
+    }
+
+    private saveSplitState(state: BiblePluginSettings["readerSplit"]): void {
+        this.context.updateSettings({ readerSplit: state });
+        void this.context.saveSettings();
     }
 
     private async openState(state: BibleReaderOpenState, newTab = false): Promise<void> {
@@ -168,4 +290,13 @@ export class BibleReaderService {
             ? references
             : this.contentBuilder.mapReferences(references, translationId, activeTranslationId);
     }
+}
+
+function toOpenState(location: BibleReaderLocation): BibleReaderOpenState {
+    return {
+        book: location.target.book,
+        chapter: location.target.chapter,
+        highlightedRanges: location.target.highlightedRanges,
+        translationId: location.translationId,
+    };
 }

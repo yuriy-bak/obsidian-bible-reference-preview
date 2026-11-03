@@ -18,6 +18,7 @@ const TEST_FILES = [
   "dbs-aleph-import",
   "verse-headings",
   "bible-navigator",
+  "reader-split",
 ];
 
 (async () => {

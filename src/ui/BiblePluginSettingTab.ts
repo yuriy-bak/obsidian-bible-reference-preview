@@ -1,9 +1,9 @@
-import { App, Notice, Plugin, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
+import { App, Notice, Platform, Plugin, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
 import type { BiblePluginLocale } from "../i18n/I18n";
 import type { BibleLibraryService } from "../import/BibleLibraryService";
 import type { ReferenceUsageService } from "../reference-usage/ReferenceUsageService";
-import type { BibleLinkOpenShortcut, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode } from "../settings/PluginSettings";
+import type { BibleLinkOpenShortcut, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode, PhoneReaderPlacement } from "../settings/PluginSettings";
 import type { SettingsService } from "../settings/SettingsService";
 import type { TranslationService } from "../translations/TranslationService";
 import { createColorSettingDefinitions } from "./ColorSettingsSection";
@@ -30,6 +30,7 @@ type SettingControlKey =
     | "previewDisplayMode"
     | "autoOpenPreviewOnVerseChange"
     | "previewPanelSide"
+    | "phoneReaderPlacement"
     | "closePreviewOnActiveLeafChange"
     | "interceptLinkOpenShortcut"
     | "linkOpenShortcut";
@@ -126,6 +127,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             previewDisplayMode: { get: () => settings.getBiblePreviewDisplayMode(), set: (value) => settings.setBiblePreviewDisplayMode(value as BiblePreviewDisplayMode) },
             autoOpenPreviewOnVerseChange: { get: () => settings.shouldAutoOpenPreviewOnVerseChange(), set: (value) => settings.setAutoOpenPreviewOnVerseChange(value === true) },
             previewPanelSide: { get: () => settings.getBiblePreviewPanelSide(), set: (value) => settings.setBiblePreviewPanelSide(value as BiblePreviewPanelSide) },
+            phoneReaderPlacement: { get: () => settings.getPhoneReaderPlacement(), set: (value) => settings.setPhoneReaderPlacement(value as PhoneReaderPlacement) },
             closePreviewOnActiveLeafChange: { get: () => settings.shouldClosePreviewOnActiveLeafChange(), set: (value) => settings.setClosePreviewOnActiveLeafChange(value === true) },
             interceptLinkOpenShortcut: { get: () => settings.shouldInterceptLinkOpenShortcut(), set: (value) => settings.setInterceptLinkOpenShortcut(value === true) },
             linkOpenShortcut: { get: () => settings.getBibleLinkOpenShortcut(), set: (value) => settings.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut) },
@@ -233,6 +235,19 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                         },
                     },
                 },
+                // On a phone only: Obsidian shows one tab at a time there.
+                ...(Platform.isPhone ? [{
+                    name: this.services.context.t("settings.phoneReaderPlacement.name"),
+                    desc: this.services.context.t("settings.phoneReaderPlacement.desc"),
+                    control: {
+                        type: "dropdown" as const,
+                        key: "phoneReaderPlacement" as const,
+                        options: {
+                            tab: this.services.context.t("settings.phoneReaderPlacement.tab"),
+                            below: this.services.context.t("settings.phoneReaderPlacement.below"),
+                        },
+                    },
+                }] : []),
                 {
                     name: this.services.context.t("settings.closePreviewOnTabChange.name"),
                     desc: this.services.context.t("settings.closePreviewOnTabChange.desc"),

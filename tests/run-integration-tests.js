@@ -21,6 +21,7 @@ const TEST_FILES = [
   "book-names",
   "versification-comparison",
   "bible-reader",
+  "reader-split",
   "getting-started",
   "background-tasks",
 ];

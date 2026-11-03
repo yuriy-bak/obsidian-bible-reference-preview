@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Bible reader under the note on a phone: with **Bible reader on a phone** set to **Under the note**, chapters open in a panel below the note, so you can read and write at the same time. Drag the line above the panel to change its height (remembered); the panel's bar opens the chapter in a tab or closes the panel. A reader tab's ⋯ menu has **Open under the note**, the command **Show or hide Bible reader under the note** toggles it, and an open panel comes back after a restart.
+
 ## 0.3.2 - Your own book names, usage index and import in the background
 
 - The reference usage index and the Bible import run in the background, without a window over Obsidian: a notice shows the progress and has a Cancel button, closing it does not stop the task, and the settings show the same progress with Cancel. Notes, previews and usage searches keep working meanwhile (searches use the previous index until the build finishes, the new translation appears when its import finishes). Notes edited during a build are no longer lost from the index. A second import, or deleting or renaming the translation being imported, is refused while it runs.

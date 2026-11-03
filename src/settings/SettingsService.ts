@@ -8,7 +8,7 @@ import {
     normalizeBibleReferenceLinkColor,
     normalizeFloatingPreviewBackgroundColor,
 } from "../ui/cssColorValidation";
-import type { BibleLinkOpenShortcut, BiblePluginSettings, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode } from "./PluginSettings";
+import type { BibleLinkOpenShortcut, BiblePluginSettings, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode, PhoneReaderPlacement } from "./PluginSettings";
 
 const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
@@ -25,6 +25,8 @@ export type SettingsServiceEffects = {
     closeBiblePreviewPane: (options: { collapseSideDock?: boolean; requireActivePreview?: boolean }) => Promise<void>;
     closeReferenceUsagePane: () => void;
     updatePluginActiveRibbonIcon: () => void;
+    /** The reader under the note closes when the reader goes back to tabs. */
+    closeReaderSplit: () => void;
 };
 
 export class SettingsService {
@@ -233,6 +235,20 @@ export class SettingsService {
         }
 
         await this.save({ linkOpenShortcut });
+        this.context.refreshSettingsTab();
+    }
+
+    getPhoneReaderPlacement(): PhoneReaderPlacement {
+        return this.settings.phoneReaderPlacement;
+    }
+
+    async setPhoneReaderPlacement(phoneReaderPlacement: PhoneReaderPlacement): Promise<void> {
+        if (this.settings.phoneReaderPlacement === phoneReaderPlacement) {
+            return;
+        }
+
+        await this.save({ phoneReaderPlacement });
+        if (phoneReaderPlacement === "tab") this.effects.closeReaderSplit();
         this.context.refreshSettingsTab();
     }
 

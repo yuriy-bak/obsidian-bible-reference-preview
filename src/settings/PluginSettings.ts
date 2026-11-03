@@ -3,12 +3,22 @@ import { BiblePluginLocale, getBiblePluginLocaleForLanguage, normalizeBiblePlugi
 import { isValidTranslationCode } from "../translations/translationCodes";
 import { normalizeCustomBookAliases, type CustomBookAliases } from "../parsing/customBookAliases";
 import { normalizeReferenceUsageExcludedFolders } from "../reference-usage/ReferenceUsageIndexService";
+import { clampReaderSplitRatio, DEFAULT_READER_SPLIT_RATIO } from "../reader/ReaderSplitGeometry";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "../ui/cssColorValidation";
 
 export type BiblePreviewTriggerMode = "current-paragraph" | "clicked-reference";
 export type BiblePreviewDisplayMode = "floating" | "side-panel";
 export type BiblePreviewPanelSide = "right" | "left";
 export type BibleLinkOpenShortcut = "alt-enter" | "ctrl-enter" | "ctrl-alt-enter";
+/** Where the reader opens on a phone: in a tab (in place of the note), or in the panel under the note. */
+export type PhoneReaderPlacement = "tab" | "below";
+/** The reader under the note on a phone: open or not, and its chapter, in its own translation's numbering. */
+export type ReaderSplitState = {
+    open: boolean;
+    book?: number;
+    chapter?: number;
+    translationId?: string;
+};
 
 export type BiblePluginSettings = {
     isPluginActive: boolean;
@@ -34,6 +44,10 @@ export type BiblePluginSettings = {
     referenceUsageExcludedFolders: string[];
     /** The one-time notice with the first steps was shown (or not needed: translations were already imported). */
     gettingStartedNoticeShown: boolean;
+    phoneReaderPlacement: PhoneReaderPlacement;
+    /** The reader's share of the height under the note (BibleReaderSplitPanel). */
+    readerSplitRatio: number;
+    readerSplit: ReaderSplitState;
 };
 
 const DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS = ["Attachments/", "Templates/", "Archive/", "Bible/"];
@@ -60,6 +74,9 @@ export const DEFAULT_SETTINGS: BiblePluginSettings = {
     referenceUsageAutoUpdate: !Platform.isMobileApp,
     referenceUsageExcludedFolders: DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS,
     gettingStartedNoticeShown: false,
+    phoneReaderPlacement: "tab",
+    readerSplitRatio: DEFAULT_READER_SPLIT_RATIO,
+    readerSplit: { open: false },
 };
 
 export function normalizePluginSettings(value: unknown): BiblePluginSettings {
@@ -127,7 +144,29 @@ export function normalizePluginSettings(value: unknown): BiblePluginSettings {
         gettingStartedNoticeShown: typeof value.gettingStartedNoticeShown === "boolean"
             ? value.gettingStartedNoticeShown
             : DEFAULT_SETTINGS.gettingStartedNoticeShown,
+        phoneReaderPlacement: value.phoneReaderPlacement === "tab" || value.phoneReaderPlacement === "below"
+            ? value.phoneReaderPlacement
+            : DEFAULT_SETTINGS.phoneReaderPlacement,
+        readerSplitRatio: typeof value.readerSplitRatio === "number"
+            ? clampReaderSplitRatio(value.readerSplitRatio)
+            : DEFAULT_SETTINGS.readerSplitRatio,
+        readerSplit: normalizeReaderSplitState(value.readerSplit),
     };
+}
+
+function normalizeReaderSplitState(value: unknown): ReaderSplitState {
+    if (!isRecord(value)) return { open: false };
+    const book = value.book;
+    const chapter = value.chapter;
+    return {
+        open: value.open === true,
+        ...(isPositiveInteger(book) && isPositiveInteger(chapter) ? { book, chapter } : {}),
+        ...(typeof value.translationId === "string" ? { translationId: value.translationId } : {}),
+    };
+}
+
+function isPositiveInteger(value: unknown): value is number {
+    return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 function normalizeTranslationCodes(value: unknown): Record<string, string> {
