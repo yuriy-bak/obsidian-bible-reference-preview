@@ -1018,19 +1018,61 @@ button.bible-reference-usage-pane-open-button {
     margin-top: 6px;
 }
 
-/* Translation list: numbering and code under the description, each label above its field */
+/* Translation list: what the order means, under the heading; hidden while the list is empty. */
+.bible-translation-list-hint {
+    margin: calc(-1 * var(--size-4-2)) var(--size-4-4) var(--size-4-3);
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    line-height: var(--line-height-tight);
+}
+
+.bible-translation-list-hint:has(+ .setting-items > .mod-empty-state) {
+    display: none;
+}
+
+/* Obsidian puts the delete button and the drag handle in a column beside the row, which takes width from every line.
+   Here they are pinned beside the name: the handle on the left, the delete button in the top right corner.
+   The description and the controls below then get the whole width. */
+.setting-item.bible-translation-setting-item {
+    --bible-translation-button-space: calc(var(--icon-size) + var(--size-4-3));
+    align-items: flex-start;
+}
+
+.bible-translation-setting-item .setting-item-control {
+    display: contents;
+}
+
+.bible-translation-setting-item .setting-item-control .extra-setting-button {
+    position: absolute;
+    top: calc(var(--setting-items-padding-y) - var(--size-2-2));
+}
+
+.bible-translation-setting-item .setting-item-control .extra-setting-button.mod-drag-handle {
+    left: calc(var(--setting-items-padding-x) - var(--size-2-2));
+}
+
+.bible-translation-setting-item .setting-item-control .extra-setting-button:not(.mod-drag-handle) {
+    right: calc(var(--setting-items-padding-x) - var(--size-2-2));
+}
+
+.bible-translation-setting-item .setting-item-name {
+    padding-left: var(--bible-translation-button-space);
+    padding-right: var(--bible-translation-button-space);
+}
+
+/* Numbering, code and book names in one row under the description, each label beside its field. */
 .bible-translation-setting-controls {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--size-4-2) var(--size-4-4);
+    align-items: center;
+    gap: var(--size-4-2) var(--size-4-3);
     margin-top: var(--size-4-2);
 }
 
 .bible-translation-setting-control {
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--size-2-1);
+    align-items: center;
+    gap: var(--size-4-1);
     margin: 0;
     padding: 0;
     min-width: 0;
@@ -1038,12 +1080,7 @@ button.bible-reference-usage-pane-open-button {
     font-size: var(--font-ui-smaller);
 }
 
-/* The scheme names are long: the dropdown takes the whole width instead of cutting the name. */
-.bible-translation-setting-control:first-child {
-    flex: 1 1 100%;
-}
-
-/* Obsidian's mobile fields are tall with wide padding; here they are compact so the labels fit. */
+/* Obsidian's mobile fields are tall with wide padding; here they are compact so the row stays one line. */
 .bible-translation-setting-control .dropdown,
 .bible-translation-setting-control input {
     margin: 0;
@@ -1060,8 +1097,9 @@ button.bible-reference-usage-pane-open-button {
 }
 
 .bible-translation-setting-control .dropdown {
-    width: 100%;
-    max-width: none;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
 }
 
 /* Pencil after the translation name; the name turns into a field in place. */
@@ -1102,16 +1140,17 @@ button.bible-reference-usage-pane-open-button {
     overflow-wrap: anywhere;
 }
 
-.bible-translation-setting-code {
-    width: 8em;
+/* Codes are short; Obsidian's mobile fields take the whole width otherwise. */
+.bible-translation-setting-control input.bible-translation-setting-code {
+    flex: none;
+    width: 5em;
 }
 
-/* "Book names" button beside the code field; opens the window with the books of the translation. */
+/* "Book names" button after the code field: the tag icon, the label and the number of own names. */
 .bible-translation-book-names {
     display: inline-flex;
     align-items: center;
     gap: var(--size-2-2);
-    align-self: flex-end;
     height: auto;
     padding: var(--size-2-2) var(--size-4-2);
     font-size: var(--font-ui-small);

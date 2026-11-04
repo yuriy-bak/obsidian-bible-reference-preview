@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A more compact translation list on the **Bible translations** page: the drag handle sits left of the name and the delete button in the top right corner, so the rows below use the full width; the description is one line (language, books, file) without the internal id; numbering, code and the **Book names** button share one row with short labels. A hint under the heading says the first translation is the main one; the check mark is gone. Numbering schemes are named after a reference Bible, so they no longer read as languages: **like KJV** (was English), **like Synodal**, **like original**, **like Vulgate**, **like Septuagint**.
 - The import description on the **Bible translations** page links to the sites it names: jw.org (its Bible page in the interface language), eBible.org and dbs.org; jw.org comes first. The jw.org link in the getting started hints also opens its Bible page.
 
 ## 0.3.3 - Bible reader under the note on a phone, translations settings page
