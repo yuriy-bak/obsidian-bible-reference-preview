@@ -5,10 +5,9 @@ import { ICONS } from "./Icons";
 
 type TranslationSettingsListI18nKey =
     | "settings.translations.title"
+    | "settings.translations.hint"
     | "settings.translations.empty"
-    | "settings.translations.language"
     | "settings.translations.books"
-    | "settings.translations.file"
     | "settings.translations.versification"
     | "settings.translations.code"
     | "settings.translations.codeHint"
@@ -48,11 +47,14 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
         heading: translate("settings.translations.title"),
         emptyState: translate("settings.translations.empty"),
         items: translations.map((translation) => ({
-            name: `${translation.isActive ? "✓ " : ""}${translation.name || translation.id}`,
+            name: translation.name || translation.id,
             desc: createTranslationDescription(translation, translate),
-            // The numbering and the code sit under the description: beside the name they get squeezed on a phone.
+            // The numbering and the code sit in one row under the description: beside the name they get squeezed on a phone.
+            // The drag handle and the delete button are pinned beside the name (styles.css), so the rows below get the full width.
             // Obsidian may render the same row again (on mobile it does), so the previous controls go first.
             render: (setting) => {
+                setting.settingEl.addClass("bible-translation-setting-item");
+                ensureListHint(setting.settingEl, translate("settings.translations.hint"));
                 setting.infoEl.querySelectorAll(".bible-translation-setting-controls").forEach((element) => element.remove());
                 setting.nameEl.querySelectorAll(".bible-translation-rename").forEach((element) => element.remove());
                 const renameButton = setting.nameEl.createEl("button", {
@@ -98,16 +100,19 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
                     });
                 });
 
+                // Only the tag icon and the number of own names: the full label would push the row onto a second line.
                 const bookNamesButton = controlsEl.createEl("button", {
                     cls: "bible-translation-book-names",
-                    attr: { type: "button", title: translate("settings.translations.bookNamesHint") },
+                    attr: {
+                        type: "button",
+                        "aria-label": translate("settings.translations.bookNames"),
+                        title: `${translate("settings.translations.bookNames")}. ${translate("settings.translations.bookNamesHint")}`,
+                    },
                 });
                 setIcon(bookNamesButton.createSpan({ cls: "bible-translation-book-names-icon" }), ICONS.bookNames);
-                bookNamesButton.createSpan({
-                    text: translation.customBookAliasCount > 0
-                        ? `${translate("settings.translations.bookNames")} (${translation.customBookAliasCount})`
-                        : translate("settings.translations.bookNames"),
-                });
+                if (translation.customBookAliasCount > 0) {
+                    bookNamesButton.createSpan({ text: String(translation.customBookAliasCount) });
+                }
                 bookNamesButton.addEventListener("click", (event) => {
                     event.preventDefault();
                     event.stopPropagation();
@@ -188,13 +193,29 @@ function startRename(nameEl: HTMLElement, translation: TranslationSettingsItem, 
     fitHeight();
 }
 
+// One short line: "ru · books: 66 · nwt_U.epub". The id is internal and is not shown.
 function createTranslationDescription(translation: TranslationSettingsItem, translate: TranslationSettingsListInput["translate"]): string {
     return [
-        `ID: ${translation.id}`,
-        translate("settings.translations.language", { language: translation.language || "und" }),
+        translation.language || "und",
         translate("settings.translations.books", { count: translation.bookCount }),
-        translation.sourceFileName.length === 0 ? "" : translate("settings.translations.file", { fileName: translation.sourceFileName }),
+        translation.sourceFileName,
     ].filter((part) => part.length > 0).join(" · ");
+}
+
+// What the order means, under the list heading: the list definition has no description of its own.
+// The rows share the list element, so each row only makes sure the hint is there and up to date.
+function ensureListHint(settingEl: HTMLElement, text: string): void {
+    const listEl = settingEl.parentElement;
+    const groupEl = listEl?.parentElement;
+    if (listEl === null || groupEl === null || groupEl === undefined) {
+        return;
+    }
+    const hintEl = groupEl.querySelector<HTMLElement>(":scope > .bible-translation-list-hint")
+        ?? createDiv({ cls: "bible-translation-list-hint" });
+    if (hintEl.nextElementSibling !== listEl) {
+        groupEl.insertBefore(hintEl, listEl);
+    }
+    hintEl.setText(text);
 }
 
 // A stored key the registry no longer knows still shows up instead of silently selecting another scheme.

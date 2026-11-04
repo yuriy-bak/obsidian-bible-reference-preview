@@ -26,7 +26,7 @@ module.exports = async function runVersificationChoiceTests() {
   const translationId = translationIdByLanguage(plugin, "ru");
   assert.strictEqual(plugin.context.v2Data.translations[translationId].versification, "builtin:rsc");
   const successNotice = noticeMessages().find((message) => message.includes("Verse numbering"));
-  assert.match(successNotice ?? "", /Verse numbering: Russian Synodal/);
+  assert.match(successNotice ?? "", /Verse numbering: like Synodal \(Russian\)/);
   assert.doesNotMatch(successNotice, /Warnings/);
 
   // The settings list offers every scheme with the stored one selected; a change is saved to the index.
