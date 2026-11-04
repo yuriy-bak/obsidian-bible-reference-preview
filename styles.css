@@ -1146,7 +1146,7 @@ button.bible-reference-usage-pane-open-button {
     width: 5em;
 }
 
-/* "Book names" button after the code field: the tag icon and the number of own names. */
+/* "Book names" button after the code field: the tag icon, the label and the number of own names. */
 .bible-translation-book-names {
     display: inline-flex;
     align-items: center;

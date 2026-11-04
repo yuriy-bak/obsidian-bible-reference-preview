@@ -100,19 +100,16 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
                     });
                 });
 
-                // Only the tag icon and the number of own names: the full label would push the row onto a second line.
                 const bookNamesButton = controlsEl.createEl("button", {
                     cls: "bible-translation-book-names",
-                    attr: {
-                        type: "button",
-                        "aria-label": translate("settings.translations.bookNames"),
-                        title: `${translate("settings.translations.bookNames")}. ${translate("settings.translations.bookNamesHint")}`,
-                    },
+                    attr: { type: "button", title: translate("settings.translations.bookNamesHint") },
                 });
                 setIcon(bookNamesButton.createSpan({ cls: "bible-translation-book-names-icon" }), ICONS.bookNames);
-                if (translation.customBookAliasCount > 0) {
-                    bookNamesButton.createSpan({ text: String(translation.customBookAliasCount) });
-                }
+                bookNamesButton.createSpan({
+                    text: translation.customBookAliasCount > 0
+                        ? `${translate("settings.translations.bookNames")} (${translation.customBookAliasCount})`
+                        : translate("settings.translations.bookNames"),
+                });
                 bookNamesButton.addEventListener("click", (event) => {
                     event.preventDefault();
                     event.stopPropagation();
