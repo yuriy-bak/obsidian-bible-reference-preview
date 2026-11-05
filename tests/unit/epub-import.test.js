@@ -424,6 +424,11 @@ module.exports = async () => {
       mkdir: async (path) => { folders.add(path); },
       remove: async (path) => { files.delete(path); },
       rmdir: async () => { throw new Error("rmdir is not used by saveV2"); },
+      rename: async (from, to) => {
+        if (files.has(to)) throw new Error(`EEXIST: ${to}`);
+        files.set(to, files.get(from));
+        files.delete(from);
+      },
       list: async (path) => {
         const isChild = (candidate) => candidate.startsWith(`${path}/`) && !candidate.slice(path.length + 1).includes("/");
         return { files: [...files.keys()].filter(isChild), folders: [...folders].filter(isChild) };
@@ -457,5 +462,30 @@ module.exports = async () => {
     const saved = JSON.parse(files.get("data/bibles-index.json"));
     assert.strictEqual(saved.translations.t.name, "New");
     assert.strictEqual(saved.translations.other.name, "Renamed");
+
+    // The translation list is written through a temporary file, the previous version stays as the backup.
+    assert.strictEqual(JSON.parse(files.get("data/bibles-index.json.bak")).translations.other.name, "Renamed");
+    assert(!files.has("data/bibles-index.json.tmp"));
+
+    // A damaged list is read from the backup.
+    files.set("data/bibles-index.json", '{"version":2,"transl');
+    const fromBackup = new ObsidianBibleIndexV2Repository(adapter, "data");
+    await fromBackup.load();
+    assert.deepStrictEqual(Object.keys(fromBackup.getV2Data().translations).sort(), ["other", "t"]);
+    // A write stopped between the two renames: the file is missing, the backup is there.
+    files.delete("data/bibles-index.json");
+    const afterCrash = new ObsidianBibleIndexV2Repository(adapter, "data");
+    await afterCrash.load();
+    assert.deepStrictEqual(Object.keys(afterCrash.getV2Data().translations).sort(), ["other", "t"]);
+
+    // Damaged with no usable backup: loading and saving fail, the list of the other translations is not replaced.
+    for (const damaged of ['{"version":2,"transl', '{"version":3}']) {
+      files.set("data/bibles-index.json", damaged);
+      files.set("data/bibles-index.json.bak", "not json");
+      const broken = new ObsidianBibleIndexV2Repository(adapter, "data");
+      await assert.rejects(() => broken.load(), (error) => error instanceof EpubImportError && error.code === "indexDamaged");
+      await assert.rejects(() => save(broken, "Again", [1]), (error) => error.code === "indexDamaged");
+      assert.strictEqual(files.get("data/bibles-index.json"), damaged);
+    }
   }
 };

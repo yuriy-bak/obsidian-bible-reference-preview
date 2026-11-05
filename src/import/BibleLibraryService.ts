@@ -1,6 +1,7 @@
 import { Notice, type App } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
 import type { I18nKey, I18nParams } from "../i18n/I18n";
+import { EpubImportError } from "../infrastructure/epub/EpubImportError";
 import { isBibleImportAbortError } from "../infrastructure/sources/BibleImportCancellation";
 import { ensureVaultDirectoryExists } from "../infrastructure/VaultPathUtils";
 import type { TranslationService } from "../translations/TranslationService";
@@ -41,6 +42,9 @@ export class BibleLibraryService {
             void this.updateMissingVersifications();
         } catch (error) {
             console.warn("Bible index load failed. Bible analysis will be disabled until a translation is imported.", error);
+            if (error instanceof EpubImportError && error.code === "indexDamaged") {
+                new Notice(localizeImportErrorMessage(error, this.translate), 0);
+            }
             this.context.setBibleData(null, null);
             this.context.setActiveTranslationId(null);
             this.context.updateBookMapping();

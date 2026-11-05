@@ -33,6 +33,13 @@ class MemoryAdapter {
     return { files: [...this.files.keys()].filter(isChild), folders: [...this.folders].filter(isChild) };
   }
 
+  async rename(from, to) {
+    if (!this.files.has(from)) throw new Error(`ENOENT: ${from}`);
+    if (this.files.has(to)) throw new Error(`EEXIST: ${to}`);
+    this.files.set(to, this.files.get(from));
+    this.files.delete(from);
+  }
+
   async remove(path) {
     if (!this.files.delete(path)) throw new Error(`ENOENT: ${path}`);
   }

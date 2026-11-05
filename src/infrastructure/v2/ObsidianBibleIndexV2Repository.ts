@@ -1,6 +1,7 @@
 import type { DataAdapter } from "obsidian";
 import { BibleIndex, EMPTY_BIBLE_INDEX } from "../BibleIndex";
-import { ensureVaultDirectoryExists, getDirectoryPath, normalizePath } from "../VaultPathUtils";
+import { ensureVaultDirectoryExists, getBackupPath, getDirectoryPath, normalizePath, writeFileWithBackup } from "../VaultPathUtils";
+import { EpubImportError } from "../epub/EpubImportError";
 import { BibleImportReport } from "../sources/BibleSource";
 import { BibleBookV2Loader } from "./BibleBookV2Loader";
 import { BibleIndexV2Data, BibleIndexV2TranslationMetadata } from "./BibleIndexV2Data";
@@ -78,7 +79,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
             translations: {},
         };
         nextData.translations[translationId] = incomingTranslation;
-        await this.adapter.write(this.getMetadataPath(), JSON.stringify(nextData));
+        await writeFileWithBackup(this.adapter, this.getMetadataPath(), JSON.stringify(nextData));
         await this.adapter.write(this.getImportReportPath(), JSON.stringify(input.report));
         this.currentV2Data = nextData;
         await this.removeFilesExcept(normalizePath(`${this.dataDirectoryPath}/translations/${translationId}`), writtenPaths);
@@ -97,7 +98,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         delete nextData.translations[translationId];
         await this.removeTranslationDirectory(translationId);
         await ensureVaultDirectoryExists(this.adapter, this.dataDirectoryPath);
-        await this.adapter.write(this.getMetadataPath(), JSON.stringify(nextData));
+        await writeFileWithBackup(this.adapter, this.getMetadataPath(), JSON.stringify(nextData));
         this.currentV2Data = nextData;
     }
 
@@ -132,7 +133,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
                 [translationId]: { ...translation, ...fields },
             },
         };
-        await this.adapter.write(this.getMetadataPath(), JSON.stringify(nextData));
+        await writeFileWithBackup(this.adapter, this.getMetadataPath(), JSON.stringify(nextData));
         this.currentV2Data = nextData;
     }
 
@@ -186,13 +187,37 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         return normalizePath(`${this.dataDirectoryPath}/${IMPORT_REPORT_FILE_NAME}`);
     }
 
+    /**
+     * The translation list, or null when there is none yet. A damaged file (cut off, not the expected shape)
+     * is read from its backup; with no usable backup the read fails instead of returning null, so a save never
+     * replaces the list of all translations with the one translation it writes.
+     */
     private async readV2Index(path: string): Promise<BibleIndexV2Data | null> {
-        if (!(await this.adapter.exists(path))) {
+        const backupPath = getBackupPath(path);
+        const exists = await this.adapter.exists(path);
+        if (exists) {
+            const data = await this.tryReadV2IndexFile(path);
+            if (data !== null) return data;
+        }
+        // Also when the file is missing: a write stopped between moving it to the backup and putting the new one in place.
+        if (await this.adapter.exists(backupPath)) {
+            const backup = await this.tryReadV2IndexFile(backupPath);
+            if (backup !== null) {
+                console.warn(`Bible index ${path} is ${exists ? "damaged" : "missing"}; its backup is used.`);
+                return backup;
+            }
+        }
+        if (!exists) return null;
+        throw new EpubImportError(`Bible index is damaged and has no usable backup: ${path}`, "indexDamaged", { path });
+    }
+
+    private async tryReadV2IndexFile(path: string): Promise<BibleIndexV2Data | null> {
+        try {
+            const parsed = JSON.parse(await this.adapter.read(path)) as unknown;
+            return isBibleIndexV2Data(parsed) ? sanitizeBibleIndexV2Data(parsed) : null;
+        } catch {
             return null;
         }
-
-        const parsed = JSON.parse(await this.adapter.read(path)) as unknown;
-        return isBibleIndexV2Data(parsed) ? sanitizeBibleIndexV2Data(parsed) : null;
     }
 
     private async removeFilesExcept(directoryPath: string, keptPaths: ReadonlySet<string>): Promise<void> {

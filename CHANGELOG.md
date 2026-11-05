@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The list of imported translations (`bibles-index.json`) is written safely, keeping the previous version as `bibles-index.json.bak`: a file damaged by a crash or a sync conflict is read from the backup. If there is no usable backup, a notice says so, and a new import no longer replaces the list of all translations with the one it imports.
+- Importing a dbs.org HTML page stops with a clear message when its Bible data unpacks into more than 64 MB, instead of filling the memory.
 - Import errors are shown in the interface language with clear wording (file too large, too many files in the archive, no Bible books, no verses, unreadable dbs.org page); sizes are in MB. The progress no longer says "EPUB" for ZIP and HTML files.
 - The hint of the **Bible reference opening shortcut** setting names the command as the command palette shows it, in the interface language.
 - Scroll commands of the preview and the reader appear in the command palette only while there is something to scroll; the "under cursor" commands only in a note editor, and they work from the command palette too.

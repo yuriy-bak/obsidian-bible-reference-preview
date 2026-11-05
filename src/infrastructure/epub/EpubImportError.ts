@@ -16,7 +16,8 @@ export type BibleImportErrorCode =
     | "invalidPath"
     | "dbsNoData"
     | "dbsUnreadable"
-    | "dataTooLarge";
+    | "dataTooLarge"
+    | "indexDamaged";
 
 export type BibleImportErrorParams = Record<string, string | number>;
 
