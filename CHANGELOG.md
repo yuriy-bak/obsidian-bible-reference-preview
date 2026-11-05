@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The floating preview is announced by screen readers as a dialog named after the translation, and its text can be reached and scrolled with the keyboard (Tab); opening it still leaves the focus in the note. On phones it keeps clear of the notch, rounded corners and the home indicator.
+- Internal: release workflows pass event values to scripts through environment variables; esbuild 0.28.2 and fixed dev dependency advisories.
 - A new link color applies right away to notes open in reading mode too (it used to need reopening them).
 - Links stay highlighted in the editor when a lot of text is visible (a large screen, a small font, a very long line): the text is read in parts instead of the highlighting turning off for the whole screen.
 - Importing from eBible.org and dbs.org reads one book at a time instead of holding the text of the whole Bible in memory, which helps on phones.

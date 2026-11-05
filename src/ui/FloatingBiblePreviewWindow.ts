@@ -1,7 +1,7 @@
 import { Menu, Platform, setIcon } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
-import { ICONS } from "./Icons";
+import { ICONS, stripBookIcon } from "./Icons";
 import { addOpenSettingsMenuItem, BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 import {
     clampNumber,
@@ -45,6 +45,8 @@ const MOBILE_SAFE_TOP_ANDROID = 72;
 const MOBILE_SAFE_TOP_DEFAULT = 56;
 const MOBILE_SAFE_SIDE = 8;
 const MOBILE_SAFE_BOTTOM = 12;
+// Room for Obsidian's top bar below the status bar inset.
+const MOBILE_SAFE_TOP_BELOW_INSET = 44;
 
 type Disposable = () => void;
 
@@ -92,7 +94,8 @@ export class FloatingBiblePreviewWindow {
 
     constructor(private labels: FloatingBiblePreviewWindowInput) {
         this.previewPanelEl = this.createPreviewPanelElement();
-        this.previewContentEl = this.previewPanelEl.createDiv({ cls: "bible-preview-floating-content" });
+        // Focusable, so the keyboard can reach and scroll the text; opening never moves the focus from the note.
+        this.previewContentEl = this.previewPanelEl.createDiv({ cls: "bible-preview-floating-content", attr: { tabindex: "0" } });
         this.collapsedButtonEl = this.createCollapsedButtonElement();
         this.pointer = this.createPointerController();
         this.resizeHandleEls = this.pointer.createResizeHandleElements();
@@ -161,6 +164,7 @@ export class FloatingBiblePreviewWindow {
             onFindUsages: this.labels.onFindUsages,
         });
         this.header?.refresh(this.labels);
+        this.previewPanelEl.setAttribute("aria-label", stripBookIcon(this.labels.getTitle()));
 
         if (shouldReveal) {
             if (this.isPreviewCollapsed) {
@@ -277,7 +281,8 @@ export class FloatingBiblePreviewWindow {
     }
 
     private createPreviewPanelElement(): HTMLDivElement {
-        const panelEl = createDiv({ cls: "bible-preview-floating-panel" });
+        // A non-modal dialog for screen readers, named after the translation in its header.
+        const panelEl = createDiv({ cls: "bible-preview-floating-panel", attr: { role: "dialog", "aria-modal": "false" } });
         panelEl.setCssStyles({ display: "none" });
         this.applyBackgroundColor(panelEl);
 
@@ -874,12 +879,17 @@ export class FloatingBiblePreviewWindow {
             : this.getDefaultPreviewSafeMargins();
     }
 
+    // Obsidian exposes the device insets (notch, rounded corners, home indicator) as --safe-area-inset-* on the body.
     private getMobilePreviewSafeMargins(): PreviewSafeMargins {
+        const inset = (side: "top" | "right" | "bottom" | "left"): number => {
+            const value = Number.parseFloat(this.hostWindow.getComputedStyle(this.hostDocument.body).getPropertyValue(`--safe-area-inset-${side}`));
+            return Number.isFinite(value) && value > 0 ? value : 0;
+        };
         return {
-            top: Platform.isAndroidApp ? MOBILE_SAFE_TOP_ANDROID : MOBILE_SAFE_TOP_DEFAULT,
-            right: MOBILE_SAFE_SIDE,
-            bottom: MOBILE_SAFE_BOTTOM,
-            left: MOBILE_SAFE_SIDE,
+            top: Math.max(Platform.isAndroidApp ? MOBILE_SAFE_TOP_ANDROID : MOBILE_SAFE_TOP_DEFAULT, inset("top") + MOBILE_SAFE_TOP_BELOW_INSET),
+            right: MOBILE_SAFE_SIDE + inset("right"),
+            bottom: MOBILE_SAFE_BOTTOM + inset("bottom"),
+            left: MOBILE_SAFE_SIDE + inset("left"),
         };
     }
 

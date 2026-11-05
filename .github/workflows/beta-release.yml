@@ -37,6 +37,7 @@ jobs:
       VERSION: ${{ inputs.version }}
       REF: ${{ inputs.ref || github.sha }}
       NOTES: ${{ inputs.notes }}
+      REPOSITORY: ${{ github.repository }}
 
     steps:
       - name: Validate version
@@ -46,7 +47,7 @@ jobs:
             echo "::error::Version '$VERSION' must be a pre-release like 0.2.0-beta.1"
             exit 1
           fi
-          if gh release view "$VERSION" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+          if gh release view "$VERSION" --repo "$REPOSITORY" > /dev/null 2>&1; then
             echo "::error::Release $VERSION already exists"
             exit 1
           fi
@@ -111,13 +112,15 @@ jobs:
 
       - name: Create pre-release
         shell: bash
+        env:
+          SHA: ${{ steps.plan.outputs.sha }}
         run: |
           gh release create "$VERSION" \
             main.js \
             manifest.json \
             styles.css \
-            --repo "${{ github.repository }}" \
-            --target "${{ steps.plan.outputs.sha }}" \
+            --repo "$REPOSITORY" \
+            --target "$SHA" \
             --title "$VERSION" \
             --prerelease \
             --latest=false \
