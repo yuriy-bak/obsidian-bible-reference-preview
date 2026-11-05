@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Bible reader on a phone: moving a chapter between a tab and the panel under the note (**Open in a tab**, **Open under the note**) now changes the **Bible reader on a phone** setting, so the next chapter opens the same way. Chapters always open as the setting says, whatever reader is already open. 📖 in the side panel preview hides the panel when the chapter opens under the note, as it does for a tab.
 - Internal: services subscribe to the settings they depend on (`PluginContext.onSettingsChanged`) instead of the settings service calling every one of them through callbacks wired in `main.ts`.
 - The index stats notice is titled **Bible index** (was "Bible Index v2").
 - Internal: services no longer depend on UI code (the confirmation dialog is passed in, the color dialog opens from the settings tab); color validation moved to `settings/`, the preview service to `preview/`, the navigator model to `application/`; the "V2" suffix is gone from the Bible index code (`infrastructure/bible-index/`).
