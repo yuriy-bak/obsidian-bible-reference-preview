@@ -1,4 +1,4 @@
-import type { CompactBibleBookData } from "../infrastructure/v2/CompactBibleBookData";
+import type { CompactBibleBookData } from "../infrastructure/bible-index/CompactBibleBookData";
 
 /** The last verse number of every chapter of a stored book; index 0 is unused, 0 means no verses. */
 export function getCompactBookChapterVerseCounts(book: CompactBibleBookData): number[] {

@@ -18,9 +18,9 @@ import {
     revealLeafWithoutStealingEditorFocus,
 } from "../workspace/BiblePreviewWorkspace";
 import { ensureLeafViewLoaded } from "../workspace/WorkspaceLeafViewLoading";
-import type { BiblePreviewScrollCommand } from "./BiblePreviewHeader";
-import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, type BiblePreviewPaneViewInput } from "./BiblePreviewPaneView";
-import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./FloatingBiblePreviewWindow";
+import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
+import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, type BiblePreviewPaneViewInput } from "../ui/BiblePreviewPaneView";
+import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "../ui/FloatingBiblePreviewWindow";
 
 export type ClosePreviewPaneOptions = {
     collapseSideDock?: boolean;
@@ -54,7 +54,17 @@ export class BiblePreviewService {
         private readonly translations: TranslationService,
         private readonly contentBuilder: BiblePreviewContentBuilder,
         private readonly effects: BiblePreviewServiceEffects,
-    ) {}
+    ) {
+        context.onSettingsChanged(async (keys) => {
+            if (keys.has("isPluginActive") && !settings.isPluginActive()) {
+                this.hideFloating(true);
+                await this.closePane({ collapseSideDock: false, requireActivePreview: false });
+            }
+            if (keys.has("interfaceLanguage")) this.refreshLocalizedLabels();
+            else if (keys.has("floatingPreviewBackgroundColor")) this.refreshFloatingLabels();
+            if (keys.has("previewPanelSide")) await this.closePane({ collapseSideDock: true, requireActivePreview: false });
+        });
+    }
 
     setFloatingWindow(floatingWindow: FloatingBiblePreviewWindow): void {
         this.floatingWindow = floatingWindow;
@@ -166,6 +176,14 @@ export class BiblePreviewService {
         }
     }
 
+    /** Whether a preview is shown that the scroll commands can move. */
+    canScroll(): boolean {
+        if (!this.settings.isPluginActive()) return false;
+        if (this.floatingWindow?.isVisible() === true) return true;
+        return this.context.settings.previewDisplayMode === "side-panel"
+            && getFirstWorkspaceLeafOfType(this.context.app, BIBLE_PREVIEW_VIEW_TYPE) !== null;
+    }
+
     async scroll(command: BiblePreviewScrollCommand): Promise<void> {
         if (!this.settings.isPluginActive()) {
             return;
@@ -274,6 +292,7 @@ export class BiblePreviewService {
         return {
             getTitle: () => `📖 ${this.translations.getActiveTranslationPreviewTitle()}`,
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
+            getCopyFailedNoticeText: () => t("notice.bibleTextCopyFailed"),
             getCopyAria: () => t("preview.copyAria"),
             getOpenSettingsText: () => t("preview.openSettings"),
             onOpenSettings: () => this.context.openPluginSettings(),

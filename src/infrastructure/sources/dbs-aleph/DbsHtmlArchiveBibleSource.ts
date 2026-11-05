@@ -1,16 +1,14 @@
 import JSZip from "jszip";
 import { loadZipArchive } from "../../epub/loadZipArchive";
-import type { BibleBook } from "../../../domain/BibleBook";
 import { getBookIdByUsfmCode } from "../../../versification/UsfmBookCodes";
 import { EPUB_IMPORT_LIMITS, normalizeZipPath, readZipText, validateZipArchive } from "../../epub/EpubContainerReader";
 import { EpubImportError } from "../../epub/EpubImportError";
 import { findElementsByName, parseHtmlDocument } from "../../epub/MarkupDocument";
-import { assertBibleImportNotAborted, createBibleImportTimeSlicer } from "../BibleImportCancellation";
-import { BibleIndexBuilder, normalizeLanguage } from "../BibleIndexBuilder";
+import { normalizeLanguage } from "../BibleIndexBuilder";
+import { addSkippedBooksWarning, appendBookVerses, createArchiveTextReader, createImportBuilder, openImportArchive, resolveTranslationName, withTraditionalAbbreviations } from "../BibleImportSteps";
 import { BibleImportInput, BibleImportOptions, BibleImportResult, BibleSource, BibleSourceFile, BibleSourceMetadata } from "../BibleSource";
-import { readAllXhtmlDocuments } from "../EpubBibleDocuments";
 import { normalizeInline } from "../dbs-html/dbsHtml";
-import { detectLanguageFromBookNames, findTraditionalBookAbbreviations } from "../ebible-epub/bookAbbreviationTables";
+import { detectLanguageFromBookNames } from "../ebible-epub/bookAbbreviationTables";
 import { DBS_ARCHIVE_BOOK_FILE_PATTERN, extractBookNamesFromArchiveIndex, extractVersesFromAlephDocument } from "./dbsAlephHtml";
 
 const INDEX_FILE_PATTERN = /(?:^|\/)index\.html$/;
@@ -56,55 +54,33 @@ export class DbsHtmlArchiveBibleSource implements BibleSource {
     }
 
     async importBible(input: BibleImportInput, options: BibleImportOptions = {}): Promise<BibleImportResult> {
-        assertBibleImportNotAborted(options);
-        options.onProgress?.({ stage: "loading-zip", processedCount: 0, totalCount: 1 });
-        const zip = await loadZipArchive(input.content);
-        assertBibleImportNotAborted(options);
-        options.onProgress?.({ stage: "loading-zip", processedCount: 1, totalCount: 1 });
-        validateZipArchive(zip);
-
+        const zip = await openImportArchive(input.content, options);
         const index = await readIndex(zip);
         const bookFiles = getCanonicalBooks(zip, index.bookNames);
         if (bookFiles.length === 0) {
-            throw new EpubImportError("The archive does not contain books of the 66-book canon.");
+            throw new EpubImportError("The archive does not contain books of the 66-book canon.", "noCanonBooks");
         }
         const skippedCodes = getBookCodes(zip).filter((code) => getBookIdByUsfmCode(code) === null);
 
-        const documents = await readAllXhtmlDocuments(zip, bookFiles.map((book) => book.path), options);
-        const htmlByPath = new Map(documents.map((document) => [document.path, document.html]));
-        const pages = new Map(bookFiles.map((book) => [book.path, parseHtmlDocument(htmlByPath.get(book.path) ?? "")]));
-
-        const namedBooks = bookFiles.map((book) => ({ id: book.bookId, name: book.name ?? readPageTitle(pages.get(book.path)) ?? book.code }));
+        const readText = createArchiveTextReader(zip);
+        const readPage = async (path: string) => parseHtmlDocument(await readText(path));
+        const namedBooks: Array<{ id: number; name: string }> = [];
+        for (const book of bookFiles) {
+            // A book the index page does not name takes the title of its page.
+            namedBooks.push({ id: book.bookId, name: book.name ?? readPageTitle(await readPage(book.path)) ?? book.code });
+        }
         const language = normalizeLanguage(input.language) || detectLanguageFromBookNames(namedBooks) || "und";
-        const translationName = input.translationName.trim() || index.title || input.fileName.replace(/\.zip$/i, "").replace(/^html_/i, "");
-        const abbreviations = findTraditionalBookAbbreviations(language, namedBooks);
-        const books: BibleBook[] = namedBooks.map((book) => ({ ...book, abbreviation: abbreviations.get(book.id) ?? book.name }));
+        const translationName = resolveTranslationName(input, index.title, /\.zip$/i).replace(/^html_/i, "");
 
-        const builder = new BibleIndexBuilder({
-            translationId: input.translationId,
-            translationName,
-            language,
-            sourceFileName: input.fileName,
-        }, options);
-        builder.setBooks(books);
-        if (skippedCodes.length > 0) {
-            builder.addWarning(`Skipped books outside the 66-book canon: ${skippedCodes.join(", ")}`);
-        }
-
-        const yieldIfSliceElapsed = createBibleImportTimeSlicer();
-        options.onProgress?.({ stage: "extracting-verses", processedCount: 0, totalCount: bookFiles.length });
-        for (let bookIndex = 0; bookIndex < bookFiles.length; bookIndex += 1) {
-            assertBibleImportNotAborted(options);
-            const { path, code, bookId } = bookFiles[bookIndex];
-            const page = pages.get(path);
-            const verses = page === undefined ? [] : extractVersesFromAlephDocument(page, 0);
-            if (verses.length === 0) {
-                builder.addWarning(`No verses found in ${code}: ${path}`);
-            }
-            await builder.appendVerses(bookId, verses);
-            options.onProgress?.({ stage: "extracting-verses", processedCount: bookIndex + 1, totalCount: bookFiles.length });
-            await yieldIfSliceElapsed();
-        }
+        const builder = createImportBuilder(input, translationName, language, options);
+        builder.setBooks(withTraditionalAbbreviations(language, namedBooks));
+        addSkippedBooksWarning(builder, skippedCodes);
+        await appendBookVerses(
+            builder,
+            bookFiles.map((book) => ({ ...book, label: `${book.code}: ${book.path}` })),
+            async (book) => extractVersesFromAlephDocument(await readPage(book.path), 0),
+            options,
+        );
 
         return builder.build();
     }

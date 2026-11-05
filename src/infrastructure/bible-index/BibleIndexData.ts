@@ -1,4 +1,4 @@
-export type BibleIndexV2BookMetadata = {
+export type BibleIndexBookMetadata = {
     name: string;
     abbreviation: string;
     aliases: string[];
@@ -6,7 +6,7 @@ export type BibleIndexV2BookMetadata = {
     chapterCount?: number;
 };
 
-export type BibleIndexV2TranslationMetadata = {
+export type BibleIndexTranslationMetadata = {
     name: string;
     language: string;
     sourceFileName?: string;
@@ -15,10 +15,10 @@ export type BibleIndexV2TranslationMetadata = {
     versification?: string;
     /** Book ids in the translation's own order (the Synodal one puts James right after Acts). */
     bookOrder?: number[];
-    books: Record<string, BibleIndexV2BookMetadata>;
+    books: Record<string, BibleIndexBookMetadata>;
 };
 
-export type BibleIndexV2Data = {
+export type BibleIndexData = {
     version: 2;
-    translations: Record<string, BibleIndexV2TranslationMetadata>;
+    translations: Record<string, BibleIndexTranslationMetadata>;
 };

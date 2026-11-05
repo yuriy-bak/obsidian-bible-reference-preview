@@ -1,11 +1,8 @@
 import { App, Modal, Setting } from "obsidian";
 
-export type ConfirmModalOptions = {
-    title: string;
-    messageLines: string[];
-    confirmText: string;
-    cancelText: string;
-};
+import type { ConfirmRequest } from "../core/ConfirmRequest";
+
+export type ConfirmModalOptions = ConfirmRequest;
 
 export function openConfirmModal(app: App, options: ConfirmModalOptions): Promise<boolean> {
     return new Promise((resolve) => {

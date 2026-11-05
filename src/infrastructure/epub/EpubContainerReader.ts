@@ -20,7 +20,7 @@ export function validateZipArchive(zip: JSZip): void {
     const entries = Object.values(zip.files);
 
     if (entries.length > EPUB_IMPORT_LIMITS.maxZipEntries) {
-        throw new EpubImportError(`EPUB ZIP contains too many entries: ${entries.length}. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxZipEntries}.`);
+        throw new EpubImportError(`EPUB ZIP contains too many entries: ${entries.length}. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxZipEntries}.`, "tooManyEntries", { count: entries.length, max: EPUB_IMPORT_LIMITS.maxZipEntries });
     }
 
     for (const entry of entries) {
@@ -33,7 +33,7 @@ export async function readContainerOpfPath(zip: JSZip): Promise<string> {
     const opfPath = findFirstElementByName(parseXmlDocument(containerXml), "rootfile")?.getAttribute("full-path") ?? "";
 
     if (opfPath.length === 0) {
-        throw new EpubImportError("EPUB container.xml does not contain OPF rootfile path.");
+        throw new EpubImportError("EPUB container.xml does not contain OPF rootfile path.", "containerNoRootfile");
     }
 
     return normalizeZipPath(opfPath);
@@ -44,19 +44,19 @@ export async function readZipText(zip: JSZip, path: string, maxBytes = EPUB_IMPO
     const file = zip.file(normalizedPath);
 
     if (file === null) {
-        throw new EpubImportError(`EPUB file not found: ${normalizedPath}`);
+        throw new EpubImportError(`EPUB file not found: ${normalizedPath}`, "fileNotFound", { path: normalizedPath });
     }
 
     const knownUncompressedSize = getZipEntryUncompressedSize(file);
     if (knownUncompressedSize !== null && knownUncompressedSize > maxBytes) {
-        throw new EpubImportError(`EPUB file is too large: ${normalizedPath}. Size: ${knownUncompressedSize} bytes. Maximum allowed: ${maxBytes} bytes.`);
+        throw new EpubImportError(`EPUB file is too large: ${normalizedPath}. Size: ${knownUncompressedSize} bytes. Maximum allowed: ${maxBytes} bytes.`, "entryTooLarge", { path: normalizedPath, size: knownUncompressedSize, max: maxBytes });
     }
 
     const text = await file.async("text");
     const actualBytes = byteLength(text);
 
     if (actualBytes > maxBytes) {
-        throw new EpubImportError(`EPUB file is too large after decompression: ${normalizedPath}. Size: ${actualBytes} bytes. Maximum allowed: ${maxBytes} bytes.`);
+        throw new EpubImportError(`EPUB file is too large after decompression: ${normalizedPath}. Size: ${actualBytes} bytes. Maximum allowed: ${maxBytes} bytes.`, "entryTooLarge", { path: normalizedPath, size: actualBytes, max: maxBytes });
     }
 
     return text;
@@ -64,7 +64,7 @@ export async function readZipText(zip: JSZip, path: string, maxBytes = EPUB_IMPO
 
 export function resolveZipPath(basePath: string, relativePath: string): string {
     if (isAbsoluteZipPath(relativePath)) {
-        throw new EpubImportError(`EPUB path must be relative: ${relativePath}`);
+        throw new EpubImportError(`EPUB path must be relative: ${relativePath}`, "invalidPath", { path: relativePath });
     }
 
     const baseParts = normalizeZipPath(basePath).split("/");
@@ -77,7 +77,7 @@ export function resolveZipPath(basePath: string, relativePath: string): string {
 
         if (part === "..") {
             if (baseParts.length === 0) {
-                throw new EpubImportError(`EPUB path escapes archive root: ${relativePath}`);
+                throw new EpubImportError(`EPUB path escapes archive root: ${relativePath}`, "invalidPath", { path: relativePath });
             }
 
             baseParts.pop();
@@ -94,15 +94,15 @@ export function normalizeZipPath(path: string): string {
     const trimmedPath = path.trim();
 
     if (trimmedPath.length === 0) {
-        throw new EpubImportError("EPUB path must not be empty.");
+        throw new EpubImportError("EPUB path must not be empty.", "invalidPath", { path });
     }
 
     if (trimmedPath.includes("\\")) {
-        throw new EpubImportError(`EPUB path contains unsupported backslash separator: ${path}`);
+        throw new EpubImportError(`EPUB path contains unsupported backslash separator: ${path}`, "invalidPath", { path });
     }
 
     if (isAbsoluteZipPath(trimmedPath)) {
-        throw new EpubImportError(`EPUB path must not be absolute: ${path}`);
+        throw new EpubImportError(`EPUB path must not be absolute: ${path}`, "invalidPath", { path });
     }
 
     const parts: string[] = [];
@@ -112,7 +112,7 @@ export function normalizeZipPath(path: string): string {
         }
 
         if (part === "..") {
-            throw new EpubImportError(`EPUB path traversal is not allowed: ${path}`);
+            throw new EpubImportError(`EPUB path traversal is not allowed: ${path}`, "invalidPath", { path });
         }
 
         parts.push(part);
@@ -120,7 +120,7 @@ export function normalizeZipPath(path: string): string {
 
     const normalizedPath = parts.join("/");
     if (normalizedPath.length === 0) {
-        throw new EpubImportError(`EPUB path is invalid: ${path}`);
+        throw new EpubImportError(`EPUB path is invalid: ${path}`, "invalidPath", { path });
     }
 
     return normalizedPath;
@@ -128,7 +128,7 @@ export function normalizeZipPath(path: string): string {
 
 function splitSafeZipPath(path: string): string[] {
     if (path.includes("\\")) {
-        throw new EpubImportError(`EPUB path contains unsupported backslash separator: ${path}`);
+        throw new EpubImportError(`EPUB path contains unsupported backslash separator: ${path}`, "invalidPath", { path });
     }
 
     return path.replace(/\/+/g, "/").split("/");

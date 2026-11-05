@@ -189,7 +189,7 @@ function noticeMessages() {
 }
 
 function translationIdByLanguage(plugin, language) {
-  const entry = Object.entries(plugin.context.v2Data?.translations ?? {}).find(([, translation]) => translation.language === language);
+  const entry = Object.entries(plugin.context.indexData?.translations ?? {}).find(([, translation]) => translation.language === language);
   assert(entry !== undefined, `no imported translation in ${language}`);
   return entry[0];
 }

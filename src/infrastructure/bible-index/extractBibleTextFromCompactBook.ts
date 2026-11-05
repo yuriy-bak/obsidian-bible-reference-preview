@@ -1,5 +1,5 @@
 import { BibleText, Verse } from "../../domain/BibleText";
-import { BibleIndexV2Data } from "./BibleIndexV2Data";
+import { BibleIndexData } from "./BibleIndexData";
 import { CompactBibleBookData, CompactVerseData } from "./CompactBibleBookData";
 
 type ExtractBibleTextInput = {
@@ -22,12 +22,12 @@ type BibleTextQuery = {
 
 export function extractBibleTextFromCompactBook(input: ExtractBibleTextInput): BibleText | null;
 export function extractBibleTextFromCompactBook(
-    metadata: BibleIndexV2Data,
+    metadata: BibleIndexData,
     data: CompactBibleBookData,
     input: BibleTextQuery,
 ): BibleText | null;
 export function extractBibleTextFromCompactBook(
-    first: ExtractBibleTextInput | BibleIndexV2Data,
+    first: ExtractBibleTextInput | BibleIndexData,
     data?: CompactBibleBookData,
     query?: BibleTextQuery,
 ): BibleText | null {
@@ -77,12 +77,12 @@ function findJoinedVerseStart(chapter: Array<CompactVerseData | null>, verseStar
     return verseStart;
 }
 
-function isExtractBibleTextInput(value: ExtractBibleTextInput | BibleIndexV2Data): value is ExtractBibleTextInput {
+function isExtractBibleTextInput(value: ExtractBibleTextInput | BibleIndexData): value is ExtractBibleTextInput {
     return "data" in value;
 }
 
 function createExtractBibleTextInput(
-    metadata: BibleIndexV2Data,
+    metadata: BibleIndexData,
     data: CompactBibleBookData | undefined,
     query: BibleTextQuery | undefined,
 ): ExtractBibleTextInput {

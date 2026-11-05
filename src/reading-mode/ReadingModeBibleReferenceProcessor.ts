@@ -8,7 +8,6 @@ export type ReadingModeBibleReferenceProcessorInput = {
     element: HTMLElement;
     hasImportedTranslations: () => boolean;
     parseMatches: (text: string) => ReadingModeBibleReferenceMatch[];
-    getBibleReferenceLinkColor: () => string;
     openBibleReference: (anchorEl: HTMLElement, referenceText: string) => Promise<void> | void;
 };
 
@@ -67,7 +66,6 @@ function replaceReadingModeBibleReferencesInTextNode(textNode: Text, input: Read
         linkEl.textContent = sourceText.slice(match.from, match.to);
         linkEl.className = "bible-reference-link bible-reference-reading-link";
         linkEl.dataset.bibleReference = match.text;
-        linkEl.setCssProps({ "--bible-reference-link-color": input.getBibleReferenceLinkColor() });
         linkEl.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();

@@ -6,7 +6,7 @@ const {
   createBookMapping,
   removeChapterNumberFromAlias,
   getBibleTextBlocks,
-  createBookMappingFromBibleIndexV2Data,
+  createBookMappingFromBibleIndexData,
   DEFAULT_TRANSLATION_ID,
   getParagraphReferencesKey,
 } = require("../helpers");
@@ -109,7 +109,7 @@ module.exports = async () => {
   assert.strictEqual(blocks.length, 1);
 
   const importedParser = new BibleReferenceParser(
-    createBookMappingFromBibleIndexV2Data(syntheticMetadata, DEFAULT_TRANSLATION_ID)
+    createBookMappingFromBibleIndexData(syntheticMetadata, DEFAULT_TRANSLATION_ID)
   );
 
   for (const sample of [

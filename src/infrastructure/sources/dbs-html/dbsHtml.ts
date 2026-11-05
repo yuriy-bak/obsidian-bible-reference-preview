@@ -1,4 +1,5 @@
-import decompressBrotli from "brotli/decompress";
+import { BrotliDecompress, BrotliDecompressedSize, type BrotliOutputStream } from "brotli/dec/decode";
+import { BrotliInput } from "brotli/dec/streams";
 import { getElementName, isElementNode, isTextNode, parseHtmlDocument } from "../../epub/MarkupDocument";
 import { EpubImportError } from "../../epub/EpubImportError";
 import type { BibleImportVerse } from "../BibleIndexBuilder";
@@ -24,6 +25,8 @@ const BIBLE_BOOKS_PATTERN = /const BIBLE_BOOKS\s*=\s*`([^`]+)`/;
 
 /** Merged verses are left as gaps of one or two numbers; longer gaps are lost lists, not merged verses. */
 const MAX_JOINED_VERSE_GAP = 2;
+// The verses of a whole Bible take a few MB; more means a damaged or crafted page (a "decompression bomb").
+export const MAX_DBS_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
 
 /** Headings, titles and cross-reference lines: not verse text. */
 const NON_VERSE_CLASSES = new Set([
@@ -42,7 +45,7 @@ export function readDbsBiblePage(text: string): DbsBiblePage {
     const compressedVerses = COMPRESSED_VERSES_PATTERN.exec(text)?.[1];
     const booksJson = BIBLE_BOOKS_PATTERN.exec(text)?.[1];
     if (compressedVerses === undefined || booksJson === undefined) {
-        throw new EpubImportError("The page has no Bible data of the Digital Bible Society reader.");
+        throw new EpubImportError("The page has no Bible data of the Digital Bible Society reader.", "dbsNoData");
     }
 
     const books = (JSON.parse(booksJson) as unknown[])
@@ -65,11 +68,50 @@ export function decompressDbsChapters(compressedVerses: string): Record<string, 
     for (let index = 0; index < binary.length; index += 1) {
         bytes[index] = binary.charCodeAt(index);
     }
-    const chapters = JSON.parse(new TextDecoder().decode(decompressBrotli(bytes))) as unknown;
+    let chapters: unknown;
+    try {
+        chapters = JSON.parse(new TextDecoder().decode(decompressBrotliLimited(bytes, MAX_DBS_DECOMPRESSED_BYTES)));
+    } catch (error) {
+        if (error instanceof EpubImportError) throw error;
+        throw new EpubImportError("The Bible data of the page could not be read.", "dbsUnreadable");
+    }
     if (typeof chapters !== "object" || chapters === null) {
-        throw new EpubImportError("The Bible data of the page could not be read.");
+        throw new EpubImportError("The Bible data of the page could not be read.", "dbsUnreadable");
     }
     return chapters as Record<string, string>;
+}
+
+/**
+ * Brotli decoding that stops at `maxBytes`: the decoder grows its output for every meta-block a stream
+ * declares, so without a limit a few KB could unpack into gigabytes.
+ */
+function decompressBrotliLimited(bytes: Uint8Array, maxBytes: number): Uint8Array {
+    const tooLarge = (size: number) => new EpubImportError(
+        `The Bible data of the page is too large after decompression: more than ${maxBytes} bytes (${size}).`,
+        "dataTooLarge",
+        { max: maxBytes },
+    );
+    const initialSize = BrotliDecompressedSize(bytes);
+    if (initialSize > maxBytes) throw tooLarge(initialSize);
+    let buffer: Uint8Array = new Uint8Array(initialSize);
+    const output: BrotliOutputStream = {
+        pos: 0,
+        get buffer() {
+            return buffer;
+        },
+        set buffer(next: Uint8Array) {
+            if (next.length > maxBytes) throw tooLarge(next.length);
+            buffer = next;
+        },
+        write(chunk: Uint8Array, count: number): number {
+            if (this.pos + count > buffer.length) throw new Error("Brotli output buffer is not large enough.");
+            buffer.set(chunk.subarray(0, count), this.pos);
+            this.pos += count;
+            return count;
+        },
+    };
+    BrotliDecompress(new BrotliInput(bytes), output);
+    return buffer.subarray(0, output.pos);
 }
 
 /** "1 - е к Коринфянам" → "1-е к Коринфянам". */

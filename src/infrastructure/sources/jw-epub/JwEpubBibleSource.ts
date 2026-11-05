@@ -4,8 +4,9 @@ import { EpubImportError } from "../../epub/EpubImportError";
 import { parseOpfMetadata } from "../../epub/EpubOpfReader";
 import { parseXhtmlDocument } from "../../epub/MarkupDocument";
 import { assertBibleImportNotAborted, createBibleImportTimeSlicer } from "../BibleImportCancellation";
-import { BibleIndexBuilder, normalizeLanguage } from "../BibleIndexBuilder";
+import { normalizeLanguage } from "../BibleIndexBuilder";
 import { extractSourceMetadataFromOpf, getDocumentPathsInReadingOrder, readAllXhtmlDocuments, type EpubTextDocument } from "../EpubBibleDocuments";
+import { createImportBuilder, openImportArchive, resolveTranslationName } from "../BibleImportSteps";
 import { BibleImportInput, BibleImportOptions, BibleImportResult, BibleSource, BibleSourceFile, BibleSourceMetadata } from "../BibleSource";
 import {
     canonicalVerseDocumentFileName,
@@ -56,27 +57,22 @@ export class JwEpubBibleSource implements BibleSource {
     }
 
     async importBible(input: BibleImportInput, options: BibleImportOptions = {}): Promise<BibleImportResult> {
-        assertBibleImportNotAborted(options);
-        options.onProgress?.({ stage: "loading-zip", processedCount: 0, totalCount: 1 });
-        const zip = await loadZipArchive(input.content);
-        assertBibleImportNotAborted(options);
-        options.onProgress?.({ stage: "loading-zip", processedCount: 1, totalCount: 1 });
-        validateZipArchive(zip);
+        const zip = await openImportArchive(input.content, options);
 
         const opfPath = await readContainerOpfPath(zip);
         const opfXml = await readZipText(zip, opfPath);
         const sourceMetadata = extractSourceMetadataFromOpf(opfXml);
-        const translationName = input.translationName.trim() || sourceMetadata.title || input.fileName.replace(/\.epub$/i, "");
+        const translationName = resolveTranslationName(input, sourceMetadata.title, /\.epub$/i);
         const language = normalizeLanguage(input.language) || normalizeLanguage(sourceMetadata.language ?? "") || "und";
 
         const documents = await readAllXhtmlDocuments(zip, getDocumentPathsInReadingOrder(zip, opfPath, opfXml), options);
         if (documents.length === 0) {
-            throw new EpubImportError("EPUB does not contain XHTML documents.");
+            throw new EpubImportError("EPUB does not contain XHTML documents.", "noXhtml");
         }
 
         const bookTable = await findBookTable(documents, options);
         if (bookTable === null) {
-            throw new EpubImportError("EPUB complete 66-book table was not found. Import cannot continue without a validated book table.");
+            throw new EpubImportError("EPUB complete 66-book table was not found. Import cannot continue without a validated book table.", "noBookTable");
         }
 
         const verseDocuments: Array<{ path: string; verses: ExtractedVerse[] }> = [];
@@ -103,12 +99,7 @@ export class JwEpubBibleSource implements BibleSource {
                 .map((textDocument) => extractBookNavigationAliasesFromDocument(parseXhtmlDocument(textDocument.html), bookTable)),
         );
 
-        const builder = new BibleIndexBuilder({
-            translationId: input.translationId,
-            translationName,
-            language,
-            sourceFileName: input.fileName,
-        }, options);
+        const builder = createImportBuilder(input, translationName, language, options);
         builder.setBooks(bookTable.books, navigationAliasesByBookId);
 
         for (const verseDocument of verseDocuments) {

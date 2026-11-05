@@ -16,7 +16,7 @@ module.exports = async function runTranslationRenameTests() {
   const { plugin } = await startPlugin();
   await importBible(plugin, "ru");
   const translationId = translationIdByLanguage(plugin, "ru");
-  const oldName = plugin.context.v2Data.translations[translationId].name;
+  const oldName = plugin.context.indexData.translations[translationId].name;
   const oldCode = plugin.context.getTranslationCodes().get(translationId);
   assert.strictEqual(plugin.context.settings.translationCodes[translationId], undefined);
 
@@ -26,24 +26,24 @@ module.exports = async function runTranslationRenameTests() {
   nameInput.value = "Другое";
   nameInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
   await flush();
-  assert.strictEqual(plugin.context.v2Data.translations[translationId].name, oldName);
+  assert.strictEqual(plugin.context.indexData.translations[translationId].name, oldName);
 
   // An empty name is refused with a notice.
   nameInput = startRename(plugin, translationId);
   nameInput.value = "   ";
   nameInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
   await waitFor(() => noticeMessages().includes(plugin.context.t("settings.translations.nameRequired")));
-  assert.strictEqual(plugin.context.v2Data.translations[translationId].name, oldName);
+  assert.strictEqual(plugin.context.indexData.translations[translationId].name, oldName);
 
   // Enter saves the trimmed name to the index; the id stays and the old code is kept for the notes.
   nameInput = startRename(plugin, translationId);
   nameInput.value = "  Мой   перевод ";
   nameInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
-  await waitFor(() => plugin.context.v2Data.translations[translationId]?.name === "Мой перевод");
+  await waitFor(() => plugin.context.indexData.translations[translationId]?.name === "Мой перевод");
   await flush();
   const repository = plugin.context.createRepository();
   await repository.load();
-  assert.strictEqual(repository.getV2Data().translations[translationId].name, "Мой перевод");
+  assert.strictEqual(repository.getIndexData().translations[translationId].name, "Мой перевод");
   assert.strictEqual(plugin.context.settings.translationCodes[translationId], oldCode);
   assert.strictEqual(plugin.context.getTranslationCodes().get(translationId), oldCode);
   assert.strictEqual(plugin.translations.getTranslationSettingsItems()[0].name, "Мой перевод");
@@ -54,7 +54,7 @@ module.exports = async function runTranslationRenameTests() {
   nameInput = startRename(plugin, translationId);
   nameInput.value = "Ещё одно";
   nameInput.dispatchEvent(new Event("blur"));
-  await waitFor(() => plugin.context.v2Data.translations[translationId]?.name === "Ещё одно");
+  await waitFor(() => plugin.context.indexData.translations[translationId]?.name === "Ещё одно");
   assert.strictEqual(plugin.context.settings.translationCodes[translationId], "МП");
 
   stopPlugin(plugin);

@@ -34,7 +34,7 @@ module.exports = async function runBackgroundTaskTests() {
   assert(noticeMessages().includes(t("notice.importAlreadyRunning")));
   await plugin.translations.deleteImportedTranslation(ruId);
   assert(noticeMessages().includes(t("notice.translationBeingImported")));
-  assert(plugin.context.v2Data.translations[ruId] !== undefined);
+  assert(plugin.context.indexData.translations[ruId] !== undefined);
 
   // The notice's cancel button stops the import before it writes anything.
   clickButton(progressNotice.noticeEl, t("common.cancel"));

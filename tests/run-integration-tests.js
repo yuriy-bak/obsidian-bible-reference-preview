@@ -24,6 +24,9 @@ const TEST_FILES = [
   "reader-split",
   "getting-started",
   "background-tasks",
+  "commands",
+  "link-color",
+  "settings-effects",
 ];
 
 // A test that waits on a promise nobody resolves (say, a modal it does not answer) leaves nothing

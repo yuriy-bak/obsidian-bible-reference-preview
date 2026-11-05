@@ -7,7 +7,7 @@ import type { PluginContext } from "../core/PluginContext";
 import type { BibleReference } from "../domain/BibleReference";
 import type { EditorReferenceUnderCursor, EditorService } from "../editor/EditorService";
 import { BIBLE_PREVIEW_VIEW_TYPE } from "../ui/BiblePreviewPaneView";
-import type { BiblePreviewService } from "../ui/BiblePreviewService";
+import type { BiblePreviewService } from "../preview/BiblePreviewService";
 import {
     REFERENCE_USAGE_VIEW_TYPE,
     ReferenceUsagePaneView,
@@ -47,7 +47,11 @@ export class ReferenceUsageService {
         private readonly context: PluginContext,
         private readonly editor: EditorService,
         private readonly preview: BiblePreviewService,
-    ) {}
+    ) {
+        context.onSettingsChanged((keys) => {
+            if (keys.has("isPluginActive") && !context.settings.isPluginActive) this.closePane();
+        });
+    }
 
     async load(): Promise<void> {
         const service = this.getIndexService();
@@ -66,6 +70,10 @@ export class ReferenceUsageService {
         owner.registerEvent(vault.on("modify", (file) => controller.handleFileCreateOrModify(file)));
         owner.registerEvent(vault.on("delete", (file) => controller.handleFileDelete(file)));
         owner.registerEvent(vault.on("rename", (file, oldPath) => controller.handleFileRename(file, oldPath)));
+        // A search indexes only the open notes edited since the last search, instead of reading all of them.
+        owner.registerEvent(this.context.app.workspace.on("editor-change", (_editor, info) => {
+            if (info.file !== null) this.getIndexService().markOpenFileEdited(info.file.path);
+        }));
         owner.register(() => controller.clearPendingUpdates());
     }
 
@@ -154,7 +162,7 @@ export class ReferenceUsageService {
             this.context.settings.interfaceLanguage,
             this.formatTitle(match.text),
             results,
-            (result) => void openReferenceUsageResult(this.context.app, result),
+            (result) => void openReferenceUsageResult(this.context.app, result, (path) => this.context.t("notice.noteNotFound", { path })),
         ).open();
     }
 
@@ -223,7 +231,7 @@ export class ReferenceUsageService {
             getEmptyText: () => t("modal.referenceUsages.empty"),
             getCountText: (count) => t("modal.referenceUsages.count", { count }),
             getOpenResultAria: (result) => t("referenceUsages.openResultAria", { filePath: result.filePath, line: result.line }),
-            onOpenResult: (result) => void openReferenceUsageResult(this.context.app, result),
+            onOpenResult: (result) => void openReferenceUsageResult(this.context.app, result, (path) => this.context.t("notice.noteNotFound", { path })),
             getRefreshAria: () => t("referenceUsages.panel.refreshAria"),
             getRefreshProgressText: (progress) => t("referenceUsages.panel.refreshProgress", {
                 processed: progress.processedFileCount,
@@ -326,7 +334,7 @@ export class ReferenceUsageService {
                 continue;
             }
             openFilePaths.add(view.file.path);
-            if (service.syncOpenFileContent(view.file, view.getViewData())) {
+            if (service.shouldSyncOpenFile(view.file.path) && service.syncOpenFileContent(view.file, view.getViewData())) {
                 changed = true;
             }
         }

@@ -2,10 +2,10 @@ import { BibleBook } from "../../domain/BibleBook";
 import { BookMapping, createBookMapping } from "../../parsing/BookMapping";
 import type { CustomBookAliases } from "../../parsing/customBookAliases";
 import { getLanguageBookAliases } from "../../parsing/languageBookAliases";
-import { BibleIndexV2Data, BibleIndexV2TranslationMetadata } from "./BibleIndexV2Data";
+import { BibleIndexData, BibleIndexTranslationMetadata } from "./BibleIndexData";
 
 /** Book names of one translation (display names, comparison blocks). */
-export function createBookMappingFromBibleIndexV2Data(data: BibleIndexV2Data, translationId: string): BookMapping {
+export function createBookMappingFromBibleIndexData(data: BibleIndexData, translationId: string): BookMapping {
     const translation = data.translations[translationId];
     if (translation === undefined) return createBookMapping([]);
 
@@ -17,8 +17,8 @@ export function createBookMappingFromBibleIndexV2Data(data: BibleIndexV2Data, tr
  * imported translation where they do not clash with the main one. The user's names of each translation
  * (`customAliases`) count as its own.
  */
-export function createCombinedBookMappingFromBibleIndexV2Data(
-    data: BibleIndexV2Data,
+export function createCombinedBookMappingFromBibleIndexData(
+    data: BibleIndexData,
     mainTranslationId: string,
     customAliases: CustomBookAliases = {},
 ): BookMapping {
@@ -34,7 +34,7 @@ export function createCombinedBookMappingFromBibleIndexV2Data(
 }
 
 /** The translation's books with their names from the file and the built-in ones, plus the user's names when given. */
-export function getTranslationBooks(translation: BibleIndexV2TranslationMetadata, customAliases?: Record<string, string[]>): BibleBook[] {
+export function getTranslationBooks(translation: BibleIndexTranslationMetadata, customAliases?: Record<string, string[]>): BibleBook[] {
     return Object.entries(translation.books)
         .map(([id, book]) => {
             const bookId = Number(id);

@@ -24,7 +24,7 @@ module.exports = async function runVersificationChoiceTests() {
   // The picked scheme is stored and replaces the "not detected reliably" warning.
   await importBible(plugin, "ru", undefined, { versification: "builtin:rsc" });
   const translationId = translationIdByLanguage(plugin, "ru");
-  assert.strictEqual(plugin.context.v2Data.translations[translationId].versification, "builtin:rsc");
+  assert.strictEqual(plugin.context.indexData.translations[translationId].versification, "builtin:rsc");
   const successNotice = noticeMessages().find((message) => message.includes("Verse numbering"));
   assert.match(successNotice ?? "", /Verse numbering: like Synodal \(Russian\)/);
   assert.doesNotMatch(successNotice, /Warnings/);
@@ -36,11 +36,11 @@ module.exports = async function runVersificationChoiceTests() {
     ["builtin:eng", "builtin:lxx", "builtin:org", "builtin:rsc", "builtin:vul"]);
   select.value = "builtin:eng";
   select.dispatchEvent(new Event("change"));
-  await waitFor(() => plugin.context.v2Data.translations[translationId].versification === "builtin:eng");
+  await waitFor(() => plugin.context.indexData.translations[translationId].versification === "builtin:eng");
   await flush();
   const repository = plugin.context.createRepository();
   await repository.load();
-  assert.strictEqual(repository.getV2Data().translations[translationId].versification, "builtin:eng");
+  assert.strictEqual(repository.getIndexData().translations[translationId].versification, "builtin:eng");
 
   stopPlugin(plugin);
 };

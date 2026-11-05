@@ -1,39 +1,21 @@
 import { Notice } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
 import type { BiblePluginLocale } from "../i18n/I18n";
-import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput } from "../ui/CssColorDialog";
 import {
     DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
     DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
     normalizeBibleReferenceLinkColor,
     normalizeFloatingPreviewBackgroundColor,
-} from "../ui/cssColorValidation";
+} from "./cssColorValidation";
 import type { BibleLinkOpenShortcut, BiblePluginSettings, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode, PhoneReaderPlacement } from "./PluginSettings";
 
 const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
 type BooleanSettingKey = "closePreviewOnActiveLeafChange" | "autoOpenPreviewOnVerseChange" | "previewComparisonEnabled" | "interceptLinkOpenShortcut";
 
-/** Reactions of the editor and the preview to settings changes. */
-export type SettingsServiceEffects = {
-    refreshBibleReferenceLinks: () => void;
-    clearBibleReferenceLinks: () => void;
-    dispatchEditorViewNoopUpdate: () => void;
-    refreshFloatingPreviewLabels: () => void;
-    refreshBiblePreviewLocalizedLabels: () => void;
-    hideFloatingBiblePreview: (resetPosition?: boolean) => void;
-    closeBiblePreviewPane: (options: { collapseSideDock?: boolean; requireActivePreview?: boolean }) => Promise<void>;
-    closeReferenceUsagePane: () => void;
-    updatePluginActiveRibbonIcon: () => void;
-    /** The reader under the note closes when the reader goes back to tabs. */
-    closeReaderSplit: () => void;
-};
-
 export class SettingsService {
-    constructor(
-        private readonly context: PluginContext,
-        private readonly effects: SettingsServiceEffects,
-    ) {}
+    // Services react to changes through PluginContext.onSettingsChanged.
+    constructor(private readonly context: PluginContext) {}
 
     private get settings(): BiblePluginSettings {
         return this.context.settings;
@@ -53,15 +35,6 @@ export class SettingsService {
         }
 
         await this.save({ isPluginActive });
-        this.effects.updatePluginActiveRibbonIcon();
-        if (isPluginActive) {
-            this.effects.refreshBibleReferenceLinks();
-        } else {
-            this.effects.hideFloatingBiblePreview(true);
-            void this.effects.closeBiblePreviewPane({ collapseSideDock: false, requireActivePreview: false });
-            this.effects.closeReferenceUsagePane();
-            this.effects.clearBibleReferenceLinks();
-        }
         this.context.refreshSettingsTab();
         new Notice(this.context.t(isPluginActive ? "notice.pluginActivated" : "notice.pluginDeactivated"), 2500);
     }
@@ -81,7 +54,6 @@ export class SettingsService {
 
         await this.save({ interfaceLanguage });
         this.context.refreshSettingsTab();
-        this.effects.refreshBiblePreviewLocalizedLabels();
         new Notice(this.context.t("notice.restartPluginForCommandNames"), 6000);
     }
 
@@ -100,7 +72,6 @@ export class SettingsService {
         }
 
         await this.save({ bibleReferenceLinkColor });
-        this.effects.refreshBibleReferenceLinks();
         this.context.refreshSettingsTab();
     }
 
@@ -127,29 +98,11 @@ export class SettingsService {
         }
 
         await this.save({ floatingPreviewBackgroundColor });
-        this.effects.refreshFloatingPreviewLabels();
         this.context.refreshSettingsTab();
     }
 
     async resetFloatingPreviewBackgroundColor(): Promise<void> {
         await this.setFloatingPreviewBackgroundColor(DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR);
-    }
-
-    openCssColorDialog(input: CssColorDialogInput): void {
-        new CssColorDialog(this.context.app, this.settings.interfaceLanguage, input).open();
-    }
-
-    openFloatingPreviewBackgroundColorDialog(): void {
-        this.openCssColorDialog({
-            title: this.context.t("settings.previewBackgroundColor.name"),
-            description: this.context.t("settings.previewBackgroundColor.desc"),
-            value: this.getFloatingPreviewBackgroundColor(),
-            defaultValue: DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
-            previewText: this.context.t("settings.previewBackgroundColor.preview"),
-            presets: createBackgroundColorPresets(),
-            normalize: normalizeFloatingPreviewBackgroundColor,
-            onApply: (color) => void this.setFloatingPreviewBackgroundColor(color),
-        });
     }
 
     getBiblePreviewTriggerMode(): BiblePreviewTriggerMode {
@@ -163,7 +116,6 @@ export class SettingsService {
 
         await this.save({ previewTriggerMode });
         this.context.refreshSettingsTab();
-        this.effects.dispatchEditorViewNoopUpdate();
     }
 
     getBiblePreviewDisplayMode(): BiblePreviewDisplayMode {
@@ -189,7 +141,6 @@ export class SettingsService {
         }
 
         await this.save({ previewPanelSide });
-        await this.effects.closeBiblePreviewPane({ collapseSideDock: true, requireActivePreview: false });
         this.context.refreshSettingsTab();
     }
 
@@ -248,7 +199,6 @@ export class SettingsService {
         }
 
         await this.save({ phoneReaderPlacement });
-        if (phoneReaderPlacement === "tab") this.effects.closeReaderSplit();
         this.context.refreshSettingsTab();
     }
 
@@ -264,6 +214,7 @@ export class SettingsService {
     private async save(patch: Partial<BiblePluginSettings>): Promise<void> {
         this.context.updateSettings(patch);
         await this.context.saveSettings();
+        await this.context.notifySettingsChanged(new Set(Object.keys(patch) as Array<keyof BiblePluginSettings>));
     }
 }
 

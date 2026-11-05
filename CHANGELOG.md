@@ -3,6 +3,22 @@
 ## Unreleased
 
 - Bible reader on a phone: moving a chapter between a tab and the panel under the note (**Open in a tab**, **Open under the note**) now changes the **Bible reader on a phone** setting, so the next chapter opens the same way. Chapters always open as the setting says, whatever reader is already open. 📖 in the side panel preview hides the panel when the chapter opens under the note, as it does for a tab.
+- Internal: services subscribe to the settings they depend on (`PluginContext.onSettingsChanged`) instead of the settings service calling every one of them through callbacks wired in `main.ts`.
+- The index stats notice is titled **Bible index** (was "Bible Index v2").
+- Internal: services no longer depend on UI code (the confirmation dialog is passed in, the color dialog opens from the settings tab); color validation moved to `settings/`, the preview service to `preview/`, the navigator model to `application/`; the "V2" suffix is gone from the Bible index code (`infrastructure/bible-index/`).
+- The floating preview is announced by screen readers as a dialog named after the translation, and its text can be reached and scrolled with the keyboard (Tab); opening it still leaves the focus in the note. On phones it keeps clear of the notch, rounded corners and the home indicator.
+- Internal: release workflows pass event values to scripts through environment variables; esbuild 0.28.2 and fixed dev dependency advisories.
+- A new link color applies right away to notes open in reading mode too (it used to need reopening them).
+- Links stay highlighted in the editor when a lot of text is visible (a large screen, a small font, a very long line): the text is read in parts instead of the highlighting turning off for the whole screen.
+- Importing from eBible.org and dbs.org reads one book at a time instead of holding the text of the whole Bible in memory, which helps on phones.
+- Internal: the ZIP-based Bible sources share the import steps (archive, translation name, books, verse loop).
+- The reference usage index is no longer rewritten every time a note is saved while you type: only when the note's references change, and at most once per 3 seconds. Usage counts of chapters and searches look only at the references of the same book and index only the open notes edited since the last search, which is faster with large vaults.
+- The list of imported translations (`bibles-index.json`) is written safely, keeping the previous version as `bibles-index.json.bak`: a file damaged by a crash or a sync conflict is read from the backup. If there is no usable backup, a notice says so, and a new import no longer replaces the list of all translations with the one it imports.
+- Importing a dbs.org HTML page stops with a clear message when its Bible data unpacks into more than 64 MB, instead of filling the memory.
+- Import errors are shown in the interface language with clear wording (file too large, too many files in the archive, no Bible books, no verses, unreadable dbs.org page); sizes are in MB. The progress no longer says "EPUB" for ZIP and HTML files.
+- The hint of the **Bible reference opening shortcut** setting names the command as the command palette shows it, in the interface language.
+- Scroll commands of the preview and the reader appear in the command palette only while there is something to scroll; the "under cursor" commands only in a note editor, and they work from the command palette too.
+- A failed copy of the Bible text (e.g. no clipboard access) shows a notice instead of doing nothing.
 - A more compact translation list on the **Bible translations** page: the drag handle sits left of the name and the delete button in the top right corner, so the rows below use the full width; the description is one line (language, books, file) without the internal id; numbering, code and the **Book names** button share one row with short labels. A hint under the heading says the first translation is the main one; the check mark is gone. Numbering schemes are named after a reference Bible, so they no longer read as languages: **like KJV** (was English), **like Synodal**, **like original**, **like Vulgate**, **like Septuagint**.
 - The import description on the **Bible translations** page links to the sites it names: jw.org (its Bible page in the interface language), eBible.org and dbs.org; jw.org comes first. The jw.org link in the getting started hints also opens its Bible page.
 

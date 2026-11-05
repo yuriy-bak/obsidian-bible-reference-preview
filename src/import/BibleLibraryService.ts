@@ -1,6 +1,7 @@
 import { Notice, type App } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
 import type { I18nKey, I18nParams } from "../i18n/I18n";
+import { EpubImportError } from "../infrastructure/epub/EpubImportError";
 import { isBibleImportAbortError } from "../infrastructure/sources/BibleImportCancellation";
 import { ensureVaultDirectoryExists } from "../infrastructure/VaultPathUtils";
 import type { TranslationService } from "../translations/TranslationService";
@@ -10,7 +11,7 @@ import type { BackgroundTaskProgress } from "../ui/BackgroundTaskProgress";
 import { detectMissingVersifications } from "./detectMissingVersifications";
 import { getExampleReference } from "../onboarding/GettingStarted";
 import {
-    formatBibleIndexV2StatsNotice,
+    formatBibleIndexStatsNotice,
     formatBibleImportSuccessNotice,
     formatLastImportReportNotice,
     localizeImportErrorMessage,
@@ -34,13 +35,16 @@ export class BibleLibraryService {
         try {
             const repository = this.context.createRepository();
             await repository.load();
-            this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+            this.context.setBibleData(repository.getIndex(), repository.getIndexData());
             const lastImportReport = await repository.readLastImportReport();
             await this.translations.syncTranslationOrder(lastImportReport?.translationId);
             this.translations.activateTopTranslation();
             void this.updateMissingVersifications();
         } catch (error) {
             console.warn("Bible index load failed. Bible analysis will be disabled until a translation is imported.", error);
+            if (error instanceof EpubImportError && error.code === "indexDamaged") {
+                new Notice(localizeImportErrorMessage(error, this.translate), 0);
+            }
             this.context.setBibleData(null, null);
             this.context.setActiveTranslationId(null);
             this.context.updateBookMapping();
@@ -50,12 +54,12 @@ export class BibleLibraryService {
     // Runs in the background after loading; skips publishing its result if an import or a deletion
     // replaced the index meanwhile (the next load repeats the detection then).
     private async updateMissingVersifications(): Promise<void> {
-        const loadedV2Data = this.context.v2Data;
+        const loadedIndexData = this.context.indexData;
         try {
             const repository = this.context.createRepository();
             await repository.load();
-            if (await detectMissingVersifications(repository) && this.context.v2Data === loadedV2Data) {
-                this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+            if (await detectMissingVersifications(repository) && this.context.indexData === loadedIndexData) {
+                this.context.setBibleData(repository.getIndex(), repository.getIndexData());
             }
         } catch (error) {
             console.warn("Versification detection for imported translations failed.", error);
@@ -156,7 +160,7 @@ export class BibleLibraryService {
                     this.context.refreshSettingsTab();
                 },
                 onImported: async (repository, importResult) => {
-                    this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+                    this.context.setBibleData(repository.getIndex(), repository.getIndexData());
                     // A new translation goes to the end of the list: the main one (and the numbering of the
                     // references in the notes) stays the same. The first import becomes the main translation.
                     await this.translations.syncTranslationOrder(importResult.translationId);
@@ -220,10 +224,10 @@ export class BibleLibraryService {
             return;
         }
 
-        const activeV2Data = this.context.v2Data;
-        if (activeV2Data !== null) {
-            const translationCount = Object.keys(activeV2Data.translations).length;
-            new Notice(formatBibleIndexV2StatsNotice(
+        const activeIndexData = this.context.indexData;
+        if (activeIndexData !== null) {
+            const translationCount = Object.keys(activeIndexData.translations).length;
+            new Notice(formatBibleIndexStatsNotice(
                 translationCount,
                 this.context.activeTranslationId ?? this.context.t("notice.none"),
                 this.translate,

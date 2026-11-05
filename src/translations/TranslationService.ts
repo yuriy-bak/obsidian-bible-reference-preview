@@ -1,8 +1,8 @@
 import { Notice } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
-import { getTranslationBooks } from "../infrastructure/v2/createBookMappingFromBibleIndexV2Data";
+import { getTranslationBooks } from "../infrastructure/bible-index/createBookMappingFromBibleIndexData";
 import { findCustomBookAliasConflicts, getBookIndexAliases, normalizeCustomBookAliases, type CustomBookAliasConflict } from "../parsing/customBookAliases";
-import { openConfirmModal } from "../ui/ConfirmModal";
+import type { Confirm } from "../core/ConfirmRequest";
 import { areStringArraysEqual } from "../utils/ArrayEquality";
 import { isValidTranslationCode, normalizeTranslationCode } from "./translationCodes";
 import { TranslationController, type TranslationControllerState } from "./TranslationController";
@@ -10,6 +10,7 @@ import type { BookAliasesEditorBook, PreviewComparisonTranslationOption, Transla
 
 export type TranslationServiceEffects = {
     refreshVisibleBiblePreviewContent: () => Promise<void>;
+    confirm: Confirm;
 };
 
 export class TranslationService {
@@ -20,7 +21,7 @@ export class TranslationService {
 
     getControllerState(): TranslationControllerState {
         return {
-            v2Data: this.context.v2Data,
+            indexData: this.context.indexData,
             activeTranslationId: this.context.activeTranslationId,
             translationOrder: this.context.settings.translationOrder,
             comparisonTranslationIds: this.context.settings.comparisonTranslationIds,
@@ -59,7 +60,7 @@ export class TranslationService {
 
     /** The translation's books for the "Book names" window, in the translation's order. */
     getBookAliasesEditorBooks(translationId: string): BookAliasesEditorBook[] {
-        const translation = this.context.v2Data?.translations[translationId];
+        const translation = this.context.indexData?.translations[translationId];
         if (translation === undefined) {
             return [];
         }
@@ -85,8 +86,8 @@ export class TranslationService {
         if (this.context.settings.bookAliases[translationId] === undefined) {
             return false;
         }
-        const translationName = this.context.v2Data?.translations[translationId]?.name || translationId;
-        const confirmed = await openConfirmModal(this.context.app, {
+        const translationName = this.context.indexData?.translations[translationId]?.name || translationId;
+        const confirmed = await this.effects.confirm({
             title: this.context.t("confirm.resetBookAliases.title", { translationName }),
             messageLines: [this.context.t("confirm.resetBookAliases.message")],
             confirmText: this.context.t("confirm.resetBookAliases.confirm"),
@@ -108,7 +109,7 @@ export class TranslationService {
      * already has is refused: the conflicts are returned and nothing is saved.
      */
     async setCustomBookAliases(translationId: string, bookId: number, aliases: string[]): Promise<CustomBookAliasConflict[]> {
-        const translation = this.context.v2Data?.translations[translationId];
+        const translation = this.context.indexData?.translations[translationId];
         if (translation === undefined) {
             return [];
         }
@@ -170,7 +171,7 @@ export class TranslationService {
         if (trimmedName.length === 0) {
             return "empty";
         }
-        const translation = this.context.v2Data?.translations[translationId];
+        const translation = this.context.indexData?.translations[translationId];
         if (translation === undefined || translation.name === trimmedName) {
             return null;
         }
@@ -187,7 +188,7 @@ export class TranslationService {
         const repository = this.context.createRepository();
         await repository.load();
         await repository.updateTranslationName(translationId, trimmedName);
-        this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+        this.context.setBibleData(repository.getIndex(), repository.getIndexData());
         this.context.updateBookMapping();
         await this.effects.refreshVisibleBiblePreviewContent();
         return null;
@@ -195,14 +196,14 @@ export class TranslationService {
 
     /** Stores the numbering scheme the user picked for a translation and redraws the open preview. */
     async setTranslationVersification(translationId: string, versification: string): Promise<void> {
-        if (this.context.v2Data?.translations[translationId]?.versification === versification) {
+        if (this.context.indexData?.translations[translationId]?.versification === versification) {
             return;
         }
 
         const repository = this.context.createRepository();
         await repository.load();
         await repository.updateTranslationVersification(translationId, { versification });
-        this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+        this.context.setBibleData(repository.getIndex(), repository.getIndexData());
         this.context.updateBookMapping();
         await this.effects.refreshVisibleBiblePreviewContent();
     }
@@ -249,16 +250,16 @@ export class TranslationService {
     }
 
     async deleteImportedTranslation(translationId: string): Promise<void> {
-        const currentV2Data = this.context.v2Data;
-        if (currentV2Data?.translations[translationId] === undefined) {
+        const currentIndexData = this.context.indexData;
+        if (currentIndexData?.translations[translationId] === undefined) {
             return;
         }
 
         if (this.isBeingImported(translationId)) {
             return;
         }
-        const translationName = currentV2Data.translations[translationId].name || translationId;
-        const confirmed = await openConfirmModal(this.context.app, {
+        const translationName = currentIndexData.translations[translationId].name || translationId;
+        const confirmed = await this.effects.confirm({
             title: this.context.t("confirm.deleteTranslation.title", { translationName }),
             messageLines: [
                 this.context.t("confirm.deleteTranslation.filesWillBeDeleted"),
@@ -278,7 +279,7 @@ export class TranslationService {
         await repository.load();
         await repository.deleteTranslation(translationId);
 
-        this.context.setBibleData(repository.getIndex(), repository.getV2Data());
+        this.context.setBibleData(repository.getIndex(), repository.getIndexData());
         const { [translationId]: _deletedBookAliases, ...otherBookAliases } = this.context.settings.bookAliases;
         this.context.updateSettings({
             translationOrder: this.context.settings.translationOrder.filter((existingTranslationId) => existingTranslationId !== translationId),
@@ -296,7 +297,7 @@ export class TranslationService {
             return this.context.t("translation.noImported");
         }
 
-        const translation = this.context.v2Data?.translations[activeTranslationId];
+        const translation = this.context.indexData?.translations[activeTranslationId];
         return translation === undefined ? activeTranslationId : `${translation.name} (${translation.language})`;
     }
 
@@ -306,7 +307,7 @@ export class TranslationService {
             return this.context.t("preview.titleFallback");
         }
 
-        return this.context.v2Data?.translations[activeTranslationId]?.name ?? activeTranslationId;
+        return this.context.indexData?.translations[activeTranslationId]?.name ?? activeTranslationId;
     }
 
     private async applyTranslationOrder(nextOrder: string[]): Promise<void> {

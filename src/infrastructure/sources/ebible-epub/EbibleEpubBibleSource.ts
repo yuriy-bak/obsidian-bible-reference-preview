@@ -1,16 +1,14 @@
 import JSZip from "jszip";
 import { loadZipArchive } from "../../epub/loadZipArchive";
-import type { BibleBook } from "../../../domain/BibleBook";
 import { getBookIdByUsfmCode } from "../../../versification/UsfmBookCodes";
 import { EPUB_IMPORT_LIMITS, readContainerOpfPath, readZipText, validateZipArchive } from "../../epub/EpubContainerReader";
 import { EpubImportError } from "../../epub/EpubImportError";
 import { getSpineXhtmlItems, parseOpfDocument } from "../../epub/EpubOpfReader";
 import { parseXhtmlDocument } from "../../epub/MarkupDocument";
-import { assertBibleImportNotAborted, createBibleImportTimeSlicer } from "../BibleImportCancellation";
-import { BibleIndexBuilder, normalizeLanguage } from "../BibleIndexBuilder";
+import { normalizeLanguage } from "../BibleIndexBuilder";
+import { addSkippedBooksWarning, appendBookVerses, createArchiveTextReader, createImportBuilder, openImportArchive, resolveTranslationName, withTraditionalAbbreviations } from "../BibleImportSteps";
 import { BibleImportInput, BibleImportOptions, BibleImportResult, BibleSource, BibleSourceFile, BibleSourceMetadata } from "../BibleSource";
-import { extractSourceMetadataFromOpf, readAllXhtmlDocuments, resolveManifestHref } from "../EpubBibleDocuments";
-import { findTraditionalBookAbbreviations } from "./bookAbbreviationTables";
+import { extractSourceMetadataFromOpf, resolveManifestHref } from "../EpubBibleDocuments";
 import { extractBookNamesFromIndexDocument, extractVersesFromBookDocument } from "./ebibleEpubHtml";
 
 const BOOK_FILE_PATTERN = /(?:^|\/)([0-9A-Z]{3})\.xhtml$/;
@@ -53,62 +51,31 @@ export class EbibleEpubBibleSource implements BibleSource {
     }
 
     async importBible(input: BibleImportInput, options: BibleImportOptions = {}): Promise<BibleImportResult> {
-        assertBibleImportNotAborted(options);
-        options.onProgress?.({ stage: "loading-zip", processedCount: 0, totalCount: 1 });
-        const zip = await loadZipArchive(input.content);
-        assertBibleImportNotAborted(options);
-        options.onProgress?.({ stage: "loading-zip", processedCount: 1, totalCount: 1 });
-        validateZipArchive(zip);
-
+        const zip = await openImportArchive(input.content, options);
         const opfPath = await readContainerOpfPath(zip);
         const opfXml = await readZipText(zip, opfPath);
         const sourceMetadata = extractSourceMetadataFromOpf(opfXml);
-        const translationName = input.translationName.trim() || sourceMetadata.title || input.fileName.replace(/\.epub$/i, "");
+        const translationName = resolveTranslationName(input, sourceMetadata.title, /\.epub$/i);
         const language = normalizeLanguage(input.language) || normalizeLanguage(sourceMetadata.language ?? "") || "und";
 
         const { bookPaths, skippedCodes } = getBookPathsInSpineOrder(zip, opfPath, opfXml);
         if (bookPaths.length === 0) {
-            throw new EpubImportError("EPUB does not contain books of the 66-book canon.");
+            throw new EpubImportError("EPUB does not contain books of the 66-book canon.", "noCanonBooks");
         }
 
+        const readText = createArchiveTextReader(zip);
         const indexPath = Object.keys(zip.files).find((path) => /(?:^|\/)index\.xhtml$/i.test(path));
-        const documents = await readAllXhtmlDocuments(zip, [
-            ...bookPaths.map((book) => book.path),
-            ...(indexPath === undefined ? [] : [indexPath]),
-        ], options);
-        const htmlByPath = new Map(documents.map((document) => [document.path, document.html]));
-        const indexHtml = indexPath === undefined ? undefined : htmlByPath.get(indexPath);
-        const bookNames = indexHtml === undefined ? new Map<string, string>() : extractBookNamesFromIndexDocument(parseXhtmlDocument(indexHtml));
+        const bookNames = indexPath === undefined ? new Map<string, string>() : extractBookNamesFromIndexDocument(parseXhtmlDocument(await readText(indexPath)));
 
-        const namedBooks = bookPaths.map(({ code, bookId }) => ({ id: bookId, name: bookNames.get(code) ?? code }));
-        const abbreviations = findTraditionalBookAbbreviations(language, namedBooks);
-        const books: BibleBook[] = namedBooks.map((book) => ({ ...book, abbreviation: abbreviations.get(book.id) ?? book.name }));
-
-        const builder = new BibleIndexBuilder({
-            translationId: input.translationId,
-            translationName,
-            language,
-            sourceFileName: input.fileName,
-        }, options);
-        builder.setBooks(books);
-        if (skippedCodes.length > 0) {
-            builder.addWarning(`Skipped books outside the 66-book canon: ${skippedCodes.join(", ")}`);
-        }
-
-        const yieldIfSliceElapsed = createBibleImportTimeSlicer();
-        options.onProgress?.({ stage: "extracting-verses", processedCount: 0, totalCount: bookPaths.length });
-        for (let bookIndex = 0; bookIndex < bookPaths.length; bookIndex += 1) {
-            assertBibleImportNotAborted(options);
-            const { path, code, bookId } = bookPaths[bookIndex];
-            const html = htmlByPath.get(path);
-            const verses = html === undefined ? [] : extractVersesFromBookDocument(parseXhtmlDocument(html));
-            if (verses.length === 0) {
-                builder.addWarning(`No verses found in ${code}: ${path}`);
-            }
-            await builder.appendVerses(bookId, verses);
-            options.onProgress?.({ stage: "extracting-verses", processedCount: bookIndex + 1, totalCount: bookPaths.length });
-            await yieldIfSliceElapsed();
-        }
+        const builder = createImportBuilder(input, translationName, language, options);
+        builder.setBooks(withTraditionalAbbreviations(language, bookPaths.map(({ code, bookId }) => ({ id: bookId, name: bookNames.get(code) ?? code }))));
+        addSkippedBooksWarning(builder, skippedCodes);
+        await appendBookVerses(
+            builder,
+            bookPaths.map((book) => ({ ...book, label: `${book.code}: ${book.path}` })),
+            async (book) => extractVersesFromBookDocument(parseXhtmlDocument(await readText(book.path))),
+            options,
+        );
 
         return builder.build();
     }

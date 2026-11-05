@@ -1,5 +1,5 @@
 import type { PluginContext } from "../core/PluginContext";
-import { createBookMappingFromBibleIndexV2Data } from "../infrastructure/v2/createBookMappingFromBibleIndexV2Data";
+import { createBookMappingFromBibleIndexData } from "../infrastructure/bible-index/createBookMappingFromBibleIndexData";
 import { TranslationController } from "../translations/TranslationController";
 import type { TranslationService } from "../translations/TranslationService";
 import { BiblePreviewAnalyzer } from "./BiblePreviewAnalyzer";
@@ -7,11 +7,11 @@ import type { BibleChapterLocation, BibleChapterTarget } from "./BibleChapterNav
 import { getBibleChapterTextBlock, getBibleTextBlocks } from "./getBibleTexts";
 import { type BiblePreviewContent, formatBibleComparisonTextBlocks, formatBibleTextBlocks } from "./BiblePreviewModel";
 import { mapBibleReferences } from "./mapBibleReferences";
-import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
+import type { BibleIndexData } from "../infrastructure/bible-index/BibleIndexData";
 import type { BibleReference } from "../domain/BibleReference";
 import type { BookMapping } from "../parsing/BookMapping";
 import { getLanguageBookAliases } from "../parsing/languageBookAliases";
-import { createNavigatorBooks, type NavigatorBook } from "../reader/BibleNavigatorModel";
+import { createNavigatorBooks, type NavigatorBook } from "./BibleNavigatorModel";
 import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../versification/VersificationRegistry";
 
 /** Builds preview content from the current Bible data. Each call reads the data anew, so imports and translation changes apply at once. */
@@ -35,12 +35,12 @@ export class BiblePreviewContentBuilder {
     }
 
     hasTranslation(translationId: string): boolean {
-        return this.context.v2Data?.translations[translationId] !== undefined;
+        return this.context.indexData?.translations[translationId] !== undefined;
     }
 
     /** The translation's books for the reader's navigator, in its order. */
     getNavigatorBooks(translationId: string): NavigatorBook[] {
-        const translation = this.context.v2Data?.translations[translationId];
+        const translation = this.context.indexData?.translations[translationId];
         if (translation === undefined) return [];
         const sources = Object.entries(translation.books)
             .map(([id, book]) => ({
@@ -81,11 +81,11 @@ export class BiblePreviewContentBuilder {
 
     /** The references in another translation's numbering; the same array when both use the same scheme. */
     mapReferences(references: BibleReference[], fromTranslationId: string, toTranslationId: string): BibleReference[] {
-        const v2Data = this.context.v2Data;
+        const indexData = this.context.indexData;
         return mapBibleReferences(
             references,
-            getTranslationVersification(v2Data, fromTranslationId),
-            getTranslationVersification(v2Data, toTranslationId),
+            getTranslationVersification(indexData, fromTranslationId),
+            getTranslationVersification(indexData, toTranslationId),
             getVersificationRegistry(),
         );
     }
@@ -104,7 +104,7 @@ export class BiblePreviewContentBuilder {
         const context = this.context;
         const bibleIndex = context.bibleIndex;
         const bookMapping = context.bookMapping;
-        const v2Data = context.v2Data;
+        const indexData = context.indexData;
         const translationState = this.translations.getControllerState();
         return new BiblePreviewAnalyzer({
             hasImportedTranslations: () => context.hasImportedTranslations(),
@@ -116,33 +116,33 @@ export class BiblePreviewContentBuilder {
             formatBibleComparisonTextBlocks: (inputs) => formatBibleComparisonTextBlocks(inputs, context.t("preview.missingVerse")),
             getComparisonTranslationIds: () => TranslationController.getComparisonTranslationIds(translationState),
             getTranslationPreviewTitle: (translationId) => TranslationController.getTranslationPreviewTitle(translationState, translationId),
-            getComparisonMapping: (translationId) => v2Data === null
+            getComparisonMapping: (translationId) => indexData === null
                 ? bookMapping
-                : createBookMappingFromBibleIndexV2Data(v2Data, translationId),
+                : createBookMappingFromBibleIndexData(indexData, translationId),
             mapReferences: (references, fromTranslationId, toTranslationId) => mapBibleReferences(
                 references,
-                getTranslationVersification(v2Data, fromTranslationId),
-                getTranslationVersification(v2Data, toTranslationId),
+                getTranslationVersification(indexData, fromTranslationId),
+                getTranslationVersification(indexData, toTranslationId),
                 getVersificationRegistry(),
             ),
             getBibleChapterTextBlock: (book, chapter, translationId) => getBibleChapterTextBlock(book, chapter, bibleIndex, translationId),
-            getBookIds: (translationId) => getTranslationBookIds(v2Data, translationId, bookMapping),
-            getChapterCount: (book, translationId) => v2Data?.translations[translationId]?.books[String(book)]?.chapterCount,
+            getBookIds: (translationId) => getTranslationBookIds(indexData, translationId, bookMapping),
+            getChapterCount: (book, translationId) => indexData?.translations[translationId]?.books[String(book)]?.chapterCount,
         });
     }
 }
 
 /** The translation's books in its order; the active translation's books for old data without books. */
-function getTranslationBookIds(v2Data: BibleIndexV2Data | null, translationId: string, activeMapping: BookMapping): number[] {
-    const translation = v2Data?.translations[translationId];
+function getTranslationBookIds(indexData: BibleIndexData | null, translationId: string, activeMapping: BookMapping): number[] {
+    const translation = indexData?.translations[translationId];
     const bookIds = translation === undefined
         ? [...activeMapping.idToDisplayName.keys()]
         : Object.keys(translation.books).map(Number).filter(Number.isInteger);
     return getBookIdsInTranslationOrder(bookIds, translation?.bookOrder);
 }
 
-function getTranslationVersification(v2Data: BibleIndexV2Data | null, translationId: string): string {
-    return v2Data?.translations[translationId]?.versification ?? DEFAULT_VERSIFICATION_KEY;
+function getTranslationVersification(indexData: BibleIndexData | null, translationId: string): string {
+    return indexData?.translations[translationId]?.versification ?? DEFAULT_VERSIFICATION_KEY;
 }
 
 /** The books in the translation's own order (the Synodal one puts James after Acts); by number without it. */

@@ -1,13 +1,13 @@
 import type { Extension } from "@codemirror/state";
 import { ViewPlugin, type DecorationSet, type EditorView } from "@codemirror/view";
-import { Notice } from "obsidian";
+import { MarkdownView, Notice } from "obsidian";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
 import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
 import type { BibleReference } from "../domain/BibleReference";
 import type { SettingsService } from "../settings/SettingsService";
 import { BIBLE_PREVIEW_VIEW_TYPE } from "../ui/BiblePreviewPaneView";
-import type { BiblePreviewService } from "../ui/BiblePreviewService";
+import type { BiblePreviewService } from "../preview/BiblePreviewService";
 import { getFirstWorkspaceLeafOfType } from "../workspace/BiblePreviewWorkspace";
 import {
     clearBibleReferenceLinkDecorationsForViews,
@@ -35,7 +35,17 @@ export class EditorService {
         readonly settings: SettingsService,
         private readonly contentBuilder: BiblePreviewContentBuilder,
         private readonly preview: BiblePreviewService,
-    ) {}
+    ) {
+        context.onSettingsChanged((keys) => {
+            if (keys.has("isPluginActive")) {
+                if (settings.isPluginActive()) this.refreshLinks();
+                else this.clearLinks();
+            }
+            if (keys.has("bibleReferenceLinkColor")) this.refreshLinks();
+            if (keys.has("interfaceLanguage")) this.refreshLocalizedLabels();
+            if (keys.has("previewTriggerMode")) this.dispatchNoopUpdate();
+        });
+    }
 
     createExtension(): Extension[] {
         return createBibleReferenceLinkEditorExtensions(ViewPlugin.define((view) => new EditorReferenceViewPlugin(view, this)));
@@ -89,7 +99,6 @@ export class EditorService {
         return createBibleReferenceLinkDecorations({
             view,
             activeTranslationId: this.context.activeTranslationId,
-            linkColor: this.settings.getBibleReferenceLinkColor(),
             cache: this.decorationCache,
             shouldRunBiblePreviewForEditor: (editorView) => this.isActiveFor(editorView),
             hasImportedTranslations: () => this.context.hasImportedTranslations(),
@@ -141,10 +150,10 @@ export class EditorService {
             return false;
         }
 
-        for (const [view, plugin] of this.viewPlugins) {
-            if (isFocusedEditorView(view)) {
-                return plugin.openReferenceUnderCursor(showNotice);
-            }
+        const focusedView = this.findCommandEditorView();
+        const plugin = focusedView === null ? undefined : this.viewPlugins.get(focusedView);
+        if (plugin !== undefined) {
+            return plugin.openReferenceUnderCursor(showNotice);
         }
 
         if (showNotice) {
@@ -160,7 +169,7 @@ export class EditorService {
             return null;
         }
 
-        const focusedView = [...this.viewPlugins.keys()].find(isFocusedEditorView) ?? null;
+        const focusedView = this.findCommandEditorView();
         if (focusedView === null) {
             if (showNotice) new Notice(this.context.t("notice.activeEditorNotFound"), 2500);
             return null;
@@ -174,6 +183,16 @@ export class EditorService {
 
         const references = this.context.parseMatches(match.text).flatMap((parsedMatch) => parsedMatch.references);
         return references.length === 0 ? null : { text: match.text, references };
+    }
+
+    // The focused editor; from the command palette (which takes the focus) the editor of the active note.
+    private findCommandEditorView(): EditorView | null {
+        const editorViews = [...this.viewPlugins.keys()];
+        const focusedView = editorViews.find(isFocusedEditorView);
+        if (focusedView !== undefined) return focusedView;
+        const activeView = this.context.app.workspace.getActiveViewOfType(MarkdownView);
+        if (activeView === null) return null;
+        return editorViews.find((view) => activeView.containerEl.contains(view.dom)) ?? null;
     }
 
     private isConfiguredLinkOpenShortcut(event: KeyboardEvent): boolean {

@@ -1,7 +1,7 @@
 import { BibleBook } from "../../domain/BibleBook";
 import { normalizeBookAlias, removeChapterNumberFromAlias } from "../../parsing/BookMapping";
-import { BibleIndexV2Data, BibleIndexV2TranslationMetadata } from "../v2/BibleIndexV2Data";
-import { CompactBibleBookData, CompactVerseData } from "../v2/CompactBibleBookData";
+import { BibleIndexData, BibleIndexTranslationMetadata } from "../bible-index/BibleIndexData";
+import { CompactBibleBookData, CompactVerseData } from "../bible-index/CompactBibleBookData";
 import { EpubImportError } from "../epub/EpubImportError";
 import { detectVersification, type ChapterVerseCounts } from "../../versification/detectVersification";
 import { getCompactBookChapterVerseCounts } from "../../versification/compactBookVerseCounts";
@@ -39,7 +39,7 @@ export type BibleIndexBuilderInput = {
  */
 export class BibleIndexBuilder {
     private readonly importedAt = new Date().toISOString();
-    private readonly translation: BibleIndexV2TranslationMetadata;
+    private readonly translation: BibleIndexTranslationMetadata;
     private readonly compactBooks: Record<string, CompactBibleBookData> = {};
     private readonly warnings: string[] = [];
     private books: BibleBook[] = [];
@@ -116,7 +116,7 @@ export class BibleIndexBuilder {
 
     build(): BibleImportResult {
         if (this.importedVerseCount === 0) {
-            throw new EpubImportError("EPUB import completed without extracted verses.");
+            throw new EpubImportError("EPUB import completed without extracted verses.", "noVerses");
         }
 
         assertBibleImportNotAborted(this.options);
@@ -136,14 +136,14 @@ export class BibleIndexBuilder {
         const versificationDetection = this.setDetectedVersification(chapterVerseCounts);
 
         const { translationId, translationName, language, sourceFileName } = this.input;
-        const bibleIndexV2Data: BibleIndexV2Data = {
+        const bibleIndexData: BibleIndexData = {
             version: 2,
             translations: {
                 [translationId]: this.translation,
             },
         };
         const stats = calculateStats(this.compactBooks);
-        const metadataBytes = byteLength(JSON.stringify(bibleIndexV2Data));
+        const metadataBytes = byteLength(JSON.stringify(bibleIndexData));
         const booksBytes = Object.values(this.compactBooks).reduce((sum, book) => sum + byteLength(JSON.stringify(book)), 0);
 
         return {
@@ -151,7 +151,7 @@ export class BibleIndexBuilder {
             translationName,
             language,
             books: this.books,
-            bibleIndexV2Data,
+            bibleIndexData,
             compactBooks: this.compactBooks,
             report: {
                 fileName: sourceFileName,

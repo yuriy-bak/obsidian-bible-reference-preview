@@ -1,5 +1,6 @@
 import type { BibleImportProgress, BibleImportReport, BibleImportResult } from "../infrastructure/sources/BibleSource";
 import type { I18nKey } from "../i18n/I18n";
+import { EpubImportError } from "../infrastructure/epub/EpubImportError";
 import { UnsupportedBibleFileError } from "../infrastructure/sources/BibleSourceRegistry";
 import { getVersificationLabel } from "../ui/VersificationLabels";
 
@@ -49,13 +50,13 @@ export function formatLastImportReportNotice(
     ].join("\n");
 }
 
-export function formatBibleIndexV2StatsNotice(
+export function formatBibleIndexStatsNotice(
     translationCount: number,
     activeTranslationIdText: string,
     translate: BibleImportTranslate,
 ): string {
     return [
-        translate("notice.bibleIndexV2"),
+        translate("notice.bibleIndexTitle"),
         translate("notice.translationCount", { count: translationCount }),
         translate("notice.activeTranslationId", { translationId: activeTranslationIdText }),
     ].join("\n");
@@ -69,24 +70,14 @@ export function localizeImportErrorMessage(error: unknown, translate: BibleImpor
             ...error.sourceLabels.map((label) => `• ${label}`),
         ].join("\n");
     }
-    const message = getErrorMessage(error);
-    if (message === "EPUB does not contain XHTML documents.") {
-        return translate("import.error.noXhtml");
+    if (error instanceof EpubImportError && error.code !== null) {
+        const params: Record<string, string | number> = { ...error.params };
+        for (const key of ["size", "max"]) {
+            if (typeof params[key] === "number") params[key] = formatMegabytes(params[key]);
+        }
+        return translate(`import.error.${error.code}`, params);
     }
-    if (message === "EPUB complete 66-book table was not found. Import cannot continue without a validated book table.") {
-        return translate("import.error.noBookTable");
-    }
-    if (message === "EPUB import completed without extracted verses.") {
-        return translate("import.error.noVerses");
-    }
-    if (message === "EPUB container.xml does not contain OPF rootfile path.") {
-        return translate("import.error.containerNoRootfile");
-    }
-    const fileNotFoundMatch = /^EPUB file not found: (.+)$/.exec(message);
-    if (fileNotFoundMatch !== null) {
-        return translate("import.error.fileNotFound", { path: fileNotFoundMatch[1] });
-    }
-    return message;
+    return getErrorMessage(error);
 }
 
 function getErrorMessage(error: unknown): string {

@@ -4,7 +4,7 @@ import { isValidTranslationCode } from "../translations/translationCodes";
 import { normalizeCustomBookAliases, type CustomBookAliases } from "../parsing/customBookAliases";
 import { normalizeReferenceUsageExcludedFolders } from "../reference-usage/ReferenceUsageIndexService";
 import { clampReaderSplitRatio, DEFAULT_READER_SPLIT_RATIO } from "../reader/ReaderSplitGeometry";
-import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "../ui/cssColorValidation";
+import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "./cssColorValidation";
 
 export type BiblePreviewTriggerMode = "current-paragraph" | "clicked-reference";
 export type BiblePreviewDisplayMode = "floating" | "side-panel";

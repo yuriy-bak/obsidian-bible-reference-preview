@@ -1,12 +1,13 @@
-import { Notice, setIcon, type WorkspaceLeaf } from "obsidian";
+import { setIcon, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import type { ReferenceUsageReturnPoint } from "../reference-usage/ReferenceUsageService";
 import { BibleNavigatorPanel, type BibleNavigatorLabels } from "./BibleNavigatorPanel";
-import type { NavigatorBook } from "../reader/BibleNavigatorModel";
+import type { NavigatorBook } from "../application/BibleNavigatorModel";
 import { BibleReaderHistory } from "../reader/BibleReaderHistory";
 import { ICONS, setBookTitle, stripBookIcon } from "./Icons";
 import { scrollPreviewElement, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { copyBibleText } from "./CopyBibleText";
 import {
     applyBiblePreviewScroll,
     type BiblePreviewChapterNavigationLabels,
@@ -41,6 +42,7 @@ export type BibleReaderViewInput = {
     getHistoryBackAria: () => string;
     getHistoryForwardAria: () => string;
     getCopyNoticeText: () => string;
+    getCopyFailedNoticeText: () => string;
     /** The empty reader of a new user: what is missing and buttons to import a Bible file or open the settings. */
     getNoTranslationsText: () => string;
     getImportButtonText: () => string;
@@ -458,15 +460,7 @@ export class BibleReaderPanel {
     }
 
     private async copyText(buttonEl: HTMLButtonElement): Promise<void> {
-        const text = this.content?.plainText ?? "";
-        if (text.length === 0) return;
-        try {
-            await navigator.clipboard.writeText(text);
-        } catch (error) {
-            console.error("Bible Reference Preview: failed to copy reader text", error);
-            return;
-        }
-        new Notice(this.input.getCopyNoticeText(), 2500);
+        if (!await copyBibleText(this.content?.plainText ?? "", this.input)) return;
         const win = buttonEl.win;
         if (this.copyFeedbackTimer !== null) win.clearTimeout(this.copyFeedbackTimer);
         setIcon(buttonEl, ICONS.copied);

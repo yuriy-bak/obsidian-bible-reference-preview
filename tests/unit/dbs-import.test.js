@@ -1,7 +1,7 @@
 const zlib = require("zlib");
 const { assert, createBookMapping, extractBibleTextFromCompactBook, formatBibleTextBlocks } = require("../helpers");
 const { DbsHtmlBibleSource } = require("../../.test-build/src/infrastructure/sources/dbs-html/DbsHtmlBibleSource.js");
-const { extractVersesFromDbsChapter } = require("../../.test-build/src/infrastructure/sources/dbs-html/dbsHtml.js");
+const { decompressDbsChapters, extractVersesFromDbsChapter } = require("../../.test-build/src/infrastructure/sources/dbs-html/dbsHtml.js");
 const { createBibleSources, selectBibleSource } = require("../../.test-build/src/infrastructure/sources/BibleSourceRegistry.js");
 
 // "HTML Study Bible" of dbs.org, shaped after the Russian Easy-to-Read page (RUSERV).
@@ -33,6 +33,15 @@ const createPage = () => {
 };
 
 module.exports = async () => {
+  // Unreadable data and data that unpacks into more than 64 MB ("decompression bomb") fail with translated codes;
+  // a stream of several meta-blocks under the limit is read.
+  assert.throws(() => decompressDbsChapters("AAAA"), (error) => error.code === "dbsUnreadable");
+  const compress = (text) => zlib.brotliCompressSync(Buffer.from(JSON.stringify({ GN1: text }))).toString("base64");
+  assert.strictEqual(decompressDbsChapters(compress("x".repeat(20 * 1024 * 1024))).GN1.length, 20 * 1024 * 1024);
+  const bomb = compress("x".repeat(70 * 1024 * 1024));
+  assert(bomb.length < 1024 * 1024);
+  assert.throws(() => decompressDbsChapters(bomb), (error) => error.code === "dataTooLarge");
+
   // A merged verse keeps only its first number; one or two missing numbers are joined into it,
   // a longer gap (a list the page lost) is not.
   const acts = extractVersesFromDbsChapter(chapters.AC1);
@@ -56,7 +65,7 @@ module.exports = async () => {
   assert.deepStrictEqual(await source.readMetadata(content), { title: "RUSERV", language: "ru" });
 
   const result = await source.importBible({ fileName: "Bible Reader.html", content, translationId: "ru-erv", translationName: "Современный перевод", language: "" });
-  const translation = result.bibleIndexV2Data.translations["ru-erv"];
+  const translation = result.bibleIndexData.translations["ru-erv"];
   assert.strictEqual(translation.language, "ru");
   assert.deepStrictEqual(translation.bookOrder, [19, 44, 48]);
   assert.deepStrictEqual(result.books.map((book) => [book.id, book.name, book.abbreviation]), [

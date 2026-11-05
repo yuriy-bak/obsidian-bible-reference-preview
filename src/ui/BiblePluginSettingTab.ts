@@ -13,6 +13,8 @@ import { createTranslationSettingsList } from "./TranslationSettingsList";
 import { openBookAliasesModal } from "./BookAliasesModal";
 import { createImportDescription, renderGettingStarted } from "../onboarding/GettingStarted";
 import { getVersificationOptions } from "./VersificationLabels";
+import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput } from "./CssColorDialog";
+import { DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeFloatingPreviewBackgroundColor } from "../settings/cssColorValidation";
 
 export type BiblePluginSettingTabServices = {
     context: PluginContext;
@@ -58,8 +60,8 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 heading: this.services.context.t("settings.colors.title"),
                 items: createColorSettingDefinitions({
                     translate: (key) => this.services.context.t(key),
-                    openCssColorDialog: (input) => this.services.settings.openCssColorDialog(input),
-                    openFloatingPreviewBackgroundColorDialog: () => this.services.settings.openFloatingPreviewBackgroundColorDialog(),
+                    openCssColorDialog: (input) => this.openCssColorDialog(input),
+                    openFloatingPreviewBackgroundColorDialog: () => this.openFloatingPreviewBackgroundColorDialog(),
                     getBibleReferenceLinkColor: () => this.services.settings.getBibleReferenceLinkColor(),
                     isBibleReferenceLinkColorDefault: () => this.services.settings.isBibleReferenceLinkColorDefault(),
                     setBibleReferenceLinkColor: (color) => this.services.settings.setBibleReferenceLinkColor(color),
@@ -110,6 +112,24 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             interceptLinkOpenShortcut: { get: () => settings.shouldInterceptLinkOpenShortcut(), set: (value) => settings.setInterceptLinkOpenShortcut(value === true) },
             linkOpenShortcut: { get: () => settings.getBibleLinkOpenShortcut(), set: (value) => settings.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut) },
         };
+    }
+
+    private openCssColorDialog(input: CssColorDialogInput): void {
+        new CssColorDialog(this.app, this.services.context.settings.interfaceLanguage, input).open();
+    }
+
+    private openFloatingPreviewBackgroundColorDialog(): void {
+        const t = this.services.context.t.bind(this.services.context);
+        this.openCssColorDialog({
+            title: t("settings.previewBackgroundColor.name"),
+            description: t("settings.previewBackgroundColor.desc"),
+            value: this.services.settings.getFloatingPreviewBackgroundColor(),
+            defaultValue: DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
+            previewText: t("settings.previewBackgroundColor.preview"),
+            presets: createBackgroundColorPresets(),
+            normalize: normalizeFloatingPreviewBackgroundColor,
+            onApply: (color) => void this.services.settings.setFloatingPreviewBackgroundColor(color),
+        });
     }
 
     private openBookNames(translationId: string): void {
@@ -286,7 +306,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 },
                 {
                     name: this.services.context.t("settings.hotkey.name"),
-                    desc: this.services.context.t("settings.hotkey.desc"),
+                    desc: this.services.context.t("settings.hotkey.desc", { command: this.services.context.t("command.openBibleReferenceUnderCursor") }),
                     control: { type: "toggle", key: "interceptLinkOpenShortcut" },
                 },
                 {

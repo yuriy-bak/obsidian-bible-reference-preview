@@ -1,14 +1,16 @@
-import { ItemView, type Menu, Notice, WorkspaceLeaf } from "obsidian";
+import { ItemView, type Menu, WorkspaceLeaf } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
 import { ICONS, stripBookIcon } from "./Icons";
 import { addOpenSettingsMenuItem, BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { copyBibleText } from "./CopyBibleText";
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
 export type BiblePreviewPaneViewInput = BiblePreviewChapterViewInput & BiblePreviewHeaderInput & {
     getOpenFloatingAria: () => string;
     getCopyNoticeText: () => string;
+    getCopyFailedNoticeText: () => string;
     getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
     onFindUsages?: (target: BiblePreviewUsageTarget) => void;
     onOpenFloating: (content: BiblePreviewContent) => void;
@@ -208,19 +210,7 @@ export class BiblePreviewPaneView extends ItemView {
     }
 
     private async copyCurrentText(): Promise<boolean> {
-        if (this.currentContent === null || this.currentContent.plainText.length === 0) return false;
-        try {
-            await navigator.clipboard.writeText(this.currentContent.plainText);
-            this.showCopyNotice();
-            return true;
-        } catch (error) {
-            console.error("Bible Reference Preview: failed to copy preview text", error);
-            return false;
-        }
-    }
-
-    private showCopyNotice(): void {
-        new Notice(this.input.getCopyNoticeText(), 2500);
+        return this.currentContent !== null && await copyBibleText(this.currentContent.plainText, this.input);
     }
 
 }
