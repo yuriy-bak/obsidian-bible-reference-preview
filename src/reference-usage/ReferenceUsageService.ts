@@ -66,6 +66,10 @@ export class ReferenceUsageService {
         owner.registerEvent(vault.on("modify", (file) => controller.handleFileCreateOrModify(file)));
         owner.registerEvent(vault.on("delete", (file) => controller.handleFileDelete(file)));
         owner.registerEvent(vault.on("rename", (file, oldPath) => controller.handleFileRename(file, oldPath)));
+        // A search indexes only the open notes edited since the last search, instead of reading all of them.
+        owner.registerEvent(this.context.app.workspace.on("editor-change", (_editor, info) => {
+            if (info.file !== null) this.getIndexService().markOpenFileEdited(info.file.path);
+        }));
         owner.register(() => controller.clearPendingUpdates());
     }
 
@@ -326,7 +330,7 @@ export class ReferenceUsageService {
                 continue;
             }
             openFilePaths.add(view.file.path);
-            if (service.syncOpenFileContent(view.file, view.getViewData())) {
+            if (service.shouldSyncOpenFile(view.file.path) && service.syncOpenFileContent(view.file, view.getViewData())) {
                 changed = true;
             }
         }

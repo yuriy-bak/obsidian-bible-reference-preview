@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The reference usage index is no longer rewritten every time a note is saved while you type: only when the note's references change, and at most once per 3 seconds. Usage counts of chapters and searches look only at the references of the same book and index only the open notes edited since the last search, which is faster with large vaults.
 - The list of imported translations (`bibles-index.json`) is written safely, keeping the previous version as `bibles-index.json.bak`: a file damaged by a crash or a sync conflict is read from the backup. If there is no usable backup, a notice says so, and a new import no longer replaces the list of all translations with the one it imports.
 - Importing a dbs.org HTML page stops with a clear message when its Bible data unpacks into more than 64 MB, instead of filling the memory.
 - Import errors are shown in the interface language with clear wording (file too large, too many files in the archive, no Bible books, no verses, unreadable dbs.org page); sizes are in MB. The progress no longer says "EPUB" for ZIP and HTML files.

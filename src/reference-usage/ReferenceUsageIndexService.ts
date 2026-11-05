@@ -8,7 +8,8 @@ export const REFERENCE_USAGE_INDEX_VERSION = 1;
 export const REFERENCE_USAGE_INDEX_FILE_NAME = "reference-usage-index.json";
 export const REFERENCE_USAGE_MAX_MARKDOWN_FILE_SIZE_BYTES = 1024 * 1024;
 export const REFERENCE_USAGE_MOBILE_MAX_MARKDOWN_FILE_SIZE_BYTES = 512 * 1024;
-const REFERENCE_USAGE_INDEX_SAVE_DELAY_MS = 1000;
+// Obsidian saves a note being typed every ~2 s; the whole index is written at most once per pause.
+const REFERENCE_USAGE_INDEX_SAVE_DELAY_MS = 3000;
 const REFERENCE_USAGE_EXCERPT_BEFORE_CHARS = 30;
 const REFERENCE_USAGE_EXCERPT_AFTER_CHARS = 140;
 const REFERENCE_USAGE_EXCERPT_ELLIPSIS = "…";
@@ -94,6 +95,10 @@ export class ReferenceUsageIndexService {
     private saveTimeout: number | null = null;
     // Last editor text indexed per open note, so repeated searches skip unchanged notes.
     private readonly syncedOpenFileContents = new Map<string, string>();
+    // Open notes edited since they were last indexed from the editor (see markOpenFileEdited).
+    private readonly editedOpenFiles = new Set<string>();
+    // Indexed references grouped by book, for searches; rebuilt on the first search after the index changed.
+    private referencesByBook: Map<number, Array<{ filePath: string; reference: IndexedReferenceUsage }>> | null = null;
     // Notes changed (a file) or removed (null) while a build runs: the build replaces the index at the end
     // with what it read, so these are applied again on top of it.
     private changesDuringBuild: Map<string, TFile | null> | null = null;
@@ -121,10 +126,12 @@ export class ReferenceUsageIndexService {
         const indexPath = this.getIndexPath();
         if (!(await this.app.vault.adapter.exists(indexPath))) {
             this.index = createEmptyReferenceUsageIndex();
+            this.referencesByBook = null;
             return;
         }
         const rawIndex = await this.app.vault.adapter.read(indexPath);
         this.index = normalizeReferenceUsageIndex(JSON.parse(rawIndex));
+        this.referencesByBook = null;
     }
 
     public async save(): Promise<void> {
@@ -221,6 +228,7 @@ export class ReferenceUsageIndexService {
         nextIndex.updatedAt = Date.now();
         nextIndex.parserSignature = parserSignature;
         this.index = nextIndex;
+        this.referencesByBook = null;
         this.changesDuringBuild = null;
         await this.applyChangesMadeDuringBuild(changesDuringBuild);
         this.syncedOpenFileContents.clear();
@@ -235,6 +243,7 @@ export class ReferenceUsageIndexService {
 
     private async applyChangesMadeDuringBuild(changes: Map<string, TFile | null>): Promise<void> {
         for (const [path, file] of changes) {
+            this.referencesByBook = null;
             if (file === null || !this.shouldIndexFile(file) || this.isFileTooLargeForIndex(file)) {
                 delete this.index.files[path];
                 continue;
@@ -250,6 +259,7 @@ export class ReferenceUsageIndexService {
 
     public async clear(): Promise<void> {
         this.index = createEmptyReferenceUsageIndex();
+        this.referencesByBook = null;
         this.syncedOpenFileContents.clear();
         await this.save();
     }
@@ -261,12 +271,21 @@ export class ReferenceUsageIndexService {
         }
         this.changesDuringBuild?.set(file.path, file);
         const content = await this.app.vault.cachedRead(file);
-        this.index.files[file.path] = this.createIndexedFile(file, content);
+        const previousFile = this.index.files[file.path];
+        const nextFile = this.createIndexedFile(file, content);
+        this.index.files[file.path] = nextFile;
+        // Saving a note whose references did not change writes nothing: the index is rewritten whole, and a
+        // note being typed is saved every few seconds. Its new mtime is caught by the next build.
+        if (previousFile !== undefined && areIndexedReferenceUsagesEqual(previousFile.references, nextFile.references)) {
+            return;
+        }
+        this.referencesByBook = null;
         this.scheduleSave();
     }
 
     // Indexes an open note from its editor text, including unsaved edits. Returns true when its references changed.
     public syncOpenFileContent(file: TFile, content: string): boolean {
+        this.editedOpenFiles.delete(file.path);
         if (this.syncedOpenFileContents.get(file.path) === content) {
             return false;
         }
@@ -280,8 +299,19 @@ export class ReferenceUsageIndexService {
         if (areIndexedReferenceUsagesEqual(previousFile?.references ?? [], nextFile.references)) {
             return false;
         }
+        this.referencesByBook = null;
         this.scheduleSave();
         return true;
+    }
+
+    /** An open note was edited: the next search indexes it from its editor text again. */
+    public markOpenFileEdited(path: string): void {
+        this.editedOpenFiles.add(path);
+    }
+
+    /** Whether the editor text of an open note has to be indexed before a search: never synced, or edited since. */
+    public shouldSyncOpenFile(path: string): boolean {
+        return !this.syncedOpenFileContents.has(path) || this.editedOpenFiles.has(path);
     }
 
     public retainSyncedOpenFiles(openFilePaths: ReadonlySet<string>): void {
@@ -298,28 +328,48 @@ export class ReferenceUsageIndexService {
             return false;
         }
         delete this.index.files[path];
+        this.referencesByBook = null;
         this.scheduleSave();
         return true;
     }
 
     public findUsages(queryReferences: BibleReference[]): ReferenceUsageSearchResult[] {
+        const referencesByBook = this.getReferencesByBook();
         const results: ReferenceUsageSearchResult[] = [];
         const seen = new Set<string>();
-        for (const file of Object.values(this.index.files)) {
-            for (const reference of file.references) {
+        for (const book of new Set(queryReferences.map((queryReference) => queryReference.book))) {
+            for (const { filePath, reference } of referencesByBook.get(book) ?? []) {
                 if (!queryReferences.some((queryReference) => doBibleReferenceRangesIntersect(queryReference, reference))) {
                     continue;
                 }
-                const key = `${file.path}:${reference.id}`;
+                const key = `${filePath}:${reference.id}`;
                 if (seen.has(key)) {
                     continue;
                 }
                 seen.add(key);
-                results.push({ ...reference, filePath: file.path });
+                results.push({ ...reference, filePath });
             }
         }
         results.sort((left, right) => left.filePath.localeCompare(right.filePath) || left.line - right.line || left.chStart - right.chStart);
         return results;
+    }
+
+    private getReferencesByBook(): Map<number, Array<{ filePath: string; reference: IndexedReferenceUsage }>> {
+        if (this.referencesByBook === null) {
+            const referencesByBook = new Map<number, Array<{ filePath: string; reference: IndexedReferenceUsage }>>();
+            for (const file of Object.values(this.index.files)) {
+                for (const reference of file.references) {
+                    let bookReferences = referencesByBook.get(reference.book);
+                    if (bookReferences === undefined) {
+                        bookReferences = [];
+                        referencesByBook.set(reference.book, bookReferences);
+                    }
+                    bookReferences.push({ filePath: file.path, reference });
+                }
+            }
+            this.referencesByBook = referencesByBook;
+        }
+        return this.referencesByBook;
     }
 
     public isOutdated(): boolean {

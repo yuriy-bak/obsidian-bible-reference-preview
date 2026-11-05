@@ -240,6 +240,39 @@ module.exports = async () => {
   assert.deepStrictEqual(referenceUsageOpenNoteApp.readPaths, []);
   referenceUsageOpenNoteService.clearPendingSave();
 
+  // An open note is indexed from the editor once, then again only after it was edited.
+  assert.strictEqual(referenceUsageOpenNoteService.shouldSyncOpenFile("notes/open.md"), false);
+  assert.strictEqual(referenceUsageOpenNoteService.shouldSyncOpenFile("notes/other.md"), true);
+  referenceUsageOpenNoteService.markOpenFileEdited("notes/open.md");
+  assert.strictEqual(referenceUsageOpenNoteService.shouldSyncOpenFile("notes/open.md"), true);
+  referenceUsageOpenNoteService.syncOpenFileContent(referenceUsageOpenNoteFile, "Draft Ин 3:16");
+  assert.strictEqual(referenceUsageOpenNoteService.shouldSyncOpenFile("notes/open.md"), false);
+  referenceUsageOpenNoteService.clearPendingSave();
+
+  // Saving a note whose references did not change does not rewrite the index; a changed reference does.
+  {
+    const contents = { "notes/saved.md": "Ин 3:16 first" };
+    const savedApp = createReferenceUsageTestApp(contents);
+    const savedService = new ReferenceUsageIndexService(savedApp, () => "data/bible", createReferenceUsageTestParseMatches, () => []);
+    const savedFile = createReferenceUsageTestFile("notes/saved.md", 10, 1);
+    await savedService.updateFile(savedFile);
+    assert.notStrictEqual(savedService.saveTimeout, null, "a new note is saved");
+    savedService.clearPendingSave();
+    contents["notes/saved.md"] = "Ин 3:16 first";
+    await savedService.updateFile(createReferenceUsageTestFile("notes/saved.md", 10, 2));
+    assert.strictEqual(savedService.saveTimeout, null, "same references, no save");
+    contents["notes/saved.md"] = "Ин 3:17 first";
+    await savedService.updateFile(createReferenceUsageTestFile("notes/saved.md", 10, 3));
+    assert.notStrictEqual(savedService.saveTimeout, null, "changed reference is saved");
+    // The search sees the change (the book grouping is rebuilt).
+    assert.strictEqual(savedService.findUsages([{ book: 43, chapterStart: 3, verseStart: 17, chapterEnd: 3, verseEnd: 17 }]).length, 1);
+    assert.strictEqual(savedService.findUsages([{ book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 16 }]).length, 0);
+    assert.strictEqual(savedService.findUsages([{ book: 1, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1 }]).length, 0);
+    savedService.removeFile("notes/saved.md");
+    assert.strictEqual(savedService.findUsages([{ book: 43, chapterStart: 3, verseStart: 17, chapterEnd: 3, verseEnd: 17 }]).length, 0);
+    savedService.clearPendingSave();
+  }
+
   const referenceUsageExcerptPrefix = "012345678901234567890123456789abcdef";
   const referenceUsageExcerptSuffix = "0123456789".repeat(16);
   referenceUsageApp.vault.cachedRead = async (file) => {
