@@ -15,6 +15,7 @@ import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView } from "./src/ui/BiblePre
 import { BiblePreviewService, type BiblePreviewReturnPoint } from "./src/ui/BiblePreviewService";
 import { BibleReaderService } from "./src/reader/BibleReaderService";
 import { BIBLE_READER_VIEW_TYPE, BibleReaderView } from "./src/ui/BibleReaderView";
+import { applyBibleReferenceLinkColor, removeBibleReferenceLinkColor } from "./src/ui/BibleReferenceLinkColor";
 import { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
 import { FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView } from "./src/ui/ReferenceUsagePaneView";
@@ -22,7 +23,10 @@ import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView } from "./src/ui/Refe
 export default class BiblePlugin extends Plugin {
     private readonly context = new PluginContext(this);
     private readonly settingsService = new SettingsService(this.context, {
-        refreshBibleReferenceLinks: () => this.editor.refreshLinks(),
+        refreshBibleReferenceLinks: () => {
+            this.applyLinkColorToWindows();
+            this.editor.refreshLinks();
+        },
         clearBibleReferenceLinks: () => this.editor.clearLinks(),
         dispatchEditorViewNoopUpdate: () => this.editor.dispatchNoopUpdate(),
         refreshFloatingPreviewLabels: () => this.preview.refreshFloatingLabels(),
@@ -132,7 +136,6 @@ export default class BiblePlugin extends Plugin {
             element,
             hasImportedTranslations: () => this.context.hasImportedTranslations(),
             parseMatches: (text) => this.context.parseMatches(text),
-            getBibleReferenceLinkColor: () => this.settingsService.getBibleReferenceLinkColor(),
             openBibleReference: (anchorEl, referenceText) => this.readingModePreviewController?.open(anchorEl, referenceText),
         }));
         this.registerEditorExtension(this.editor.createExtension());
@@ -196,6 +199,7 @@ export default class BiblePlugin extends Plugin {
     private registerWindowListeners(targetWindow: Window): void {
         if (this.windowListenerDisposers.has(targetWindow)) return;
         const targetDocument = targetWindow.document;
+        applyBibleReferenceLinkColor(targetDocument, this.settingsService.getBibleReferenceLinkColor());
         // Capture phase, so the plugin sees the keys before the editor handles them.
         const escapeKeydownHandler = (event: KeyboardEvent) => this.preview.handleEscapeKeydown(event);
         const linkOpenShortcutKeydownHandler = (event: KeyboardEvent) => this.editor.handleLinkOpenShortcutKeydown(event);
@@ -207,7 +211,13 @@ export default class BiblePlugin extends Plugin {
             targetDocument.removeEventListener("keydown", escapeKeydownHandler, true);
             targetWindow.removeEventListener("keydown", linkOpenShortcutKeydownHandler, true);
             targetDocument.removeEventListener("pointerdown", pointerDownHandler, true);
+            removeBibleReferenceLinkColor(targetDocument);
         });
+    }
+
+    private applyLinkColorToWindows(): void {
+        const color = this.settingsService.getBibleReferenceLinkColor();
+        for (const targetWindow of this.windowListenerDisposers.keys()) applyBibleReferenceLinkColor(targetWindow.document, color);
     }
 
     private unregisterWindowListeners(targetWindow: Window): void {
