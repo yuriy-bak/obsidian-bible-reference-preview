@@ -16,10 +16,12 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
-## What's new in 0.3.3
+## What's new in 0.3.4
 
-- **Bible reader under the note on a phone:** set **Bible reader on a phone** to **Under the note** to read and write at the same time; drag the line above the panel to change its height.
-- **Bible translations page in the settings:** the import, the translation list, the Bible index and the usage index moved off the main settings screen, so many translations no longer make it long.
+- **More compact translation list:** shorter rows on the **Bible translations** page, numbering schemes named after a reference Bible (**like KJV**, **like Synodal**…), links to jw.org, eBible.org and dbs.org in the import description.
+- **Bible reader on a phone:** chapters always open as **Bible reader on a phone** says; moving a chapter between a tab and the panel under the note changes the setting.
+- **Safer and clearer:** the translation list is written with a backup copy, import errors are in the interface language, and a large dbs.org page no longer fills the memory.
+- **Faster in large vaults:** the usage index is saved only when references change, and the link color applies at once in reading mode too.
 
 All changes, including beta versions in progress, are in the [changelog](CHANGELOG.md).
 
