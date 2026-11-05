@@ -57,7 +57,7 @@ export async function readAllXhtmlDocuments(zip: JSZip, paths: string[], options
         totalHtmlTextBytes += byteLength(html);
 
         if (totalHtmlTextBytes > EPUB_IMPORT_LIMITS.maxTotalHtmlTextBytes) {
-            throw new EpubImportError(`EPUB HTML/XML text content is too large. Size: ${totalHtmlTextBytes} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxTotalHtmlTextBytes} bytes.`);
+            throw new EpubImportError(`EPUB HTML/XML text content is too large. Size: ${totalHtmlTextBytes} bytes. Maximum allowed: ${EPUB_IMPORT_LIMITS.maxTotalHtmlTextBytes} bytes.`, "totalTooLarge", { size: totalHtmlTextBytes, max: EPUB_IMPORT_LIMITS.maxTotalHtmlTextBytes });
         }
 
         documents.push({ path, html });

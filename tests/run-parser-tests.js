@@ -19,6 +19,7 @@ const TEST_FILES = [
   "verse-headings",
   "bible-navigator",
   "reader-split",
+  "i18n",
 ];
 
 (async () => {

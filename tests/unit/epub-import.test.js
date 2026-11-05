@@ -308,6 +308,30 @@ module.exports = async () => {
     localizeImportErrorMessage(unsupportedError, (key) => key),
     "import.error.unsupportedFormat\n\n• first.example\n• other.example",
   );
+
+  // Import errors carry a code: the interface shows its own text, with sizes in megabytes.
+  const echo = (key, params = {}) => `${key} ${JSON.stringify(params)}`;
+  let tooLargeError = null;
+  try {
+    await readBibleFile(textFile("plain text"), 4, (key) => key);
+  } catch (error) {
+    tooLargeError = error;
+  }
+  assert.strictEqual(tooLargeError.code, "fileTooLarge");
+  assert.strictEqual(localizeImportErrorMessage(tooLargeError, echo), 'import.error.fileTooLarge {"size":"0.00 MB","max":"0.00 MB"}');
+  let pathError = null;
+  try {
+    normalizeZipPath("../evil.xhtml");
+  } catch (error) {
+    pathError = error;
+  }
+  assert.strictEqual(localizeImportErrorMessage(pathError, echo), 'import.error.invalidPath {"path":"../evil.xhtml"}');
+  assert.strictEqual(
+    localizeImportErrorMessage(new EpubImportError("x", "entryTooLarge", { path: "a.xhtml", size: 3 * 1024 * 1024, max: 2 * 1024 * 1024 }), echo),
+    'import.error.entryTooLarge {"path":"a.xhtml","size":"3.00 MB","max":"2.00 MB"}',
+  );
+  // An error without a code keeps its message.
+  assert.strictEqual(localizeImportErrorMessage(new Error("plain"), echo), "plain");
   assert.deepStrictEqual(await jwSource.readMetadata(spineFirstOrderEpub), { title: "Test & Bible", language: "en-us" });
 
   const importJwLikeEpub = (content, options) => jwSource.importBible({

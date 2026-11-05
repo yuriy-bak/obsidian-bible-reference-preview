@@ -165,6 +165,14 @@ export class BiblePreviewService {
         }
     }
 
+    /** Whether a preview is shown that the scroll commands can move. */
+    canScroll(): boolean {
+        if (!this.settings.isPluginActive()) return false;
+        if (this.floatingWindow?.isVisible() === true) return true;
+        return this.context.settings.previewDisplayMode === "side-panel"
+            && getFirstWorkspaceLeafOfType(this.context.app, BIBLE_PREVIEW_VIEW_TYPE) !== null;
+    }
+
     async scroll(command: BiblePreviewScrollCommand): Promise<void> {
         if (!this.settings.isPluginActive()) {
             return;
@@ -273,6 +281,7 @@ export class BiblePreviewService {
         return {
             getTitle: () => `📖 ${this.translations.getActiveTranslationPreviewTitle()}`,
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
+            getCopyFailedNoticeText: () => t("notice.bibleTextCopyFailed"),
             getCopyAria: () => t("preview.copyAria"),
             getOpenSettingsText: () => t("preview.openSettings"),
             onOpenSettings: () => this.context.openPluginSettings(),

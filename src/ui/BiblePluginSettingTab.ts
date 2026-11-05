@@ -286,7 +286,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 },
                 {
                     name: this.services.context.t("settings.hotkey.name"),
-                    desc: this.services.context.t("settings.hotkey.desc"),
+                    desc: this.services.context.t("settings.hotkey.desc", { command: this.services.context.t("command.openBibleReferenceUnderCursor") }),
                     control: { type: "toggle", key: "interceptLinkOpenShortcut" },
                 },
                 {

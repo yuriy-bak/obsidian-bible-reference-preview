@@ -68,7 +68,7 @@ export class EbibleEpubBibleSource implements BibleSource {
 
         const { bookPaths, skippedCodes } = getBookPathsInSpineOrder(zip, opfPath, opfXml);
         if (bookPaths.length === 0) {
-            throw new EpubImportError("EPUB does not contain books of the 66-book canon.");
+            throw new EpubImportError("EPUB does not contain books of the 66-book canon.", "noCanonBooks");
         }
 
         const indexPath = Object.keys(zip.files).find((path) => /(?:^|\/)index\.xhtml$/i.test(path));

@@ -71,12 +71,12 @@ export class JwEpubBibleSource implements BibleSource {
 
         const documents = await readAllXhtmlDocuments(zip, getDocumentPathsInReadingOrder(zip, opfPath, opfXml), options);
         if (documents.length === 0) {
-            throw new EpubImportError("EPUB does not contain XHTML documents.");
+            throw new EpubImportError("EPUB does not contain XHTML documents.", "noXhtml");
         }
 
         const bookTable = await findBookTable(documents, options);
         if (bookTable === null) {
-            throw new EpubImportError("EPUB complete 66-book table was not found. Import cannot continue without a validated book table.");
+            throw new EpubImportError("EPUB complete 66-book table was not found. Import cannot continue without a validated book table.", "noBookTable");
         }
 
         const verseDocuments: Array<{ path: string; verses: ExtractedVerse[] }> = [];

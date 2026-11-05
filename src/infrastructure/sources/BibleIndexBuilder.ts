@@ -116,7 +116,7 @@ export class BibleIndexBuilder {
 
     build(): BibleImportResult {
         if (this.importedVerseCount === 0) {
-            throw new EpubImportError("EPUB import completed without extracted verses.");
+            throw new EpubImportError("EPUB import completed without extracted verses.", "noVerses");
         }
 
         assertBibleImportNotAborted(this.options);

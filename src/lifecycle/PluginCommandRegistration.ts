@@ -6,6 +6,7 @@ import type { BibleReaderService } from "../reader/BibleReaderService";
 import type { ReferenceUsageService } from "../reference-usage/ReferenceUsageService";
 import type { SettingsService } from "../settings/SettingsService";
 import type { BiblePreviewService } from "../ui/BiblePreviewService";
+import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
 
 export type PluginCommandServices = {
     context: PluginContext;
@@ -20,6 +21,12 @@ export type PluginCommandServices = {
 export function registerPluginCommands(plugin: Plugin, services: PluginCommandServices): void {
     const { context, settings, library, preview, reader, referenceUsage, editor } = services;
     const t = (key: Parameters<PluginContext["t"]>[0]) => context.t(key);
+    // Listed only while there is something to scroll: the reader first, then the preview.
+    const scrollCommand = (command: BiblePreviewScrollCommand, checking: boolean): boolean => {
+        if (!reader.canScroll() && !preview.canScroll()) return false;
+        if (!checking) void (reader.scrollActive(command) || preview.scroll(command));
+        return true;
+    };
     plugin.addCommand({ id: "import-epub-bible", name: t("command.importBible"), callback: () => library.openBibleFilePicker() });
     plugin.addCommand({ id: "reload-bible-index", name: t("command.reloadBibleIndex"), callback: () => void library.reloadBibleIndex() });
     plugin.addCommand({ id: "open-bible-index-folder", name: t("command.openBibleIndexFolder"), callback: () => void library.openBibleIndexFolder() });
@@ -28,27 +35,27 @@ export function registerPluginCommands(plugin: Plugin, services: PluginCommandSe
     plugin.addCommand({ id: "rebuild-reference-usage-index", name: t("command.rebuildReferenceUsageIndex"), callback: () => void referenceUsage.rebuildReferenceUsageIndex() });
     plugin.addCommand({ id: "clear-reference-usage-index", name: t("command.clearReferenceUsageIndex"), callback: () => void referenceUsage.clearReferenceUsageIndex() });
     plugin.addCommand({ id: "show-reference-usage-index-stats", name: t("command.showReferenceUsageIndexStats"), callback: () => void referenceUsage.showReferenceUsageIndexStats() });
-    plugin.addCommand({ id: "find-reference-usages-under-cursor", name: t("command.findReferenceUsagesUnderCursor"), callback: () => void referenceUsage.findUsagesUnderCursor() });
-    plugin.addCommand({ id: "open-reference-usages-panel-under-cursor", name: t("command.openReferenceUsagesPanelUnderCursor"), callback: () => void referenceUsage.openUsagesPanelUnderCursor() });
+    plugin.addCommand({ id: "find-reference-usages-under-cursor", name: t("command.findReferenceUsagesUnderCursor"), editorCallback: () => void referenceUsage.findUsagesUnderCursor() });
+    plugin.addCommand({ id: "open-reference-usages-panel-under-cursor", name: t("command.openReferenceUsagesPanelUnderCursor"), editorCallback: () => void referenceUsage.openUsagesPanelUnderCursor() });
     plugin.addCommand({
         id: "scroll-bible-preview-panel-page-down",
         name: t("command.scrollBiblePreviewPanelPageDown"),
-        callback: () => void (reader.scrollActive("page-down") || preview.scroll("page-down")),
+        checkCallback: (checking) => scrollCommand("page-down", checking),
     });
     plugin.addCommand({
         id: "scroll-bible-preview-panel-page-up",
         name: t("command.scrollBiblePreviewPanelPageUp"),
-        callback: () => void (reader.scrollActive("page-up") || preview.scroll("page-up")),
+        checkCallback: (checking) => scrollCommand("page-up", checking),
     });
     plugin.addCommand({
         id: "scroll-bible-preview-panel-top",
         name: t("command.scrollBiblePreviewPanelTop"),
-        callback: () => void (reader.scrollActive("top") || preview.scroll("top")),
+        checkCallback: (checking) => scrollCommand("top", checking),
     });
     plugin.addCommand({
         id: "scroll-bible-preview-panel-bottom",
         name: t("command.scrollBiblePreviewPanelBottom"),
-        callback: () => void (reader.scrollActive("bottom") || preview.scroll("bottom")),
+        checkCallback: (checking) => scrollCommand("bottom", checking),
     });
     plugin.addCommand({
         id: "toggle-bible-preview-active",
@@ -71,6 +78,6 @@ export function registerPluginCommands(plugin: Plugin, services: PluginCommandSe
     plugin.addCommand({
         id: "open-bible-reference-under-cursor",
         name: t("command.openBibleReferenceUnderCursor"),
-        callback: () => editor.openReferenceUnderCursor(true),
+        editorCallback: () => editor.openReferenceUnderCursor(true),
     });
 }

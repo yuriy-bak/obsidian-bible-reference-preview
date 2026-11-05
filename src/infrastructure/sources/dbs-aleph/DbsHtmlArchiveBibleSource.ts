@@ -66,7 +66,7 @@ export class DbsHtmlArchiveBibleSource implements BibleSource {
         const index = await readIndex(zip);
         const bookFiles = getCanonicalBooks(zip, index.bookNames);
         if (bookFiles.length === 0) {
-            throw new EpubImportError("The archive does not contain books of the 66-book canon.");
+            throw new EpubImportError("The archive does not contain books of the 66-book canon.", "noCanonBooks");
         }
         const skippedCodes = getBookCodes(zip).filter((code) => getBookIdByUsfmCode(code) === null);
 
