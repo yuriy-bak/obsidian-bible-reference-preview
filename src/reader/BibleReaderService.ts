@@ -34,8 +34,11 @@ export class BibleReaderService {
         private readonly effects: BibleReaderServiceEffects,
     ) {}
 
-    /** A chapter from the preview, in the translation it was shown in (the active one without it); in the last reader or a new tab. */
-    async openChapter(target: BibleChapterTarget, translationId?: string, options: { newTab?: boolean } = {}): Promise<void> {
+    /**
+     * A chapter from the preview, in the translation it was shown in (the active one without it); in the last reader or a new tab.
+     * Resolves to where it opened: "below" for the reader under the note, "tab" otherwise.
+     */
+    async openChapter(target: BibleChapterTarget, translationId?: string, options: { newTab?: boolean } = {}): Promise<"below" | "tab"> {
         if (options.newTab !== true && this.opensBelow()) {
             await this.getSplit().open({
                 book: target.book,
@@ -43,7 +46,7 @@ export class BibleReaderService {
                 highlightedRanges: target.highlightedRanges,
                 ...(translationId === undefined ? {} : { translationId }),
             });
-            return;
+            return "below";
         }
         await this.openState({
             book: target.book,
@@ -51,6 +54,7 @@ export class BibleReaderService {
             highlightedRanges: target.highlightedRanges,
             ...(translationId === undefined ? {} : { translationId }),
         }, options.newTab === true);
+        return "tab";
     }
 
     /** The command and the ribbon icon: the last reader, or a new one with the book picker open. */
@@ -99,9 +103,12 @@ export class BibleReaderService {
         return this.split?.scrollReader(command) ?? false;
     }
 
-    /** Whether the reader opens under the note: a phone, with that placement chosen in the settings or the panel open. */
+    /**
+     * Whether the reader opens under the note: a phone, with that placement in the settings. Always the setting, whatever
+     * is open: moving a chapter between a tab and the panel changes it.
+     */
     opensBelow(): boolean {
-        return Platform.isPhone && (this.context.settings.phoneReaderPlacement === "below" || this.split?.isOpen() === true);
+        return Platform.isPhone && this.context.settings.phoneReaderPlacement === "below";
     }
 
     isSplitOpen(): boolean {
@@ -227,15 +234,25 @@ export class BibleReaderService {
     }
 
     // The tab's chapter moves under the note: the tab closes, the note it covered comes back on top.
+    // Chapters open under the note from now on, as if chosen in the settings.
     private async moveToSplit(leaf: WorkspaceLeaf, location: BibleReaderLocation | null): Promise<void> {
+        this.savePlacement("below");
         await this.getSplit().open(location === null ? {} : toOpenState(location));
         leaf.detach();
     }
 
-    // The panel's chapter goes to a tab, the panel closes.
+    // The panel's chapter goes to a tab, the panel closes; chapters open in a tab from now on.
     private async moveToTab(location: BibleReaderLocation | null): Promise<void> {
+        this.savePlacement("tab");
         this.closeSplit();
         await this.openState(location === null ? {} : toOpenState(location));
+    }
+
+    private savePlacement(phoneReaderPlacement: BiblePluginSettings["phoneReaderPlacement"]): void {
+        if (this.context.settings.phoneReaderPlacement === phoneReaderPlacement) return;
+        this.context.updateSettings({ phoneReaderPlacement });
+        void this.context.saveSettings();
+        this.context.refreshSettingsTab();
     }
 
     private saveSplitState(state: BiblePluginSettings["readerSplit"]): void {

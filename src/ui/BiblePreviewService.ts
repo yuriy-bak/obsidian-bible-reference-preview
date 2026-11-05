@@ -11,6 +11,7 @@ import {
     detachDuplicateWorkspaceLeavesOfType,
     expandBiblePreviewSideDock,
     getFirstWorkspaceLeafOfType,
+    getSideDockForLeaf,
     getWorkspaceLeavesOfType,
     isBiblePreviewPaneActiveInSideDock,
     isSideDockUtilityLeaf,
@@ -35,8 +36,8 @@ export type BiblePreviewReturnPoint = {
 /** What the preview needs from the reference usages and the Bible reader. */
 export type BiblePreviewServiceEffects = {
     showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget, returnPoint: BiblePreviewReturnPoint | null) => void;
-    /** The target is in `translationId`'s numbering; no translation means the active one. */
-    openChapterInReader: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) => void;
+    /** The target is in `translationId`'s numbering; no translation means the active one. Resolves to where it opened. */
+    openChapterInReader: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) => Promise<"below" | "tab">;
 };
 
 /** The floating preview window and the side panel preview. */
@@ -289,8 +290,24 @@ export class BiblePreviewService {
             onToggleComparison: (content: BiblePreviewContent) => void this.toggleComparison(content),
             getOpenChapterAria: (title: string) => t("preview.openChapterAria", { reference: title }),
             onOpenChapter: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) =>
-                this.effects.openChapterInReader(target, translationId, newTab),
+                void this.openChapter(target, translationId, newTab),
         };
+    }
+
+    private async openChapter(target: BibleChapterTarget, translationId?: string, newTab?: boolean): Promise<void> {
+        const openedIn = await this.effects.openChapterInReader(target, translationId, newTab);
+        if (openedIn === "below") this.hidePaneDrawer();
+    }
+
+    // On a phone the side panel is a drawer over the note. A chapter opening in a tab hides it (Obsidian reveals the tab);
+    // the reader under the note changes no tab, so the drawer is hidden here, or the chapter stays behind it.
+    // The preview stays in the drawer, as it does when a tab opens.
+    private hidePaneDrawer(): void {
+        const leaf = getFirstWorkspaceLeafOfType(this.context.app, BIBLE_PREVIEW_VIEW_TYPE);
+        if (leaf === null) return;
+        const sideDock = getSideDockForLeaf(this.context.app, leaf, this.context.settings.previewPanelSide, BIBLE_PREVIEW_VIEW_TYPE);
+        if (sideDock === undefined || sideDock.collapsed === true || typeof sideDock.collapse !== "function") return;
+        sideDock.collapse();
     }
 
     private async switchToPanel(content: BiblePreviewContent): Promise<void> {

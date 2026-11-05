@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Bible reader on a phone: moving a chapter between a tab and the panel under the note (**Open in a tab**, **Open under the note**) now changes the **Bible reader on a phone** setting, so the next chapter opens the same way. Chapters always open as the setting says, whatever reader is already open. 📖 in the side panel preview hides the panel when the chapter opens under the note, as it does for a tab.
 - A more compact translation list on the **Bible translations** page: the drag handle sits left of the name and the delete button in the top right corner, so the rows below use the full width; the description is one line (language, books, file) without the internal id; numbering, code and the **Book names** button share one row with short labels. A hint under the heading says the first translation is the main one; the check mark is gone. Numbering schemes are named after a reference Bible, so they no longer read as languages: **like KJV** (was English), **like Synodal**, **like original**, **like Vulgate**, **like Septuagint**.
 - The import description on the **Bible translations** page links to the sites it names: jw.org (its Bible page in the interface language), eBible.org and dbs.org; jw.org comes first. The jw.org link in the getting started hints also opens its Bible page.
 
