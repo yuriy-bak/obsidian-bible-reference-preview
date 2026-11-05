@@ -2,6 +2,7 @@ const assert = require("assert");
 const path = require("path");
 const { flush, importBible, startPlugin, stopPlugin, translationIdByLanguage } = require("./helpers.js");
 const { BIBLE_READER_VIEW_TYPE } = require("../../.test-build/src/ui/BibleReaderView.js");
+const { BIBLE_PREVIEW_VIEW_TYPE } = require("../../.test-build/src/ui/BiblePreviewPaneView.js");
 const { normalizePluginSettings } = require("../../.test-build/src/settings/PluginSettings.js");
 
 const { Platform } = require(path.join(__dirname, "..", "obsidian-stub", "obsidian.js"));
@@ -92,6 +93,29 @@ async function runOnPhone() {
   // What the panel shows is remembered for the next start, in its own translation.
   assert.deepStrictEqual(plugin.savedData.readerSplit, { open: true, book: 43, chapter: 3, translationId: ruId });
 
+  // 📖 in the side panel preview: on a phone the panel is a drawer over the note; it hides so the chapter is seen
+  // (the preview stays in it). A chapter opening in a tab leaves the drawer to Obsidian.
+  const previewLeaf = app.workspace.getRightLeaf(false);
+  await previewLeaf.setViewState({ type: BIBLE_PREVIEW_VIEW_TYPE });
+  app.workspace.rightSplit = { collapsed: false, collapse() { this.collapsed = true; }, expand() { this.collapsed = false; } };
+  plugin.preview.createPaneViewInput().onOpenChapter({ book: 43, chapter: 3, highlightedRanges: [] });
+  await flush();
+  assert.strictEqual(app.workspace.rightSplit.collapsed, true);
+  assert.strictEqual(app.workspace.getLeavesOfType(BIBLE_PREVIEW_VIEW_TYPE).length, 1);
+  app.workspace.rightSplit.expand();
+  plugin.preview.createPaneViewInput().onOpenChapter({ book: 43, chapter: 3, highlightedRanges: [] }, undefined, true);
+  await flush();
+  assert.strictEqual(app.workspace.rightSplit.collapsed, false);
+  assert.strictEqual(readers().length, 1);
+  // The placement is the setting, whatever else is open: a reader tab does not take the chapters from the panel.
+  await plugin.reader.openChapter({ book: 43, chapter: 3, highlightedRanges: [] });
+  await flush();
+  assert.strictEqual(readers().length, 1);
+  assert.strictEqual(readers()[0].getLocation().target.book, 43);
+  readers()[0].leaf.detach();
+  previewLeaf.detach();
+  delete app.workspace.rightSplit;
+
   // Another chapter goes to the same panel, in the translation it was shown in.
   await plugin.reader.openChapter({ book: 19, chapter: 23, highlightedRanges: [] }, enId);
   await flush();
@@ -129,10 +153,16 @@ async function runOnPhone() {
   assert.strictEqual(readers().length, 1);
   assert.deepStrictEqual(readers()[0].getLocation().target, { book: 19, chapter: 23, highlightedRanges: [] });
   assert.strictEqual(readers()[0].getLocation().translationId, enId);
+  // The move is remembered like the setting: the next chapter opens in a tab too, even after the tab closes.
+  assert.strictEqual(plugin2.context.settings.phoneReaderPlacement, "tab");
+  assert.strictEqual(plugin2.savedData.phoneReaderPlacement, "tab");
+  await plugin2.reader.openChapter({ book: 43, chapter: 3, highlightedRanges: [] });
+  await flush();
+  assert.strictEqual(splitEl(), null);
+  assert.strictEqual(readers().length, 1);
 
-  // From a tab, with the tab placement: "Open under the note" moves the chapter and closes the tab;
-  // while the panel is open, chapters open there.
-  await plugin2.settingsService.setPhoneReaderPlacement("tab");
+  // From a tab: "Open under the note" moves the chapter, closes the tab and switches the setting;
+  // chapters open under the note from now on.
   const menu = createMenu();
   readers()[0].onPaneMenu(menu, "more-options");
   const openBelowItem = menu.items.find((item) => item.title === plugin2.context.t("reader.split.openBelow"));
@@ -141,7 +171,8 @@ async function runOnPhone() {
   await flush();
   assert.strictEqual(readers().length, 0);
   assert(splitEl() !== null);
-  assert.match(splitEl().querySelector(".bible-reader-navigator-toggle").textContent, /Ps 23/);
+  assert.match(splitEl().querySelector(".bible-reader-navigator-toggle").textContent, /Ин 3/);
+  assert.strictEqual(plugin2.savedData.phoneReaderPlacement, "below");
   await plugin2.reader.openChapter({ book: 43, chapter: 3, highlightedRanges: [] });
   await flush();
   assert.strictEqual(readers().length, 0);
