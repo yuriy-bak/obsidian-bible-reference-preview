@@ -50,13 +50,13 @@ export function formatLastImportReportNotice(
     ].join("\n");
 }
 
-export function formatBibleIndexV2StatsNotice(
+export function formatBibleIndexStatsNotice(
     translationCount: number,
     activeTranslationIdText: string,
     translate: BibleImportTranslate,
 ): string {
     return [
-        translate("notice.bibleIndexV2"),
+        translate("notice.bibleIndexTitle"),
         translate("notice.translationCount", { count: translationCount }),
         translate("notice.activeTranslationId", { translationId: activeTranslationIdText }),
     ].join("\n");

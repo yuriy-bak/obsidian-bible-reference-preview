@@ -65,7 +65,7 @@ module.exports = async () => {
   assert.deepStrictEqual(await source.readMetadata(content), { title: "RUSERV", language: "ru" });
 
   const result = await source.importBible({ fileName: "Bible Reader.html", content, translationId: "ru-erv", translationName: "Современный перевод", language: "" });
-  const translation = result.bibleIndexV2Data.translations["ru-erv"];
+  const translation = result.bibleIndexData.translations["ru-erv"];
   assert.strictEqual(translation.language, "ru");
   assert.deepStrictEqual(translation.bookOrder, [19, 44, 48]);
   assert.deepStrictEqual(result.books.map((book) => [book.id, book.name, book.abbreviation]), [

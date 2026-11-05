@@ -17,9 +17,9 @@ import {
     revealLeafWithoutStealingEditorFocus,
 } from "../workspace/BiblePreviewWorkspace";
 import { ensureLeafViewLoaded } from "../workspace/WorkspaceLeafViewLoading";
-import type { BiblePreviewScrollCommand } from "./BiblePreviewHeader";
-import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, type BiblePreviewPaneViewInput } from "./BiblePreviewPaneView";
-import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "./FloatingBiblePreviewWindow";
+import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
+import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView, type BiblePreviewPaneViewInput } from "../ui/BiblePreviewPaneView";
+import type { FloatingBiblePreviewAnchor, FloatingBiblePreviewWindow, FloatingBiblePreviewWindowInput } from "../ui/FloatingBiblePreviewWindow";
 
 export type ClosePreviewPaneOptions = {
     collapseSideDock?: boolean;

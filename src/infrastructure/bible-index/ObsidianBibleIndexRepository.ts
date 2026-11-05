@@ -3,26 +3,26 @@ import { BibleIndex, EMPTY_BIBLE_INDEX } from "../BibleIndex";
 import { ensureVaultDirectoryExists, getBackupPath, getDirectoryPath, normalizePath, writeFileWithBackup } from "../VaultPathUtils";
 import { EpubImportError } from "../epub/EpubImportError";
 import { BibleImportReport } from "../sources/BibleSource";
-import { BibleBookV2Loader } from "./BibleBookV2Loader";
-import { BibleIndexV2Data, BibleIndexV2TranslationMetadata } from "./BibleIndexV2Data";
-import { sanitizeBibleIndexV2Data } from "./BibleIndexV2Validation";
+import { BibleBookLoader } from "./BibleBookLoader";
+import { BibleIndexData, BibleIndexTranslationMetadata } from "./BibleIndexData";
+import { sanitizeBibleIndexData } from "./BibleIndexValidation";
 import { CompactBibleBookData } from "./CompactBibleBookData";
-import { LazyBibleIndexV2 } from "./LazyBibleIndexV2";
+import { LazyBibleIndex } from "./LazyBibleIndex";
 
 const BIBLES_INDEX_FILE_NAME = "bibles-index.json";
 const OLD_BIBLE_INDEX_V2_FILE_NAME = "bible-index-v2.json";
 const IMPORT_REPORT_FILE_NAME = "import-report.json";
 const SAVE_BIBLE_INDEX_YIELD_EVERY_BOOKS = 10;
 
-export type SaveBibleIndexV2Input = {
-    metadata: BibleIndexV2Data;
+export type SaveBibleIndexInput = {
+    metadata: BibleIndexData;
     books: Record<string, CompactBibleBookData>;
     report: BibleImportReport;
     onProgress?: (savedBookCount: number, totalBookCount: number) => void;
 };
 
-export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
-    private currentV2Data: BibleIndexV2Data | null = null;
+export class ObsidianBibleIndexRepository implements BibleBookLoader {
+    private currentIndexData: BibleIndexData | null = null;
 
     constructor(
         private readonly adapter: DataAdapter,
@@ -30,24 +30,24 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
     ) {}
 
     async load(): Promise<void> {
-        const newIndex = await this.readV2Index(this.getMetadataPath());
+        const newIndex = await this.readIndexFile(this.getMetadataPath());
 
         if (newIndex !== null) {
-            this.currentV2Data = newIndex;
+            this.currentIndexData = newIndex;
             return;
         }
 
-        const oldV2Index = await this.readV2Index(this.getOldV2MetadataPath());
+        const oldFormatIndex = await this.readIndexFile(this.getOldV2MetadataPath());
 
-        if (oldV2Index !== null) {
-            this.currentV2Data = oldV2Index;
+        if (oldFormatIndex !== null) {
+            this.currentIndexData = oldFormatIndex;
             return;
         }
 
-        this.currentV2Data = null;
+        this.currentIndexData = null;
     }
 
-    async saveV2(input: SaveBibleIndexV2Input): Promise<void> {
+    async saveTranslation(input: SaveBibleIndexInput): Promise<void> {
         await ensureVaultDirectoryExists(this.adapter, this.dataDirectoryPath);
 
         const translationId = input.report.translationId;
@@ -74,38 +74,38 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         }
 
         // Read again: other translations may have been renamed or deleted while this one was being imported.
-        const nextData: BibleIndexV2Data = await this.readV2Index(this.getMetadataPath()) ?? this.currentV2Data ?? {
+        const nextData: BibleIndexData = await this.readIndexFile(this.getMetadataPath()) ?? this.currentIndexData ?? {
             version: 2,
             translations: {},
         };
         nextData.translations[translationId] = incomingTranslation;
         await writeFileWithBackup(this.adapter, this.getMetadataPath(), JSON.stringify(nextData));
         await this.adapter.write(this.getImportReportPath(), JSON.stringify(input.report));
-        this.currentV2Data = nextData;
+        this.currentIndexData = nextData;
         await this.removeFilesExcept(normalizePath(`${this.dataDirectoryPath}/translations/${translationId}`), writtenPaths);
     }
 
     async deleteTranslation(translationId: string): Promise<void> {
-        if (this.currentV2Data === null || this.currentV2Data.translations[translationId] === undefined) {
+        if (this.currentIndexData === null || this.currentIndexData.translations[translationId] === undefined) {
             return;
         }
 
-        const nextData: BibleIndexV2Data = {
+        const nextData: BibleIndexData = {
             version: 2,
-            translations: { ...this.currentV2Data.translations },
+            translations: { ...this.currentIndexData.translations },
         };
 
         delete nextData.translations[translationId];
         await this.removeTranslationDirectory(translationId);
         await ensureVaultDirectoryExists(this.adapter, this.dataDirectoryPath);
         await writeFileWithBackup(this.adapter, this.getMetadataPath(), JSON.stringify(nextData));
-        this.currentV2Data = nextData;
+        this.currentIndexData = nextData;
     }
 
     /** Updates the stored scheme fields of one translation, keeping everything else in bibles-index.json. */
     async updateTranslationVersification(
         translationId: string,
-        fields: Required<Pick<BibleIndexV2TranslationMetadata, "versification">> & Pick<BibleIndexV2TranslationMetadata, "bookOrder">,
+        fields: Required<Pick<BibleIndexTranslationMetadata, "versification">> & Pick<BibleIndexTranslationMetadata, "bookOrder">,
     ): Promise<void> {
         await this.updateTranslationMetadata(translationId, fields);
     }
@@ -117,16 +117,16 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
 
     private async updateTranslationMetadata(
         translationId: string,
-        fields: Partial<Pick<BibleIndexV2TranslationMetadata, "name" | "versification" | "bookOrder">>,
+        fields: Partial<Pick<BibleIndexTranslationMetadata, "name" | "versification" | "bookOrder">>,
     ): Promise<void> {
         // Re-read the file: an import may have saved another translation since this repository was loaded.
-        const latestData = await this.readV2Index(this.getMetadataPath()) ?? this.currentV2Data;
+        const latestData = await this.readIndexFile(this.getMetadataPath()) ?? this.currentIndexData;
         const translation = latestData?.translations[translationId];
         if (latestData === null || translation === undefined) {
             return;
         }
 
-        const nextData: BibleIndexV2Data = {
+        const nextData: BibleIndexData = {
             version: 2,
             translations: {
                 ...latestData.translations,
@@ -134,21 +134,21 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
             },
         };
         await writeFileWithBackup(this.adapter, this.getMetadataPath(), JSON.stringify(nextData));
-        this.currentV2Data = nextData;
+        this.currentIndexData = nextData;
     }
 
     getIndex(): BibleIndex {
-        return this.currentV2Data !== null
-            ? new LazyBibleIndexV2(this.currentV2Data, this)
+        return this.currentIndexData !== null
+            ? new LazyBibleIndex(this.currentIndexData, this)
             : EMPTY_BIBLE_INDEX;
     }
 
-    getV2Data(): BibleIndexV2Data | null {
-        return this.currentV2Data;
+    getIndexData(): BibleIndexData | null {
+        return this.currentIndexData;
     }
 
     async loadBook(translationId: string, bookId: number): Promise<CompactBibleBookData | null> {
-        const bookMetadata = this.currentV2Data?.translations[translationId]?.books[String(bookId)];
+        const bookMetadata = this.currentIndexData?.translations[translationId]?.books[String(bookId)];
 
         if (bookMetadata === undefined) {
             return null;
@@ -192,16 +192,16 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
      * is read from its backup; with no usable backup the read fails instead of returning null, so a save never
      * replaces the list of all translations with the one translation it writes.
      */
-    private async readV2Index(path: string): Promise<BibleIndexV2Data | null> {
+    private async readIndexFile(path: string): Promise<BibleIndexData | null> {
         const backupPath = getBackupPath(path);
         const exists = await this.adapter.exists(path);
         if (exists) {
-            const data = await this.tryReadV2IndexFile(path);
+            const data = await this.tryReadIndexFile(path);
             if (data !== null) return data;
         }
         // Also when the file is missing: a write stopped between moving it to the backup and putting the new one in place.
         if (await this.adapter.exists(backupPath)) {
-            const backup = await this.tryReadV2IndexFile(backupPath);
+            const backup = await this.tryReadIndexFile(backupPath);
             if (backup !== null) {
                 console.warn(`Bible index ${path} is ${exists ? "damaged" : "missing"}; its backup is used.`);
                 return backup;
@@ -211,10 +211,10 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
         throw new EpubImportError(`Bible index is damaged and has no usable backup: ${path}`, "indexDamaged", { path });
     }
 
-    private async tryReadV2IndexFile(path: string): Promise<BibleIndexV2Data | null> {
+    private async tryReadIndexFile(path: string): Promise<BibleIndexData | null> {
         try {
             const parsed = JSON.parse(await this.adapter.read(path)) as unknown;
-            return isBibleIndexV2Data(parsed) ? sanitizeBibleIndexV2Data(parsed) : null;
+            return isBibleIndexData(parsed) ? sanitizeBibleIndexData(parsed) : null;
         } catch {
             return null;
         }
@@ -246,7 +246,7 @@ export class ObsidianBibleIndexV2Repository implements BibleBookV2Loader {
     }
 }
 
-function isBibleIndexV2Data(value: unknown): value is BibleIndexV2Data {
+function isBibleIndexData(value: unknown): value is BibleIndexData {
     return isRecord(value) && value.version === 2 && isRecord(value.translations);
 }
 

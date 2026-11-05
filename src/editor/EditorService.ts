@@ -7,7 +7,7 @@ import type { PluginContext } from "../core/PluginContext";
 import type { BibleReference } from "../domain/BibleReference";
 import type { SettingsService } from "../settings/SettingsService";
 import { BIBLE_PREVIEW_VIEW_TYPE } from "../ui/BiblePreviewPaneView";
-import type { BiblePreviewService } from "../ui/BiblePreviewService";
+import type { BiblePreviewService } from "../preview/BiblePreviewService";
 import { getFirstWorkspaceLeafOfType } from "../workspace/BiblePreviewWorkspace";
 import {
     clearBibleReferenceLinkDecorationsForViews,

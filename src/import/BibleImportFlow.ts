@@ -2,7 +2,7 @@ import type { App } from "obsidian";
 import type { BibleImportResult, BibleSource } from "../infrastructure/sources/BibleSource";
 import type { BiblePluginLocale } from "../i18n/I18n";
 import { createBibleSources, getMaxBibleFileBytes, selectBibleSource } from "../infrastructure/sources/BibleSourceRegistry";
-import type { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
+import type { ObsidianBibleIndexRepository } from "../infrastructure/bible-index/ObsidianBibleIndexRepository";
 import { createImportSettingsDefaults, openBibleTranslationImportSettingsModal, type BibleTranslationImportSettings } from "../ui/BibleTranslationImportModal";
 import { BackgroundTaskProgress } from "../ui/BackgroundTaskProgress";
 import { openVersificationChoiceModal } from "../ui/VersificationChoiceModal";
@@ -22,7 +22,7 @@ export type PrepareBibleImportInput = {
     file: File;
     locale: BiblePluginLocale;
     translate: BibleImportTranslate;
-    createRepository: () => ObsidianBibleIndexV2Repository;
+    createRepository: () => ObsidianBibleIndexRepository;
 };
 
 export type ExecutePreparedBibleImportInput = {
@@ -30,8 +30,8 @@ export type ExecutePreparedBibleImportInput = {
     fileName: string;
     preparedImport: PreparedBibleImport;
     translate: BibleImportTranslate;
-    createRepository: () => ObsidianBibleIndexV2Repository;
-    onImported: (repository: ObsidianBibleIndexV2Repository, result: BibleImportResult) => Promise<void>;
+    createRepository: () => ObsidianBibleIndexRepository;
+    onImported: (repository: ObsidianBibleIndexRepository, result: BibleImportResult) => Promise<void>;
     /** Called once the import starts, with its progress (a notice with a cancel button). */
     onStarted?: (progress: BackgroundTaskProgress) => void;
 };
@@ -44,7 +44,7 @@ export async function prepareBibleImport(input: PrepareBibleImportInput): Promis
     const defaults = createImportSettingsDefaults(input.file.name, sourceMetadata);
     const existingRepository = input.createRepository();
     await existingRepository.load();
-    const translationAlreadyExists = existingRepository.getV2Data()?.translations[defaults.translationId] !== undefined;
+    const translationAlreadyExists = existingRepository.getIndexData()?.translations[defaults.translationId] !== undefined;
     const importSettings = await openBibleTranslationImportSettingsModal(
         input.app,
         defaults,

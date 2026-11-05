@@ -70,7 +70,7 @@ module.exports = async () => {
   assert.deepStrictEqual(await source.readMetadata(content), { title: "Синодальный перевод", language: "ru" });
 
   const result = await source.importBible({ fileName: "RUSSGOS.epub", content, translationId: "ru-syn", translationName: "", language: "" });
-  const translation = result.bibleIndexV2Data.translations["ru-syn"];
+  const translation = result.bibleIndexData.translations["ru-syn"];
   assert.strictEqual(translation.language, "ru");
   assert.strictEqual(translation.name, "Синодальный перевод");
   assert.deepStrictEqual(translation.bookOrder, [40, 65]);
@@ -114,7 +114,7 @@ module.exports = async () => {
   assert.deepStrictEqual(await archiveSource.readMetadata(archive), { title: null, language: "ru" });
 
   const archiveResult = await archiveSource.importBible({ fileName: "html_RUSS76.zip", content: archive, translationId: "ru-syn", translationName: "", language: "" });
-  const archiveTranslation = archiveResult.bibleIndexV2Data.translations["ru-syn"];
+  const archiveTranslation = archiveResult.bibleIndexData.translations["ru-syn"];
   assert.strictEqual(archiveTranslation.name, "RUSS76");
   assert.strictEqual(archiveTranslation.language, "ru");
   assert.deepStrictEqual(archiveTranslation.bookOrder, [40, 59, 45]);

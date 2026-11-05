@@ -27,12 +27,12 @@ const {
   BiblePreviewAnalyzer,
 } = require("../.test-build/src/application/BiblePreviewAnalyzer.js");
 const {
-  LazyBibleIndexV2,
-} = require("../.test-build/src/infrastructure/v2/LazyBibleIndexV2.js");
+  LazyBibleIndex,
+} = require("../.test-build/src/infrastructure/bible-index/LazyBibleIndex.js");
 const {
-  createBookMappingFromBibleIndexV2Data,
-  createCombinedBookMappingFromBibleIndexV2Data,
-} = require("../.test-build/src/infrastructure/v2/createBookMappingFromBibleIndexV2Data.js");
+  createBookMappingFromBibleIndexData,
+  createCombinedBookMappingFromBibleIndexData,
+} = require("../.test-build/src/infrastructure/bible-index/createBookMappingFromBibleIndexData.js");
 const { JSDOM } = require("jsdom");
 global.DOMParser = new JSDOM("").window.DOMParser;
 const {
@@ -52,7 +52,7 @@ const extractBookNavigationAliasesFromHtml = (html, bookTable) =>
 const extractVersesFromHtml = (html) => extractVersesFromDocument(parseXhtmlDocument(html));
 const {
   extractBibleTextFromCompactBook,
-} = require("../.test-build/src/infrastructure/v2/extractBibleTextFromCompactBook.js");
+} = require("../.test-build/src/infrastructure/bible-index/extractBibleTextFromCompactBook.js");
 const {
   formatBibleComparisonTextBlocks,
   formatBibleTextBlocks,
@@ -61,7 +61,7 @@ const {
   isCssColor,
   normalizeBibleReferenceLinkColor,
   normalizeFloatingPreviewBackgroundColor,
-} = require("../.test-build/src/ui/cssColorValidation.js");
+} = require("../.test-build/src/settings/cssColorValidation.js");
 const { buildColorDialogPresets } = require("../.test-build/src/ui/colorDialogPresets.js");
 const {
   ReferenceUsageIndexService,
@@ -113,9 +113,9 @@ module.exports = {
   getChapterTargetFromReferences,
   isVerseInRanges,
   BiblePreviewAnalyzer,
-  LazyBibleIndexV2,
-  createBookMappingFromBibleIndexV2Data,
-  createCombinedBookMappingFromBibleIndexV2Data,
+  LazyBibleIndex,
+  createBookMappingFromBibleIndexData,
+  createCombinedBookMappingFromBibleIndexData,
   JSDOM,
   enrichBookTableFromNavigationDocument,
   extractBookNavigationAliasesFromDocument,

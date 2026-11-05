@@ -4,7 +4,7 @@ const {
   BibleReferenceParser,
   createBookMapping,
   getBibleTextBlocks,
-  LazyBibleIndexV2,
+  LazyBibleIndex,
   extractBibleTextFromCompactBook,
   formatBibleTextBlocks,
   DEFAULT_TRANSLATION_ID,
@@ -12,7 +12,7 @@ const {
 
 module.exports = async () => {
   let loadCount = 0;
-  const lazy = new LazyBibleIndexV2(syntheticMetadata, {
+  const lazy = new LazyBibleIndex(syntheticMetadata, {
     async loadBook() {
       loadCount += 1;
       return {
@@ -46,7 +46,7 @@ module.exports = async () => {
 
   // Ranges are capped by the last verse of the chapter and the last chapter of the book.
   const createSyntheticChapter = (verseCount) => [null, ...Array.from({ length: verseCount }, (_unused, index) => `Стих ${index + 1}`)];
-  const rangeIndex = new LazyBibleIndexV2(syntheticMetadata, {
+  const rangeIndex = new LazyBibleIndex(syntheticMetadata, {
     async loadBook(_translationId, bookId) {
       if (bookId === 43) {
         return { chapters: [null, ...Array.from({ length: 21 }, (_unused, index) => createSyntheticChapter(index === 2 ? 36 : 3))] };
@@ -130,7 +130,7 @@ module.exports = async () => {
   const loads = [];
   let failNextLoad = false;
   const cacheBook = { chapters: [null, [null, "Стих."]] };
-  const cachedIndex = new LazyBibleIndexV2(syntheticMetadata, {
+  const cachedIndex = new LazyBibleIndex(syntheticMetadata, {
     async loadBook(translationId, bookId) {
       loads.push(bookId);
       await new Promise((resolve) => setTimeout(resolve, 0));

@@ -1,6 +1,6 @@
 import type { Setting, SettingDefinition } from "obsidian";
 import { createTextColorPresets, type CssColorDialogInput } from "./CssColorDialog";
-import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, normalizeBibleReferenceLinkColor } from "./cssColorValidation";
+import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, normalizeBibleReferenceLinkColor } from "../settings/cssColorValidation";
 
 type ColorSettingsI18nKey =
     | "settings.linkColor.name"

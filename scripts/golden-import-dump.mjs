@@ -30,7 +30,7 @@ const input = {
 };
 const result = await importer(input);
 
-for (const translation of Object.values(result.bibleIndexV2Data.translations)) {
+for (const translation of Object.values(result.bibleIndexData.translations)) {
   delete translation.importedAt;
 }
 const report = { ...result.report };
@@ -38,7 +38,7 @@ delete report.createdAt;
 
 await rm(outDirectory, { recursive: true, force: true });
 await mkdir(join(outDirectory, "books"), { recursive: true });
-await writeFile(join(outDirectory, "bibles-index.json"), JSON.stringify(result.bibleIndexV2Data, null, 1));
+await writeFile(join(outDirectory, "bibles-index.json"), JSON.stringify(result.bibleIndexData, null, 1));
 await writeFile(join(outDirectory, "report.json"), JSON.stringify(report, null, 1));
 await writeFile(join(outDirectory, "books-table.json"), JSON.stringify(result.books, null, 1));
 for (const [path, book] of Object.entries(result.compactBooks)) {

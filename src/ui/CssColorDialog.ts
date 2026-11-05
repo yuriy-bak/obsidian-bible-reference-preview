@@ -1,7 +1,7 @@
 import { App, Modal, Setting } from "obsidian";
 import { BiblePluginLocale, t } from "../i18n/I18n";
 import { buildColorDialogPresets, isSameColorValue, type CssColorPreset } from "./colorDialogPresets";
-import { DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, THEME_LINK_COLOR, isCssColor } from "./cssColorValidation";
+import { DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, THEME_LINK_COLOR, isCssColor } from "../settings/cssColorValidation";
 
 export type { CssColorPreset } from "./colorDialogPresets";
 

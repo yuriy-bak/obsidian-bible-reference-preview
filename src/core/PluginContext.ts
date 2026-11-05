@@ -2,9 +2,9 @@ import { Platform, type App, type Plugin } from "obsidian";
 import { t, type I18nKey, type I18nParams } from "../i18n/I18n";
 import { EMPTY_BIBLE_INDEX, type BibleIndex } from "../infrastructure/BibleIndex";
 import { getBibleIndexDataDirectoryPath } from "../infrastructure/PluginDirectoryPath";
-import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
-import { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
-import { createCombinedBookMappingFromBibleIndexV2Data } from "../infrastructure/v2/createBookMappingFromBibleIndexV2Data";
+import type { BibleIndexData } from "../infrastructure/bible-index/BibleIndexData";
+import { ObsidianBibleIndexRepository } from "../infrastructure/bible-index/ObsidianBibleIndexRepository";
+import { createCombinedBookMappingFromBibleIndexData } from "../infrastructure/bible-index/createBookMappingFromBibleIndexData";
 import { BibleReferenceParser, getBibleReferenceParserSignature, type BibleReferenceMatch } from "../parsing/BibleReferenceParser";
 import { createBookMapping, type BookMapping } from "../parsing/BookMapping";
 import { DEFAULT_SETTINGS, normalizePluginSettings, type BiblePluginSettings } from "../settings/PluginSettings";
@@ -36,7 +36,7 @@ export class PluginContext {
 
     private currentSettings: BiblePluginSettings = { ...DEFAULT_SETTINGS };
     private currentBibleIndex: BibleIndex = EMPTY_BIBLE_INDEX;
-    private currentV2Data: BibleIndexV2Data | null = null;
+    private currentIndexData: BibleIndexData | null = null;
     private currentActiveTranslationId: string | null = null;
     private currentImportingTranslationId: string | null = null;
     private currentBookMapping: BookMapping = createBookMapping([]);
@@ -58,8 +58,8 @@ export class PluginContext {
         return this.currentBibleIndex;
     }
 
-    get v2Data(): BibleIndexV2Data | null {
-        return this.currentV2Data;
+    get indexData(): BibleIndexData | null {
+        return this.currentIndexData;
     }
 
     get activeTranslationId(): string | null {
@@ -146,7 +146,7 @@ export class PluginContext {
 
     /** The code of every imported translation, in the translation order (see translations/translationCodes). */
     getTranslationCodes(): Map<string, string> {
-        const translations = this.currentV2Data?.translations ?? {};
+        const translations = this.currentIndexData?.translations ?? {};
         const order = [
             ...this.currentSettings.translationOrder.filter((translationId) => translations[translationId] !== undefined),
             ...Object.keys(translations).filter((translationId) => !this.currentSettings.translationOrder.includes(translationId)),
@@ -158,7 +158,7 @@ export class PluginContext {
     }
 
     private getTranslationVersification(translationId: string): string {
-        return this.currentV2Data?.translations[translationId]?.versification ?? DEFAULT_VERSIFICATION_KEY;
+        return this.currentIndexData?.translations[translationId]?.versification ?? DEFAULT_VERSIFICATION_KEY;
     }
 
     // The coded references of indexed notes depend on the codes and on the numbering of every translation.
@@ -171,13 +171,13 @@ export class PluginContext {
             .join("\n");
     }
 
-    createRepository(): ObsidianBibleIndexV2Repository {
-        return new ObsidianBibleIndexV2Repository(this.app.vault.adapter, this.dataDirectoryPath);
+    createRepository(): ObsidianBibleIndexRepository {
+        return new ObsidianBibleIndexRepository(this.app.vault.adapter, this.dataDirectoryPath);
     }
 
-    setBibleData(bibleIndex: BibleIndex | null, v2Data: BibleIndexV2Data | null): void {
+    setBibleData(bibleIndex: BibleIndex | null, indexData: BibleIndexData | null): void {
         this.currentBibleIndex = bibleIndex ?? EMPTY_BIBLE_INDEX;
-        this.currentV2Data = v2Data;
+        this.currentIndexData = indexData;
     }
 
     setActiveTranslationId(activeTranslationId: string | null): void {
@@ -185,9 +185,9 @@ export class PluginContext {
     }
 
     hasImportedTranslations(): boolean {
-        return this.currentV2Data !== null
+        return this.currentIndexData !== null
             && this.currentActiveTranslationId !== null
-            && this.currentV2Data.translations[this.currentActiveTranslationId] !== undefined;
+            && this.currentIndexData.translations[this.currentActiveTranslationId] !== undefined;
     }
 
     /**
@@ -196,8 +196,8 @@ export class PluginContext {
      */
     updateBookMapping(): void {
         const previousParserSignature = this.parserSignature;
-        this.currentBookMapping = this.currentV2Data !== null && this.currentActiveTranslationId !== null
-            ? createCombinedBookMappingFromBibleIndexV2Data(this.currentV2Data, this.currentActiveTranslationId, this.currentSettings.bookAliases)
+        this.currentBookMapping = this.currentIndexData !== null && this.currentActiveTranslationId !== null
+            ? createCombinedBookMappingFromBibleIndexData(this.currentIndexData, this.currentActiveTranslationId, this.currentSettings.bookAliases)
             : createBookMapping([]);
         this.currentParser = new BibleReferenceParser(
             this.currentBookMapping,

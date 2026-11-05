@@ -3,7 +3,7 @@ import type { BibleChapterLocation, BibleChapterTarget } from "../application/Bi
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import type { ReferenceUsageReturnPoint } from "../reference-usage/ReferenceUsageService";
 import { BibleNavigatorPanel, type BibleNavigatorLabels } from "./BibleNavigatorPanel";
-import type { NavigatorBook } from "../reader/BibleNavigatorModel";
+import type { NavigatorBook } from "../application/BibleNavigatorModel";
 import { BibleReaderHistory } from "../reader/BibleReaderHistory";
 import { ICONS, setBookTitle, stripBookIcon } from "./Icons";
 import { scrollPreviewElement, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";

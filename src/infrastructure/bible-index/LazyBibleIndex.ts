@@ -1,21 +1,21 @@
 import { BibleIndex, GetBibleTextInput } from "../BibleIndex";
 import { BibleText } from "../../domain/BibleText";
-import { BibleBookV2Loader } from "./BibleBookV2Loader";
-import { BibleIndexV2Data } from "./BibleIndexV2Data";
+import { BibleBookLoader } from "./BibleBookLoader";
+import { BibleIndexData } from "./BibleIndexData";
 import { CompactBibleBookData } from "./CompactBibleBookData";
 import { extractBibleTextFromCompactBook } from "./extractBibleTextFromCompactBook";
 
 // Enough for the comparison mode with four translations and a few open chapters.
 export const LAZY_BIBLE_INDEX_BOOK_CACHE_SIZE = 20;
 
-export class LazyBibleIndexV2 implements BibleIndex {
+export class LazyBibleIndex implements BibleIndex {
     // Holds the loading promise, so parallel requests for one book share one read.
     // Map order is the LRU order: a hit moves the book to the end, the first entry is evicted.
     private readonly bookCache = new Map<string, Promise<CompactBibleBookData | null>>();
 
     constructor(
-        private readonly metadata: BibleIndexV2Data,
-        private readonly bookLoader: BibleBookV2Loader,
+        private readonly metadata: BibleIndexData,
+        private readonly bookLoader: BibleBookLoader,
         private readonly bookCacheSize = LAZY_BIBLE_INDEX_BOOK_CACHE_SIZE,
     ) {}
 

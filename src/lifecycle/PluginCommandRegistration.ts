@@ -5,7 +5,7 @@ import type { BibleLibraryService } from "../import/BibleLibraryService";
 import type { BibleReaderService } from "../reader/BibleReaderService";
 import type { ReferenceUsageService } from "../reference-usage/ReferenceUsageService";
 import type { SettingsService } from "../settings/SettingsService";
-import type { BiblePreviewService } from "../ui/BiblePreviewService";
+import type { BiblePreviewService } from "../preview/BiblePreviewService";
 import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
 
 export type PluginCommandServices = {

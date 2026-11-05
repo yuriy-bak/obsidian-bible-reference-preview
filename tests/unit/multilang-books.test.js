@@ -2,7 +2,7 @@ const {
   assert,
   BibleReferenceParser,
   createBookMapping,
-  createCombinedBookMappingFromBibleIndexV2Data,
+  createCombinedBookMappingFromBibleIndexData,
 } = require("../helpers");
 
 // Book names of every imported translation are recognized; the main translation keeps priority.
@@ -66,18 +66,18 @@ module.exports = async () => {
   );
 
   // From the index: rebuilt from the translations left after one is removed.
-  const toV2Books = (books) => Object.fromEntries(books.map((book) => [String(book.id), {
+  const toIndexBooks = (books) => Object.fromEntries(books.map((book) => [String(book.id), {
     name: book.name, abbreviation: book.abbreviation, aliases: book.aliases, path: "", chapterCount: book.chapterCount,
   }]));
   const data = {
     version: 2,
     translations: {
-      rst: { name: "RST", language: "ru", importedAt: "", books: toV2Books(russian) },
-      kjv: { name: "KJV", language: "en", importedAt: "", books: toV2Books(english) },
+      rst: { name: "RST", language: "ru", importedAt: "", books: toIndexBooks(russian) },
+      kjv: { name: "KJV", language: "en", importedAt: "", books: toIndexBooks(english) },
     },
   };
-  assert.deepStrictEqual(ids(new BibleReferenceParser(createCombinedBookMappingFromBibleIndexV2Data(data, "rst")), "Ps 23:1"), [19]);
-  assert.deepStrictEqual(ids(new BibleReferenceParser(createCombinedBookMappingFromBibleIndexV2Data(data, "kjv")), "Пс 22:1; Ps 23:1"), [19, 19]);
+  assert.deepStrictEqual(ids(new BibleReferenceParser(createCombinedBookMappingFromBibleIndexData(data, "rst")), "Ps 23:1"), [19]);
+  assert.deepStrictEqual(ids(new BibleReferenceParser(createCombinedBookMappingFromBibleIndexData(data, "kjv")), "Пс 22:1; Ps 23:1"), [19, 19]);
   delete data.translations.kjv;
-  assert.deepStrictEqual(ids(new BibleReferenceParser(createCombinedBookMappingFromBibleIndexV2Data(data, "rst")), "Ps 23:1"), []);
+  assert.deepStrictEqual(ids(new BibleReferenceParser(createCombinedBookMappingFromBibleIndexData(data, "rst")), "Ps 23:1"), []);
 };

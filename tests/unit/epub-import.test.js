@@ -355,7 +355,7 @@ module.exports = async () => {
     "From split."
   );
   assert.strictEqual(spineLastOrderResult.report.verses, 1);
-  assert.strictEqual(spineLastOrderResult.bibleIndexV2Data.translations["en-test"].books["1"].chapterCount, 1);
+  assert.strictEqual(spineLastOrderResult.bibleIndexData.translations["en-test"].books["1"].chapterCount, 1);
 
   const abortedImportController = new AbortController();
   abortedImportController.abort();
@@ -365,11 +365,11 @@ module.exports = async () => {
   );
 
   const {
-    sanitizeBibleIndexV2Data,
-  } = require("../../.test-build/src/infrastructure/v2/BibleIndexV2Validation.js");
+    sanitizeBibleIndexData,
+  } = require("../../.test-build/src/infrastructure/bible-index/BibleIndexValidation.js");
   const {
-    ObsidianBibleIndexV2Repository,
-  } = require("../../.test-build/src/infrastructure/v2/ObsidianBibleIndexV2Repository.js");
+    ObsidianBibleIndexRepository,
+  } = require("../../.test-build/src/infrastructure/bible-index/ObsidianBibleIndexRepository.js");
   const validIndexBook = (path) => ({ name: "Book", abbreviation: "Bk", aliases: ["Book"], path });
   const untrustedIndex = {
     version: 2,
@@ -392,7 +392,7 @@ module.exports = async () => {
     },
   };
   const indexRepositoryFiles = new Map([["data/bibles-index.json", JSON.stringify(untrustedIndex)]]);
-  const indexRepository = new ObsidianBibleIndexV2Repository({
+  const indexRepository = new ObsidianBibleIndexRepository({
     exists: async (path) => indexRepositoryFiles.has(path),
     read: async (path) => indexRepositoryFiles.get(path),
   }, "data");
@@ -401,7 +401,7 @@ module.exports = async () => {
   console.warn = (...args) => indexWarnings.push(args.join(" "));
   let sanitizedIndex;
   try {
-    sanitizedIndex = sanitizeBibleIndexV2Data(untrustedIndex);
+    sanitizedIndex = sanitizeBibleIndexData(untrustedIndex);
     await indexRepository.load();
   } finally {
     console.warn = originalConsoleWarn;
@@ -409,7 +409,7 @@ module.exports = async () => {
   assert.deepStrictEqual(Object.keys(sanitizedIndex.translations), ["ru-nwt"]);
   assert.deepStrictEqual(Object.keys(sanitizedIndex.translations["ru-nwt"].books), ["1"]);
   assert.strictEqual(indexWarnings.length, 14);
-  assert.deepStrictEqual(indexRepository.getV2Data(), sanitizedIndex);
+  assert.deepStrictEqual(indexRepository.getIndexData(), sanitizedIndex);
   assert.strictEqual(await indexRepository.loadBook("ru-nwt", 2), null);
 
   // A reimport writes the books over the old ones, removes the books it has no longer, and keeps the changes
@@ -423,7 +423,7 @@ module.exports = async () => {
       write: async (path, content) => { files.set(path, content); },
       mkdir: async (path) => { folders.add(path); },
       remove: async (path) => { files.delete(path); },
-      rmdir: async () => { throw new Error("rmdir is not used by saveV2"); },
+      rmdir: async () => { throw new Error("rmdir is not used by saveTranslation"); },
       rename: async (from, to) => {
         if (files.has(to)) throw new Error(`EEXIST: ${to}`);
         files.set(to, files.get(from));
@@ -437,18 +437,18 @@ module.exports = async () => {
     const translation = (name, bookIds) => ({
       name, language: "ru", importedAt: "", books: Object.fromEntries(bookIds.map((id) => [String(id), validIndexBook(`translations/t/books/${id}.json`)])),
     });
-    const save = (repository, name, bookIds, onProgress) => repository.saveV2({
+    const save = (repository, name, bookIds, onProgress) => repository.saveTranslation({
       metadata: { version: 2, translations: { t: translation(name, bookIds) } },
       books: Object.fromEntries(bookIds.map((id) => [`translations/t/books/${id}.json`, { chapters: [null, [null, { text: name }]] }])),
       report: { translationId: "t", translationName: name, language: "ru" },
       onProgress,
     });
-    const first = new ObsidianBibleIndexV2Repository(adapter, "data");
+    const first = new ObsidianBibleIndexRepository(adapter, "data");
     await first.load();
     await save(first, "Old", [1, 2]);
     files.set("data/bibles-index.json", JSON.stringify({ version: 2, translations: { ...JSON.parse(files.get("data/bibles-index.json")).translations, other: { name: "Other", language: "en", importedAt: "", books: {} } } }));
 
-    const second = new ObsidianBibleIndexV2Repository(adapter, "data");
+    const second = new ObsidianBibleIndexRepository(adapter, "data");
     await second.load();
     // Renamed while the reimport runs.
     const latest = JSON.parse(files.get("data/bibles-index.json"));
@@ -469,20 +469,20 @@ module.exports = async () => {
 
     // A damaged list is read from the backup.
     files.set("data/bibles-index.json", '{"version":2,"transl');
-    const fromBackup = new ObsidianBibleIndexV2Repository(adapter, "data");
+    const fromBackup = new ObsidianBibleIndexRepository(adapter, "data");
     await fromBackup.load();
-    assert.deepStrictEqual(Object.keys(fromBackup.getV2Data().translations).sort(), ["other", "t"]);
+    assert.deepStrictEqual(Object.keys(fromBackup.getIndexData().translations).sort(), ["other", "t"]);
     // A write stopped between the two renames: the file is missing, the backup is there.
     files.delete("data/bibles-index.json");
-    const afterCrash = new ObsidianBibleIndexV2Repository(adapter, "data");
+    const afterCrash = new ObsidianBibleIndexRepository(adapter, "data");
     await afterCrash.load();
-    assert.deepStrictEqual(Object.keys(afterCrash.getV2Data().translations).sort(), ["other", "t"]);
+    assert.deepStrictEqual(Object.keys(afterCrash.getIndexData().translations).sort(), ["other", "t"]);
 
     // Damaged with no usable backup: loading and saving fail, the list of the other translations is not replaced.
     for (const damaged of ['{"version":2,"transl', '{"version":3}']) {
       files.set("data/bibles-index.json", damaged);
       files.set("data/bibles-index.json.bak", "not json");
-      const broken = new ObsidianBibleIndexV2Repository(adapter, "data");
+      const broken = new ObsidianBibleIndexRepository(adapter, "data");
       await assert.rejects(() => broken.load(), (error) => error instanceof EpubImportError && error.code === "indexDamaged");
       await assert.rejects(() => save(broken, "Again", [1]), (error) => error.code === "indexDamaged");
       assert.strictEqual(files.get("data/bibles-index.json"), damaged);

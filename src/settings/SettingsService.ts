@@ -1,13 +1,12 @@
 import { Notice } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
 import type { BiblePluginLocale } from "../i18n/I18n";
-import { CssColorDialog, createBackgroundColorPresets, type CssColorDialogInput } from "../ui/CssColorDialog";
 import {
     DEFAULT_BIBLE_REFERENCE_LINK_COLOR,
     DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
     normalizeBibleReferenceLinkColor,
     normalizeFloatingPreviewBackgroundColor,
-} from "../ui/cssColorValidation";
+} from "./cssColorValidation";
 import type { BibleLinkOpenShortcut, BiblePluginSettings, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode, PhoneReaderPlacement } from "./PluginSettings";
 
 const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
@@ -133,23 +132,6 @@ export class SettingsService {
 
     async resetFloatingPreviewBackgroundColor(): Promise<void> {
         await this.setFloatingPreviewBackgroundColor(DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR);
-    }
-
-    openCssColorDialog(input: CssColorDialogInput): void {
-        new CssColorDialog(this.context.app, this.settings.interfaceLanguage, input).open();
-    }
-
-    openFloatingPreviewBackgroundColorDialog(): void {
-        this.openCssColorDialog({
-            title: this.context.t("settings.previewBackgroundColor.name"),
-            description: this.context.t("settings.previewBackgroundColor.desc"),
-            value: this.getFloatingPreviewBackgroundColor(),
-            defaultValue: DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR,
-            previewText: this.context.t("settings.previewBackgroundColor.preview"),
-            presets: createBackgroundColorPresets(),
-            normalize: normalizeFloatingPreviewBackgroundColor,
-            onApply: (color) => void this.setFloatingPreviewBackgroundColor(color),
-        });
     }
 
     getBiblePreviewTriggerMode(): BiblePreviewTriggerMode {

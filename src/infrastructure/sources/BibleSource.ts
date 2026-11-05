@@ -1,6 +1,6 @@
 import { BibleBook } from "../../domain/BibleBook";
-import { BibleIndexV2Data } from "../v2/BibleIndexV2Data";
-import { CompactBibleBookData } from "../v2/CompactBibleBookData";
+import { BibleIndexData } from "../bible-index/BibleIndexData";
+import { CompactBibleBookData } from "../bible-index/CompactBibleBookData";
 
 export type BibleImportInput = {
     fileName: string;
@@ -61,7 +61,7 @@ export type BibleImportResult = {
     translationName: string;
     language: string;
     books: BibleBook[];
-    bibleIndexV2Data: BibleIndexV2Data;
+    bibleIndexData: BibleIndexData;
     compactBooks: Record<string, CompactBibleBookData>;
     report: BibleImportReport;
     warnings: string[];
