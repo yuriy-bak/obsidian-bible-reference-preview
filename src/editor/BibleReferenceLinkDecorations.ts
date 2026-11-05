@@ -1,8 +1,10 @@
 import { RangeSetBuilder, StateEffect, StateField, type Extension, type Text } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 
-const MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS = 20000;
-const MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS = 50000;
+// The parser reads 50,000 characters in ~10 ms. Visible text is parsed in chunks of whole lines; past the total
+// budget the rest of the screen stays without links instead of the whole screen losing them.
+const BIBLE_REFERENCE_DECORATION_CHUNK_CHARACTERS = 20000;
+const MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS = 150000;
 
 type BibleReferenceLinkDecorationVisibleRangeInput = {
     from: number;
@@ -15,7 +17,6 @@ type BibleReferenceLinkDecorationVisibleRangeInput = {
 export type BibleReferenceLinkDecorationCacheEntry = {
     doc: Text;
     ranges: Array<{ from: number; to: number }>;
-    linkColor: string;
     activeTranslationId: string | null;
     decorations: DecorationSet;
 };
@@ -42,8 +43,13 @@ export const bibleReferenceLinkDecorationsField = StateField.define<DecorationSe
     provide: (field) => EditorView.decorations.from(field),
 });
 
+// One decoration for every link: the color comes from a CSS variable, so a color change rebuilds nothing.
+const BIBLE_REFERENCE_LINK_MARK = Decoration.mark({ class: "bible-reference-link" });
+
 export const bibleReferenceLinkTheme = EditorView.baseTheme({
     ".bible-reference-link": {
+        // Set on the body of each window from the settings, see applyBibleReferenceLinkColor.
+        color: "var(--bible-reference-link-color)",
         borderBottom: "1px dotted currentColor",
         cursor: "pointer",
     },
@@ -98,7 +104,6 @@ export function createBibleReferenceLinkEditorExtensions(cursorPlugin: Extension
 export type BibleReferenceLinkDecorationInput = {
     view: EditorView;
     activeTranslationId: string | null;
-    linkColor: string;
     cache: WeakMap<EditorView, BibleReferenceLinkDecorationCacheEntry>;
     shouldRunBiblePreviewForEditor: (view: EditorView) => boolean;
     hasImportedTranslations: () => boolean;
@@ -117,30 +122,13 @@ export function createBibleReferenceLinkDecorations(input: BibleReferenceLinkDec
         return Decoration.none;
     }
 
-    const rangeInputs: BibleReferenceLinkDecorationVisibleRangeInput[] = [];
-    let totalVisibleCharacters = 0;
-
-    for (const range of view.visibleRanges) {
-        const text = view.state.doc.sliceString(range.from, range.to);
-        if (text.length > MAX_BIBLE_REFERENCE_DECORATION_RANGE_CHARACTERS) {
-            continue;
-        }
-
-        totalVisibleCharacters += text.length;
-        if (totalVisibleCharacters > MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS) {
-            cache.delete(view);
-            return Decoration.none;
-        }
-
-        rangeInputs.push({ from: range.from, to: range.to, text });
-    }
+    const rangeInputs = getVisibleTextChunks(view);
 
     const doc = view.state.doc;
     const ranges = rangeInputs.map((range) => ({ from: range.from, to: range.to }));
     const cachedEntry = cache.get(view);
     if (cachedEntry !== undefined
         && cachedEntry.doc === doc
-        && cachedEntry.linkColor === input.linkColor
         && cachedEntry.activeTranslationId === input.activeTranslationId
         && areDecorationRangesEqual(cachedEntry.ranges, ranges)) {
         return cachedEntry.decorations;
@@ -155,17 +143,38 @@ export function createBibleReferenceLinkDecorations(input: BibleReferenceLinkDec
             builder.add(
                 range.from + match.from,
                 range.from + match.to,
-                Decoration.mark({
-                    class: "bible-reference-link",
-                    attributes: { style: `color: ${input.linkColor};` },
-                }),
+                BIBLE_REFERENCE_LINK_MARK,
             );
         }
     }
 
     const decorations = builder.finish();
-    cache.set(view, { doc, ranges, linkColor: input.linkColor, activeTranslationId: input.activeTranslationId, decorations });
+    cache.set(view, { doc, ranges, activeTranslationId: input.activeTranslationId, decorations });
     return decorations;
+}
+
+/** Visible text in chunks of whole lines (a longer line is a chunk of its own), within the total budget. */
+function getVisibleTextChunks(view: EditorView): BibleReferenceLinkDecorationVisibleRangeInput[] {
+    const doc = view.state.doc;
+    const chunks: BibleReferenceLinkDecorationVisibleRangeInput[] = [];
+    let remaining = MAX_BIBLE_REFERENCE_DECORATION_TOTAL_CHARACTERS;
+    for (const range of view.visibleRanges) {
+        let from = range.from;
+        while (from < range.to && remaining > 0) {
+            const limit = Math.min(range.to, from + Math.min(BIBLE_REFERENCE_DECORATION_CHUNK_CHARACTERS, remaining));
+            let to = limit;
+            if (limit < range.to) {
+                // End the chunk at the end of the last whole line, or after the first line when it is longer.
+                const lineEnd = doc.lineAt(limit).from - 1;
+                to = lineEnd > from ? lineEnd : Math.min(range.to, doc.lineAt(from).to);
+            }
+            const text = doc.sliceString(from, to);
+            chunks.push({ from, to, text });
+            remaining -= text.length;
+            from = to + 1;
+        }
+    }
+    return chunks;
 }
 
 function areDecorationRangesEqual(

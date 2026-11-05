@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A new link color applies right away to notes open in reading mode too (it used to need reopening them).
+- Links stay highlighted in the editor when a lot of text is visible (a large screen, a small font, a very long line): the text is read in parts instead of the highlighting turning off for the whole screen.
+- Importing from eBible.org and dbs.org reads one book at a time instead of holding the text of the whole Bible in memory, which helps on phones.
+- Internal: the ZIP-based Bible sources share the import steps (archive, translation name, books, verse loop).
 - The reference usage index is no longer rewritten every time a note is saved while you type: only when the note's references change, and at most once per 3 seconds. Usage counts of chapters and searches look only at the references of the same book and index only the open notes edited since the last search, which is faster with large vaults.
 - The list of imported translations (`bibles-index.json`) is written safely, keeping the previous version as `bibles-index.json.bak`: a file damaged by a crash or a sync conflict is read from the backup. If there is no usable backup, a notice says so, and a new import no longer replaces the list of all translations with the one it imports.
 - Importing a dbs.org HTML page stops with a clear message when its Bible data unpacks into more than 64 MB, instead of filling the memory.

@@ -25,6 +25,7 @@ const TEST_FILES = [
   "getting-started",
   "background-tasks",
   "commands",
+  "link-color",
 ];
 
 // A test that waits on a promise nobody resolves (say, a modal it does not answer) leaves nothing

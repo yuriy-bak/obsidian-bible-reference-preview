@@ -89,7 +89,6 @@ export class EditorService {
         return createBibleReferenceLinkDecorations({
             view,
             activeTranslationId: this.context.activeTranslationId,
-            linkColor: this.settings.getBibleReferenceLinkColor(),
             cache: this.decorationCache,
             shouldRunBiblePreviewForEditor: (editorView) => this.isActiveFor(editorView),
             hasImportedTranslations: () => this.context.hasImportedTranslations(),
