@@ -47,7 +47,11 @@ export class ReferenceUsageService {
         private readonly context: PluginContext,
         private readonly editor: EditorService,
         private readonly preview: BiblePreviewService,
-    ) {}
+    ) {
+        context.onSettingsChanged((keys) => {
+            if (keys.has("isPluginActive") && !context.settings.isPluginActive) this.closePane();
+        });
+    }
 
     async load(): Promise<void> {
         const service = this.getIndexService();

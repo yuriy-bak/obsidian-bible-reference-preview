@@ -21,6 +21,9 @@ type AppWithSettingModal = App & {
     };
 };
 
+/** The keys of one settings change; listeners react to the ones they depend on. */
+export type SettingsChangeListener = (changedKeys: ReadonlySet<keyof BiblePluginSettings>) => void | Promise<void>;
+
 type RefreshableSettingsTab = {
     update(): void;
 };
@@ -44,6 +47,7 @@ export class PluginContext {
     private currentParserSignature: string | null = null;
     private settingsTab: RefreshableSettingsTab | null = null;
     private readonly bookMappingListeners: Array<() => void> = [];
+    private readonly settingsListeners: SettingsChangeListener[] = [];
 
     constructor(private readonly plugin: Plugin) {
         this.app = plugin.app;
@@ -214,6 +218,16 @@ export class PluginContext {
 
     onBookMappingChanged(listener: () => void): void {
         this.bookMappingListeners.push(listener);
+    }
+
+    /** Each service subscribes to the settings it depends on, instead of the settings calling every service. */
+    onSettingsChanged(listener: SettingsChangeListener): void {
+        this.settingsListeners.push(listener);
+    }
+
+    /** Called by SettingsService after it saved a change; resolves when every listener has reacted. */
+    async notifySettingsChanged(changedKeys: ReadonlySet<keyof BiblePluginSettings>): Promise<void> {
+        await Promise.all(this.settingsListeners.map((listener) => Promise.resolve(listener(changedKeys))));
     }
 
     setSettingsTab(settingsTab: RefreshableSettingsTab): void {

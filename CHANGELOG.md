@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Internal: services subscribe to the settings they depend on (`PluginContext.onSettingsChanged`) instead of the settings service calling every one of them through callbacks wired in `main.ts`.
 - The index stats notice is titled **Bible index** (was "Bible Index v2").
 - Internal: services no longer depend on UI code (the confirmation dialog is passed in, the color dialog opens from the settings tab); color validation moved to `settings/`, the preview service to `preview/`, the navigator model to `application/`; the "V2" suffix is gone from the Bible index code (`infrastructure/bible-index/`).
 - The floating preview is announced by screen readers as a dialog named after the translation, and its text can be reached and scrolled with the keyboard (Tab); opening it still leaves the focus in the note. On phones it keeps clear of the notch, rounded corners and the home indicator.

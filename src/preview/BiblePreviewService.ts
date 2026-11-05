@@ -53,7 +53,17 @@ export class BiblePreviewService {
         private readonly translations: TranslationService,
         private readonly contentBuilder: BiblePreviewContentBuilder,
         private readonly effects: BiblePreviewServiceEffects,
-    ) {}
+    ) {
+        context.onSettingsChanged(async (keys) => {
+            if (keys.has("isPluginActive") && !settings.isPluginActive()) {
+                this.hideFloating(true);
+                await this.closePane({ collapseSideDock: false, requireActivePreview: false });
+            }
+            if (keys.has("interfaceLanguage")) this.refreshLocalizedLabels();
+            else if (keys.has("floatingPreviewBackgroundColor")) this.refreshFloatingLabels();
+            if (keys.has("previewPanelSide")) await this.closePane({ collapseSideDock: true, requireActivePreview: false });
+        });
+    }
 
     setFloatingWindow(floatingWindow: FloatingBiblePreviewWindow): void {
         this.floatingWindow = floatingWindow;
