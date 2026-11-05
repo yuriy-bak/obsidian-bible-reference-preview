@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Import errors are shown in the interface language with clear wording (file too large, too many files in the archive, no Bible books, no verses, unreadable dbs.org page); sizes are in MB. The progress no longer says "EPUB" for ZIP and HTML files.
+- The hint of the **Bible reference opening shortcut** setting names the command as the command palette shows it, in the interface language.
+- Scroll commands of the preview and the reader appear in the command palette only while there is something to scroll; the "under cursor" commands only in a note editor, and they work from the command palette too.
+- A failed copy of the Bible text (e.g. no clipboard access) shows a notice instead of doing nothing.
 - A more compact translation list on the **Bible translations** page: the drag handle sits left of the name and the delete button in the top right corner, so the rows below use the full width; the description is one line (language, books, file) without the internal id; numbering, code and the **Book names** button share one row with short labels. A hint under the heading says the first translation is the main one; the check mark is gone. Numbering schemes are named after a reference Bible, so they no longer read as languages: **like KJV** (was English), **like Synodal**, **like original**, **like Vulgate**, **like Septuagint**.
 - The import description on the **Bible translations** page links to the sites it names: jw.org (its Bible page in the interface language), eBible.org and dbs.org; jw.org comes first. The jw.org link in the getting started hints also opens its Bible page.
 

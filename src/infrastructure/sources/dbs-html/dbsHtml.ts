@@ -42,7 +42,7 @@ export function readDbsBiblePage(text: string): DbsBiblePage {
     const compressedVerses = COMPRESSED_VERSES_PATTERN.exec(text)?.[1];
     const booksJson = BIBLE_BOOKS_PATTERN.exec(text)?.[1];
     if (compressedVerses === undefined || booksJson === undefined) {
-        throw new EpubImportError("The page has no Bible data of the Digital Bible Society reader.");
+        throw new EpubImportError("The page has no Bible data of the Digital Bible Society reader.", "dbsNoData");
     }
 
     const books = (JSON.parse(booksJson) as unknown[])
@@ -67,7 +67,7 @@ export function decompressDbsChapters(compressedVerses: string): Record<string, 
     }
     const chapters = JSON.parse(new TextDecoder().decode(decompressBrotli(bytes))) as unknown;
     if (typeof chapters !== "object" || chapters === null) {
-        throw new EpubImportError("The Bible data of the page could not be read.");
+        throw new EpubImportError("The Bible data of the page could not be read.", "dbsUnreadable");
     }
     return chapters as Record<string, string>;
 }

@@ -1,4 +1,4 @@
-import { Menu, Notice, Platform, setIcon } from "obsidian";
+import { Menu, Platform, setIcon } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
 import { ICONS } from "./Icons";
@@ -14,6 +14,7 @@ import {
     type PreviewViewport,
 } from "./FloatingPreviewGeometry";
 import { FloatingPreviewPointerController } from "./FloatingPreviewPointerController";
+import { copyBibleText } from "./CopyBibleText";
 
 export type FloatingBiblePreviewAnchor =
     | { type: "default" }
@@ -21,6 +22,7 @@ export type FloatingBiblePreviewAnchor =
 
 export type FloatingBiblePreviewWindowInput = BiblePreviewChapterViewInput & BiblePreviewHeaderInput & {
     getCopyNoticeText: () => string;
+    getCopyFailedNoticeText: () => string;
     getCollapseAria: () => string;
     getExpandAria: () => string;
     getBackgroundColor: () => string;
@@ -895,22 +897,8 @@ export class FloatingBiblePreviewWindow {
         return Platform.isMobile && viewportWidth < 700;
     }
 
-    private async copyBiblePreviewText(): Promise<boolean> {
-        if (this.previewText.length === 0) {
-            return false;
-        }
-        try {
-            await navigator.clipboard.writeText(this.previewText);
-            this.showCopyNotice();
-            return true;
-        } catch (error) {
-            console.error("Bible Reference Preview: failed to copy preview text", error);
-            return false;
-        }
-    }
-
-    private showCopyNotice(): void {
-        new Notice(this.labels.getCopyNoticeText(), 2500);
+    private copyBiblePreviewText(): Promise<boolean> {
+        return copyBibleText(this.previewText, this.labels);
     }
 
 }

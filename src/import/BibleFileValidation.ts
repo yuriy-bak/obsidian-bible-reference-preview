@@ -1,4 +1,5 @@
 import type { I18nKey } from "../i18n/I18n";
+import { EpubImportError } from "../infrastructure/epub/EpubImportError";
 
 export type BibleFileValidationTranslate = (key: I18nKey, params?: Record<string, string | number | boolean | null | undefined>) => string;
 
@@ -8,7 +9,7 @@ export type BibleFileValidationTranslate = (key: I18nKey, params?: Record<string
  */
 export async function readBibleFile(file: File, maxFileBytes: number, translate: BibleFileValidationTranslate): Promise<ArrayBuffer> {
     if (file.size > maxFileBytes) {
-        throw new Error(`Imported Bible file is too large: ${file.size} bytes. Maximum allowed: ${maxFileBytes} bytes.`);
+        throw new EpubImportError(`Imported Bible file is too large: ${file.size} bytes. Maximum allowed: ${maxFileBytes} bytes.`, "fileTooLarge", { size: file.size, max: maxFileBytes });
     }
 
     // A file picked in another window (e.g. settings opened as a separate window) yields that window's
@@ -16,7 +17,7 @@ export async function readBibleFile(file: File, maxFileBytes: number, translate:
     const content = copyToCurrentRealm(await file.arrayBuffer());
 
     if (content.byteLength > maxFileBytes) {
-        throw new Error(`Imported Bible file is too large: ${content.byteLength} bytes. Maximum allowed: ${maxFileBytes} bytes.`);
+        throw new EpubImportError(`Imported Bible file is too large: ${content.byteLength} bytes. Maximum allowed: ${maxFileBytes} bytes.`, "fileTooLarge", { size: content.byteLength, max: maxFileBytes });
     }
 
     if (content.byteLength === 0) {

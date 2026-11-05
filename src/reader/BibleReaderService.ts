@@ -93,6 +93,11 @@ export class BibleReaderService {
     }
 
     /** Scrolls the reader in the active tab, or the one under the note; false when there is none to scroll. */
+    /** Whether a reader the scroll commands move is active (a reader tab) or open under the note. */
+    canScroll(): boolean {
+        return this.context.app.workspace.getActiveViewOfType(BibleReaderView) !== null || this.split?.isOpen() === true;
+    }
+
     scrollActive(command: BiblePreviewScrollCommand): boolean {
         const view = this.context.app.workspace.getActiveViewOfType(BibleReaderView);
         if (view !== null) return view.scrollReader(command);
@@ -145,6 +150,7 @@ export class BibleReaderService {
             getChooseBookText: () => `📖 ${t("reader.chooseBook")}`,
             getCopyAria: () => t("preview.copyAria"),
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
+            getCopyFailedNoticeText: () => t("notice.bibleTextCopyFailed"),
             getNoTranslationsText: () => t("reader.empty"),
             getImportButtonText: () => t("settings.import.button"),
             onImport: (hostEl) => this.effects.openBibleFilePicker(hostEl),

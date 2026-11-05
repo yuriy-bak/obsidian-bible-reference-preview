@@ -2,11 +2,11 @@ import { App, MarkdownView, Notice, TFile } from "obsidian";
 import { waitForNextAnimationFrame } from "../utils/AnimationFrame";
 import type { ReferenceUsageSearchResult } from "./ReferenceUsageIndexService";
 
-export async function openReferenceUsageResult(app: App, result: ReferenceUsageSearchResult): Promise<void> {
+export async function openReferenceUsageResult(app: App, result: ReferenceUsageSearchResult, fileNotFoundText: (path: string) => string): Promise<void> {
     const file = app.vault.getAbstractFileByPath(result.filePath);
 
     if (!(file instanceof TFile)) {
-        new Notice(`File not found: ${result.filePath}`, 4000);
+        new Notice(fileNotFoundText(result.filePath), 4000);
         return;
     }
 

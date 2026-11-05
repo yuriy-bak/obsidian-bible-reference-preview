@@ -154,7 +154,7 @@ export class ReferenceUsageService {
             this.context.settings.interfaceLanguage,
             this.formatTitle(match.text),
             results,
-            (result) => void openReferenceUsageResult(this.context.app, result),
+            (result) => void openReferenceUsageResult(this.context.app, result, (path) => this.context.t("notice.noteNotFound", { path })),
         ).open();
     }
 
@@ -223,7 +223,7 @@ export class ReferenceUsageService {
             getEmptyText: () => t("modal.referenceUsages.empty"),
             getCountText: (count) => t("modal.referenceUsages.count", { count }),
             getOpenResultAria: (result) => t("referenceUsages.openResultAria", { filePath: result.filePath, line: result.line }),
-            onOpenResult: (result) => void openReferenceUsageResult(this.context.app, result),
+            onOpenResult: (result) => void openReferenceUsageResult(this.context.app, result, (path) => this.context.t("notice.noteNotFound", { path })),
             getRefreshAria: () => t("referenceUsages.panel.refreshAria"),
             getRefreshProgressText: (progress) => t("referenceUsages.panel.refreshProgress", {
                 processed: progress.processedFileCount,
