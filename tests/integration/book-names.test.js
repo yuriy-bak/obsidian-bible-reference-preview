@@ -24,7 +24,7 @@ module.exports = async function runBookNamesTests() {
   assert.deepStrictEqual(renderReadingMode(plugin, "Йн 3:16"), []);
 
   let modal = openBookNames(plugin, ruId);
-  assert.strictEqual(modal.titleEl.textContent, plugin.context.t("modal.bookAliases.title", { translationName: plugin.context.v2Data.translations[ruId].name }));
+  assert.strictEqual(modal.titleEl.textContent, plugin.context.t("modal.bookAliases.title", { translationName: plugin.context.indexData.translations[ruId].name }));
   let row = bookRow(modal, 43);
   assert.deepStrictEqual(chips(row), ["Иоанна", "Ин"]);
 

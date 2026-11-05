@@ -1,4 +1,4 @@
-import type { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
+import type { ObsidianBibleIndexRepository } from "../infrastructure/bible-index/ObsidianBibleIndexRepository";
 import { getCompactBookChapterVerseCounts } from "../versification/compactBookVerseCounts";
 import { detectVersification, type ChapterVerseCounts } from "../versification/detectVersification";
 import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../versification/VersificationRegistry";
@@ -7,8 +7,8 @@ import { DEFAULT_VERSIFICATION_KEY, getVersificationRegistry } from "../versific
  * Translations imported before 0.3.0 have no stored versification: reads their books once, detects the
  * scheme and saves it with the book order. Returns true if the index file changed.
  */
-export async function detectMissingVersifications(repository: ObsidianBibleIndexV2Repository): Promise<boolean> {
-    const translations = repository.getV2Data()?.translations ?? {};
+export async function detectMissingVersifications(repository: ObsidianBibleIndexRepository): Promise<boolean> {
+    const translations = repository.getIndexData()?.translations ?? {};
     let changed = false;
 
     for (const [translationId, translation] of Object.entries(translations)) {

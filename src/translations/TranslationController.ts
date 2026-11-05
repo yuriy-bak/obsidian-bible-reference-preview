@@ -1,10 +1,10 @@
-import type { BibleIndexV2Data } from "../infrastructure/v2/BibleIndexV2Data";
+import type { BibleIndexData } from "../infrastructure/bible-index/BibleIndexData";
 import { areStringArraysEqual } from "../utils/ArrayEquality";
 import { DEFAULT_VERSIFICATION_KEY } from "../versification/VersificationRegistry";
 import type { PreviewComparisonTranslationOption, TranslationSettingsItem } from "./TranslationModels";
 
 export type TranslationControllerState = {
-    v2Data: BibleIndexV2Data | null;
+    indexData: BibleIndexData | null;
     activeTranslationId: string | null;
     translationOrder: string[];
     comparisonTranslationIds: string[];
@@ -12,22 +12,22 @@ export type TranslationControllerState = {
 
 export class TranslationController {
     public static selectActiveTranslationId(state: TranslationControllerState): string | null {
-        if (state.v2Data === null) {
+        if (state.indexData === null) {
             return null;
         }
 
-        const availableTranslations = new Set(Object.keys(state.v2Data.translations));
+        const availableTranslations = new Set(Object.keys(state.indexData.translations));
         return state.translationOrder.find((translationId) => availableTranslations.has(translationId))
-            ?? Object.keys(state.v2Data.translations)[0]
+            ?? Object.keys(state.indexData.translations)[0]
             ?? null;
     }
 
     public static syncTranslationOrder(state: TranslationControllerState, preferredTranslationId?: string): string[] | null {
-        if (state.v2Data === null) {
+        if (state.indexData === null) {
             return null;
         }
 
-        const availableTranslationIds = Object.keys(state.v2Data.translations);
+        const availableTranslationIds = Object.keys(state.indexData.translations);
         const availableTranslations = new Set(availableTranslationIds);
         const nextOrder: string[] = [];
 
@@ -53,11 +53,11 @@ export class TranslationController {
     }
 
     public static getTranslationSettingsItems(state: TranslationControllerState): Omit<TranslationSettingsItem, "code" | "customBookAliasCount">[] {
-        if (state.v2Data === null) {
+        if (state.indexData === null) {
             return [];
         }
 
-        const translations = state.v2Data.translations;
+        const translations = state.indexData.translations;
         const order = state.translationOrder.filter((translationId) => translations[translationId] !== undefined);
         const comparisonTranslationIds = new Set(this.getComparisonTranslationIds(state));
 
@@ -90,7 +90,7 @@ export class TranslationController {
     }
 
     public static normalizeTranslationOrder(state: TranslationControllerState, nextOrder: string[]): string[] {
-        const availableTranslations = new Set(Object.keys(state.v2Data?.translations ?? {}));
+        const availableTranslations = new Set(Object.keys(state.indexData?.translations ?? {}));
         const currentOrder = this.getTranslationSettingsItems(state).map((translation) => translation.id);
         const normalizedOrder: string[] = [];
 
@@ -110,7 +110,7 @@ export class TranslationController {
     }
 
     public static normalizeComparisonTranslationIds(state: TranslationControllerState, translationId: string, enabled: boolean): string[] | null {
-        const availableTranslations = new Set(Object.keys(state.v2Data?.translations ?? {}));
+        const availableTranslations = new Set(Object.keys(state.indexData?.translations ?? {}));
         if (!availableTranslations.has(translationId)) {
             return null;
         }
@@ -127,7 +127,7 @@ export class TranslationController {
     }
 
     public static getPreviewComparisonTranslationOptions(state: TranslationControllerState): PreviewComparisonTranslationOption[] {
-        if (state.v2Data === null) {
+        if (state.indexData === null) {
             return [];
         }
 
@@ -142,11 +142,11 @@ export class TranslationController {
     }
 
     public static getComparisonTranslationIds(state: TranslationControllerState): string[] {
-        if (state.v2Data === null) {
+        if (state.indexData === null) {
             return state.activeTranslationId === null ? [] : [state.activeTranslationId];
         }
 
-        const availableTranslations = new Set(Object.keys(state.v2Data.translations));
+        const availableTranslations = new Set(Object.keys(state.indexData.translations));
         const normalizedSelectedIds = state.comparisonTranslationIds
             .filter((translationId) => availableTranslations.has(translationId))
             .slice(0, 4);
@@ -157,21 +157,21 @@ export class TranslationController {
     }
 
     public static getDefaultComparisonTranslationIds(state: TranslationControllerState): string[] {
-        if (state.v2Data === null) {
+        if (state.indexData === null) {
             return state.activeTranslationId === null ? [] : [state.activeTranslationId];
         }
 
-        const availableTranslationIds = Object.keys(state.v2Data.translations);
+        const availableTranslationIds = Object.keys(state.indexData.translations);
         const orderedTranslationIds = [
             ...state.translationOrder,
             ...availableTranslationIds,
         ];
         return [...new Set(orderedTranslationIds)]
-            .filter((translationId) => state.v2Data?.translations[translationId] !== undefined)
+            .filter((translationId) => state.indexData?.translations[translationId] !== undefined)
             .slice(0, 4);
     }
 
     public static getTranslationPreviewTitle(state: TranslationControllerState, translationId: string): string {
-        return state.v2Data?.translations[translationId]?.name ?? translationId;
+        return state.indexData?.translations[translationId]?.name ?? translationId;
     }
 }

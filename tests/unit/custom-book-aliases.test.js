@@ -1,4 +1,4 @@
-const { assert, BibleReferenceParser, createBookMapping, createCombinedBookMappingFromBibleIndexV2Data } = require("../helpers");
+const { assert, BibleReferenceParser, createBookMapping, createCombinedBookMappingFromBibleIndexData } = require("../helpers");
 const {
   findCustomBookAliasConflicts,
   getBookIndexAliases,
@@ -53,18 +53,18 @@ module.exports = async () => {
   assert.deepStrictEqual(getBookIndexAliases({ id: 18, name: "Иов", abbreviation: "Иов", aliases: ["Иов 1", "Job"] }), ["Иов", "Job"]);
 
   // From the index: the user's names of every translation, by translation id.
-  const toV2Books = (list) => Object.fromEntries(list.map((book) => [String(book.id), {
+  const toIndexBooks = (list) => Object.fromEntries(list.map((book) => [String(book.id), {
     name: book.name, abbreviation: book.abbreviation, aliases: book.aliases, path: "", chapterCount: book.chapterCount,
   }]));
   const data = {
     version: 2,
     translations: {
-      rst: { name: "RST", language: "ru", importedAt: "", books: toV2Books(russian) },
-      kjv: { name: "KJV", language: "en", importedAt: "", books: toV2Books(english) },
+      rst: { name: "RST", language: "ru", importedAt: "", books: toIndexBooks(russian) },
+      kjv: { name: "KJV", language: "en", importedAt: "", books: toIndexBooks(english) },
     },
   };
   const custom = { rst: { 43: ["Йн"] }, kjv: { 43: ["Jhn"] } };
-  assert.deepStrictEqual(ids(createCombinedBookMappingFromBibleIndexV2Data(data, "rst", custom), "Йн 1:1; Jhn 1:1"), [43, 43]);
-  assert.deepStrictEqual(ids(createCombinedBookMappingFromBibleIndexV2Data(data, "kjv", custom), "Йн 1:1; Jhn 1:1"), [43, 43]);
-  assert.deepStrictEqual(ids(createCombinedBookMappingFromBibleIndexV2Data(data, "rst"), "Йн 1:1"), []);
+  assert.deepStrictEqual(ids(createCombinedBookMappingFromBibleIndexData(data, "rst", custom), "Йн 1:1; Jhn 1:1"), [43, 43]);
+  assert.deepStrictEqual(ids(createCombinedBookMappingFromBibleIndexData(data, "kjv", custom), "Йн 1:1; Jhn 1:1"), [43, 43]);
+  assert.deepStrictEqual(ids(createCombinedBookMappingFromBibleIndexData(data, "rst"), "Йн 1:1"), []);
 };

@@ -6,7 +6,7 @@ const {
   DEFAULT_TRANSLATION_ID,
 } = require("../helpers");
 const { extractVersesFromBookDocument } = require("../../.test-build/src/infrastructure/sources/ebible-epub/ebibleEpubHtml.js");
-const { extractBibleTextFromCompactBook } = require("../../.test-build/src/infrastructure/v2/extractBibleTextFromCompactBook.js");
+const { extractBibleTextFromCompactBook } = require("../../.test-build/src/infrastructure/bible-index/extractBibleTextFromCompactBook.js");
 const { toBibleChapterPreviewContent } = require("../../.test-build/src/application/BiblePreviewModel.js");
 const { parseXhtmlDocument } = require("../../.test-build/src/infrastructure/epub/MarkupDocument.js");
 

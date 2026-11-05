@@ -3,7 +3,7 @@ const {
   createNavigatorBooks,
   filterNavigatorBooks,
   parseNavigatorQuery,
-} = require("../../.test-build/src/reader/BibleNavigatorModel.js");
+} = require("../../.test-build/src/application/BibleNavigatorModel.js");
 
 // The reader's navigator: books in the translation's order, filtering by typed text, typed references.
 module.exports = async () => {

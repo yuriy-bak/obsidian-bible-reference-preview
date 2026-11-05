@@ -1,6 +1,6 @@
 import { ICONS, setIconWithText } from "./Icons";
 import type { BibleChapterTarget } from "../application/BibleChapterNavigation";
-import { filterNavigatorBooks, parseNavigatorQuery, type NavigatorBook } from "../reader/BibleNavigatorModel";
+import { filterNavigatorBooks, parseNavigatorQuery, type NavigatorBook } from "../application/BibleNavigatorModel";
 
 export type BibleNavigatorLabels = {
     searchPlaceholder: string;

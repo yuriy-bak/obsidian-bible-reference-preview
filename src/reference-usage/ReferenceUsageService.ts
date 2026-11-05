@@ -7,7 +7,7 @@ import type { PluginContext } from "../core/PluginContext";
 import type { BibleReference } from "../domain/BibleReference";
 import type { EditorReferenceUnderCursor, EditorService } from "../editor/EditorService";
 import { BIBLE_PREVIEW_VIEW_TYPE } from "../ui/BiblePreviewPaneView";
-import type { BiblePreviewService } from "../ui/BiblePreviewService";
+import type { BiblePreviewService } from "../preview/BiblePreviewService";
 import {
     REFERENCE_USAGE_VIEW_TYPE,
     ReferenceUsagePaneView,

@@ -12,11 +12,12 @@ import { SettingsService } from "./src/settings/SettingsService";
 import { TranslationService } from "./src/translations/TranslationService";
 import { BiblePluginSettingTab } from "./src/ui/BiblePluginSettingTab";
 import { BIBLE_PREVIEW_VIEW_TYPE, BiblePreviewPaneView } from "./src/ui/BiblePreviewPaneView";
-import { BiblePreviewService, type BiblePreviewReturnPoint } from "./src/ui/BiblePreviewService";
+import { BiblePreviewService, type BiblePreviewReturnPoint } from "./src/preview/BiblePreviewService";
 import { BibleReaderService } from "./src/reader/BibleReaderService";
 import { BIBLE_READER_VIEW_TYPE, BibleReaderView } from "./src/ui/BibleReaderView";
 import { applyBibleReferenceLinkColor, removeBibleReferenceLinkColor } from "./src/ui/BibleReferenceLinkColor";
 import { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePreviewController";
+import { openConfirmModal } from "./src/ui/ConfirmModal";
 import { FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView } from "./src/ui/ReferenceUsagePaneView";
 
@@ -47,6 +48,7 @@ export default class BiblePlugin extends Plugin {
             await this.preview.refreshVisibleContent();
             await this.reader.refreshAll();
         },
+        confirm: (request) => openConfirmModal(this.app, request),
     });
     private readonly contentBuilder = new BiblePreviewContentBuilder(this.context, this.translations);
     private readonly library = new BibleLibraryService(this.context, this.translations);

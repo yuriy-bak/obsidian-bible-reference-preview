@@ -10,7 +10,7 @@ const {
 const { detectVersification } = require("../../.test-build/src/versification/detectVersification.js");
 const { getBookIdByUsfmCode, getUsfmCodeByBookId } = require("../../.test-build/src/versification/UsfmBookCodes.js");
 const { BibleIndexBuilder } = require("../../.test-build/src/infrastructure/sources/BibleIndexBuilder.js");
-const { sanitizeBibleIndexV2Data } = require("../../.test-build/src/infrastructure/v2/BibleIndexV2Validation.js");
+const { sanitizeBibleIndexData } = require("../../.test-build/src/infrastructure/bible-index/BibleIndexValidation.js");
 const { detectMissingVersifications } = require("../../.test-build/src/import/detectMissingVersifications.js");
 const { mapBibleReferences } = require("../../.test-build/src/application/mapBibleReferences.js");
 const { getBookIdsInTranslationOrder } = require("../../.test-build/src/application/BiblePreviewContentBuilder.js");
@@ -164,7 +164,7 @@ module.exports = async () => {
   ]);
   await builder.appendVerses(ROMANS, [{ chapter: 1, verse: 1, text: "Павел", footnotes: [] }]);
   const built = builder.build();
-  const builtTranslation = built.bibleIndexV2Data.translations.test;
+  const builtTranslation = built.bibleIndexData.translations.test;
   assert.deepStrictEqual(builtTranslation.bookOrder, [ACTS, JAMES, ROMANS]);
   assert(isVersificationKey(builtTranslation.versification));
   assert(
@@ -174,7 +174,7 @@ module.exports = async () => {
 
   // Stored fields that are not valid are dropped, the rest of the translation is kept.
   const book = (id) => ({ name: `B${id}`, abbreviation: `B${id}`, aliases: [], path: `translations/t/books/${id}.json` });
-  const sanitized = sanitizeBibleIndexV2Data({
+  const sanitized = sanitizeBibleIndexData({
     version: 2,
     translations: {
       good: { name: "G", language: "ru", importedAt: "", versification: "builtin:rsc", bookOrder: [2, 1], books: { 1: { ...book(1), path: "translations/good/books/1.json" }, 2: { ...book(2), path: "translations/good/books/2.json" } } },
@@ -194,7 +194,7 @@ module.exports = async () => {
     const counts = registry.get("builtin:rsc").getChapterVerseCounts(bookId);
     synodalBooks[bookId] = { chapters: [null, ...counts.map((count) => [null, ...Array.from({ length: count }, () => "v")])] };
   }
-  let v2Data = {
+  let indexData = {
     version: 2,
     translations: {
       old: { name: "Old", language: "ru", importedAt: "", books: Object.fromEntries(ALL_BOOKS.map((id) => [id, book(id)])) },
@@ -203,17 +203,17 @@ module.exports = async () => {
   };
   const updates = [];
   const repository = {
-    getV2Data: () => v2Data,
+    getIndexData: () => indexData,
     loadBook: async (translationId, bookId) => (translationId === "old" ? synodalBooks[bookId] : null),
     updateTranslationVersification: async (translationId, fields) => {
       updates.push(translationId);
-      v2Data = { ...v2Data, translations: { ...v2Data.translations, [translationId]: { ...v2Data.translations[translationId], ...fields } } };
+      indexData = { ...indexData, translations: { ...indexData.translations, [translationId]: { ...indexData.translations[translationId], ...fields } } };
     },
   };
   assert.strictEqual(await detectMissingVersifications(repository), true);
   assert.deepStrictEqual(updates, ["old"]);
-  assert.strictEqual(v2Data.translations.old.versification, "builtin:rsc");
-  assert.deepStrictEqual(v2Data.translations.old.bookOrder, ALL_BOOKS);
+  assert.strictEqual(indexData.translations.old.versification, "builtin:rsc");
+  assert.deepStrictEqual(indexData.translations.old.bookOrder, ALL_BOOKS);
   assert.strictEqual(await detectMissingVersifications(repository), false);
 
   // References of notes in another translation's numbering, joined back into references.

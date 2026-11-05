@@ -1,12 +1,12 @@
 import { VERSIFICATION_NOT_DETECTED_WARNING_PREFIX } from "../infrastructure/sources/BibleIndexBuilder";
 import { BibleImportInput, BibleImportOptions, BibleImportResult, BibleImportVersificationDetection, BibleSource } from "../infrastructure/sources/BibleSource";
-import { ObsidianBibleIndexV2Repository } from "../infrastructure/v2/ObsidianBibleIndexV2Repository";
+import { ObsidianBibleIndexRepository } from "../infrastructure/bible-index/ObsidianBibleIndexRepository";
 import { assertBibleImportNotAborted } from "../infrastructure/sources/BibleImportCancellation";
 
 export type ImportBibleInput = {
     file: BibleImportInput;
     source: BibleSource;
-    repository: ObsidianBibleIndexV2Repository;
+    repository: ObsidianBibleIndexRepository;
     importOptions?: BibleImportOptions;
     /**
      * Asked before saving when the numbering scheme was not detected reliably. Resolves to the scheme key
@@ -24,8 +24,8 @@ export async function importBible(input: ImportBibleInput): Promise<BibleImportR
 
     // Cancelling is possible up to here; the files are then written to the end.
     assertBibleImportNotAborted(input.importOptions ?? {});
-    await input.repository.saveV2({
-        metadata: result.bibleIndexV2Data,
+    await input.repository.saveTranslation({
+        metadata: result.bibleIndexData,
         books: result.compactBooks,
         report: result.report,
         onProgress: (processedCount, totalCount) => input.importOptions?.onProgress?.({ stage: "saving", processedCount, totalCount }),
@@ -35,7 +35,7 @@ export async function importBible(input: ImportBibleInput): Promise<BibleImportR
 }
 
 function applyChosenVersification(result: BibleImportResult, key: string): void {
-    const translation = result.bibleIndexV2Data.translations[result.translationId];
+    const translation = result.bibleIndexData.translations[result.translationId];
     if (translation !== undefined) {
         translation.versification = key;
     }

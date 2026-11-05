@@ -1,5 +1,5 @@
 import { isVersificationKey } from "../../versification/VersificationRegistry";
-import { BibleIndexV2BookMetadata, BibleIndexV2Data, BibleIndexV2TranslationMetadata } from "./BibleIndexV2Data";
+import { BibleIndexBookMetadata, BibleIndexData, BibleIndexTranslationMetadata } from "./BibleIndexData";
 
 const TRANSLATION_ID_PATTERN = /^[a-z0-9-]+$/;
 const BOOK_ID_PATTERN = /^\d+$/;
@@ -8,8 +8,8 @@ const BOOK_ID_PATTERN = /^\d+$/;
  * Drops translations and books whose ids or file paths are unsafe. bibles-index.json is a local
  * plugin file, but its keys end up in file paths (book loading, translation removal).
  */
-export function sanitizeBibleIndexV2Data(data: BibleIndexV2Data): BibleIndexV2Data {
-    const translations: Record<string, BibleIndexV2TranslationMetadata> = {};
+export function sanitizeBibleIndexData(data: BibleIndexData): BibleIndexData {
+    const translations: Record<string, BibleIndexTranslationMetadata> = {};
 
     for (const [translationId, translation] of Object.entries(data.translations)) {
         if (!TRANSLATION_ID_PATTERN.test(translationId) || !isTranslationMetadata(translation)) {
@@ -17,7 +17,7 @@ export function sanitizeBibleIndexV2Data(data: BibleIndexV2Data): BibleIndexV2Da
             continue;
         }
 
-        const books: Record<string, BibleIndexV2BookMetadata> = {};
+        const books: Record<string, BibleIndexBookMetadata> = {};
         for (const [bookId, book] of Object.entries(translation.books)) {
             if (!BOOK_ID_PATTERN.test(bookId) || !isBookMetadata(book) || !isSafeBookPath(book.path, translationId)) {
                 console.warn("Skipping invalid book in Bible index", translationId, bookId);
@@ -26,7 +26,7 @@ export function sanitizeBibleIndexV2Data(data: BibleIndexV2Data): BibleIndexV2Da
             books[bookId] = book;
         }
 
-        const sanitized: BibleIndexV2TranslationMetadata = { ...translation, books };
+        const sanitized: BibleIndexTranslationMetadata = { ...translation, books };
         if (!isVersificationKey(sanitized.versification)) {
             delete sanitized.versification;
         }
@@ -52,14 +52,14 @@ function isSafeBookPath(path: string, translationId: string): boolean {
     return parts[0] === "translations" && parts[1] === translationId && parts.length > 2;
 }
 
-function isTranslationMetadata(value: unknown): value is BibleIndexV2TranslationMetadata {
+function isTranslationMetadata(value: unknown): value is BibleIndexTranslationMetadata {
     return isRecord(value)
         && typeof value.name === "string"
         && typeof value.language === "string"
         && isRecord(value.books);
 }
 
-function isBookMetadata(value: unknown): value is BibleIndexV2BookMetadata {
+function isBookMetadata(value: unknown): value is BibleIndexBookMetadata {
     return isRecord(value)
         && typeof value.name === "string"
         && typeof value.abbreviation === "string"
@@ -68,7 +68,7 @@ function isBookMetadata(value: unknown): value is BibleIndexV2BookMetadata {
         && typeof value.path === "string";
 }
 
-function isBookOrder(value: unknown, books: Record<string, BibleIndexV2BookMetadata>): value is number[] {
+function isBookOrder(value: unknown, books: Record<string, BibleIndexBookMetadata>): value is number[] {
     return Array.isArray(value)
         && value.every((bookId) => Number.isInteger(bookId) && books[String(bookId)] !== undefined)
         && new Set(value).size === value.length
