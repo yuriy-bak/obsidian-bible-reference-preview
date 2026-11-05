@@ -35,7 +35,17 @@ export class EditorService {
         readonly settings: SettingsService,
         private readonly contentBuilder: BiblePreviewContentBuilder,
         private readonly preview: BiblePreviewService,
-    ) {}
+    ) {
+        context.onSettingsChanged((keys) => {
+            if (keys.has("isPluginActive")) {
+                if (settings.isPluginActive()) this.refreshLinks();
+                else this.clearLinks();
+            }
+            if (keys.has("bibleReferenceLinkColor")) this.refreshLinks();
+            if (keys.has("interfaceLanguage")) this.refreshLocalizedLabels();
+            if (keys.has("previewTriggerMode")) this.dispatchNoopUpdate();
+        });
+    }
 
     createExtension(): Extension[] {
         return createBibleReferenceLinkEditorExtensions(ViewPlugin.define((view) => new EditorReferenceViewPlugin(view, this)));

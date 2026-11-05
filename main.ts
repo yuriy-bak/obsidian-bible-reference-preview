@@ -23,26 +23,7 @@ import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView } from "./src/ui/Refe
 
 export default class BiblePlugin extends Plugin {
     private readonly context = new PluginContext(this);
-    private readonly settingsService = new SettingsService(this.context, {
-        refreshBibleReferenceLinks: () => {
-            this.applyLinkColorToWindows();
-            this.editor.refreshLinks();
-        },
-        clearBibleReferenceLinks: () => this.editor.clearLinks(),
-        dispatchEditorViewNoopUpdate: () => this.editor.dispatchNoopUpdate(),
-        refreshFloatingPreviewLabels: () => this.preview.refreshFloatingLabels(),
-        refreshBiblePreviewLocalizedLabels: () => {
-            this.preview.refreshLocalizedLabels();
-            void this.reader.refreshAll();
-            this.editor.refreshLocalizedLabels();
-            this.readingModePreviewController?.refreshLocalizedLabels();
-        },
-        hideFloatingBiblePreview: (resetPosition) => this.preview.hideFloating(resetPosition),
-        closeBiblePreviewPane: (options) => this.preview.closePane(options),
-        closeReferenceUsagePane: () => this.referenceUsage.closePane(),
-        updatePluginActiveRibbonIcon: () => this.updatePluginActiveRibbonIcon(),
-        closeReaderSplit: () => this.reader.closeSplit(),
-    });
+    private readonly settingsService = new SettingsService(this.context);
     private readonly translations = new TranslationService(this.context, {
         refreshVisibleBiblePreviewContent: async () => {
             await this.preview.refreshVisibleContent();
@@ -73,6 +54,11 @@ export default class BiblePlugin extends Plugin {
     async onload() {
         // Enabled in a running app (or reloaded after an update): open reading views were rendered without the plugin.
         const enabledAfterLayoutReady = this.app.workspace.layoutReady;
+        this.context.onSettingsChanged((keys) => {
+            if (keys.has("isPluginActive")) this.updatePluginActiveRibbonIcon();
+            if (keys.has("bibleReferenceLinkColor")) this.applyLinkColorToWindows();
+            if (keys.has("interfaceLanguage")) this.readingModePreviewController?.refreshLocalizedLabels();
+        });
         this.context.onBookMappingChanged(() => {
             this.editor.refreshLinks();
             this.scheduleParserChangeHandling();

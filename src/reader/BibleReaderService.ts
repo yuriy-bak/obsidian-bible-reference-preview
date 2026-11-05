@@ -32,7 +32,13 @@ export class BibleReaderService {
         private readonly translations: TranslationService,
         private readonly contentBuilder: BiblePreviewContentBuilder,
         private readonly effects: BibleReaderServiceEffects,
-    ) {}
+    ) {
+        context.onSettingsChanged(async (keys) => {
+            // The reader under the note closes when the reader goes back to tabs.
+            if (keys.has("phoneReaderPlacement") && context.settings.phoneReaderPlacement === "tab") this.closeSplit();
+            if (keys.has("interfaceLanguage")) await this.refreshAll();
+        });
+    }
 
     /** A chapter from the preview, in the translation it was shown in (the active one without it); in the last reader or a new tab. */
     async openChapter(target: BibleChapterTarget, translationId?: string, options: { newTab?: boolean } = {}): Promise<void> {
