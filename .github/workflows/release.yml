@@ -35,16 +35,22 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       GH_TOKEN: ${{ github.token }}
+      # Event values reach the scripts as environment variables, never pasted into the script text.
+      EVENT_NAME: ${{ github.event_name }}
+      EVENT_SHA: ${{ github.sha }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      INPUT_REF: ${{ inputs.ref }}
+      REPOSITORY: ${{ github.repository }}
 
     steps:
       - name: Resolve ref
         id: ref
         shell: bash
         run: |
-          case "${{ github.event_name }}" in
-            push) echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT" ;;
-            release) echo "ref=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT" ;;
-            *) echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT" ;;
+          case "$EVENT_NAME" in
+            push) echo "ref=$EVENT_SHA" >> "$GITHUB_OUTPUT" ;;
+            release) echo "ref=$RELEASE_TAG" >> "$GITHUB_OUTPUT" ;;
+            *) echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT" ;;
           esac
 
       - name: Checkout repository
@@ -57,8 +63,8 @@ jobs:
         shell: bash
         run: |
           version="$(node -p "require('./manifest.json').version")"
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            tag="${{ github.event.release.tag_name }}"
+          if [[ "$EVENT_NAME" == "release" ]]; then
+            tag="$RELEASE_TAG"
           else
             tag="$version"
           fi
@@ -66,13 +72,13 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-          if gh release view "$tag" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+          if gh release view "$tag" --repo "$REPOSITORY" > /dev/null 2>&1; then
             release_exists=true
           else
             release_exists=false
           fi
 
-          if [[ "${{ github.event_name }}" == "push" ]] && git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+          if [[ "$EVENT_NAME" == "push" ]] && git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
             echo "Tag $tag already exists, nothing to release."
             echo "action=skip" >> "$GITHUB_OUTPUT"
           elif [[ "$release_exists" == "true" ]]; then
@@ -84,14 +90,16 @@ jobs:
       - name: Validate version files
         if: steps.plan.outputs.action == 'create'
         shell: bash
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
         run: |
-          version="${{ steps.plan.outputs.version }}"
+          version="$VERSION"
           package_version="$(node -p "require('./package.json').version")"
           if [[ "$package_version" != "$version" ]]; then
             echo "::error::package.json version $package_version does not match manifest.json version $version"
             exit 1
           fi
-          if ! node -e "process.exit(require('./versions.json')['$version'] ? 0 : 1)"; then
+          if ! node -e "process.exit(require('./versions.json')[process.env.VERSION] ? 0 : 1)"; then
             echo "::error::versions.json has no entry for $version"
             exit 1
           fi
@@ -99,8 +107,10 @@ jobs:
       - name: Extract release notes from CHANGELOG
         if: steps.plan.outputs.action == 'create'
         shell: bash
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
         run: |
-          version="${{ steps.plan.outputs.version }}"
+          version="$VERSION"
           awk -v v="$version" '
             /^## / { if (found) exit; if ($2 == v) { found = 1; next } }
             found { print }
@@ -153,23 +163,28 @@ jobs:
       - name: Create release
         if: steps.plan.outputs.action == 'create'
         shell: bash
+        env:
+          TAG: ${{ steps.plan.outputs.tag }}
+          SHA: ${{ steps.plan.outputs.sha }}
         run: |
-          gh release create "${{ steps.plan.outputs.tag }}" \
+          gh release create "$TAG" \
             main.js \
             manifest.json \
             styles.css \
-            --repo "${{ github.repository }}" \
-            --target "${{ steps.plan.outputs.sha }}" \
-            --title "${{ steps.plan.outputs.tag }}" \
+            --repo "$REPOSITORY" \
+            --target "$SHA" \
+            --title "$TAG" \
             --notes-file release-notes.md
 
       - name: Upload assets to existing release
         if: steps.plan.outputs.action == 'upload'
         shell: bash
+        env:
+          TAG: ${{ steps.plan.outputs.tag }}
         run: |
-          gh release upload "${{ steps.plan.outputs.tag }}" \
+          gh release upload "$TAG" \
             main.js \
             manifest.json \
             styles.css \
-            --repo "${{ github.repository }}" \
+            --repo "$REPOSITORY" \
             --clobber
