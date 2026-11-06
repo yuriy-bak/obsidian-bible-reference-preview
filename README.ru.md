@@ -59,7 +59,7 @@
 
 ## Планы
 
-Всё запланированное сделано. Есть идея? [Создайте issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose).
+Всё запланированное сделано. Есть идея? [Создайте issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose) или поделитесь ей в [Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions/categories/ideas).
 
 [Все запланированные функции](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) — ставьте 👍 тем, которые вам нужны.
 
@@ -115,7 +115,7 @@
 
 ## Обратная связь
 
-Нашли ошибку, нераспознанную ссылку или файл Библии, который не импортируется? Есть идея? [Создайте issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose): хватит пары слов, по-русски или по-английски. Если идея уже есть в [планах](#планы), поставьте ей 👍. Если плагин вам полезен, звезда на GitHub поможет другим его найти.
+Нашли ошибку, нераспознанную ссылку или файл Библии, который не импортируется? Есть идея? [Создайте issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose): хватит пары слов, по-русски или по-английски. Вопросы, идеи и рассказы о том, как вы пользуетесь плагином, — в [Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions). Если идея уже есть в [планах](#планы), поставьте ей 👍. Если плагин вам полезен, звезда на GitHub поможет другим его найти.
 
 ## Разработка
 

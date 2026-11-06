@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Questions and discussions
+    url: https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions
+    about: Ask how to do something, share ideas and how you use the plugin.
   - name: Roadmap
     url: https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap
     about: Planned features. If your idea is there, a 👍 on it is enough.

@@ -59,7 +59,7 @@ More sources and details are in [Importing a translation](#importing-a-translati
 
 ## Roadmap
 
-Everything planned so far is done. Have an idea? [Open an issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose).
+Everything planned so far is done. Have an idea? [Open an issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose) or share it in [Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions/categories/ideas).
 
 See [all planned features](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) and vote with 👍 on the ones you want.
 
@@ -115,7 +115,7 @@ The plugin makes no network requests. It reads the list of Markdown files only t
 
 ## Feedback
 
-Found a bug, a reference that is not recognized, or a Bible file that does not import? Have an idea? [Open an issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose): a few words are enough, in English or Russian. If the idea is already on the [roadmap](#roadmap), a 👍 on it helps too. If the plugin is useful to you, a star on GitHub helps other people find it.
+Found a bug, a reference that is not recognized, or a Bible file that does not import? Have an idea? [Open an issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose): a few words are enough, in English or Russian. Questions, ideas and how you use the plugin are welcome in [Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions). If the idea is already on the [roadmap](#roadmap), a 👍 on it helps too. If the plugin is useful to you, a star on GitHub helps other people find it.
 
 ## Development
 

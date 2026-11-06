@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Questions and ideas now have a home in [GitHub Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions), linked from the README and the new issue page.
 - README: phone screenshots of the Bible reader under the note and the Bible translations page.
 
 ## 0.3.4 - Compact translation list, safer index, clearer errors
