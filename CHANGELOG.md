@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- README: phone screenshots of the Bible reader under the note and the Bible translations page.
+
 ## 0.3.4 - Compact translation list, safer index, clearer errors
 
 - A more compact translation list on the **Bible translations** page: the drag handle sits left of the name and the delete button in the top right corner, so the rows below use the full width; the description is one line (language, books, file) without the internal id; numbering, code and the **Book names** button share one row with short labels. A hint under the heading says the first translation is the main one; the check mark is gone. Numbering schemes are named after a reference Bible, so they no longer read as languages: **like KJV** (was English), **like Synodal**, **like original**, **like Vulgate**, **like Septuagint**.
