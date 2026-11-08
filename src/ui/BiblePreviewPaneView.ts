@@ -11,7 +11,6 @@ export type BiblePreviewPaneViewInput = BiblePreviewChapterViewInput & BiblePrev
     getOpenFloatingAria: () => string;
     getCopyNoticeText: () => string;
     getCopyFailedNoticeText: () => string;
-    formatCopyText?: (content: BiblePreviewContent) => string;
     getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
     onFindUsages?: (target: BiblePreviewUsageTarget) => void;
     onOpenFloating: (content: BiblePreviewContent) => void;

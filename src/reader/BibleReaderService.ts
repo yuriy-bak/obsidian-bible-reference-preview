@@ -1,7 +1,7 @@
 import { Platform, type WorkspaceLeaf } from "obsidian";
 import type { BibleChapterLocation, BibleChapterTarget } from "../application/BibleChapterNavigation";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
-import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
+import type { BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
 import type { ReferenceUsageReturnPoint } from "../reference-usage/ReferenceUsageService";
 import type { TranslationService } from "../translations/TranslationService";
@@ -18,8 +18,6 @@ export type BibleReaderServiceEffects = {
     showUsagesForChapter: (location: BibleChapterLocation, title: string, returnPoint: ReferenceUsageReturnPoint | null) => void;
     openBibleFilePicker: (hostEl: HTMLElement) => void;
     openTextSearch: (query: string, translationId: string | null) => void;
-    /** The passage as "Insert into note" writes it, for the copy button. */
-    formatBibleText: (content: BiblePreviewContent) => string;
 };
 
 /**
@@ -167,7 +165,6 @@ export class BibleReaderService {
             getCopyAria: () => t("preview.copyAria"),
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
             getCopyFailedNoticeText: () => t("notice.bibleTextCopyFailed"),
-            formatCopyText: (content) => this.effects.formatBibleText(content),
             getNoTranslationsText: () => t("reader.empty"),
             getImportButtonText: () => t("settings.import.button"),
             onImport: (hostEl) => this.effects.openBibleFilePicker(hostEl),

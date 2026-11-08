@@ -139,16 +139,13 @@ module.exports = async function runInsertionTests() {
   assert.strictEqual(noteView.editor.getValue(), "Начало\n\n> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
   assert(noticeMessages().some((message) => /note/.test(message)));
 
-  // The copy button copies the same Markdown as "Insert into note".
+  // The copy button copies the plain text of the panel, whatever the insert format.
   const copied = [];
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text) => { copied.push(text); } } });
   const { copyBibleContent } = require("../../.test-build/src/ui/CopyBibleText.js");
   assert(await copyBibleContent(content, plugin.preview.createFloatingWindowInput()));
-  assert.deepStrictEqual(copied, ["> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир."]);
-  // A bible block setting still copies the text: an expanded callout.
-  await plugin.settingsService.setInsertFormat("code-block");
-  assert(await copyBibleContent(content, plugin.preview.createFloatingWindowInput()));
-  assert.strictEqual(copied[1], "> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
+  assert.deepStrictEqual(copied, [content.plainText]);
+  assert(!copied[0].includes("[!bible]"));
 
   stopPlugin(plugin);
 };

@@ -43,7 +43,6 @@ export type BibleReaderViewInput = {
     getHistoryForwardAria: () => string;
     getCopyNoticeText: () => string;
     getCopyFailedNoticeText: () => string;
-    formatCopyText?: (content: BiblePreviewContent) => string;
     /** The empty reader of a new user: what is missing and buttons to import a Bible file or open the settings. */
     getNoTranslationsText: () => string;
     getImportButtonText: () => string;

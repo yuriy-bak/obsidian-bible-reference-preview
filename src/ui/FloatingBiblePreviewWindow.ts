@@ -23,7 +23,6 @@ export type FloatingBiblePreviewAnchor =
 export type FloatingBiblePreviewWindowInput = BiblePreviewChapterViewInput & BiblePreviewHeaderInput & {
     getCopyNoticeText: () => string;
     getCopyFailedNoticeText: () => string;
-    formatCopyText?: (content: BiblePreviewContent) => string;
     getCollapseAria: () => string;
     getExpandAria: () => string;
     getBackgroundColor: () => string;
