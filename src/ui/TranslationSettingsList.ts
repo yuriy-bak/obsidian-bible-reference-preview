@@ -54,7 +54,7 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
             // Obsidian may render the same row again (on mobile it does), so the previous controls go first.
             render: (setting) => {
                 setting.settingEl.addClass("bible-translation-setting-item");
-                ensureListHint(setting.settingEl, translate("settings.translations.hint"));
+                const removeListHint = ensureListHint(setting.settingEl, translate("settings.translations.hint"));
                 setting.infoEl.querySelectorAll(".bible-translation-setting-controls").forEach((element) => element.remove());
                 setting.nameEl.querySelectorAll(".bible-translation-rename").forEach((element) => element.remove());
                 const renameButton = setting.nameEl.createEl("button", {
@@ -119,6 +119,7 @@ export function createTranslationSettingsList(input: TranslationSettingsListInpu
                 return () => {
                     controlsEl.remove();
                     renameButton.remove();
+                    removeListHint();
                 };
             },
         })),
@@ -201,11 +202,12 @@ function createTranslationDescription(translation: TranslationSettingsItem, tran
 
 // What the order means, under the list heading: the list definition has no description of its own.
 // The rows share the list element, so each row only makes sure the hint is there and up to date.
-function ensureListHint(settingEl: HTMLElement, text: string): void {
+// The hint belongs to the rows: the returned cleanup of the last row removes it, so an empty list shows no hint.
+function ensureListHint(settingEl: HTMLElement, text: string): () => void {
     const listEl = settingEl.parentElement;
     const groupEl = listEl?.parentElement;
     if (listEl === null || groupEl === null || groupEl === undefined) {
-        return;
+        return () => {};
     }
     const hintEl = groupEl.querySelector<HTMLElement>(":scope > .bible-translation-list-hint")
         ?? createDiv({ cls: "bible-translation-list-hint" });
@@ -213,6 +215,13 @@ function ensureListHint(settingEl: HTMLElement, text: string): void {
         groupEl.insertBefore(hintEl, listEl);
     }
     hintEl.setText(text);
+    return () => {
+        const hasOtherRows = Array.from(listEl.querySelectorAll(":scope > .bible-translation-setting-item"))
+            .some((rowEl) => rowEl !== settingEl);
+        if (!hasOtherRows) {
+            hintEl.remove();
+        }
+    };
 }
 
 // A stored key the registry no longer knows still shows up instead of silently selecting another scheme.
