@@ -43,7 +43,7 @@ export default class BiblePlugin extends Plugin {
         showReferenceUsagesForPreviewBlock: (block, returnPoint) => void this.referenceUsage.showUsagesForPreviewBlock(block, this.toUsagesReturnPoint(returnPoint)),
         openChapterInReader: (target, translationId, newTab) => this.reader.openChapter(target, translationId, { newTab }),
         insertIntoNote: (content) => this.insertion.insertContentIntoNote(content),
-        formatBibleText: (content) => this.insertion.formatContent(content),
+        formatBibleText: (content) => this.insertion.formatCopiedText(content),
     });
     private readonly reader: BibleReaderService = new BibleReaderService(this.context, this.translations, this.contentBuilder, {
         showUsagesForPreviewBlock: (block, returnPoint) => void this.referenceUsage.showUsagesForPreviewBlock(block, returnPoint),
@@ -51,7 +51,7 @@ export default class BiblePlugin extends Plugin {
         showUsagesForChapter: (location, title, returnPoint) => void this.referenceUsage.showUsagesForChapter(location, title, returnPoint),
         openBibleFilePicker: (hostEl) => this.library.openBibleFilePicker(hostEl),
         openTextSearch: (query, translationId) => void this.search.openPanel({ query, translationId: translationId ?? undefined }),
-        formatBibleText: (content) => this.insertion.formatContent(content),
+        formatBibleText: (content) => this.insertion.formatCopiedText(content),
     });
     private readonly editor = new EditorService(this.context, this.settingsService, this.contentBuilder, this.preview);
     private readonly referenceUsage = new ReferenceUsageService(this.context, this.editor, this.preview);
