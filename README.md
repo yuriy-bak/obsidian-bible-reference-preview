@@ -111,7 +111,7 @@ Verses that the translation joins together are shown under one number ("16–17"
 
 ## Bible texts and copyright
 
-The plugin contains no Bible text and downloads nothing: you import a file you downloaded yourself, and the text stays in the plugin folder of your vault. The plugin is not affiliated with jw.org, eBible.org or the Digital Bible Society. Each translation keeps its copyright and the terms of the site you got it from; for example, jw.org allows its publications for personal, non-commercial use. Keep imported texts for your own study and check the license before sharing them. In the screenshots above, the text of the New World Translation is blurred for this reason.
+The plugin contains no Bible text and downloads nothing: you import a file you downloaded yourself, and the text stays in the plugin folder of your vault. The plugin is not affiliated with jw.org, eBible.org or the Digital Bible Society. Each translation keeps its copyright and the terms of the site you got it from; for example, jw.org allows its publications for personal, non-commercial use. Keep imported texts for your own study and check the license before sharing them.
 
 ## Privacy
 
