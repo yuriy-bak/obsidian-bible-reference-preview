@@ -119,7 +119,7 @@
 
 ## Обратная связь
 
-Нашли ошибку, нераспознанную ссылку или файл Библии, который не импортируется? Есть идея? [Создайте issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose): хватит пары слов, по-русски или по-английски. Вопросы, идеи и рассказы о том, как вы пользуетесь плагином, — в [Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions). Если идея уже есть в [планах](#планы), поставьте ей 👍. Если плагин вам полезен, звезда на GitHub поможет другим его найти.
+Нашли ошибку, нераспознанную ссылку или файл Библии, который не импортируется? Есть идея? [Создайте issue](https://github.com/yuriy-bak/obsidian-bible-reference-preview/issues/new/choose): хватит пары слов, по-русски или по-английски. Вопросы, идеи и рассказы о том, как вы пользуетесь плагином, — в [Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions). Если идея уже есть в [планах](#планы), поставьте ей 👍. Если плагин вам полезен, звезда на GitHub поможет другим его найти, а поддержать разработку можно на [Boosty](https://boosty.to/yuriybak).
 
 ## Разработка
 
