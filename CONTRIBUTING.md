@@ -15,7 +15,7 @@ npm test
 
 ## Scripts
 
-- `npm run lint` checks the TypeScript and JavaScript sources with ESLint.
+- `npm run lint` checks the TypeScript and JavaScript sources with ESLint, then `styles.css` with Stylelint (`npm run lint:css`). The Obsidian plugin catalog checks the styles separately from ESLint, and `.stylelintrc.json` repeats what it warns about: CSS features only partly supported by Obsidian's Chromium (such as `display: contents`), `:has` (slow selector invalidation) and `text-decoration`.
 - `npm run typecheck` runs TypeScript type checking without emitting files.
 - `npm run build` type-checks the project and builds the production Obsidian plugin bundle.
 - `npm run build:dev` type-checks the project and builds a larger development bundle with an inline source map for debugging.
