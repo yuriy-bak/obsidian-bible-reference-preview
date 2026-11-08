@@ -93,7 +93,7 @@ export class BibleInsertionService {
     getSuggestions(query: string, withText: boolean): ReferenceSuggestion[] {
         return getReferenceSuggestions(query, this.getBooks(), (text) => this.context.parseMatches(text), {
             withText,
-            formats: withText ? getSuggestionInsertFormats(this.context.settings.insertFormat) : undefined,
+            formats: withText ? getSuggestionInsertFormats() : undefined,
         });
     }
 
