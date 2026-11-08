@@ -4,7 +4,7 @@ import { isValidTranslationCode } from "../translations/translationCodes";
 import { normalizeCustomBookAliases, type CustomBookAliases } from "../parsing/customBookAliases";
 import { normalizeReferenceUsageExcludedFolders } from "../reference-usage/ReferenceUsageIndexService";
 import { clampReaderSplitRatio, DEFAULT_READER_SPLIT_RATIO } from "../reader/ReaderSplitGeometry";
-import { isBibleInsertFormat, type BibleInsertFormat } from "../insertion/BibleTextMarkdown";
+import { normalizeBibleInsertFormat, type BibleInsertFormat } from "../insertion/BibleTextMarkdown";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "./cssColorValidation";
 
 export const DEFAULT_REFERENCE_SUGGEST_TRIGGER = "--";
@@ -86,7 +86,7 @@ export const DEFAULT_SETTINGS: BiblePluginSettings = {
     phoneReaderPlacement: "tab",
     readerSplitRatio: DEFAULT_READER_SPLIT_RATIO,
     readerSplit: { open: false },
-    insertFormat: "callout",
+    insertFormat: "callout-expanded",
     insertVerseNumbers: true,
     insertFootnotes: false,
     referenceSuggestTrigger: DEFAULT_REFERENCE_SUGGEST_TRIGGER,
@@ -164,7 +164,7 @@ export function normalizePluginSettings(value: unknown): BiblePluginSettings {
             ? clampReaderSplitRatio(value.readerSplitRatio)
             : DEFAULT_SETTINGS.readerSplitRatio,
         readerSplit: normalizeReaderSplitState(value.readerSplit),
-        insertFormat: isBibleInsertFormat(value.insertFormat) ? value.insertFormat : DEFAULT_SETTINGS.insertFormat,
+        insertFormat: normalizeBibleInsertFormat(value.insertFormat, DEFAULT_SETTINGS.insertFormat),
         insertVerseNumbers: typeof value.insertVerseNumbers === "boolean" ? value.insertVerseNumbers : DEFAULT_SETTINGS.insertVerseNumbers,
         insertFootnotes: typeof value.insertFootnotes === "boolean" ? value.insertFootnotes : DEFAULT_SETTINGS.insertFootnotes,
         referenceSuggestTrigger: typeof value.referenceSuggestTrigger === "string"

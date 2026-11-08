@@ -3,14 +3,15 @@ import type { BiblePreviewBlock, BiblePreviewContent, BiblePreviewParagraph } fr
 import { BIBLE_CODE_BLOCK_LANGUAGE } from "../code-block/BibleCodeBlock";
 import type { I18nKey } from "../i18n/I18n";
 
-export type BibleInsertFormat = "callout" | "callout-collapsed" | "quote" | "code-block";
+/** Both callouts fold: "+" shows the text, "-" hides it until clicked. */
+export type BibleInsertFormat = "callout-expanded" | "callout-collapsed" | "quote" | "code-block";
 
-export const BIBLE_INSERT_FORMATS: readonly BibleInsertFormat[] = ["callout", "callout-collapsed", "quote", "code-block"];
+export const BIBLE_INSERT_FORMATS: readonly BibleInsertFormat[] = ["callout-expanded", "callout-collapsed", "quote", "code-block"];
 export const BIBLE_CALLOUT_TYPE = "bible";
 
 /** One name per format, in the setting and in the reference suggestions. */
 export const INSERT_FORMAT_LABEL_KEYS = {
-    callout: "settings.insertFormat.callout",
+    "callout-expanded": "settings.insertFormat.calloutExpanded",
     "callout-collapsed": "settings.insertFormat.calloutCollapsed",
     quote: "settings.insertFormat.quote",
     "code-block": "settings.insertFormat.codeBlock",
@@ -35,11 +36,17 @@ type MarkdownSection = {
 
 /** The formats the suggestions offer: both callouts and the bible block, and a quote when the setting chooses it. */
 export function getSuggestionInsertFormats(setting: BibleInsertFormat): BibleInsertFormat[] {
-    return setting === "quote" ? ["quote", "callout", "callout-collapsed", "code-block"] : ["callout", "callout-collapsed", "code-block"];
+    return setting === "quote" ? ["quote", "callout-expanded", "callout-collapsed", "code-block"] : ["callout-expanded", "callout-collapsed", "code-block"];
 }
 
 export function isBibleInsertFormat(value: unknown): value is BibleInsertFormat {
     return typeof value === "string" && (BIBLE_INSERT_FORMATS as readonly string[]).includes(value);
+}
+
+/** A stored format; the plain callout of the first betas becomes the expanded one. */
+export function normalizeBibleInsertFormat(value: unknown, fallback: BibleInsertFormat): BibleInsertFormat {
+    if (value === "callout") return "callout-expanded";
+    return isBibleInsertFormat(value) ? value : fallback;
 }
 
 /** Markdown for the passages of the content; empty when it has none. */
@@ -104,8 +111,8 @@ function formatQuotedSection(section: MarkdownSection, options: BibleTextMarkdow
     if (options.footnotes && section.footnotes.length > 0) {
         body.push("", ...section.footnotes.flatMap((footnote) => footnote.split("\n")));
     }
-    const header = options.format === "callout"
-        ? `[!${BIBLE_CALLOUT_TYPE}] ${section.title}`
+    const header = options.format === "callout-expanded"
+        ? `[!${BIBLE_CALLOUT_TYPE}]+ ${section.title}`
         : options.format === "callout-collapsed" ? `[!${BIBLE_CALLOUT_TYPE}]- ${section.title}` : section.title;
     return [header, ...body].map((line) => (line.length === 0 ? ">" : `> ${line}`)).join("\n");
 }
