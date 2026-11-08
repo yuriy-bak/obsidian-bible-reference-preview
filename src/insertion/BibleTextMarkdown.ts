@@ -34,9 +34,9 @@ type MarkdownSection = {
     footnotes: string[];
 };
 
-/** The formats the suggestions offer: both callouts and the bible block, and a quote when the setting chooses it. */
-export function getSuggestionInsertFormats(setting: BibleInsertFormat): BibleInsertFormat[] {
-    return setting === "quote" ? ["quote", "callout-expanded", "callout-collapsed", "code-block"] : ["callout-expanded", "callout-collapsed", "code-block"];
+/** The formats the suggestions offer: all of them, in the order of the setting. */
+export function getSuggestionInsertFormats(): BibleInsertFormat[] {
+    return [...BIBLE_INSERT_FORMATS];
 }
 
 export function isBibleInsertFormat(value: unknown): value is BibleInsertFormat {

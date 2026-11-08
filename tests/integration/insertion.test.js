@@ -83,7 +83,7 @@ module.exports = async function runInsertionTests() {
   trigger(editor);
   const referenceSuggestions = suggest.getSuggestions(suggest.context);
   assert.deepStrictEqual(referenceSuggestions.map((item) => [item.kind, item.format]), [
-    ["reference", undefined], ["reference-with-text", "callout-expanded"], ["reference-with-text", "callout-collapsed"], ["reference-with-text", "code-block"],
+    ["reference", undefined], ["reference-with-text", "callout-expanded"], ["reference-with-text", "callout-collapsed"], ["reference-with-text", "quote"], ["reference-with-text", "code-block"],
   ]);
   // On a line of its own the reference with its text becomes the callout.
   suggest.selectSuggestion(referenceSuggestions[1]);
@@ -104,7 +104,7 @@ module.exports = async function runInsertionTests() {
   // The fourth: a bible block.
   editor = createFakeEditor("--Ин 3:16", { line: 0, ch: 9 });
   trigger(editor);
-  suggest.selectSuggestion(referenceSuggestions[3]);
+  suggest.selectSuggestion(referenceSuggestions[4]);
   await flush();
   assert.strictEqual(editor.getValue(), "```bible\nИн 3:16\n```");
   // Only the reference.

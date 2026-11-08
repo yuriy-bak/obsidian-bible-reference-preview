@@ -45,8 +45,7 @@ module.exports = async () => {
   assert.strictEqual(formatBibleTextMarkdown(content, options({ format: "code-block" })), "```bible\nИн 3:16-17\n```");
   // A collapsed callout: "-" after the type; the third suggestion is the other callout.
   assert.ok(formatBibleTextMarkdown(content, options({ format: "callout-collapsed" })).startsWith("> [!bible]- Ин 3:16-17\n> *Заголовок*"));
-  assert.deepStrictEqual(getSuggestionInsertFormats("callout-collapsed"), ["callout-expanded", "callout-collapsed", "code-block"]);
-  assert.deepStrictEqual(getSuggestionInsertFormats("quote"), ["quote", "callout-expanded", "callout-collapsed", "code-block"]);
+  assert.deepStrictEqual(getSuggestionInsertFormats(), ["callout-expanded", "callout-collapsed", "quote", "code-block"]);
   // A reader's chapter names its translation when it is not the main one.
   const chapter = { ...content, blocks: [{ ...content.blocks[0], title: "📖 Ин 3" }], chapterView: { translationId: "en", title: "Ин 3" } };
   assert.ok(formatBibleTextMarkdown(chapter, options({ getTranslationCode: () => "ENG" })).startsWith("> [!bible]+ Ин 3 (ENG)\n"));
