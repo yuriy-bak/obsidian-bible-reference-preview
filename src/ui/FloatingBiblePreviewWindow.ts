@@ -2,7 +2,7 @@ import { Menu, Platform, setIcon } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
 import { ICONS, stripBookIcon } from "./Icons";
-import { addOpenSettingsMenuItem, BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { addInsertIntoNoteMenuItem, addOpenSettingsMenuItem, BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 import {
     clampNumber,
     COLLAPSED_BUTTON_SIZE,
@@ -297,6 +297,7 @@ export class FloatingBiblePreviewWindow {
         event.stopPropagation();
         const onOpenSettings = this.labels.onOpenSettings;
         const menu = new Menu();
+        addInsertIntoNoteMenuItem(menu, this.labels, this.previewContent);
         addOpenSettingsMenuItem(menu, {
             ...this.labels,
             // The settings modal sits below the floating window (z-index), so the window steps aside.

@@ -36,7 +36,11 @@ type SettingControlKey =
     | "phoneReaderPlacement"
     | "closePreviewOnActiveLeafChange"
     | "interceptLinkOpenShortcut"
-    | "linkOpenShortcut";
+    | "linkOpenShortcut"
+    | "insertFormat"
+    | "insertVerseNumbers"
+    | "insertFootnotes"
+    | "referenceSuggestTrigger";
 
 type SettingControlAccessor = {
     get: () => unknown;
@@ -56,6 +60,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             ...this.createGeneralSettings(),
             this.createTranslationsPage(),
             this.createPreviewSettingsGroup(),
+            this.createInsertSettingsGroup(),
             {
                 type: "group",
                 heading: this.services.context.t("settings.colors.title"),
@@ -113,6 +118,10 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             closePreviewOnActiveLeafChange: { get: () => settings.shouldClosePreviewOnActiveLeafChange(), set: (value) => settings.setClosePreviewOnActiveLeafChange(value === true) },
             interceptLinkOpenShortcut: { get: () => settings.shouldInterceptLinkOpenShortcut(), set: (value) => settings.setInterceptLinkOpenShortcut(value === true) },
             linkOpenShortcut: { get: () => settings.getBibleLinkOpenShortcut(), set: (value) => settings.setBibleLinkOpenShortcut(value as BibleLinkOpenShortcut) },
+            insertFormat: { get: () => settings.getInsertFormat(), set: (value) => settings.setInsertFormat(value) },
+            insertVerseNumbers: { get: () => settings.shouldInsertVerseNumbers(), set: (value) => settings.setInsertVerseNumbers(value === true) },
+            insertFootnotes: { get: () => settings.shouldInsertFootnotes(), set: (value) => settings.setInsertFootnotes(value === true) },
+            referenceSuggestTrigger: { get: () => settings.getReferenceSuggestTrigger(), set: (value) => settings.setReferenceSuggestTrigger(String(value)) },
         };
     }
 
@@ -324,6 +333,45 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                         },
                         disabled: () => !this.services.settings.shouldInterceptLinkOpenShortcut(),
                     },
+                },
+            ],
+        };
+    }
+
+    private createInsertSettingsGroup(): SettingDefinitionItem<SettingControlKey> {
+        const t = this.services.context.t.bind(this.services.context);
+        const isCodeBlock = (): boolean => this.services.settings.getInsertFormat() === "code-block";
+        return {
+            type: "group",
+            heading: t("settings.insert.title"),
+            items: [
+                {
+                    name: t("settings.insertFormat.name"),
+                    desc: t("settings.insertFormat.desc"),
+                    control: {
+                        type: "dropdown",
+                        key: "insertFormat",
+                        options: {
+                            callout: t("settings.insertFormat.callout"),
+                            quote: t("settings.insertFormat.quote"),
+                            "code-block": t("settings.insertFormat.codeBlock"),
+                        },
+                    },
+                },
+                {
+                    name: t("settings.insertVerseNumbers.name"),
+                    desc: t("settings.insertVerseNumbers.desc"),
+                    control: { type: "toggle", key: "insertVerseNumbers", disabled: isCodeBlock },
+                },
+                {
+                    name: t("settings.insertFootnotes.name"),
+                    desc: t("settings.insertFootnotes.desc"),
+                    control: { type: "toggle", key: "insertFootnotes", disabled: isCodeBlock },
+                },
+                {
+                    name: t("settings.referenceSuggestTrigger.name"),
+                    desc: t("settings.referenceSuggestTrigger.desc"),
+                    control: { type: "text", key: "referenceSuggestTrigger", placeholder: "--" },
                 },
             ],
         };

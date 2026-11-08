@@ -28,6 +28,7 @@ const TEST_FILES = [
   "link-color",
   "settings-effects",
   "code-block",
+  "insertion",
 ];
 
 // A test that waits on a promise nobody resolves (say, a modal it does not answer) leaves nothing

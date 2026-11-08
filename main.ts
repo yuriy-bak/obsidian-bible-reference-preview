@@ -21,6 +21,7 @@ import { openConfirmModal } from "./src/ui/ConfirmModal";
 import { FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView } from "./src/ui/ReferenceUsagePaneView";
 import { BIBLE_CODE_BLOCK_LANGUAGE } from "./src/code-block/BibleCodeBlock";
+import { BibleInsertionService } from "./src/insertion/BibleInsertionService";
 import { BibleCodeBlockView, type BibleCodeBlockViewInput } from "./src/ui/BibleCodeBlockView";
 
 export default class BiblePlugin extends Plugin {
@@ -39,6 +40,7 @@ export default class BiblePlugin extends Plugin {
     private readonly preview: BiblePreviewService = new BiblePreviewService(this.context, this.settingsService, this.translations, this.contentBuilder, {
         showReferenceUsagesForPreviewBlock: (block, returnPoint) => void this.referenceUsage.showUsagesForPreviewBlock(block, this.toUsagesReturnPoint(returnPoint)),
         openChapterInReader: (target, translationId, newTab) => this.reader.openChapter(target, translationId, { newTab }),
+        insertIntoNote: (content) => this.insertion.insertContentIntoNote(content),
     });
     private readonly reader: BibleReaderService = new BibleReaderService(this.context, this.translations, this.contentBuilder, {
         showUsagesForPreviewBlock: (block, returnPoint) => void this.referenceUsage.showUsagesForPreviewBlock(block, returnPoint),
@@ -48,6 +50,7 @@ export default class BiblePlugin extends Plugin {
     });
     private readonly editor = new EditorService(this.context, this.settingsService, this.contentBuilder, this.preview);
     private readonly referenceUsage = new ReferenceUsageService(this.context, this.editor, this.preview);
+    private readonly insertion = new BibleInsertionService(this.context, this.contentBuilder);
     private readingModePreviewController: BibleReadingModePreviewController | null = null;
     private readonly bibleCodeBlocks = new Set<BibleCodeBlockView>();
     private readonly windowListenerDisposers = new Map<Window, () => void>();
@@ -88,7 +91,9 @@ export default class BiblePlugin extends Plugin {
             reader: this.reader,
             referenceUsage: this.referenceUsage,
             editor: this.editor,
+            insertion: this.insertion,
         });
+        this.registerEditorSuggest(this.insertion.createSuggest());
         // Ctrl/Cmd-click opens another reader tab, as with links.
         this.addRibbonIcon("book-open-text", this.context.t("command.openBibleReader"), (event) =>
             void this.reader.openReader({ newTab: event.ctrlKey || event.metaKey }));
@@ -114,6 +119,7 @@ export default class BiblePlugin extends Plugin {
 
         this.registerEvent(this.app.workspace.on("active-leaf-change", (activeLeaf) => {
             this.reader.handleActiveLeafChange(activeLeaf);
+            this.insertion.handleActiveLeafChange(activeLeaf);
             this.preview.handleActiveLeafChange(activeLeaf);
         }));
         // The main window and every popout window get the same keyboard and pointer listeners.

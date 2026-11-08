@@ -7,11 +7,12 @@ import {
     normalizeBibleReferenceLinkColor,
     normalizeFloatingPreviewBackgroundColor,
 } from "./cssColorValidation";
-import type { BibleLinkOpenShortcut, BiblePluginSettings, BiblePreviewDisplayMode, BiblePreviewPanelSide, BiblePreviewTriggerMode, PhoneReaderPlacement } from "./PluginSettings";
+import { isBibleInsertFormat, type BibleInsertFormat } from "../insertion/BibleTextMarkdown";
+import { normalizeReferenceSuggestTrigger, type BibleLinkOpenShortcut, type BiblePluginSettings, type BiblePreviewDisplayMode, type BiblePreviewPanelSide, type BiblePreviewTriggerMode, type PhoneReaderPlacement } from "./PluginSettings";
 
 const DEFAULT_FLOATING_PREVIEW_BACKGROUND_PICKER_COLOR = "#e6e2d8";
 
-type BooleanSettingKey = "closePreviewOnActiveLeafChange" | "autoOpenPreviewOnVerseChange" | "previewComparisonEnabled" | "interceptLinkOpenShortcut";
+type BooleanSettingKey = "closePreviewOnActiveLeafChange" | "autoOpenPreviewOnVerseChange" | "previewComparisonEnabled" | "interceptLinkOpenShortcut" | "insertVerseNumbers" | "insertFootnotes";
 
 export class SettingsService {
     // Services react to changes through PluginContext.onSettingsChanged.
@@ -200,6 +201,43 @@ export class SettingsService {
 
         await this.save({ phoneReaderPlacement });
         this.context.refreshSettingsTab();
+    }
+
+    getInsertFormat(): BibleInsertFormat {
+        return this.settings.insertFormat;
+    }
+
+    async setInsertFormat(value: unknown): Promise<void> {
+        if (!isBibleInsertFormat(value) || value === this.settings.insertFormat) return;
+        await this.save({ insertFormat: value });
+        this.context.refreshSettingsTab();
+    }
+
+    shouldInsertVerseNumbers(): boolean {
+        return this.settings.insertVerseNumbers;
+    }
+
+    async setInsertVerseNumbers(value: boolean): Promise<void> {
+        await this.setBooleanSetting("insertVerseNumbers", value);
+    }
+
+    shouldInsertFootnotes(): boolean {
+        return this.settings.insertFootnotes;
+    }
+
+    async setInsertFootnotes(value: boolean): Promise<void> {
+        await this.setBooleanSetting("insertFootnotes", value);
+    }
+
+    getReferenceSuggestTrigger(): string {
+        return this.settings.referenceSuggestTrigger;
+    }
+
+    /** An invalid trigger (letters, spaces, too long) is not saved; the field keeps what was typed. */
+    async setReferenceSuggestTrigger(value: string): Promise<void> {
+        const trigger = value.trim();
+        if (normalizeReferenceSuggestTrigger(trigger) !== trigger || trigger === this.settings.referenceSuggestTrigger) return;
+        await this.save({ referenceSuggestTrigger: trigger });
     }
 
     private async setBooleanSetting(key: BooleanSettingKey, value: boolean): Promise<void> {

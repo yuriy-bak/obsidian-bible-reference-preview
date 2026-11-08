@@ -38,6 +38,7 @@ export type BiblePreviewServiceEffects = {
     showReferenceUsagesForPreviewBlock: (target: BiblePreviewUsageTarget, returnPoint: BiblePreviewReturnPoint | null) => void;
     /** The target is in `translationId`'s numbering; no translation means the active one. Resolves to where it opened. */
     openChapterInReader: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) => Promise<"below" | "tab">;
+    insertIntoNote: (content: BiblePreviewContent) => void;
 };
 
 /** The floating preview window and the side panel preview. */
@@ -296,6 +297,8 @@ export class BiblePreviewService {
             getCopyAria: () => t("preview.copyAria"),
             getOpenSettingsText: () => t("preview.openSettings"),
             onOpenSettings: () => this.context.openPluginSettings(),
+            getInsertIntoNoteText: () => t("preview.insertIntoNote"),
+            onInsertIntoNote: (content: BiblePreviewContent) => this.effects.insertIntoNote(content),
             getFindUsagesButtonAria: (target: BiblePreviewUsageTarget) => t("preview.findUsagesAria", { reference: target.title }),
             onFindUsages: (target: BiblePreviewUsageTarget) => this.effects.showReferenceUsagesForPreviewBlock(target, this.captureReturnPoint()),
             isComparisonEnabled,

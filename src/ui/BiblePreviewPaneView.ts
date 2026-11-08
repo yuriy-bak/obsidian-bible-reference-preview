@@ -2,7 +2,7 @@ import { ItemView, type Menu, WorkspaceLeaf } from "obsidian";
 import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../application/BiblePreviewModel";
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
 import { ICONS, stripBookIcon } from "./Icons";
-import { addOpenSettingsMenuItem, BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
+import { addInsertIntoNoteMenuItem, addOpenSettingsMenuItem, BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
 import { copyBibleText } from "./CopyBibleText";
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
@@ -38,6 +38,7 @@ export class BiblePreviewPaneView extends ItemView {
 
     onPaneMenu(menu: Menu, source: string): void {
         super.onPaneMenu(menu, source);
+        addInsertIntoNoteMenuItem(menu, this.input, this.currentContent);
         addOpenSettingsMenuItem(menu, this.input);
     }
 

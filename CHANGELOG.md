@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Insert Bible text into a note: the command **Insert Bible text** (on a reference: its text below the paragraph; elsewhere: type a reference), suggestions after `--` (`--John 3:16`: the books, then the reference alone or with its text) and **Insert into note** in the preview's menu. The text goes in as a callout, a quote or a `bible` block, with or without verse numbers and footnotes (**Inserting Bible text** in the settings).
 - A `bible` code block shows the text of the references written in it, one per line, right in the note: in reading mode, Live Preview, PDF export and print. The note keeps only the references; the text follows the main translation, or the one a translation code names.
 - A **Thank the author** button at the end of the plugin settings and a **Donate** button on the plugin's page in Obsidian lead to the author's Boosty page; the README has a Boosty button at the top.
 - You can support the plugin's development on [Boosty](https://boosty.to/yuriybak): a Sponsor button on GitHub and a link in the README.
