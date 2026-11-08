@@ -145,6 +145,10 @@ module.exports = async function runInsertionTests() {
   const { copyBibleContent } = require("../../.test-build/src/ui/CopyBibleText.js");
   assert(await copyBibleContent(content, plugin.preview.createFloatingWindowInput()));
   assert.deepStrictEqual(copied, ["> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир."]);
+  // A bible block setting still copies the text: an expanded callout.
+  await plugin.settingsService.setInsertFormat("code-block");
+  assert(await copyBibleContent(content, plugin.preview.createFloatingWindowInput()));
+  assert.strictEqual(copied[1], "> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
 
   stopPlugin(plugin);
 };

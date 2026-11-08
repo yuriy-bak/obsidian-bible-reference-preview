@@ -77,7 +77,15 @@ export class BibleInsertionService {
         new Notice(this.context.t("insert.inserted", { note: view.file?.basename ?? "" }), 2500);
     }
 
-    /** The passage as the insert settings write it: the copy buttons copy the same Markdown. */
+    /**
+     * The copy buttons: the Markdown of the insert settings, so a pasted passage looks like an inserted one,
+     * but always with its text: a bible block setting copies an expanded callout.
+     */
+    formatCopiedText(content: BiblePreviewContent): string {
+        return this.formatContent(content, this.context.settings.insertFormat === "code-block" ? "callout" : undefined);
+    }
+
+    /** The passage as the insert settings write it. */
     formatContent(content: BiblePreviewContent, format?: BibleInsertFormat): string {
         const settings = this.context.settings;
         const codes = this.context.getTranslationCodes();
