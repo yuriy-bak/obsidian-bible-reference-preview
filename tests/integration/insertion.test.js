@@ -10,9 +10,9 @@ module.exports = async function runInsertionTests() {
   const defaults = normalizePluginSettings({});
   assert.deepStrictEqual(
     [defaults.insertFormat, defaults.insertVerseNumbers, defaults.insertFootnotes, defaults.referenceSuggestTrigger],
-    ["callout", true, false, "--"],
+    ["callout-expanded", true, false, "--"],
   );
-  assert.strictEqual(normalizePluginSettings({ insertFormat: "html" }).insertFormat, "callout");
+  assert.strictEqual(normalizePluginSettings({ insertFormat: "html" }).insertFormat, "callout-expanded");
   assert.strictEqual(normalizePluginSettings({ insertFormat: "quote" }).insertFormat, "quote");
   assert.strictEqual(normalizePluginSettings({ insertFormat: "callout-collapsed" }).insertFormat, "callout-collapsed");
   assert.strictEqual(normalizeReferenceSuggestTrigger(";;"), ";;");
@@ -36,14 +36,14 @@ module.exports = async function runInsertionTests() {
   let editor = createFakeEditor("Читай Ин 3:16-17 сегодня\n\nДальше", { line: 0, ch: 8 });
   command.editorCallback(editor);
   await flush();
-  assert.strictEqual(editor.getValue(), "Читай Ин 3:16-17 сегодня\n\n> [!bible] Ин 3:16-17\n> ¹⁶ Ведь Бог так любит мир.\n>\n> ¹⁷ Бог послал Сына в мир.\n\nДальше");
+  assert.strictEqual(editor.getValue(), "Читай Ин 3:16-17 сегодня\n\n> [!bible]+ Ин 3:16-17\n> ¹⁶ Ведь Бог так любит мир.\n>\n> ¹⁷ Бог послал Сына в мир.\n\nДальше");
 
   // A translation code: the coded translation, and the code stays in the title.
   assert.strictEqual(await plugin.translations.setTranslationCode(translationIdByLanguage(plugin, "en"), "Eng"), null);
   editor = createFakeEditor("Ин 3:16 (ENG)", { line: 0, ch: 2 });
   command.editorCallback(editor);
   await flush();
-  assert.strictEqual(editor.getValue(), "Ин 3:16 (ENG)\n\n> [!bible] Joh 3:16 (Eng)\n> ¹⁶ For God loved the world so much.");
+  assert.strictEqual(editor.getValue(), "Ин 3:16 (ENG)\n\n> [!bible]+ Joh 3:16 (Eng)\n> ¹⁶ For God loved the world so much.");
 
   // Not on a reference: the dialog asks for one; a book completes the name, the reference is inserted at the cursor.
   await plugin.settingsService.setInsertFormat("quote");
@@ -64,7 +64,7 @@ module.exports = async function runInsertionTests() {
   assert.strictEqual(editor.getValue(), "Абзац\n\n> Ин 3:16\n> Ведь Бог так любит мир.\n\nДальше");
 
   // The "--" suggestions: books, then the reference or the reference with its text.
-  await plugin.settingsService.setInsertFormat("callout");
+  await plugin.settingsService.setInsertFormat("callout-expanded");
   await plugin.settingsService.setInsertVerseNumbers(true);
   const [suggest] = plugin.editorSuggests;
   const trigger = (fakeEditor) => {
@@ -83,18 +83,18 @@ module.exports = async function runInsertionTests() {
   trigger(editor);
   const referenceSuggestions = suggest.getSuggestions(suggest.context);
   assert.deepStrictEqual(referenceSuggestions.map((item) => [item.kind, item.format]), [
-    ["reference", undefined], ["reference-with-text", "callout"], ["reference-with-text", "callout-collapsed"], ["reference-with-text", "code-block"],
+    ["reference", undefined], ["reference-with-text", "callout-expanded"], ["reference-with-text", "callout-collapsed"], ["reference-with-text", "code-block"],
   ]);
   // On a line of its own the reference with its text becomes the callout.
   suggest.selectSuggestion(referenceSuggestions[1]);
   await flush();
-  assert.strictEqual(editor.getValue(), "> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
+  assert.strictEqual(editor.getValue(), "> [!bible]+ Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
   // In a sentence: the reference stays in the text, its text goes after the paragraph.
   editor = createFakeEditor("Читай --Ин 3:16 сегодня", { line: 0, ch: 15 });
   trigger(editor);
   suggest.selectSuggestion({ kind: "reference-with-text", text: "Ин 3:16" });
   await flush();
-  assert.strictEqual(editor.getValue(), "Читай Ин 3:16 сегодня\n\n> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
+  assert.strictEqual(editor.getValue(), "Читай Ин 3:16 сегодня\n\n> [!bible]+ Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
   // The third variant: the text in a collapsed callout.
   editor = createFakeEditor("--Ин 3:16", { line: 0, ch: 9 });
   trigger(editor);
@@ -136,7 +136,7 @@ module.exports = async function runInsertionTests() {
   require("../../.test-build/src/ui/BiblePreviewHeader.js").addInsertIntoNoteMenuItem(menu, plugin.preview.createFloatingWindowInput(), content);
   assert.strictEqual(menu.items.length, 1);
   menu.items[0].callback();
-  assert.strictEqual(noteView.editor.getValue(), "Начало\n\n> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
+  assert.strictEqual(noteView.editor.getValue(), "Начало\n\n> [!bible]+ Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
   assert(noticeMessages().some((message) => /note/.test(message)));
 
   // The copy button copies the plain text of the panel, whatever the insert format.

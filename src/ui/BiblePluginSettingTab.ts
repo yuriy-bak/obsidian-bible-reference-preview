@@ -353,7 +353,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                         type: "dropdown",
                         key: "insertFormat",
                         options: {
-                            callout: t(INSERT_FORMAT_LABEL_KEYS.callout),
+                            "callout-expanded": t(INSERT_FORMAT_LABEL_KEYS["callout-expanded"]),
                             "callout-collapsed": t(INSERT_FORMAT_LABEL_KEYS["callout-collapsed"]),
                             quote: t(INSERT_FORMAT_LABEL_KEYS.quote),
                             "code-block": t(INSERT_FORMAT_LABEL_KEYS["code-block"]),
