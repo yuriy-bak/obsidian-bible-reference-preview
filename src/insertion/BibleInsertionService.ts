@@ -3,7 +3,7 @@ import type { NavigatorBook } from "../application/BibleNavigatorModel";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
 import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
-import { type BibleInsertFormat, formatBibleTextMarkdown, getSuggestionInsertFormats } from "./BibleTextMarkdown";
+import { type BibleInsertFormat, formatBibleTextMarkdown, getSuggestionInsertFormats, INSERT_FORMAT_LABEL_KEYS } from "./BibleTextMarkdown";
 import { findReferenceAtCursor, insertBlockAfterParagraph, insertBlockAtCursor } from "./EditorInsertion";
 import { getReferenceSuggestions, type ReferenceSuggestion } from "./ReferenceSuggestions";
 import { BibleReferenceSuggest } from "../editor/BibleReferenceSuggest";
@@ -136,14 +136,11 @@ export class BibleInsertionService {
         el.createSpan({ cls: "bible-reference-suggestion-note", text: this.getSuggestionNote(suggestion) });
     }
 
+    /** The reference alone, or the name of the format as the setting lists it: "Collapsed callout", "bible block". */
     private getSuggestionNote(suggestion: Exclude<ReferenceSuggestion, { kind: "book" }>): string {
         const t = this.context.t.bind(this.context);
         if (suggestion.kind === "reference") return t("insert.suggest.reference");
-        if (suggestion.format === "callout-collapsed") return t("insert.suggest.referenceWithCollapsedText");
-        if (suggestion.format === "callout") return t("insert.suggest.referenceWithExpandedText");
-        if (suggestion.format === "code-block") return t("insert.suggest.codeBlock");
-        if (suggestion.format === "quote") return t("insert.suggest.referenceWithQuote");
-        return t("insert.suggest.referenceWithText");
+        return t(INSERT_FORMAT_LABEL_KEYS[suggestion.format ?? this.context.settings.insertFormat]);
     }
 
     /** Books of every translation, the main one first, for the suggestions. */
