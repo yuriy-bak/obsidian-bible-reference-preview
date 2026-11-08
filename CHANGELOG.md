@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- You can support the plugin's development on [Boosty](https://boosty.to/yuriybak): a Sponsor button on GitHub and a link in the README.
 - README: new screenshots and GIF with the World English Bible, KJV and Russian Synodal translations; one phone screenshot for both READMEs.
 - A reference no longer continues on the next line: in "Judg 4:3,14;" followed by "5:14" on a new line, 5:14 used to be highlighted as a link that did not open. Now only the first line is a reference, the same in the editor, the preview, reading mode and the usage index.
 - Questions and ideas now have a home in [GitHub Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions), linked from the README and the new issue page.
