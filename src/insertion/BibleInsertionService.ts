@@ -3,7 +3,7 @@ import type { NavigatorBook } from "../application/BibleNavigatorModel";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
 import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
-import { type BibleInsertFormat, formatBibleTextMarkdown, getAlternativeInsertFormat } from "./BibleTextMarkdown";
+import { type BibleInsertFormat, formatBibleTextMarkdown, getSuggestionInsertFormats } from "./BibleTextMarkdown";
 import { findReferenceAtCursor, insertBlockAfterParagraph, insertBlockAtCursor } from "./EditorInsertion";
 import { getReferenceSuggestions, type ReferenceSuggestion } from "./ReferenceSuggestions";
 import { BibleReferenceSuggest } from "../editor/BibleReferenceSuggest";
@@ -93,7 +93,7 @@ export class BibleInsertionService {
     getSuggestions(query: string, withText: boolean): ReferenceSuggestion[] {
         return getReferenceSuggestions(query, this.getBooks(), (text) => this.context.parseMatches(text), {
             withText,
-            alternativeFormat: withText ? getAlternativeInsertFormat(this.context.settings.insertFormat) : undefined,
+            formats: withText ? getSuggestionInsertFormats(this.context.settings.insertFormat) : undefined,
         });
     }
 
@@ -141,6 +141,8 @@ export class BibleInsertionService {
         if (suggestion.kind === "reference") return t("insert.suggest.reference");
         if (suggestion.format === "callout-collapsed") return t("insert.suggest.referenceWithCollapsedText");
         if (suggestion.format === "callout") return t("insert.suggest.referenceWithExpandedText");
+        if (suggestion.format === "code-block") return t("insert.suggest.codeBlock");
+        if (suggestion.format === "quote") return t("insert.suggest.referenceWithQuote");
         return t("insert.suggest.referenceWithText");
     }
 
