@@ -18,7 +18,11 @@ Write `John 3:16` in a note and read the verse right next to it, in a floating w
 - **Find where a passage is quoted** across all your notes, with a short context for each usage.
 - **Desktop and mobile:** Windows, macOS, Linux, Android and iOS. Russian and English interface.
 
-## What's new in 0.3.5
+## What's new in 0.3.6
+
+- **Clean plugin check:** the styles no longer use `display: contents` and `:has`, which Obsidian's plugin check warned about; the translation list looks and works as before.
+
+From 0.3.5:
 
 - **Insert Bible text into a note:** the command **Insert Bible text**, suggestions after `--` (`--John 3:16`) and **Insert into note** in the preview's menu; the text goes in as a foldable callout, a quote or a `bible` block.
 - **`bible` code block:** write references in it, one per line, and the note shows their text in reading mode, Live Preview, PDF export and print.
