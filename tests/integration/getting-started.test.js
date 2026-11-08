@@ -33,6 +33,20 @@ module.exports = async function runGettingStartedTests() {
   assert(!mainDefinitions.some((definition) => definition.name === t("settings.import.name")), "import is on the translations page");
   assert.strictEqual(translationsPage(plugin).desc, t("settings.translationsPage.empty"));
 
+  // The main screen is short: preview, insertion and appearance are pages, each entry shows the current choice.
+  const pages = mainDefinitions.filter((definition) => definition.type === "page").map((definition) => definition.name);
+  assert.deepStrictEqual(pages, [t("settings.translationsPage.name"), t("settings.preview.title"), t("settings.insert.title"), t("settings.colors.title")]);
+  assert(!mainDefinitions.some((definition) => definition.type === "group" && definition.heading !== t("settings.support.title")), "only the support group is on the main screen");
+  const pageNamed = (name) => mainDefinitions.find((definition) => definition.type === "page" && definition.name === name);
+  assert.strictEqual(pageNamed(t("settings.preview.title")).displayValue(), `${t("settings.previewDisplayMode.floating")} · ${t("settings.previewMode.currentParagraph")}`);
+  assert.deepStrictEqual(pageNamed(t("settings.preview.title")).items.map((group) => group.heading), [t("settings.preview.opening"), t("settings.preview.placement")]);
+  assert.strictEqual(pageNamed(t("settings.insert.title")).displayValue(), `${t("settings.insertFormat.calloutExpanded")} · --`);
+  await plugin.settingTabs[0].setControlValue("insertFormat", "quote");
+  await plugin.settingTabs[0].setControlValue("referenceSuggestTrigger", "");
+  assert.strictEqual(pageNamed(t("settings.insert.title")).displayValue(), `${t("settings.insertFormat.quote")} · ${t("settings.insert.suggestionsOff")}`);
+  await plugin.settingTabs[0].setControlValue("insertFormat", "callout-expanded");
+  await plugin.settingTabs[0].setControlValue("referenceSuggestTrigger", "--");
+
   // The last group of the main screen: a button for each page where the author can be thanked, opened in the browser.
   const supportGroup = mainDefinitions[mainDefinitions.length - 1];
   assert.strictEqual(supportGroup.heading, t("settings.support.title"));
