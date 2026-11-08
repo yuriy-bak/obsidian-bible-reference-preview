@@ -113,6 +113,8 @@ export class BibleNavigatorPanel {
             this.renderSearchTextButton(labels);
             return;
         }
+        // Typed text is offered to the text search even when it names a book too: "Иов" is also a name.
+        if (this.filtering) this.renderSearchTextButton(labels);
         // The two groups of books (ids 1-39 and the rest) are parted by a line, with no names:
         // "Old/New Testament" does not fit every translation.
         const oldBooks = books.filter((book) => book.testament === "old");
@@ -125,6 +127,8 @@ export class BibleNavigatorPanel {
     private renderSearchTextButton(labels: BibleNavigatorLabels): void {
         const query = this.searchEl.value.trim();
         if (query.length === 0 || this.input.onSearchText === undefined || labels.searchText === undefined) return;
+        // A chapter or verse ("Ин 3:16") is opened, not searched.
+        if (parseNavigatorQuery(this.input.getBooks(), query)?.chapter !== undefined) return;
         const buttonEl = this.bodyEl.createEl("button", { cls: "bible-reader-navigator-search-text" });
         buttonEl.type = "button";
         setIconWithText(buttonEl, ICONS.searchText, labels.searchText(query));

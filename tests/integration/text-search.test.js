@@ -85,6 +85,17 @@ module.exports = async function runTextSearchTests() {
   assert.strictEqual(navigatorEl.style.display, "none");
   assert.deepStrictEqual(resultTexts(), ["Ge 1:1In the beginning God created the heavens and the earth.", "Joh 1:1In the beginning was the Word."]);
 
+  // A book name is offered to the text search too (a name like "Job"); a chapter is not.
+  reader().containerEl.querySelector(".bible-reader-navigator-toggle").click();
+  searchEl.value = "Joh";
+  searchEl.dispatchEvent(new Event("input"));
+  assert(navigatorEl.querySelector(".bible-reader-navigator-books") !== null, "the books are gone");
+  assert.match(navigatorEl.querySelector(".bible-reader-navigator-search-text")?.textContent ?? "", /Joh/);
+  searchEl.value = "Joh 3";
+  searchEl.dispatchEvent(new Event("input"));
+  assert.strictEqual(navigatorEl.querySelector(".bible-reader-navigator-search-text"), null);
+  reader().containerEl.querySelector(".bible-reader-navigator-toggle").click();
+
   // The usages keep their own icon now that the magnifier searches the text.
   const usagesCreator = app.workspace.viewCreators.get(REFERENCE_USAGE_VIEW_TYPE);
   const usagesLeaf = app.workspace.getLeaf();

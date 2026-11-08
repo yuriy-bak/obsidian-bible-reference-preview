@@ -1,5 +1,5 @@
 const assert = require("assert");
-const { formatBibleTextMarkdown, toSuperscript } = require("../../.test-build/src/insertion/BibleTextMarkdown.js");
+const { formatBibleTextMarkdown, getAlternativeInsertFormat, toSuperscript } = require("../../.test-build/src/insertion/BibleTextMarkdown.js");
 const { findReferenceAtCursor, findSuggestTrigger, insertBlockAfterParagraph, insertBlockAtCursor } = require("../../.test-build/src/insertion/EditorInsertion.js");
 const { getReferenceSuggestions } = require("../../.test-build/src/insertion/ReferenceSuggestions.js");
 const { createNavigatorBooks } = require("../../.test-build/src/application/BibleNavigatorModel.js");
@@ -43,6 +43,15 @@ module.exports = async () => {
     "> * Сноска.",
   ].join("\n"));
   assert.strictEqual(formatBibleTextMarkdown(content, options({ format: "code-block" })), "```bible\nИн 3:16-17\n```");
+  // A collapsed callout: "-" after the type; the third suggestion is the other callout.
+  assert.ok(formatBibleTextMarkdown(content, options({ format: "callout-collapsed" })).startsWith("> [!bible]- Ин 3:16-17\n> *Заголовок*"));
+  assert.strictEqual(getAlternativeInsertFormat("callout"), "callout-collapsed");
+  assert.strictEqual(getAlternativeInsertFormat("quote"), "callout-collapsed");
+  assert.strictEqual(getAlternativeInsertFormat("callout-collapsed"), "callout");
+  // A reader's chapter names its translation when it is not the main one.
+  const chapter = { ...content, blocks: [{ ...content.blocks[0], title: "📖 Ин 3" }], chapterView: { translationId: "en", title: "Ин 3" } };
+  assert.ok(formatBibleTextMarkdown(chapter, options({ getTranslationCode: () => "ENG" })).startsWith("> [!bible] Ин 3 (ENG)\n"));
+  assert.ok(formatBibleTextMarkdown(chapter, options({ activeTranslationId: "en", getTranslationCode: () => "ENG" })).startsWith("> [!bible] Ин 3\n"));
   assert.strictEqual(formatBibleTextMarkdown({ plainText: "", blocks: [] }, options()), "");
   assert.strictEqual(toSuperscript("120-121"), "¹²⁰⁻¹²¹");
 
@@ -109,6 +118,11 @@ module.exports = async () => {
   assert.deepStrictEqual(suggest("И").map((item) => item.book.shortName), ["Ин", "Иак"]);
   assert.deepStrictEqual(suggest("Ин 3:16"), [{ kind: "reference", text: "Ин 3:16" }, { kind: "reference-with-text", text: "Ин 3:16" }]);
   assert.deepStrictEqual(suggest("Ин 3:16", false), [{ kind: "reference", text: "Ин 3:16" }]);
+  assert.deepStrictEqual(getReferenceSuggestions("Ин 3:16", books, parse, { withText: true, alternativeFormat: "callout-collapsed" }), [
+    { kind: "reference", text: "Ин 3:16" },
+    { kind: "reference-with-text", text: "Ин 3:16" },
+    { kind: "reference-with-text", text: "Ин 3:16", format: "callout-collapsed" },
+  ]);
   assert.deepStrictEqual(suggest("Ин 3:1x"), []);
   assert.deepStrictEqual(suggest("Ин 3"), []);
   assert.deepStrictEqual(suggest(" "), []);

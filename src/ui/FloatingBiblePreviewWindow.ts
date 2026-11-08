@@ -14,7 +14,7 @@ import {
     type PreviewViewport,
 } from "./FloatingPreviewGeometry";
 import { FloatingPreviewPointerController } from "./FloatingPreviewPointerController";
-import { copyBibleText } from "./CopyBibleText";
+import { copyBibleContent } from "./CopyBibleText";
 
 export type FloatingBiblePreviewAnchor =
     | { type: "default" }
@@ -23,6 +23,7 @@ export type FloatingBiblePreviewAnchor =
 export type FloatingBiblePreviewWindowInput = BiblePreviewChapterViewInput & BiblePreviewHeaderInput & {
     getCopyNoticeText: () => string;
     getCopyFailedNoticeText: () => string;
+    formatCopyText?: (content: BiblePreviewContent) => string;
     getCollapseAria: () => string;
     getExpandAria: () => string;
     getBackgroundColor: () => string;
@@ -909,7 +910,7 @@ export class FloatingBiblePreviewWindow {
     }
 
     private copyBiblePreviewText(): Promise<boolean> {
-        return copyBibleText(this.previewText, this.labels);
+        return copyBibleContent(this.previewContent, this.labels);
     }
 
 }

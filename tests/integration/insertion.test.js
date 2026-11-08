@@ -14,6 +14,7 @@ module.exports = async function runInsertionTests() {
   );
   assert.strictEqual(normalizePluginSettings({ insertFormat: "html" }).insertFormat, "callout");
   assert.strictEqual(normalizePluginSettings({ insertFormat: "quote" }).insertFormat, "quote");
+  assert.strictEqual(normalizePluginSettings({ insertFormat: "callout-collapsed" }).insertFormat, "callout-collapsed");
   assert.strictEqual(normalizeReferenceSuggestTrigger(";;"), ";;");
   assert.strictEqual(normalizeReferenceSuggestTrigger(""), "");
   assert.strictEqual(normalizeReferenceSuggestTrigger("ab"), "--");
@@ -81,7 +82,9 @@ module.exports = async function runInsertionTests() {
   editor.setCursor({ line: 0, ch: 9 });
   trigger(editor);
   const referenceSuggestions = suggest.getSuggestions(suggest.context);
-  assert.deepStrictEqual(referenceSuggestions.map((item) => item.kind), ["reference", "reference-with-text"]);
+  assert.deepStrictEqual(referenceSuggestions.map((item) => [item.kind, item.format]), [
+    ["reference", undefined], ["reference-with-text", undefined], ["reference-with-text", "callout-collapsed"],
+  ]);
   // On a line of its own the reference with its text becomes the callout.
   suggest.selectSuggestion(referenceSuggestions[1]);
   await flush();
@@ -92,6 +95,12 @@ module.exports = async function runInsertionTests() {
   suggest.selectSuggestion({ kind: "reference-with-text", text: "Ин 3:16" });
   await flush();
   assert.strictEqual(editor.getValue(), "Читай Ин 3:16 сегодня\n\n> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
+  // The third variant: the text in a collapsed callout.
+  editor = createFakeEditor("--Ин 3:16", { line: 0, ch: 9 });
+  trigger(editor);
+  suggest.selectSuggestion(referenceSuggestions[2]);
+  await flush();
+  assert.strictEqual(editor.getValue(), "> [!bible]- Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
   // Only the reference.
   editor = createFakeEditor("--Ин 3:16", { line: 0, ch: 9 });
   trigger(editor);
@@ -123,6 +132,13 @@ module.exports = async function runInsertionTests() {
   menu.items[0].callback();
   assert.strictEqual(noteView.editor.getValue(), "Начало\n\n> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир.");
   assert(noticeMessages().some((message) => /note/.test(message)));
+
+  // The copy button copies the same Markdown as "Insert into note".
+  const copied = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text) => { copied.push(text); } } });
+  const { copyBibleContent } = require("../../.test-build/src/ui/CopyBibleText.js");
+  assert(await copyBibleContent(content, plugin.preview.createFloatingWindowInput()));
+  assert.deepStrictEqual(copied, ["> [!bible] Ин 3:16\n> ¹⁶ Ведь Бог так любит мир."]);
 
   stopPlugin(plugin);
 };

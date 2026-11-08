@@ -7,14 +7,17 @@ import type { BibleIndexData } from "../infrastructure/bible-index/BibleIndexDat
 import type { CompactVerseData } from "../infrastructure/bible-index/CompactBibleBookData";
 import { BIBLE_PREVIEW_VIEW_TYPE } from "../ui/BiblePreviewPaneView";
 import { BIBLE_SEARCH_VIEW_TYPE, BibleSearchView, type BibleSearchViewInput } from "../ui/BibleSearchView";
-import { detachDuplicateWorkspaceLeavesOfType, getFirstWorkspaceLeafOfType, revealLeafWithoutStealingEditorFocus } from "../workspace/BiblePreviewWorkspace";
+import { detachDuplicateWorkspaceLeavesOfType, getFirstWorkspaceLeafOfType, getSideDockForLeaf, revealLeafWithoutStealingEditorFocus } from "../workspace/BiblePreviewWorkspace";
 import { ensureLeafViewLoaded } from "../workspace/WorkspaceLeafViewLoading";
 import { createSearchableVerse, parseTextSearchQuery, searchVerses, type SearchableVerse, type TextSearchScope } from "./BibleTextSearch";
 
 export type BibleSearchServiceEffects = {
-    openChapter: (target: BibleChapterTarget, translationId: string) => void;
+    /** Resolves to where the chapter opened: "below" for the reader under the note on a phone. */
+    openChapter: (target: BibleChapterTarget, translationId: string) => Promise<"below" | "tab">;
     setSuppressPreviewActiveLeafChange: (value: boolean) => void;
 };
+
+const BOOKS_READ_AT_ONCE = 6;
 
 export type BibleSearchProgress = { loadedBooks: number; totalBooks: number };
 
@@ -24,6 +27,9 @@ export type BibleSearchProgress = { loadedBooks: number; totalBooks: number };
  */
 export class BibleSearchService {
     private readonly loaded = new Map<string, Promise<SearchableVerse[]>>();
+    /** Who waits for a translation still being read: a search started during the preload shows its progress too. */
+    private readonly progressListeners = new Map<string, Set<(progress: BibleSearchProgress) => void>>();
+    private readonly lastProgress = new Map<string, BibleSearchProgress>();
     private loadedFor: BibleIndexData | null = null;
 
     constructor(
@@ -44,6 +50,9 @@ export class BibleSearchService {
         if (view === null) return;
         view.refreshInput(this.createViewInput());
         view.start(options.query, options.translationId);
+        // The text is read while the query is typed, so the first search does not wait for all of it.
+        const translationId = options.translationId ?? this.context.activeTranslationId;
+        if (translationId !== null && this.contentBuilder.hasTranslation(translationId)) void this.loadVerses(translationId).catch(() => undefined);
     }
 
     createViewInput(): BibleSearchViewInput {
@@ -69,12 +78,26 @@ export class BibleSearchService {
             getDefaultTranslationId: () => this.context.activeTranslationId,
             getBooks: (translationId) => this.contentBuilder.getNavigatorBooks(translationId),
             search: (query, translationId, scope, onProgress) => this.search(query, translationId, scope, onProgress),
-            openResult: (verse, translationId) => this.effects.openChapter({
+            openResult: (verse, translationId) => void this.openResult({
                 book: verse.book,
                 chapter: verse.chapter,
                 highlightedRanges: [{ verseStart: verse.verse, verseEnd: verse.verseEnd ?? verse.verse }],
             }, translationId),
         };
+    }
+
+    private async openResult(target: BibleChapterTarget, translationId: string): Promise<void> {
+        const openedIn = await this.effects.openChapter(target, translationId);
+        // On a phone the chapter opens under the note, which the panel's drawer covers.
+        if (openedIn === "below") this.hidePanelDrawer();
+    }
+
+    private hidePanelDrawer(): void {
+        const leaf = getFirstWorkspaceLeafOfType(this.context.app, BIBLE_SEARCH_VIEW_TYPE);
+        if (leaf === null) return;
+        const sideDock = getSideDockForLeaf(this.context.app, leaf, this.context.settings.previewPanelSide, BIBLE_PREVIEW_VIEW_TYPE);
+        if (sideDock === undefined || sideDock.collapsed === true || typeof sideDock.collapse !== "function") return;
+        sideDock.collapse();
     }
 
     private loadVerses(translationId: string, onProgress?: (progress: BibleSearchProgress) => void): Promise<SearchableVerse[]> {
@@ -85,13 +108,41 @@ export class BibleSearchService {
             this.loadedFor = indexData;
         }
         const cached = this.loaded.get(translationId);
-        if (cached !== undefined) return cached;
-        const loading = this.readTranslation(translationId, indexData, onProgress);
+        if (cached !== undefined) {
+            this.listenToProgress(translationId, cached, onProgress);
+            return cached;
+        }
+        const listeners = new Set<(progress: BibleSearchProgress) => void>();
+        this.progressListeners.set(translationId, listeners);
+        const loading = this.readTranslation(translationId, indexData, (progress) => {
+            this.lastProgress.set(translationId, progress);
+            for (const listener of listeners) listener(progress);
+        });
         this.loaded.set(translationId, loading);
-        loading.catch(() => {
+        this.listenToProgress(translationId, loading, onProgress);
+        const finish = (): void => {
+            if (this.progressListeners.get(translationId) === listeners) {
+                this.progressListeners.delete(translationId);
+                this.lastProgress.delete(translationId);
+            }
+        };
+        loading.then(finish, () => {
+            finish();
             if (this.loaded.get(translationId) === loading) this.loaded.delete(translationId);
         });
         return loading;
+    }
+
+    private listenToProgress(translationId: string, loading: Promise<SearchableVerse[]>, onProgress?: (progress: BibleSearchProgress) => void): void {
+        const listeners = this.progressListeners.get(translationId);
+        if (onProgress === undefined || listeners === undefined) return;
+        listeners.add(onProgress);
+        const last = this.lastProgress.get(translationId);
+        if (last !== undefined) onProgress(last);
+        const remove = (): void => {
+            listeners.delete(onProgress);
+        };
+        loading.then(remove, remove);
     }
 
     private async readTranslation(translationId: string, indexData: BibleIndexData | null, onProgress?: (progress: BibleSearchProgress) => void): Promise<SearchableVerse[]> {
@@ -100,16 +151,21 @@ export class BibleSearchService {
         if (translation === undefined || readBook === undefined) return [];
         const bookIds = getBookIdsInTranslationOrder(Object.keys(translation.books).map(Number).filter(Number.isInteger), translation.bookOrder);
         const verses: SearchableVerse[] = [];
-        for (const [index, bookId] of bookIds.entries()) {
-            onProgress?.({ loadedBooks: index, totalBooks: bookIds.length });
-            const book = await readBook.call(this.context.bibleIndex, translationId, bookId);
-            book?.chapters.forEach((chapter, chapterNumber) => {
-                chapter?.forEach((compactVerse, verseNumber) => {
-                    if (compactVerse === null || verseNumber === 0) return;
-                    verses.push(createSearchableVerse({ book: bookId, chapter: chapterNumber, verse: verseNumber, ...readVerse(compactVerse) }));
+        // A few books are read at once: on a phone the file reads, not the text, take most of the time.
+        for (let start = 0; start < bookIds.length; start += BOOKS_READ_AT_ONCE) {
+            onProgress?.({ loadedBooks: start, totalBooks: bookIds.length });
+            const batch = bookIds.slice(start, start + BOOKS_READ_AT_ONCE);
+            const books = await Promise.all(batch.map((bookId) => readBook.call(this.context.bibleIndex, translationId, bookId)));
+            books.forEach((book, index) => {
+                const bookId = batch[index];
+                book?.chapters.forEach((chapter, chapterNumber) => {
+                    chapter?.forEach((compactVerse, verseNumber) => {
+                        if (compactVerse === null || verseNumber === 0) return;
+                        verses.push(createSearchableVerse({ book: bookId, chapter: chapterNumber, verse: verseNumber, ...readVerse(compactVerse) }));
+                    });
                 });
             });
-            // Lets the interface breathe between books on a phone.
+            // Lets the interface breathe between batches on a phone.
             await new Promise((resolve) => window.setTimeout(resolve, 0));
         }
         onProgress?.({ loadedBooks: bookIds.length, totalBooks: bookIds.length });

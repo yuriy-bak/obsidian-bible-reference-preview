@@ -25,6 +25,8 @@ const QUOTED_PHRASE = /["«“„]([^"»”“]*)["»”“]?/gu;
 // The breve stays: "й" is not "и"; other accents go ("é" = "e"); "ё" is "е" already.
 const DROPPED_MARKS = /(?!̆)\p{M}/gu;
 const WORD_CHARACTER = /[\p{L}\p{N}]/u;
+const NON_WORD_RUN = /[^\p{L}\p{N}]+/gu;
+const LEFT_MARKS = /\p{M}/gu;
 
 /** Words and quoted phrases of the query; an empty list for a query without letters or digits. */
 export function parseTextSearchQuery(query: string): TextSearchTerm[] {
@@ -70,7 +72,19 @@ export function normalizeForTextSearch(text: string): { text: string; sourceInde
 }
 
 export function createSearchableVerse(verse: Omit<SearchableVerse, "normalized">): SearchableVerse {
-    return { ...verse, normalized: normalizeForTextSearch(verse.text).text };
+    return { ...verse, normalized: normalizeWordsForTextSearch(verse.text) };
+}
+
+/**
+ * The words of normalizeForTextSearch, without the character map: the whole text at once, several times faster
+ * for reading a translation. Text written decomposed ("и" + breve) may compose here; it is rare in Bible files.
+ */
+export function normalizeWordsForTextSearch(text: string): string {
+    return normalizeSearchText(text.normalize("NFD").replace(DROPPED_MARKS, ""))
+        .normalize("NFC")
+        .replace(LEFT_MARKS, "")
+        .replace(NON_WORD_RUN, " ")
+        .trim();
 }
 
 export function isBookInScope(book: number, scope: TextSearchScope): boolean {

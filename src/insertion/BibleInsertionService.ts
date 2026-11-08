@@ -3,7 +3,7 @@ import type { NavigatorBook } from "../application/BibleNavigatorModel";
 import type { BiblePreviewContentBuilder } from "../application/BiblePreviewContentBuilder";
 import type { BiblePreviewContent } from "../application/BiblePreviewModel";
 import type { PluginContext } from "../core/PluginContext";
-import { formatBibleTextMarkdown } from "./BibleTextMarkdown";
+import { type BibleInsertFormat, formatBibleTextMarkdown, getAlternativeInsertFormat } from "./BibleTextMarkdown";
 import { findReferenceAtCursor, insertBlockAfterParagraph, insertBlockAtCursor } from "./EditorInsertion";
 import { getReferenceSuggestions, type ReferenceSuggestion } from "./ReferenceSuggestions";
 import { BibleReferenceSuggest } from "../editor/BibleReferenceSuggest";
@@ -77,11 +77,12 @@ export class BibleInsertionService {
         new Notice(this.context.t("insert.inserted", { note: view.file?.basename ?? "" }), 2500);
     }
 
-    formatContent(content: BiblePreviewContent): string {
+    /** The passage as the insert settings write it: the copy buttons copy the same Markdown. */
+    formatContent(content: BiblePreviewContent, format?: BibleInsertFormat): string {
         const settings = this.context.settings;
         const codes = this.context.getTranslationCodes();
         return formatBibleTextMarkdown(content, {
-            format: settings.insertFormat,
+            format: format ?? settings.insertFormat,
             verseNumbers: settings.insertVerseNumbers,
             footnotes: settings.insertFootnotes,
             activeTranslationId: this.context.activeTranslationId,
@@ -90,12 +91,15 @@ export class BibleInsertionService {
     }
 
     getSuggestions(query: string, withText: boolean): ReferenceSuggestion[] {
-        return getReferenceSuggestions(query, this.getBooks(), (text) => this.context.parseMatches(text), { withText });
+        return getReferenceSuggestions(query, this.getBooks(), (text) => this.context.parseMatches(text), {
+            withText,
+            alternativeFormat: withText ? getAlternativeInsertFormat(this.context.settings.insertFormat) : undefined,
+        });
     }
 
-    private async formatReference(referenceText: string): Promise<string> {
+    private async formatReference(referenceText: string, format?: BibleInsertFormat): Promise<string> {
         const content = await this.contentBuilder.analyze(referenceText, { comparison: false });
-        return content === null ? "" : this.formatContent(content);
+        return content === null ? "" : this.formatContent(content, format);
     }
 
     private async insertSuggestion(
@@ -103,7 +107,7 @@ export class BibleInsertionService {
         suggestion: Exclude<ReferenceSuggestion, { kind: "book" }>,
         range: { start: EditorPosition; end: EditorPosition },
     ): Promise<void> {
-        const markdown = suggestion.kind === "reference-with-text" ? await this.formatReference(suggestion.text) : "";
+        const markdown = suggestion.kind === "reference-with-text" ? await this.formatReference(suggestion.text, suggestion.format) : "";
         const line = editor.getLine(range.start.line);
         const restOfLine = line.slice(0, range.start.ch) + line.slice(range.end.ch);
         if (markdown.length === 0 || restOfLine.trim().length > 0) {
@@ -120,7 +124,6 @@ export class BibleInsertionService {
     }
 
     private renderSuggestion(suggestion: ReferenceSuggestion, el: HTMLElement): void {
-        const t = this.context.t.bind(this.context);
         el.addClass("bible-reference-suggestion");
         if (suggestion.kind === "book") {
             el.createSpan({ text: suggestion.book.name });
@@ -130,10 +133,15 @@ export class BibleInsertionService {
             return;
         }
         el.createSpan({ text: suggestion.text });
-        el.createSpan({
-            cls: "bible-reference-suggestion-note",
-            text: suggestion.kind === "reference" ? t("insert.suggest.reference") : t("insert.suggest.referenceWithText"),
-        });
+        el.createSpan({ cls: "bible-reference-suggestion-note", text: this.getSuggestionNote(suggestion) });
+    }
+
+    private getSuggestionNote(suggestion: Exclude<ReferenceSuggestion, { kind: "book" }>): string {
+        const t = this.context.t.bind(this.context);
+        if (suggestion.kind === "reference") return t("insert.suggest.reference");
+        if (suggestion.format === "callout-collapsed") return t("insert.suggest.referenceWithCollapsedText");
+        if (suggestion.format === "callout") return t("insert.suggest.referenceWithExpandedText");
+        return t("insert.suggest.referenceWithText");
     }
 
     /** Books of every translation, the main one first, for the suggestions. */

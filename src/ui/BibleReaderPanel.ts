@@ -7,7 +7,7 @@ import type { NavigatorBook } from "../application/BibleNavigatorModel";
 import { BibleReaderHistory } from "../reader/BibleReaderHistory";
 import { ICONS, setBookTitle, stripBookIcon } from "./Icons";
 import { scrollPreviewElement, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
-import { copyBibleText } from "./CopyBibleText";
+import { copyBibleContent } from "./CopyBibleText";
 import {
     applyBiblePreviewScroll,
     type BiblePreviewChapterNavigationLabels,
@@ -43,6 +43,7 @@ export type BibleReaderViewInput = {
     getHistoryForwardAria: () => string;
     getCopyNoticeText: () => string;
     getCopyFailedNoticeText: () => string;
+    formatCopyText?: (content: BiblePreviewContent) => string;
     /** The empty reader of a new user: what is missing and buttons to import a Bible file or open the settings. */
     getNoTranslationsText: () => string;
     getImportButtonText: () => string;
@@ -465,7 +466,7 @@ export class BibleReaderPanel {
     }
 
     private async copyText(buttonEl: HTMLButtonElement): Promise<void> {
-        if (!await copyBibleText(this.content?.plainText ?? "", this.input)) return;
+        if (!await copyBibleContent(this.content, this.input)) return;
         const win = buttonEl.win;
         if (this.copyFeedbackTimer !== null) win.clearTimeout(this.copyFeedbackTimer);
         setIcon(buttonEl, ICONS.copied);
