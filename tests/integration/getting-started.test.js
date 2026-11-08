@@ -44,6 +44,11 @@ module.exports = async function runGettingStartedTests() {
   await plugin.settingTabs[0].setControlValue("insertFormat", "quote");
   await plugin.settingTabs[0].setControlValue("referenceSuggestTrigger", "");
   assert.strictEqual(pageNamed(t("settings.insert.title")).displayValue(), `${t("settings.insertFormat.quote")} · ${t("settings.insert.suggestionsOff")}`);
+  // A page drawn again from the definitions built before the change shows the saved characters in the example.
+  await plugin.settingTabs[0].setControlValue("referenceSuggestTrigger", "-+");
+  const triggerSetting = new Setting(document.body.createDiv());
+  pageNamed(t("settings.insert.title")).items.find((item) => item.name === t("settings.referenceSuggestTrigger.name")).render(triggerSetting);
+  assert(triggerSetting.descEl.textContent.includes(`-+${t("settings.referenceSuggestTrigger.exampleReference")}`), triggerSetting.descEl.textContent);
   await plugin.settingTabs[0].setControlValue("insertFormat", "callout-expanded");
   await plugin.settingTabs[0].setControlValue("referenceSuggestTrigger", "--");
 

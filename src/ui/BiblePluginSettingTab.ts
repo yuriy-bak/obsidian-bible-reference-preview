@@ -399,6 +399,9 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     name: t("settings.referenceSuggestTrigger.name"),
                     desc: this.getReferenceSuggestTriggerDescription(),
                     render: (setting) => {
+                        // Obsidian renders the page again from the definitions it keeps, with the description of
+                        // when they were built: show the characters saved since then.
+                        setting.setDesc(this.getReferenceSuggestTriggerDescription());
                         // The example in the description follows the characters as they are typed.
                         setting.addText((text) => text
                             .setPlaceholder("--")
