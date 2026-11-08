@@ -1,17 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.3.5 - Bible search, inserting Bible text and bible blocks
 
-- Shorter settings: **Bible text preview** (in two groups: when to open, where to show), **Inserting and suggestions** and **Appearance** (colors) are pages of their own, like **Bible translations**; each entry shows the current choice ("Floating window · Automatically for current paragraph").
-- Bible search: the command **Search Bible text**, the magnifier in the reader and the reader's book picker (any typed text, a book name like "Job" too) open a panel that finds verses by words (each matched by its beginning) or a phrase in quotes, in one translation and the whole Bible, a Testament or one book. Results are grouped by book; a click opens the chapter in the reader with the verse highlighted (on a phone, under the note, the panel hides). The translation is read when the panel opens, several books at once.
-- Reference usages have a quotes icon instead of the magnifier, which now stands for the Bible search.
 - Insert Bible text into a note: the command **Insert Bible text** (on a reference: its text below the paragraph; elsewhere: type a reference), suggestions after `--` (`--John 3:16`: the books, then the reference alone or with its text in any format) and **Insert into note** in the preview's menu. The text goes in as a foldable callout (expanded or collapsed), a quote or a `bible` block, with or without verse numbers and footnotes (**Inserting and suggestions** in the settings).
 - A `bible` code block shows the text of the references written in it, one per line, right in the note: in reading mode, Live Preview, PDF export and print. The note keeps only the references; the text follows the main translation, or the one a translation code names.
+- Bible search: the command **Search Bible text**, the magnifier in the reader and the reader's book picker (any typed text, a book name like "Job" too) open a panel that finds verses by words (each matched by its beginning) or a phrase in quotes, in one translation and the whole Bible, a Testament or one book. Results are grouped by book; a click opens the chapter in the reader with the verse highlighted (on a phone, under the note, the panel hides). The translation is read when the panel opens, several books at once.
+- Reference usages have a quotes icon instead of the magnifier, which now stands for the Bible search.
+- Shorter settings: **Bible text preview** (in two groups: when to open, where to show), **Inserting and suggestions** and **Appearance** (colors) are pages of their own, like **Bible translations**; each entry shows the current choice ("Floating window · Automatically for current paragraph").
+- A reference no longer continues on the next line: in "Judg 4:3,14;" followed by "5:14" on a new line, 5:14 used to be highlighted as a link that did not open. Now only the first line is a reference, the same in the editor, the preview, reading mode and the usage index.
 - A **Thank the author** button at the end of the plugin settings and a **Donate** button on the plugin's page in Obsidian lead to the author's Boosty page; the README has a Boosty button at the top.
 - You can support the plugin's development on [Boosty](https://boosty.to/yuriybak): a Sponsor button on GitHub and a link in the README.
-- README: new screenshots and GIF with the World English Bible, KJV and Russian Synodal translations; one phone screenshot for both READMEs.
-- A reference no longer continues on the next line: in "Judg 4:3,14;" followed by "5:14" on a new line, 5:14 used to be highlighted as a link that did not open. Now only the first line is a reference, the same in the editor, the preview, reading mode and the usage index.
 - Questions and ideas now have a home in [GitHub Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions), linked from the README and the new issue page.
+- README: new screenshots and GIF with the World English Bible, KJV and Russian Synodal translations; one phone screenshot for both READMEs.
 - README: phone screenshots of the Bible reader under the note and the Bible translations page.
 - README: a "Bible texts and copyright" section (the plugin has no Bible text, is not affiliated with jw.org, eBible.org or the Digital Bible Society; imported texts are for personal study).
 
