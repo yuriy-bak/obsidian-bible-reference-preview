@@ -109,6 +109,10 @@ The verse numbering scheme is detected from the text. If detection is not certai
 
 Verses that the translation joins together are shown under one number ("16–17"). Some dbs.org files have lost lists, such as genealogies (1 Chronicles 1–2, Matthew 1:2–17, Romans 16:3–16); those verses are shown as missing. The plugin only reads the file for you and shares nothing; check the license of the translation before sharing the file.
 
+## Bible texts and copyright
+
+The plugin contains no Bible text and downloads nothing: you import a file you downloaded yourself, and the text stays in the plugin folder of your vault. The plugin is not affiliated with jw.org, eBible.org or the Digital Bible Society. Each translation keeps its copyright and the terms of the site you got it from; for example, jw.org allows its publications for personal, non-commercial use. Keep imported texts for your own study and check the license before sharing them. In the screenshots above, the text of the New World Translation is blurred for this reason.
+
 ## Privacy
 
 The plugin makes no network requests. It reads the list of Markdown files only to build the local usage index, and it writes to the clipboard only when you press copy.
