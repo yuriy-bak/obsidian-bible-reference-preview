@@ -134,6 +134,8 @@ export class BibleReferenceParser {
     private normalizeLineWithOffsets(text: string): NormalizedLine {
         // One pass: characters are normalized via a per-character cache, whitespace runs collapse
         // to one space, and a space next to a reference delimiter (",", ":", ";") is dropped.
+        // A line break stays a line break: a reference never continues on the next line, so the
+        // same text gives the same references whether it is parsed line by line or as a paragraph.
         let normalizedText = "";
         const offsets: number[] = [];
         let lastCharacter = "";
@@ -146,8 +148,18 @@ export class BibleReferenceParser {
                 const character = normalizedCharacters[characterIndex];
 
                 if (character === " ") {
-                    if (lastCharacter !== "" && pendingSpaceOffset < 0) {
+                    if (lastCharacter !== "" && lastCharacter !== LINE_BREAK && pendingSpaceOffset < 0) {
                         pendingSpaceOffset = index;
+                    }
+                    continue;
+                }
+
+                if (character === LINE_BREAK) {
+                    pendingSpaceOffset = -1;
+                    if (lastCharacter !== "" && lastCharacter !== LINE_BREAK) {
+                        normalizedText += LINE_BREAK;
+                        offsets.push(index);
+                        lastCharacter = LINE_BREAK;
                     }
                     continue;
                 }
@@ -514,7 +526,11 @@ const BIG_BOOK_BODY_PATTERN = /\d+:\d+(?:-\d+:\d+|-\d+|,\d+)*(?:;\d+:\d+(?:-\d+:
 // One-chapter books also accept the "1:N" form ("Jude 1:5"); any other chapter number is not a reference.
 const SHORT_BOOK_BODY_PATTERN = /(?:1:)?\d+(?:-\d+|,\d+)*(?:;(?:1:)?\d+(?:-\d+|,\d+)*)*(?!\d*:)/y;
 
-// Normalized form of each source character: "" when it is dropped, " " for whitespace.
+// Line breaks end a reference; other whitespace is a space.
+const LINE_BREAK = "\n";
+
+// Normalized form of each source character: "" when it is dropped, "\n" for a line break,
+// " " for other whitespace.
 // The result may be longer than one character (e.g. after toLowerCase).
 const normalizedSearchCharacterCache = new Map<string, string>();
 
@@ -527,6 +543,9 @@ function normalizeSearchCharacter(character: string): string {
         }
         if (character === ".") {
             return "";
+        }
+        if (code === 0x0A || code === 0x0D) {
+            return LINE_BREAK;
         }
         if (code === 0x20 || (code >= 0x09 && code <= 0x0D)) {
             return " ";
@@ -545,6 +564,10 @@ function normalizeSearchCharacter(character: string): string {
 }
 
 function normalizeNonAsciiSearchCharacter(character: string): string {
+    if (character === "\u2028" || character === "\u2029") {
+        return LINE_BREAK;
+    }
+
     const normalizedCharacter = normalizeSearchText(character);
 
     if (normalizedCharacter === ".") {

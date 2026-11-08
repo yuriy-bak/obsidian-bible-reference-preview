@@ -35,6 +35,25 @@ module.exports = async () => {
   assert.deepStrictEqual(parser.parse("Иуд6"), [
     { book: 65, chapterStart: 1, verseStart: 6, chapterEnd: 1, verseEnd: 6 },
   ]);
+  // A reference never continues on the next line: parsing a paragraph gives the same
+  // references as parsing it line by line (the click and the reading mode work per line).
+  const lineBreakSamples = ["Ин3:16,18;\n5:14", "Ин3:16,18;\r\n5:14", "Ин3:16,18; \n 5:14", "Ин3:16,18;\u20285:14"];
+  for (const sample of lineBreakSamples) {
+    const lineBreakMatches = parser.parseMatches(sample);
+    assert.strictEqual(lineBreakMatches.length, 1, JSON.stringify(sample));
+    assert.strictEqual(lineBreakMatches[0].text, "Ин3:16,18");
+    assert.deepStrictEqual(lineBreakMatches[0].references.map((reference) => reference.verseStart), [16, 18]);
+  }
+  assert.deepStrictEqual(parser.parse("Ин3:16,\n17 человек"), [
+    { book: 43, chapterStart: 3, verseStart: 16, chapterEnd: 3, verseEnd: 16 },
+  ]);
+  assert.deepStrictEqual(parser.parse("Ин\n3:16"), []);
+  assert.deepStrictEqual(parser.parse("1\nКор 13:4"), []);
+  assert.deepStrictEqual(parser.parse("Ин 3:16 и\n\nРим 8:28").map((reference) => reference.book), [43, 45]);
+  const secondLineMatches = parser.parseMatches("текст\nИн 3:16");
+  assert.strictEqual(secondLineMatches.length, 1);
+  assert.strictEqual(secondLineMatches[0].from, 6);
+  assert.strictEqual(secondLineMatches[0].text, "Ин 3:16");
   // One-chapter books also accept "1:N"; another chapter number is not a reference.
   const judeVerses = (...ranges) => ranges.map(([verseStart, verseEnd]) => ({
     book: 65, chapterStart: 1, verseStart, chapterEnd: 1, verseEnd,
