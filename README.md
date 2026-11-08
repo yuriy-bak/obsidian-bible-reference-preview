@@ -2,6 +2,8 @@
 
 **English** | [Русский](README.ru.md)
 
+[![Support on Boosty](https://img.shields.io/badge/Boosty-Support_the_plugin-F15F2C?logo=boosty&logoColor=white)](https://boosty.to/yuriybak)
+
 Write `John 3:16` in a note and read the verse right next to it, in a floating window or in a side panel. Works offline on desktop and on phones (Android, iOS), with Bible translations you import once from free EPUB and HTML files, in any language they are published in.
 
 ![Typing a reference opens the Bible text; the comparison shows four translations](https://raw.githubusercontent.com/yuriy-bak/obsidian-bible-reference-preview/main/docs/images/hero.gif)

@@ -7,6 +7,7 @@ import type { BibleLinkOpenShortcut, BiblePreviewDisplayMode, BiblePreviewPanelS
 import type { SettingsService } from "../settings/SettingsService";
 import type { TranslationService } from "../translations/TranslationService";
 import { createColorSettingDefinitions } from "./ColorSettingsSection";
+import { createSupportSettingsGroup } from "./SupportSettingsSection";
 import { renderBackgroundTaskStatus } from "./BackgroundTaskProgress";
 import { createReferenceUsageIndexSettingsGroup, type ReferenceUsageIndexSettingKey } from "./ReferenceUsageIndexSettingsSection";
 import { createTranslationSettingsList } from "./TranslationSettingsList";
@@ -72,6 +73,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     refresh: () => this.update(),
                 }),
             },
+            createSupportSettingsGroup<SettingControlKey>((key) => this.services.context.t(key), (url) => window.open(url, "_blank")),
         ];
     }
 

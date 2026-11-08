@@ -33,6 +33,20 @@ module.exports = async function runGettingStartedTests() {
   assert(!mainDefinitions.some((definition) => definition.name === t("settings.import.name")), "import is on the translations page");
   assert.strictEqual(translationsPage(plugin).desc, t("settings.translationsPage.empty"));
 
+  // The last group of the main screen: a button for each page where the author can be thanked, opened in the browser.
+  const supportGroup = mainDefinitions[mainDefinitions.length - 1];
+  assert.strictEqual(supportGroup.heading, t("settings.support.title"));
+  const supportSetting = new Setting(document.body.createDiv());
+  supportGroup.items[0].render(supportSetting);
+  const supportButtons = Array.from(supportSetting.settingEl.querySelectorAll("button"));
+  assert.deepStrictEqual(supportButtons.map((button) => button.textContent), ["Boosty"]);
+  const openedUrls = [];
+  const originalOpen = window.open;
+  window.open = (url) => { openedUrls.push(url); return null; };
+  supportButtons[0].click();
+  window.open = originalOpen;
+  assert.deepStrictEqual(openedUrls, [require("../../manifest.json").fundingUrl.Boosty]);
+
   // The translations page: where to download a Bible file, in the interface language.
   const importSetting = renderImportSetting(plugin);
   const links = Array.from(importSetting.querySelectorAll(".bible-getting-started a")).map((link) => link.getAttribute("href"));

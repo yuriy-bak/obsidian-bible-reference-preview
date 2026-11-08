@@ -2,6 +2,8 @@
 
 [English](README.md) | **Русский**
 
+[![Поддержать на Boosty](https://img.shields.io/badge/Boosty-%D0%9F%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C_%D0%BF%D0%BB%D0%B0%D0%B3%D0%B8%D0%BD-F15F2C?logo=boosty&logoColor=white)](https://boosty.to/yuriybak)
+
 Напишите в заметке `Ин 3:16` и читайте стих прямо рядом с ней: во всплывающем окне или в боковой панели. Работает без интернета на компьютере и на телефоне (Android, iOS) с переводами Библии, которые вы один раз импортируете из бесплатных файлов EPUB и HTML, на любом языке, на котором они изданы.
 
 ![Ссылка в заметке сразу показывает текст; в сравнении четыре перевода](https://raw.githubusercontent.com/yuriy-bak/obsidian-bible-reference-preview/main/docs/images/hero.gif)
