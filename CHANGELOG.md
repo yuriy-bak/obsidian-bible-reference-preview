@@ -5,6 +5,7 @@
 - A reference no longer continues on the next line: in "Judg 4:3,14;" followed by "5:14" on a new line, 5:14 used to be highlighted as a link that did not open. Now only the first line is a reference, the same in the editor, the preview, reading mode and the usage index.
 - Questions and ideas now have a home in [GitHub Discussions](https://github.com/yuriy-bak/obsidian-bible-reference-preview/discussions), linked from the README and the new issue page.
 - README: phone screenshots of the Bible reader under the note and the Bible translations page.
+- README: a "Bible texts and copyright" section (the plugin has no Bible text, is not affiliated with jw.org, eBible.org or the Digital Bible Society; imported texts are for personal study).
 
 ## 0.3.4 - Compact translation list, safer index, clearer errors
 
