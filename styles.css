@@ -1293,3 +1293,22 @@ button.bible-reference-usage-pane-open-button {
     padding: var(--size-4-2) 0;
     color: var(--text-muted);
 }
+
+/* A ```bible block: the passages its lines reference, rendered in the note. */
+.bible-code-block {
+    padding: 0.6em 1em;
+    border-left: 3px solid var(--bible-reference-link-color, var(--interactive-accent));
+    border-radius: var(--radius-s);
+    background-color: var(--background-secondary);
+}
+
+.bible-code-block-passage + .bible-code-block-passage,
+.bible-code-block-passage + .bible-code-block-unrecognized,
+.bible-code-block-unrecognized + .bible-code-block-passage {
+    margin-top: 0.8em;
+}
+
+.bible-code-block-unrecognized,
+.bible-code-block-message {
+    color: var(--text-muted);
+}
