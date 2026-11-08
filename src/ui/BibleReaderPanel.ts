@@ -67,6 +67,9 @@ export type BibleReaderViewInput = {
     getNavigatorBooks: (translationId: string) => NavigatorBook[];
     getNavigatorLabels: () => BibleNavigatorLabels;
     getOpenNavigatorAria: () => string;
+    getSearchTextAria: () => string;
+    /** Opens the Bible search, in the reader's translation, with text typed in the navigator. */
+    onSearchText: (query: string, translationId: string | null) => void;
     /** The imported translations in the settings order. */
     getTranslationOptions: () => { id: string; name: string }[];
     getTranslationSelectAria: () => string;
@@ -239,6 +242,7 @@ export class BibleReaderPanel {
             onOpenChapter: (target) => void this.openTarget(target),
             // The navigator takes the place of the text while it is open; the text keeps its scroll position.
             onVisibilityChange: (open) => this.setNavigatorShown(open),
+            onSearchText: (query) => this.input.onSearchText(query, this.translationId),
         });
         this.textEl = this.rootEl.createDiv({ cls: ["bible-preview-pane-content", "bible-reader-content"] });
         // The navigator's search field is pinned right under the bar, whose height changes as it wraps.
@@ -355,6 +359,7 @@ export class BibleReaderPanel {
         this.createNavigatorToggle(barEl, chapterView?.title ?? this.input.getChooseBookText());
         this.createTranslationSelect(barEl);
         barEl.createDiv({ cls: "bible-reader-bar-spacer" });
+        this.createIconButton(barEl, ICONS.searchText, this.input.getSearchTextAria(), this.translationId === null, () => this.input.onSearchText("", this.translationId));
 
         if (location !== null && chapterView !== undefined && this.textEl !== null) {
             const translationId = location.translationId;

@@ -5,7 +5,8 @@ import { BOOK_ICON } from "../application/BiblePreviewModel";
 export const ICONS = {
     book: "book-open",
     openChapter: "book-open-text",
-    findUsages: "search",
+    findUsages: "text-quote",
+    searchText: "search",
     highlight: "highlighter",
     back: "undo-2",
     previousChapter: "chevron-left",

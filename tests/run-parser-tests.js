@@ -22,6 +22,7 @@ const TEST_FILES = [
   "i18n",
   "code-block",
   "insertion",
+  "text-search",
 ];
 
 (async () => {

@@ -7,6 +7,8 @@ export type BibleNavigatorLabels = {
     backToBooks: string;
     close: string;
     noBooks: string;
+    /** The button that searches the typed text in the Bible, when it names no book. */
+    searchText?: (query: string) => string;
 };
 
 export type BibleNavigatorPanelInput = {
@@ -14,6 +16,8 @@ export type BibleNavigatorPanelInput = {
     getLabels: () => BibleNavigatorLabels;
     onOpenChapter: (target: BibleChapterTarget) => void;
     onVisibilityChange: (open: boolean) => void;
+    /** Text that is no book or reference: search it in the Bible text. */
+    onSearchText?: (query: string) => void;
 };
 
 /**
@@ -106,6 +110,7 @@ export class BibleNavigatorPanel {
         const books = filterNavigatorBooks(this.input.getBooks(), this.filtering ? this.searchEl.value : "");
         if (books.length === 0) {
             this.bodyEl.createDiv({ cls: "bible-reader-navigator-empty", text: labels.noBooks });
+            this.renderSearchTextButton(labels);
             return;
         }
         // The two groups of books (ids 1-39 and the rest) are parted by a line, with no names:
@@ -115,6 +120,23 @@ export class BibleNavigatorPanel {
         this.renderBookGrid(oldBooks);
         if (oldBooks.length > 0 && newBooks.length > 0) this.bodyEl.createEl("hr", { cls: "bible-reader-navigator-separator" });
         this.renderBookGrid(newBooks);
+    }
+
+    private renderSearchTextButton(labels: BibleNavigatorLabels): void {
+        const query = this.searchEl.value.trim();
+        if (query.length === 0 || this.input.onSearchText === undefined || labels.searchText === undefined) return;
+        const buttonEl = this.bodyEl.createEl("button", { cls: "bible-reader-navigator-search-text" });
+        buttonEl.type = "button";
+        setIconWithText(buttonEl, ICONS.searchText, labels.searchText(query));
+        buttonEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            this.searchText(query);
+        });
+    }
+
+    private searchText(query: string): void {
+        this.close();
+        this.input.onSearchText?.(query);
     }
 
     private renderBookGrid(books: NavigatorBook[]): void {
@@ -187,8 +209,15 @@ export class BibleNavigatorPanel {
             this.openChapter(target.book, target.chapter, target.verseStart, target.verseEnd);
             return;
         }
-        const book = target?.book ?? onlyItem(filterNavigatorBooks(books, this.searchEl.value));
-        if (book !== undefined) this.chooseBook(book);
+        const matchingBooks = filterNavigatorBooks(books, this.searchEl.value);
+        const book = target?.book ?? onlyItem(matchingBooks);
+        if (book !== undefined) {
+            this.chooseBook(book);
+            return;
+        }
+        // Text that names no book is searched in the Bible.
+        const query = this.searchEl.value.trim();
+        if (target === null && matchingBooks.length === 0 && query.length > 0 && this.input.onSearchText !== undefined) this.searchText(query);
     }
 }
 

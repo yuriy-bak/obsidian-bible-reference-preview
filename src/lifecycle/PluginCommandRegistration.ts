@@ -8,6 +8,7 @@ import type { SettingsService } from "../settings/SettingsService";
 import type { BiblePreviewService } from "../preview/BiblePreviewService";
 import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
 import type { BibleInsertionService } from "../insertion/BibleInsertionService";
+import type { BibleSearchService } from "../search/BibleSearchService";
 
 export type PluginCommandServices = {
     context: PluginContext;
@@ -18,10 +19,11 @@ export type PluginCommandServices = {
     referenceUsage: ReferenceUsageService;
     editor: EditorService;
     insertion: BibleInsertionService;
+    search: BibleSearchService;
 };
 
 export function registerPluginCommands(plugin: Plugin, services: PluginCommandServices): void {
-    const { context, settings, library, preview, reader, referenceUsage, editor, insertion } = services;
+    const { context, settings, library, preview, reader, referenceUsage, editor, insertion, search } = services;
     const t = (key: Parameters<PluginContext["t"]>[0]) => context.t(key);
     // Listed only while there is something to scroll: the reader first, then the preview.
     const scrollCommand = (command: BiblePreviewScrollCommand, checking: boolean): boolean => {
@@ -65,6 +67,7 @@ export function registerPluginCommands(plugin: Plugin, services: PluginCommandSe
         callback: () => void settings.togglePluginActive(),
     });
     plugin.addCommand({ id: "insert-bible-text", name: t("command.insertBibleText"), editorCallback: (noteEditor) => void insertion.insertAtCursor(noteEditor) });
+    plugin.addCommand({ id: "search-bible-text", name: t("command.searchBibleText"), callback: () => void search.openPanel() });
     plugin.addCommand({ id: "open-bible-reader", name: t("command.openBibleReader"), callback: () => void reader.openReader() });
     plugin.addCommand({ id: "open-bible-reader-new-tab", name: t("command.openBibleReaderNewTab"), callback: () => void reader.openReader({ newTab: true }) });
     plugin.addCommand({ id: "go-to-bible-chapter", name: t("command.goToBibleChapter"), callback: () => void reader.openNavigator() });
