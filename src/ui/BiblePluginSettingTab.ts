@@ -1,3 +1,4 @@
+import { INSERT_FORMAT_LABEL_KEYS } from "../insertion/BibleTextMarkdown";
 import { App, Notice, Platform, Plugin, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
 import type { PluginContext } from "../core/PluginContext";
 import type { BiblePluginLocale } from "../i18n/I18n";
@@ -352,10 +353,10 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                         type: "dropdown",
                         key: "insertFormat",
                         options: {
-                            callout: t("settings.insertFormat.callout"),
-                            "callout-collapsed": t("settings.insertFormat.calloutCollapsed"),
-                            quote: t("settings.insertFormat.quote"),
-                            "code-block": t("settings.insertFormat.codeBlock"),
+                            callout: t(INSERT_FORMAT_LABEL_KEYS.callout),
+                            "callout-collapsed": t(INSERT_FORMAT_LABEL_KEYS["callout-collapsed"]),
+                            quote: t(INSERT_FORMAT_LABEL_KEYS.quote),
+                            "code-block": t(INSERT_FORMAT_LABEL_KEYS["code-block"]),
                         },
                     },
                 },
@@ -371,11 +372,26 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                 },
                 {
                     name: t("settings.referenceSuggestTrigger.name"),
-                    desc: t("settings.referenceSuggestTrigger.desc"),
-                    control: { type: "text", key: "referenceSuggestTrigger", placeholder: "--" },
+                    desc: this.getReferenceSuggestTriggerDescription(),
+                    render: (setting) => {
+                        // The example in the description follows the characters as they are typed.
+                        setting.addText((text) => text
+                            .setPlaceholder("--")
+                            .setValue(this.services.settings.getReferenceSuggestTrigger())
+                            .onChange(async (value) => {
+                                await this.services.settings.setReferenceSuggestTrigger(value);
+                                setting.setDesc(this.getReferenceSuggestTriggerDescription());
+                            }));
+                    },
                 },
             ],
         };
+    }
+
+    private getReferenceSuggestTriggerDescription(): string {
+        const t = this.services.context.t.bind(this.services.context);
+        const trigger = this.services.settings.getReferenceSuggestTrigger() || "--";
+        return t("settings.referenceSuggestTrigger.desc", { example: `${trigger}${t("settings.referenceSuggestTrigger.exampleReference")}` });
     }
 
     private createBibleIndexSettingsGroup(): SettingDefinitionItem<SettingControlKey> {

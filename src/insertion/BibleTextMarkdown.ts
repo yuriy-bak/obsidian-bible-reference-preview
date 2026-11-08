@@ -1,11 +1,21 @@
 // The passage of a preview as Markdown for a note: a callout, a quote or a ```bible block.
 import type { BiblePreviewBlock, BiblePreviewContent, BiblePreviewParagraph } from "../application/BiblePreviewModel";
 import { BIBLE_CODE_BLOCK_LANGUAGE } from "../code-block/BibleCodeBlock";
+import type { I18nKey } from "../i18n/I18n";
 
 export type BibleInsertFormat = "callout" | "callout-collapsed" | "quote" | "code-block";
 
 export const BIBLE_INSERT_FORMATS: readonly BibleInsertFormat[] = ["callout", "callout-collapsed", "quote", "code-block"];
 export const BIBLE_CALLOUT_TYPE = "bible";
+
+/** One name per format, in the setting and in the reference suggestions. */
+export const INSERT_FORMAT_LABEL_KEYS = {
+    callout: "settings.insertFormat.callout",
+    "callout-collapsed": "settings.insertFormat.calloutCollapsed",
+    quote: "settings.insertFormat.quote",
+    "code-block": "settings.insertFormat.codeBlock",
+} as const satisfies Record<BibleInsertFormat, I18nKey>;
+
 
 export type BibleTextMarkdownOptions = {
     format: BibleInsertFormat;
