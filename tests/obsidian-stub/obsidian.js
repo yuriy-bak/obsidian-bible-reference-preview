@@ -97,6 +97,7 @@ class Plugin extends Component {
     this.views = new Map();
     this.settingTabs = [];
     this.markdownPostProcessors = [];
+    this.markdownCodeBlockProcessors = new Map();
     this.editorExtensions = [];
     this.ribbonIcons = [];
   }
@@ -128,6 +129,10 @@ class Plugin extends Component {
     return processor;
   }
 
+  registerMarkdownCodeBlockProcessor(language, handler) {
+    this.markdownCodeBlockProcessors.set(language, handler);
+  }
+
   registerEditorExtension(extension) {
     this.editorExtensions.push(extension);
   }
@@ -137,6 +142,13 @@ class Plugin extends Component {
     el.addEventListener("click", callback);
     this.ribbonIcons.push(el);
     return el;
+  }
+}
+
+class MarkdownRenderChild extends Component {
+  constructor(containerEl) {
+    super();
+    this.containerEl = containerEl;
   }
 }
 
@@ -634,6 +646,7 @@ module.exports = {
   DropdownComponent,
   Events,
   ItemView,
+  MarkdownRenderChild,
   MarkdownView,
   Menu,
   MenuItem,

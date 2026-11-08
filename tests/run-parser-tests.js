@@ -20,6 +20,7 @@ const TEST_FILES = [
   "bible-navigator",
   "reader-split",
   "i18n",
+  "code-block",
 ];
 
 (async () => {

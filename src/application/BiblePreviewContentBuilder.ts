@@ -21,8 +21,9 @@ export class BiblePreviewContentBuilder {
         private readonly translations: TranslationService,
     ) {}
 
-    analyze(text: string): Promise<BiblePreviewContent | null> {
-        return this.createAnalyzer().analyzeParagraph(text);
+    /** `comparison: false` shows one translation even when the preview compares (a ```bible block). */
+    analyze(text: string, options: { comparison?: boolean } = {}): Promise<BiblePreviewContent | null> {
+        return this.createAnalyzer(options.comparison).analyzeParagraph(text);
     }
 
     rebuild(content: BiblePreviewContent): Promise<BiblePreviewContent | null> {
@@ -100,7 +101,7 @@ export class BiblePreviewContentBuilder {
         return mapped === undefined ? location : { book: mapped.book, chapter: mapped.chapterStart };
     }
 
-    private createAnalyzer(): BiblePreviewAnalyzer {
+    private createAnalyzer(comparison?: boolean): BiblePreviewAnalyzer {
         const context = this.context;
         const bibleIndex = context.bibleIndex;
         const bookMapping = context.bookMapping;
@@ -109,7 +110,7 @@ export class BiblePreviewContentBuilder {
         return new BiblePreviewAnalyzer({
             hasImportedTranslations: () => context.hasImportedTranslations(),
             getActiveTranslationId: () => context.activeTranslationId,
-            isPreviewComparisonEnabled: () => context.settings.previewComparisonEnabled,
+            isPreviewComparisonEnabled: () => comparison ?? context.settings.previewComparisonEnabled,
             parseMatches: (text) => context.parseMatches(text),
             getBibleTextBlocks: (references, translationId, sourceText) => getBibleTextBlocks(references, bibleIndex, translationId, sourceText),
             formatBibleTextBlocks: (blocks, mapping) => formatBibleTextBlocks(blocks, mapping ?? bookMapping, context.t("preview.missingVerse")),

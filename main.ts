@@ -20,6 +20,8 @@ import { BibleReadingModePreviewController } from "./src/ui/BibleReadingModePrev
 import { openConfirmModal } from "./src/ui/ConfirmModal";
 import { FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView } from "./src/ui/ReferenceUsagePaneView";
+import { BIBLE_CODE_BLOCK_LANGUAGE } from "./src/code-block/BibleCodeBlock";
+import { BibleCodeBlockView, type BibleCodeBlockViewInput } from "./src/ui/BibleCodeBlockView";
 
 export default class BiblePlugin extends Plugin {
     private readonly context = new PluginContext(this);
@@ -28,6 +30,7 @@ export default class BiblePlugin extends Plugin {
         refreshVisibleBiblePreviewContent: async () => {
             await this.preview.refreshVisibleContent();
             await this.reader.refreshAll();
+            this.refreshBibleCodeBlocks();
         },
         confirm: (request) => openConfirmModal(this.app, request),
     });
@@ -46,6 +49,7 @@ export default class BiblePlugin extends Plugin {
     private readonly editor = new EditorService(this.context, this.settingsService, this.contentBuilder, this.preview);
     private readonly referenceUsage = new ReferenceUsageService(this.context, this.editor, this.preview);
     private readingModePreviewController: BibleReadingModePreviewController | null = null;
+    private readonly bibleCodeBlocks = new Set<BibleCodeBlockView>();
     private readonly windowListenerDisposers = new Map<Window, () => void>();
     private pluginActiveRibbonIconEl: HTMLElement | null = null;
     private layoutReady = false;
@@ -57,10 +61,14 @@ export default class BiblePlugin extends Plugin {
         this.context.onSettingsChanged((keys) => {
             if (keys.has("isPluginActive")) this.updatePluginActiveRibbonIcon();
             if (keys.has("bibleReferenceLinkColor")) this.applyLinkColorToWindows();
-            if (keys.has("interfaceLanguage")) this.readingModePreviewController?.refreshLocalizedLabels();
+            if (keys.has("interfaceLanguage")) {
+                this.readingModePreviewController?.refreshLocalizedLabels();
+                this.refreshBibleCodeBlocks();
+            }
         });
         this.context.onBookMappingChanged(() => {
             this.editor.refreshLinks();
+            this.refreshBibleCodeBlocks();
             this.scheduleParserChangeHandling();
         });
         await this.context.loadSettings();
@@ -126,6 +134,9 @@ export default class BiblePlugin extends Plugin {
             parseMatches: (text) => this.context.parseMatches(text),
             openBibleReference: (anchorEl, referenceText) => this.readingModePreviewController?.open(anchorEl, referenceText),
         }));
+        this.registerMarkdownCodeBlockProcessor(BIBLE_CODE_BLOCK_LANGUAGE, (source, el, ctx) => {
+            ctx.addChild(new BibleCodeBlockView(el, source, this.createBibleCodeBlockInput(), this.bibleCodeBlocks));
+        });
         this.registerEditorExtension(this.editor.createExtension());
         this.referenceUsage.registerVaultEvents(this);
         this.register(() => this.library.cancelImportOnUnload());
@@ -224,6 +235,27 @@ export default class BiblePlugin extends Plugin {
             isFloatingPreviewTarget: (target) => this.preview.isFloatingTarget(target),
             hideFloatingBiblePreview: () => this.preview.hideFloating(),
         });
+    }
+
+    private createBibleCodeBlockInput(): BibleCodeBlockViewInput {
+        const t = this.context.t.bind(this.context);
+        return {
+            hasImportedTranslations: () => this.context.hasImportedTranslations(),
+            hasReference: (line) => this.context.parseMatches(line).length > 0,
+            analyze: (line) => this.contentBuilder.analyze(line, { comparison: false }),
+            getRenderOptions: () => ({
+                getFindUsagesButtonAria: (target) => t("preview.findUsagesAria", { reference: target.title }),
+                onFindUsages: (target) => void this.referenceUsage.showUsagesForPreviewBlock(target),
+                getOpenChapterAria: (title) => t("preview.openChapterAria", { reference: title }),
+                onOpenChapter: (target, translationId, newTab) =>
+                    void this.reader.openChapter(target, translationId, { newTab }),
+            }),
+            getLabels: () => ({ noTranslations: t("codeBlock.noTranslations"), empty: t("codeBlock.empty") }),
+        };
+    }
+
+    private refreshBibleCodeBlocks(): void {
+        for (const view of this.bibleCodeBlocks) void view.render();
     }
 
     private toUsagesReturnPoint(point: BiblePreviewReturnPoint | null): ReferenceUsageReturnPoint | null {

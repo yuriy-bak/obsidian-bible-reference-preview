@@ -52,6 +52,14 @@ More sources and details are in [Importing a translation](#importing-a-translati
 - **On a phone**, the side panel is the most convenient: set **Bible text display mode** to **Side panel**, and open or close the Bible text with a swipe from the screen edge. The Bible reader scrolls like a note: with **Full screen** turned on in Obsidian, the bottom bar hides while you read. To read and write at the same time, set **Bible reader on a phone** to **Under the note**: the chapter opens in a panel below the note, drag the line above it to change its height. The ⋯ menu of a reader tab has **Open under the note** and the panel's bar opens the chapter in a tab; this move also changes the setting. The command the command **Show or hide Bible reader under the note** toggles the panel.
 - **Bible text** keeps paragraphs, poetry lines, footnotes, psalm titles and verses that the translation joins together ("16–17").
 - **Copy** the passage with its reference and footnotes, in comparison mode too.
+- **Bible text in the note:** a `bible` code block shows the text of the references written in it, one per line, from your translations. The note keeps only the references, the text follows the main translation (or the one a translation code names), and it is included when you export the note to PDF or print it. Obsidian Publish does not run plugins, so a published note shows the references only.
+
+  ````
+  ```bible
+  John 3:16
+  Rom 8:28-30
+  ```
+  ````
 - **Bible reader:** the open-book icon in a passage title opens the full chapter in a reader tab, in the translation and numbering of that passage. Click the chapter title to pick a book and chapter (type `John`, `1 Cor 13` or `John 3:16` to filter), or use the command **Go to Bible book and chapter**. The translation selector shows the same chapter in another translation (Synodal Ps 22 → English Ps 23) without changing the default one. Back and forward go through the chapters you opened, the arrows open the previous or next chapter, the highlighter hides or shows the highlighting, and the magnifier lists all usages of the chapter. Ctrl/Cmd-click on the ribbon icon opens another reader tab; the last chapter reopens after a restart.
 - **Comparison:** the books-on-a-shelf button in the preview header turns it on (it stays highlighted while comparison is on); choose the translations in the header list.
 - **A translation code** after a reference shows the passage in that translation and its numbering: `Ps 23:1 (WEB)`, where `WEB` is the code of an imported translation. Codes can be changed in the translation list.

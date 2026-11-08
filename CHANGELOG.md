@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A `bible` code block shows the text of the references written in it, one per line, right in the note: in reading mode, Live Preview, PDF export and print. The note keeps only the references; the text follows the main translation, or the one a translation code names.
 - A **Thank the author** button at the end of the plugin settings and a **Donate** button on the plugin's page in Obsidian lead to the author's Boosty page; the README has a Boosty button at the top.
 - You can support the plugin's development on [Boosty](https://boosty.to/yuriybak): a Sponsor button on GitHub and a link in the README.
 - README: new screenshots and GIF with the World English Bible, KJV and Russian Synodal translations; one phone screenshot for both READMEs.

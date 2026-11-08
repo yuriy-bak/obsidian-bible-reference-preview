@@ -23,7 +23,7 @@ export function processReadingModeBibleReferences(input: ReadingModeBibleReferen
             }
 
             const parent = node.parentElement;
-            if (parent === null || parent.closest("a,code,pre,script,style,textarea,button,input,select,option,.math,.math-block,.math-inline,.cm-inline-code,.bible-reference-reading-link") !== null) {
+            if (parent === null || parent.closest("a,code,pre,script,style,textarea,button,input,select,option,.math,.math-block,.math-inline,.cm-inline-code,.bible-reference-reading-link,.bible-code-block") !== null) {
                 return NodeFilter.FILTER_REJECT;
             }
 
