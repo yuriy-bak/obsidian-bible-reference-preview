@@ -1308,6 +1308,11 @@ button.bible-reference-usage-pane-open-button {
     margin-top: 0.8em;
 }
 
+/* Live Preview puts its "edit block" button over the top right corner: the find-usages buttons move aside, all alike. */
+.cm-embed-block .bible-code-block .bible-preview-reference-title-row {
+    padding-right: var(--size-4-8, 32px);
+}
+
 .bible-code-block-unrecognized,
 .bible-code-block-message {
     color: var(--text-muted);

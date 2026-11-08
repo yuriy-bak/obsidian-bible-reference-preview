@@ -39,8 +39,6 @@ export type BiblePreviewServiceEffects = {
     /** The target is in `translationId`'s numbering; no translation means the active one. Resolves to where it opened. */
     openChapterInReader: (target: BibleChapterTarget, translationId?: string, newTab?: boolean) => Promise<"below" | "tab">;
     insertIntoNote: (content: BiblePreviewContent) => void;
-    /** The passage as "Insert into note" writes it, for the copy button. */
-    formatBibleText: (content: BiblePreviewContent) => string;
 };
 
 /** The floating preview window and the side panel preview. */
@@ -296,7 +294,6 @@ export class BiblePreviewService {
             getTitle: () => `📖 ${this.translations.getActiveTranslationPreviewTitle()}`,
             getCopyNoticeText: () => t("notice.bibleTextCopied"),
             getCopyFailedNoticeText: () => t("notice.bibleTextCopyFailed"),
-            formatCopyText: (content: BiblePreviewContent) => this.effects.formatBibleText(content),
             getCopyAria: () => t("preview.copyAria"),
             getOpenSettingsText: () => t("preview.openSettings"),
             onOpenSettings: () => this.context.openPluginSettings(),
