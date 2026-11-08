@@ -3,6 +3,7 @@ const {
   createSearchableVerse,
   getTextSearchHighlights,
   normalizeForTextSearch,
+  normalizeWordsForTextSearch,
   parseTextSearchQuery,
   searchVerses,
 } = require("../../.test-build/src/search/BibleTextSearch.js");
@@ -20,6 +21,10 @@ module.exports = async () => {
   // Words separated by single spaces; ё is е, accents go, й stays.
   assert.strictEqual(normalizeForTextSearch("Ибо так, возлюбил — Бог  мир!").text, "ибо так возлюбил бог мир");
   assert.strictEqual(normalizeForTextSearch("Всё мой Café").text, "все мой cafe");
+  // The fast form for reading a translation gives the same words.
+  for (const text of ["Ибо так, возлюбил — Бог  мир!", "Всё мой Café", "¹⁶ В нача́ле… «Слово»", "Ἐν ἀρχῇ ἦν ὁ λόγος", " 1Кор 13:4 "]) {
+    assert.strictEqual(normalizeWordsForTextSearch(text), normalizeForTextSearch(text).text, text);
+  }
 
   const verses = [
     { book: 43, chapter: 3, verse: 16, text: "Ибо так возлюбил Бог мир, что отдал Сына Своего." },

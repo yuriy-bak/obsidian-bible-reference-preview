@@ -1425,3 +1425,7 @@ button.bible-reference-usage-pane-open-button {
 .bible-reader-navigator-search-text {
     margin-top: 8px;
 }
+
+.bible-reader-navigator-search-text:first-child {
+    margin: 0 0 8px;
+}

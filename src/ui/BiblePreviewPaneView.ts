@@ -3,7 +3,7 @@ import type { BiblePreviewContent, BiblePreviewUsageTarget } from "../applicatio
 import { applyBiblePreviewScroll, type BiblePreviewChapterViewInput, createChapterRenderOptions, renderBiblePreviewContent } from "./BiblePreviewRenderer";
 import { ICONS, stripBookIcon } from "./Icons";
 import { addInsertIntoNoteMenuItem, addOpenSettingsMenuItem, BiblePreviewHeader, scrollPreviewElement, setHeaderButtonAria, type BiblePreviewHeaderInput, type BiblePreviewScrollCommand } from "./BiblePreviewHeader";
-import { copyBibleText } from "./CopyBibleText";
+import { copyBibleContent } from "./CopyBibleText";
 
 export const BIBLE_PREVIEW_VIEW_TYPE = "bible-reference-preview-pane";
 
@@ -11,6 +11,7 @@ export type BiblePreviewPaneViewInput = BiblePreviewChapterViewInput & BiblePrev
     getOpenFloatingAria: () => string;
     getCopyNoticeText: () => string;
     getCopyFailedNoticeText: () => string;
+    formatCopyText?: (content: BiblePreviewContent) => string;
     getFindUsagesButtonAria?: (target: BiblePreviewUsageTarget) => string;
     onFindUsages?: (target: BiblePreviewUsageTarget) => void;
     onOpenFloating: (content: BiblePreviewContent) => void;
@@ -210,8 +211,8 @@ export class BiblePreviewPaneView extends ItemView {
         applyBiblePreviewScroll(contentContainerEl, content);
     }
 
-    private async copyCurrentText(): Promise<boolean> {
-        return this.currentContent !== null && await copyBibleText(this.currentContent.plainText, this.input);
+    private copyCurrentText(): Promise<boolean> {
+        return copyBibleContent(this.currentContent, this.input);
     }
 
 }

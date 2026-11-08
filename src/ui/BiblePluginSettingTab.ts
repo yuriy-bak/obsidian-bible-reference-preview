@@ -353,6 +353,7 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                         key: "insertFormat",
                         options: {
                             callout: t("settings.insertFormat.callout"),
+                            "callout-collapsed": t("settings.insertFormat.calloutCollapsed"),
                             quote: t("settings.insertFormat.quote"),
                             "code-block": t("settings.insertFormat.codeBlock"),
                         },
