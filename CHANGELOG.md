@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The plugin check in Obsidian's catalog no longer warns about `display: contents` and `:has` in the styles: the translation list lays out its drag handle and delete button without them, and the hint under the list heading goes away with the last translation.
+
 ## 0.3.5 - Bible search, inserting Bible text and bible blocks
 
 - Insert Bible text into a note: the command **Insert Bible text** (on a reference: its text below the paragraph; elsewhere: type a reference), suggestions after `--` (`--John 3:16`: the books, then the reference alone or with its text in any format) and **Insert into note** in the preview's menu. The text goes in as a foldable callout (expanded or collapsed), a quote or a `bible` block, with or without verse numbers and footnotes (**Inserting and suggestions** in the settings).

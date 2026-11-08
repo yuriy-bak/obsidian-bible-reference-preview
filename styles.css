@@ -1028,7 +1028,7 @@ button.bible-reference-usage-pane-open-button {
     margin-top: 6px;
 }
 
-/* Translation list: what the order means, under the heading; hidden while the list is empty. */
+/* Translation list: what the order means, under the heading. The rows add it and the last row removes it. */
 .bible-translation-list-hint {
     margin: calc(-1 * var(--size-4-2)) var(--size-4-4) var(--size-4-3);
     color: var(--text-muted);
@@ -1036,24 +1036,27 @@ button.bible-reference-usage-pane-open-button {
     line-height: var(--line-height-tight);
 }
 
-.bible-translation-list-hint:has(+ .setting-items > .mod-empty-state) {
-    display: none;
-}
-
 /* Obsidian puts the delete button and the drag handle in a column beside the row, which takes width from every line.
    Here they are pinned beside the name: the handle on the left, the delete button in the top right corner.
-   The description and the controls below then get the whole width. */
+   The description and the controls below then get the whole width.
+   The control column is taken out of the flow and laid over the row; it lets clicks through, its buttons take them. */
 .setting-item.bible-translation-setting-item {
     --bible-translation-button-space: calc(var(--icon-size) + var(--size-4-3));
+    position: relative;
     align-items: flex-start;
 }
 
 .bible-translation-setting-item .setting-item-control {
-    display: contents;
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
 }
 
 .bible-translation-setting-item .setting-item-control .extra-setting-button {
     position: absolute;
+    pointer-events: auto;
     top: calc(var(--setting-items-padding-y) - var(--size-2-2));
 }
 
