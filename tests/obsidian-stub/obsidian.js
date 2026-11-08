@@ -480,6 +480,8 @@ class PluginSettingTab {
     this.getSettingDefinitions?.();
   }
 
+  refreshDomState() {}
+
   display() {}
 
   hide() {}

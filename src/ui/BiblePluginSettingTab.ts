@@ -43,6 +43,9 @@ type SettingControlKey =
     | "insertFootnotes"
     | "referenceSuggestTrigger";
 
+// Shown on the entries of the preview and insert pages (displayValue).
+const DISPLAY_VALUE_KEYS: ReadonlySet<string> = new Set<SettingControlKey>(["previewTriggerMode", "previewDisplayMode", "insertFormat"]);
+
 type SettingControlAccessor = {
     get: () => unknown;
     set: (value: unknown) => Promise<void>;
@@ -60,25 +63,9 @@ export class BiblePluginSettingTab extends PluginSettingTab {
         return [
             ...this.createGeneralSettings(),
             this.createTranslationsPage(),
-            this.createPreviewSettingsGroup(),
-            this.createInsertSettingsGroup(),
-            {
-                type: "group",
-                heading: this.services.context.t("settings.colors.title"),
-                items: createColorSettingDefinitions({
-                    translate: (key) => this.services.context.t(key),
-                    openCssColorDialog: (input) => this.openCssColorDialog(input),
-                    openFloatingPreviewBackgroundColorDialog: () => this.openFloatingPreviewBackgroundColorDialog(),
-                    getBibleReferenceLinkColor: () => this.services.settings.getBibleReferenceLinkColor(),
-                    isBibleReferenceLinkColorDefault: () => this.services.settings.isBibleReferenceLinkColorDefault(),
-                    setBibleReferenceLinkColor: (color) => this.services.settings.setBibleReferenceLinkColor(color),
-                    resetBibleReferenceLinkColor: () => this.services.settings.resetBibleReferenceLinkColor(),
-                    getFloatingPreviewBackgroundColor: () => this.services.settings.getFloatingPreviewBackgroundColor(),
-                    isFloatingPreviewBackgroundColorDefault: () => this.services.settings.isFloatingPreviewBackgroundColorDefault(),
-                    resetFloatingPreviewBackgroundColor: () => this.services.settings.resetFloatingPreviewBackgroundColor(),
-                    refresh: () => this.update(),
-                }),
-            },
+            this.createPreviewSettingsPage(),
+            this.createInsertSettingsPage(),
+            this.createColorSettingsPage(),
             createSupportSettingsGroup<SettingControlKey>((key) => this.services.context.t(key), (url) => window.open(url, "_blank")),
         ];
     }
@@ -93,6 +80,11 @@ export class BiblePluginSettingTab extends PluginSettingTab {
             return;
         }
         await accessor.set(value);
+        if (DISPLAY_VALUE_KEYS.has(key)) {
+            // The section's entry on the main screen shows this value.
+            this.update();
+            return;
+        }
         // Re-evaluate `disabled` predicates that depend on the changed value.
         this.refreshDomState();
     }
@@ -252,10 +244,27 @@ export class BiblePluginSettingTab extends PluginSettingTab {
         };
     }
 
-    private createPreviewSettingsGroup(): SettingDefinitionItem<SettingControlKey> {
+    // Each section is a page of its own, so the main screen stays short; the entry shows the current choice.
+    private createPreviewSettingsPage(): SettingDefinitionItem<SettingControlKey> {
+        const t = this.services.context.t.bind(this.services.context);
+        const settings = this.services.settings;
+        return {
+            type: "page",
+            name: t("settings.preview.title"),
+            displayValue: () => {
+                const displayMode = settings.getBiblePreviewDisplayMode() === "side-panel" ? t("settings.previewDisplayMode.sidePanel") : t("settings.previewDisplayMode.floating");
+                const triggerMode = settings.getBiblePreviewTriggerMode() === "clicked-reference" ? t("settings.previewMode.clickedReference") : t("settings.previewMode.currentParagraph");
+                return `${displayMode} · ${triggerMode}`;
+            },
+            items: [this.createPreviewOpeningGroup(), this.createPreviewPlacementGroup()],
+        };
+    }
+
+    // When the text opens: by itself or on a click, and the shortcut for the reference under the cursor.
+    private createPreviewOpeningGroup(): SettingDefinitionItem<SettingControlKey> {
         return {
             type: "group",
-            heading: this.services.context.t("settings.preview.title"),
+            heading: this.services.context.t("settings.preview.opening"),
             items: [
                 {
                     name: this.services.context.t("settings.previewMode.name"),
@@ -270,6 +279,40 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     },
                 },
                 {
+                    name: this.services.context.t("settings.autoOpenPreviewOnVerseChange.name"),
+                    desc: this.services.context.t("settings.autoOpenPreviewOnVerseChange.desc"),
+                    control: { type: "toggle", key: "autoOpenPreviewOnVerseChange" },
+                },
+                {
+                    name: this.services.context.t("settings.hotkey.name"),
+                    desc: this.services.context.t("settings.hotkey.desc", { command: this.services.context.t("command.openBibleReferenceUnderCursor") }),
+                    control: { type: "toggle", key: "interceptLinkOpenShortcut" },
+                },
+                {
+                    name: this.services.context.t("settings.hotkey.shortcut.name"),
+                    desc: this.services.context.t("settings.hotkey.shortcut.desc"),
+                    control: {
+                        type: "dropdown",
+                        key: "linkOpenShortcut",
+                        options: {
+                            "alt-enter": "Alt+Enter",
+                            "ctrl-enter": "Ctrl+Enter",
+                            "ctrl-alt-enter": "Ctrl+Alt+Enter",
+                        },
+                        disabled: () => !this.services.settings.shouldInterceptLinkOpenShortcut(),
+                    },
+                },
+            ],
+        };
+    }
+
+    // Where the text shows: a floating window or a side panel, and on a phone a tab or under the note.
+    private createPreviewPlacementGroup(): SettingDefinitionItem<SettingControlKey> {
+        return {
+            type: "group",
+            heading: this.services.context.t("settings.preview.placement"),
+            items: [
+                {
                     name: this.services.context.t("settings.previewDisplayMode.name"),
                     desc: this.services.context.t("settings.previewDisplayMode.desc"),
                     control: {
@@ -280,11 +323,6 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                             "side-panel": this.services.context.t("settings.previewDisplayMode.sidePanel"),
                         },
                     },
-                },
-                {
-                    name: this.services.context.t("settings.autoOpenPreviewOnVerseChange.name"),
-                    desc: this.services.context.t("settings.autoOpenPreviewOnVerseChange.desc"),
-                    control: { type: "toggle", key: "autoOpenPreviewOnVerseChange" },
                 },
                 {
                     name: this.services.context.t("settings.previewPanelSide.name"),
@@ -316,35 +354,22 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     desc: this.services.context.t("settings.closePreviewOnTabChange.desc"),
                     control: { type: "toggle", key: "closePreviewOnActiveLeafChange" },
                 },
-                {
-                    name: this.services.context.t("settings.hotkey.name"),
-                    desc: this.services.context.t("settings.hotkey.desc", { command: this.services.context.t("command.openBibleReferenceUnderCursor") }),
-                    control: { type: "toggle", key: "interceptLinkOpenShortcut" },
-                },
-                {
-                    name: this.services.context.t("settings.hotkey.shortcut.name"),
-                    desc: this.services.context.t("settings.hotkey.shortcut.desc"),
-                    control: {
-                        type: "dropdown",
-                        key: "linkOpenShortcut",
-                        options: {
-                            "alt-enter": "Alt+Enter",
-                            "ctrl-enter": "Ctrl+Enter",
-                            "ctrl-alt-enter": "Ctrl+Alt+Enter",
-                        },
-                        disabled: () => !this.services.settings.shouldInterceptLinkOpenShortcut(),
-                    },
-                },
             ],
         };
     }
 
-    private createInsertSettingsGroup(): SettingDefinitionItem<SettingControlKey> {
+    private createInsertSettingsPage(): SettingDefinitionItem<SettingControlKey> {
         const t = this.services.context.t.bind(this.services.context);
         const isCodeBlock = (): boolean => this.services.settings.getInsertFormat() === "code-block";
         return {
-            type: "group",
-            heading: t("settings.insert.title"),
+            type: "page",
+            name: t("settings.insert.title"),
+            // "Expanded callout · --", or that suggestions are off when the trigger is empty.
+            displayValue: () => {
+                const format = t(INSERT_FORMAT_LABEL_KEYS[this.services.settings.getInsertFormat()]);
+                const trigger = this.services.settings.getReferenceSuggestTrigger();
+                return `${format} · ${trigger === "" ? t("settings.insert.suggestionsOff") : trigger}`;
+            },
             items: [
                 {
                     name: t("settings.insertFormat.name"),
@@ -385,6 +410,26 @@ export class BiblePluginSettingTab extends PluginSettingTab {
                     },
                 },
             ],
+        };
+    }
+
+    private createColorSettingsPage(): SettingDefinitionItem<SettingControlKey> {
+        return {
+            type: "page",
+            name: this.services.context.t("settings.colors.title"),
+            items: createColorSettingDefinitions({
+                translate: (key) => this.services.context.t(key),
+                openCssColorDialog: (input) => this.openCssColorDialog(input),
+                openFloatingPreviewBackgroundColorDialog: () => this.openFloatingPreviewBackgroundColorDialog(),
+                getBibleReferenceLinkColor: () => this.services.settings.getBibleReferenceLinkColor(),
+                isBibleReferenceLinkColorDefault: () => this.services.settings.isBibleReferenceLinkColorDefault(),
+                setBibleReferenceLinkColor: (color) => this.services.settings.setBibleReferenceLinkColor(color),
+                resetBibleReferenceLinkColor: () => this.services.settings.resetBibleReferenceLinkColor(),
+                getFloatingPreviewBackgroundColor: () => this.services.settings.getFloatingPreviewBackgroundColor(),
+                isFloatingPreviewBackgroundColorDefault: () => this.services.settings.isFloatingPreviewBackgroundColorDefault(),
+                resetFloatingPreviewBackgroundColor: () => this.services.settings.resetFloatingPreviewBackgroundColor(),
+                refresh: () => this.update(),
+            }),
         };
     }
 
