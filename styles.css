@@ -1330,3 +1330,98 @@ button.bible-reference-usage-pane-open-button {
     --callout-color: var(--callout-quote);
     --callout-icon: lucide-book-open;
 }
+
+/* Bible search panel: the field and filters on top, results by book below. */
+.bible-search-pane {
+    display: flex;
+    flex-direction: column;
+}
+
+.bible-search-header {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.bible-search-input {
+    width: 100%;
+}
+
+.bible-search-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bible-search-filters select {
+    flex: 1 1 8em;
+    min-width: 0;
+}
+
+.bible-search-status {
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+}
+
+.bible-search-results {
+    flex: 1 1 auto;
+    overflow: auto;
+}
+
+.bible-search-group + .bible-search-group {
+    margin-top: 8px;
+}
+
+.bible-search-group-title {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.bible-search-group-count {
+    font-size: 12px;
+    font-weight: normal;
+    color: var(--text-muted);
+}
+
+.bible-search-group-results {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 4px;
+}
+
+.bible-search-result {
+    padding: 4px 6px;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+}
+
+.bible-search-result:hover,
+.bible-search-result:focus-visible {
+    background-color: var(--background-modifier-hover);
+}
+
+.bible-search-result-reference {
+    margin-right: 6px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.bible-search-highlight {
+    background-color: var(--bible-preview-highlight-bg);
+    color: inherit;
+    border-radius: 2px;
+}
+
+.bible-search-more {
+    margin-top: 10px;
+}
+
+.bible-reader-navigator-search-text {
+    margin-top: 8px;
+}

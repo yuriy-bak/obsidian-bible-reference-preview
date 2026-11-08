@@ -64,7 +64,7 @@ export class ReferenceUsagePaneView extends ItemView {
     }
 
     getIcon(): string {
-        return "search";
+        return ICONS.findUsages;
     }
 
     async onOpen(): Promise<void> {

@@ -21,6 +21,8 @@ import { openConfirmModal } from "./src/ui/ConfirmModal";
 import { FloatingBiblePreviewWindow } from "./src/ui/FloatingBiblePreviewWindow";
 import { REFERENCE_USAGE_VIEW_TYPE, ReferenceUsagePaneView } from "./src/ui/ReferenceUsagePaneView";
 import { BIBLE_CODE_BLOCK_LANGUAGE } from "./src/code-block/BibleCodeBlock";
+import { BibleSearchService } from "./src/search/BibleSearchService";
+import { BIBLE_SEARCH_VIEW_TYPE, BibleSearchView } from "./src/ui/BibleSearchView";
 import { BibleInsertionService } from "./src/insertion/BibleInsertionService";
 import { BibleCodeBlockView, type BibleCodeBlockViewInput } from "./src/ui/BibleCodeBlockView";
 
@@ -47,10 +49,15 @@ export default class BiblePlugin extends Plugin {
         getChapterUsageCount: (location) => this.referenceUsage.countUsagesInChapter(location),
         showUsagesForChapter: (location, title, returnPoint) => void this.referenceUsage.showUsagesForChapter(location, title, returnPoint),
         openBibleFilePicker: (hostEl) => this.library.openBibleFilePicker(hostEl),
+        openTextSearch: (query, translationId) => void this.search.openPanel({ query, translationId: translationId ?? undefined }),
     });
     private readonly editor = new EditorService(this.context, this.settingsService, this.contentBuilder, this.preview);
     private readonly referenceUsage = new ReferenceUsageService(this.context, this.editor, this.preview);
     private readonly insertion = new BibleInsertionService(this.context, this.contentBuilder);
+    private readonly search: BibleSearchService = new BibleSearchService(this.context, this.contentBuilder, {
+        openChapter: (target, translationId) => void this.reader.openChapter(target, translationId),
+        setSuppressPreviewActiveLeafChange: (value) => this.preview.setSuppressActiveLeafChange(value),
+    });
     private readingModePreviewController: BibleReadingModePreviewController | null = null;
     private readonly bibleCodeBlocks = new Set<BibleCodeBlockView>();
     private readonly windowListenerDisposers = new Map<Window, () => void>();
@@ -92,6 +99,7 @@ export default class BiblePlugin extends Plugin {
             referenceUsage: this.referenceUsage,
             editor: this.editor,
             insertion: this.insertion,
+            search: this.search,
         });
         this.registerEditorSuggest(this.insertion.createSuggest());
         // Ctrl/Cmd-click opens another reader tab, as with links.
@@ -199,6 +207,7 @@ export default class BiblePlugin extends Plugin {
         });
         this.registerView(BIBLE_READER_VIEW_TYPE, (leaf) => new BibleReaderView(leaf, this.reader.createViewInput()));
         this.registerView(REFERENCE_USAGE_VIEW_TYPE, (leaf) => new ReferenceUsagePaneView(leaf, this.referenceUsage.createPaneViewInput()));
+        this.registerView(BIBLE_SEARCH_VIEW_TYPE, (leaf) => new BibleSearchView(leaf, this.search.createViewInput()));
     }
 
     private registerWindowListeners(targetWindow: Window): void {

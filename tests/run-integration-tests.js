@@ -29,6 +29,7 @@ const TEST_FILES = [
   "settings-effects",
   "code-block",
   "insertion",
+  "text-search",
 ];
 
 // A test that waits on a promise nobody resolves (say, a modal it does not answer) leaves nothing

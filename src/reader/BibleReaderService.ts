@@ -17,6 +17,7 @@ export type BibleReaderServiceEffects = {
     getChapterUsageCount: (location: BibleChapterLocation) => number | null;
     showUsagesForChapter: (location: BibleChapterLocation, title: string, returnPoint: ReferenceUsageReturnPoint | null) => void;
     openBibleFilePicker: (hostEl: HTMLElement) => void;
+    openTextSearch: (query: string, translationId: string | null) => void;
 };
 
 /**
@@ -202,7 +203,10 @@ export class BibleReaderService {
                 backToBooks: t("reader.navigator.backToBooks"),
                 close: t("reader.navigator.close"),
                 noBooks: t("reader.navigator.noBooks"),
+                searchText: (query) => t("reader.navigator.searchText", { query }),
             }),
+            getSearchTextAria: () => t("reader.searchTextAria"),
+            onSearchText: (query, translationId) => this.effects.openTextSearch(query, translationId),
             getOpenNavigatorAria: () => t("reader.navigator.openAria"),
             getTranslationOptions: () => this.translations.getTranslationSettingsItems().map((item) => ({ id: item.id, name: item.name })),
             getTranslationSelectAria: () => t("reader.translationSelectAria"),
