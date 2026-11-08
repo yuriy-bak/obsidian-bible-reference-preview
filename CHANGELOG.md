@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.3.6 - No style warnings in the plugin check
 
 - The plugin check in Obsidian's catalog no longer warns about `display: contents` and `:has` in the styles: the translation list lays out its drag handle and delete button without them, and the hint under the list heading goes away with the last translation.
+- Internal: `npm run lint` also checks `styles.css` with Stylelint (CSS features only partly supported by Obsidian's Chromium, `:has`, `text-decoration`), so such warnings show up before a release.
 
 ## 0.3.5 - Bible search, inserting Bible text and bible blocks
 
