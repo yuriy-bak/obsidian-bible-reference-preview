@@ -23,9 +23,9 @@ type MarkdownSection = {
     footnotes: string[];
 };
 
-/** The other callout for the third suggestion: collapsed, or expanded when the setting already collapses it. */
-export function getAlternativeInsertFormat(format: BibleInsertFormat): BibleInsertFormat {
-    return format === "callout-collapsed" ? "callout" : "callout-collapsed";
+/** The formats the suggestions offer: both callouts and the bible block, and a quote when the setting chooses it. */
+export function getSuggestionInsertFormats(setting: BibleInsertFormat): BibleInsertFormat[] {
+    return setting === "quote" ? ["quote", "callout", "callout-collapsed", "code-block"] : ["callout", "callout-collapsed", "code-block"];
 }
 
 export function isBibleInsertFormat(value: unknown): value is BibleInsertFormat {

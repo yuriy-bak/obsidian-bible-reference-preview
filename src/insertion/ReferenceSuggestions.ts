@@ -10,24 +10,24 @@ export type ReferenceSuggestion =
 const MAX_BOOK_SUGGESTIONS = 8;
 
 /**
- * Typed text that is one whole reference ("Ин 3:16") gives the reference, the reference with its text
- * and, with an alternative format, the text once more in that format (a collapsed callout);
+ * Typed text that is one whole reference ("Ин 3:16") gives the reference and the reference with its text
+ * in each of the formats (a callout, a collapsed callout, a bible block);
  * other text gives the books whose names start with it, from every translation, without repeats.
  */
 export function getReferenceSuggestions(
     query: string,
     books: NavigatorBook[],
     parseMatches: (text: string) => { from: number; to: number }[],
-    options: { withText: boolean; alternativeFormat?: BibleInsertFormat },
+    options: { withText: boolean; formats?: BibleInsertFormat[] },
 ): ReferenceSuggestion[] {
     const text = query.trim();
     if (text.length === 0) return [];
     const matches = parseMatches(text);
     if (matches.length === 1 && matches[0].from === 0 && matches[0].to === text.length) {
         if (!options.withText) return [{ kind: "reference", text }];
-        const suggestions: ReferenceSuggestion[] = [{ kind: "reference", text }, { kind: "reference-with-text", text }];
-        if (options.alternativeFormat !== undefined) suggestions.push({ kind: "reference-with-text", text, format: options.alternativeFormat });
-        return suggestions;
+        const formats = options.formats ?? [];
+        if (formats.length === 0) return [{ kind: "reference", text }, { kind: "reference-with-text", text }];
+        return [{ kind: "reference", text }, ...formats.map((format): ReferenceSuggestion => ({ kind: "reference-with-text", text, format }))];
     }
     // The chapter and verse are being typed ("Ин 3:1"): a book would drop them.
     if (/\p{L}.*\d/u.test(text)) return [];
