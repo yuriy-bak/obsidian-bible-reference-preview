@@ -1312,3 +1312,21 @@ button.bible-reference-usage-pane-open-button {
 .bible-code-block-message {
     color: var(--text-muted);
 }
+
+/* Reference suggestions ("--Ин 3:16") and the insert dialog: the name, then a muted note. */
+.bible-reference-suggestion {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.bible-reference-suggestion-note {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+
+/* The callout of inserted Bible text: [!bible]. */
+.callout[data-callout="bible"] {
+    --callout-color: var(--callout-quote);
+    --callout-icon: lucide-book-open;
+}

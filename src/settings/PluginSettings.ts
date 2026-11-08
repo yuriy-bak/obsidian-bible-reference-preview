@@ -4,7 +4,10 @@ import { isValidTranslationCode } from "../translations/translationCodes";
 import { normalizeCustomBookAliases, type CustomBookAliases } from "../parsing/customBookAliases";
 import { normalizeReferenceUsageExcludedFolders } from "../reference-usage/ReferenceUsageIndexService";
 import { clampReaderSplitRatio, DEFAULT_READER_SPLIT_RATIO } from "../reader/ReaderSplitGeometry";
+import { isBibleInsertFormat, type BibleInsertFormat } from "../insertion/BibleTextMarkdown";
 import { DEFAULT_BIBLE_REFERENCE_LINK_COLOR, DEFAULT_FLOATING_PREVIEW_BACKGROUND_COLOR, normalizeBibleReferenceLinkColor, normalizeFloatingPreviewBackgroundColor } from "./cssColorValidation";
+
+export const DEFAULT_REFERENCE_SUGGEST_TRIGGER = "--";
 
 export type BiblePreviewTriggerMode = "current-paragraph" | "clicked-reference";
 export type BiblePreviewDisplayMode = "floating" | "side-panel";
@@ -48,6 +51,12 @@ export type BiblePluginSettings = {
     /** The reader's share of the height under the note (BibleReaderSplitPanel). */
     readerSplitRatio: number;
     readerSplit: ReaderSplitState;
+    /** How inserted Bible text looks in the note. */
+    insertFormat: BibleInsertFormat;
+    insertVerseNumbers: boolean;
+    insertFootnotes: boolean;
+    /** Typed before a book name, opens reference suggestions ("--Ин 3:16"); empty turns them off. */
+    referenceSuggestTrigger: string;
 };
 
 const DEFAULT_REFERENCE_USAGE_EXCLUDED_FOLDERS = ["Attachments/", "Templates/", "Archive/", "Bible/"];
@@ -77,6 +86,10 @@ export const DEFAULT_SETTINGS: BiblePluginSettings = {
     phoneReaderPlacement: "tab",
     readerSplitRatio: DEFAULT_READER_SPLIT_RATIO,
     readerSplit: { open: false },
+    insertFormat: "callout",
+    insertVerseNumbers: true,
+    insertFootnotes: false,
+    referenceSuggestTrigger: DEFAULT_REFERENCE_SUGGEST_TRIGGER,
 };
 
 export function normalizePluginSettings(value: unknown): BiblePluginSettings {
@@ -151,7 +164,22 @@ export function normalizePluginSettings(value: unknown): BiblePluginSettings {
             ? clampReaderSplitRatio(value.readerSplitRatio)
             : DEFAULT_SETTINGS.readerSplitRatio,
         readerSplit: normalizeReaderSplitState(value.readerSplit),
+        insertFormat: isBibleInsertFormat(value.insertFormat) ? value.insertFormat : DEFAULT_SETTINGS.insertFormat,
+        insertVerseNumbers: typeof value.insertVerseNumbers === "boolean" ? value.insertVerseNumbers : DEFAULT_SETTINGS.insertVerseNumbers,
+        insertFootnotes: typeof value.insertFootnotes === "boolean" ? value.insertFootnotes : DEFAULT_SETTINGS.insertFootnotes,
+        referenceSuggestTrigger: typeof value.referenceSuggestTrigger === "string"
+            ? normalizeReferenceSuggestTrigger(value.referenceSuggestTrigger)
+            : DEFAULT_SETTINGS.referenceSuggestTrigger,
     };
+}
+
+const MAX_REFERENCE_SUGGEST_TRIGGER_LENGTH = 5;
+
+/** No spaces, letters or digits (they would start a book name); at most a few characters; empty turns it off. */
+export function normalizeReferenceSuggestTrigger(value: string): string {
+    const trigger = value.trim();
+    if (trigger.length > MAX_REFERENCE_SUGGEST_TRIGGER_LENGTH || /[\s\p{L}\p{N}]/u.test(trigger)) return DEFAULT_REFERENCE_SUGGEST_TRIGGER;
+    return trigger;
 }
 
 function normalizeReaderSplitState(value: unknown): ReaderSplitState {

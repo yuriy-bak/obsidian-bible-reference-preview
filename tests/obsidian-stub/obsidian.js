@@ -98,6 +98,7 @@ class Plugin extends Component {
     this.settingTabs = [];
     this.markdownPostProcessors = [];
     this.markdownCodeBlockProcessors = new Map();
+    this.editorSuggests = [];
     this.editorExtensions = [];
     this.ribbonIcons = [];
   }
@@ -131,6 +132,10 @@ class Plugin extends Component {
 
   registerMarkdownCodeBlockProcessor(language, handler) {
     this.markdownCodeBlockProcessors.set(language, handler);
+  }
+
+  registerEditorSuggest(suggest) {
+    this.editorSuggests.push(suggest);
   }
 
   registerEditorExtension(extension) {
@@ -209,6 +214,48 @@ class Modal {
   onOpen() {}
 
   onClose() {}
+}
+
+class SuggestModal extends Modal {
+  constructor(app) {
+    super(app);
+    this.inputEl = this.modalEl.createEl("input", { type: "text" });
+    this.resultContainerEl = this.modalEl.createDiv({ cls: "prompt-results" });
+    this.emptyStateText = "";
+    this.placeholder = "";
+  }
+
+  setPlaceholder(placeholder) {
+    this.placeholder = placeholder;
+  }
+
+  selectSuggestion(value, evt) {
+    this.close();
+    this.onChooseSuggestion(value, evt);
+  }
+}
+
+class PopoverSuggest {
+  constructor(app) {
+    this.app = app;
+    this.isOpen = false;
+  }
+
+  open() {
+    this.isOpen = true;
+  }
+
+  close() {
+    this.isOpen = false;
+  }
+}
+
+class EditorSuggest extends PopoverSuggest {
+  constructor(app) {
+    super(app);
+    this.context = null;
+    this.limit = 100;
+  }
 }
 
 class ValueComponent {
@@ -644,6 +691,7 @@ module.exports = {
   ButtonComponent,
   Component,
   DropdownComponent,
+  EditorSuggest,
   Events,
   ItemView,
   MarkdownRenderChild,
@@ -656,6 +704,7 @@ module.exports = {
   Plugin,
   PluginSettingTab,
   Setting,
+  SuggestModal,
   TAbstractFile,
   TFile,
   TFolder,

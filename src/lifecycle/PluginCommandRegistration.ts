@@ -7,6 +7,7 @@ import type { ReferenceUsageService } from "../reference-usage/ReferenceUsageSer
 import type { SettingsService } from "../settings/SettingsService";
 import type { BiblePreviewService } from "../preview/BiblePreviewService";
 import type { BiblePreviewScrollCommand } from "../ui/BiblePreviewHeader";
+import type { BibleInsertionService } from "../insertion/BibleInsertionService";
 
 export type PluginCommandServices = {
     context: PluginContext;
@@ -16,10 +17,11 @@ export type PluginCommandServices = {
     reader: BibleReaderService;
     referenceUsage: ReferenceUsageService;
     editor: EditorService;
+    insertion: BibleInsertionService;
 };
 
 export function registerPluginCommands(plugin: Plugin, services: PluginCommandServices): void {
-    const { context, settings, library, preview, reader, referenceUsage, editor } = services;
+    const { context, settings, library, preview, reader, referenceUsage, editor, insertion } = services;
     const t = (key: Parameters<PluginContext["t"]>[0]) => context.t(key);
     // Listed only while there is something to scroll: the reader first, then the preview.
     const scrollCommand = (command: BiblePreviewScrollCommand, checking: boolean): boolean => {
@@ -62,6 +64,7 @@ export function registerPluginCommands(plugin: Plugin, services: PluginCommandSe
         name: t("command.togglePluginActive"),
         callback: () => void settings.togglePluginActive(),
     });
+    plugin.addCommand({ id: "insert-bible-text", name: t("command.insertBibleText"), editorCallback: (noteEditor) => void insertion.insertAtCursor(noteEditor) });
     plugin.addCommand({ id: "open-bible-reader", name: t("command.openBibleReader"), callback: () => void reader.openReader() });
     plugin.addCommand({ id: "open-bible-reader-new-tab", name: t("command.openBibleReaderNewTab"), callback: () => void reader.openReader({ newTab: true }) });
     plugin.addCommand({ id: "go-to-bible-chapter", name: t("command.goToBibleChapter"), callback: () => void reader.openNavigator() });

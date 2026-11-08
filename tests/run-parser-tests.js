@@ -21,6 +21,7 @@ const TEST_FILES = [
   "reader-split",
   "i18n",
   "code-block",
+  "insertion",
 ];
 
 (async () => {

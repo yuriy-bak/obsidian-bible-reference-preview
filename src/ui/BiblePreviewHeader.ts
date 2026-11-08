@@ -14,6 +14,9 @@ export type BiblePreviewHeaderInput = {
     getCopyAria: () => string;
     getOpenSettingsText?: () => string;
     onOpenSettings?: () => void;
+    getInsertIntoNoteText?: () => string;
+    /** Inserts the shown passage into the note being edited. */
+    onInsertIntoNote?: (content: BiblePreviewContent) => void;
     isComparisonEnabled?: () => boolean;
     getComparisonButtonAria?: () => string;
     getComparisonTranslationsTitle?: () => string;
@@ -156,6 +159,16 @@ function stopSelectorEventPropagation(event: Event): void {
     if (target !== null && target.closest(".bible-preview-comparison-selector") !== null) {
         event.stopPropagation();
     }
+}
+
+/** Adds "Insert into note" for the shown passage (not a whole chapter) to a menu of the preview. */
+export function addInsertIntoNoteMenuItem(menu: Menu, input: BiblePreviewHeaderInput, content: BiblePreviewContent | null): void {
+    const onInsertIntoNote = input.onInsertIntoNote;
+    if (onInsertIntoNote === undefined || content === null || content.chapterView !== undefined || content.blocks.length === 0) return;
+    menu.addItem((item) => item
+        .setTitle(input.getInsertIntoNoteText?.() ?? "Insert into note")
+        .setIcon("text-cursor-input")
+        .onClick(() => onInsertIntoNote(content)));
 }
 
 /** Adds "Plugin settings" to a menu of the preview (the side panel's "More options" or the floating header's context menu). */
